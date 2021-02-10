@@ -28,10 +28,10 @@ locals_of_env (Env _ (LVD ls)) = ls
 -- Class manipulation
 ----------------------------------------------------------------------
 
-class_def_assoc :: [ClassDecl t] -> [(ClassName, ClassDef t)]
+class_def_assoc :: [ClassDecl t] -> [(AnnotClassName, ClassDef t)]
 class_def_assoc = map (\(ClassDecl cn cdf) -> (cn, cdf))
 
-field_assoc ::  [ClassDecl t] -> [(ClassName, [FieldDecl])]
+field_assoc ::  [ClassDecl t] -> [(AnnotClassName, [FieldDecl])]
 field_assoc = map (\(ClassDecl cn cdf) -> (cn, fields_of_class_def cdf))
 
 

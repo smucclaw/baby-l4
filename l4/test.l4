@@ -1,0 +1,13 @@
+class Business (1234) {
+  is_legal (89): Bool
+}
+
+class Boo (345) extends Foo {
+  boob (10): Bool -> Int
+}
+
+
+decl megacorp : Business
+
+assert
+megacorp.is_legal = True

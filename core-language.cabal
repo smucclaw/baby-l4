@@ -20,11 +20,11 @@ library
                   Parser
                   -- from src
                   Syntax
-                  ExampleInput
-                  Exec
-                  RuleToTa
-                  TaToUppaal
-                  Typing
+                  --ExampleInput
+                  --Exec
+                  --RuleToTa
+                  --TaToUppaal
+                  -- Typing
                   -- from src-bnfc
                   AbsL
                   ErrM

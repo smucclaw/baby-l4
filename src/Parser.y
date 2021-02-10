@@ -25,7 +25,10 @@ import Control.Monad.Except
 
 -- Token Names
 %token
+    assert  { TokenAssert }
     class   { TokenClass }
+    decl    { TokenDecl }
+    defn    { TokenDefn }
     extends { TokenExtends }
 --    let   { TokenLet }
     true  { TokenTrue }
@@ -35,9 +38,10 @@ import Control.Monad.Except
     Int   {TokenInt}
     NUM   { TokenNum $$ }
     VAR   { TokenSym $$ }
+    '.'   { TokenDot }
     '\\'  { TokenLambda }
     '->'  { TokenArrow }
---    '='   { TokenEq }
+    '='   { TokenEq }
     '<'   { TokenLt }
     '+'   { TokenAdd }
     '-'   { TokenSub }
@@ -49,13 +53,15 @@ import Control.Monad.Except
     '}'   { TokenRBrace }
 
 -- Operators
-%left '<'
+%left '<' '='
 %left '+' '-'
 %left '*'
 %right '->'
+%left '.'
 %%
 
-Program : ClassDecls               { Program (reverse $1) }
+Program : ClassDecls VarDecls  Assertions
+                                   { Program (reverse $1)  (reverse $2) (reverse $3) }
 
 ClassDecls :                       { [] }
            | ClassDecls ClassDecl  { $2 : $1 }
@@ -66,24 +72,43 @@ ClassDef :  '{' FieldDecls '}'     { ClassDef (Just (ClsNm "Object")) (reverse $
                                    { ClassDef (Just (ClsNm $2)) (reverse $4) }
 FieldDecls :                       { [] }
            | FieldDecls FieldDecl  { $2 : $1 }
+
 FieldDecl : VAR Annot ':' Tp             { FieldDecl (AFldNm $1 $2) $4 }
 
-Tp   : Bool                       { BoolT }
+VarDecls :                         { [] }
+         | VarDecls VarDecl        { $2 : $1 }
+
+VarDecl : decl VAR ':' Tp          { VarDecl (VarNm $2) $4 }
+
+Assertions :                       { [] }
+           | Assertions Assertion  { $2 : $1 }
+Assertion : assert Expr            { Assertion $2 }
+
+-- Atomic type
+ATp   : Bool                       { BoolT }
      | Int                        { IntT }
-     | Tp '->' Tp                 { FunT $1 $3 }
+     | VAR                        { ClassT (ClsNm $1) }
      | '(' Tp ')'                 { $2 }
 
-Expr : '\\' VAR ':' Tp '->' Expr   { FunE () (VarNm $2) $4 $6 }
+Tp   : ATp                        { $1 }
+     | Tp '->' Tp                 { FunT $1 $3 }
+
+Expr : '\\' VAR ':' ATp '->' Expr   { FunE () (VarNm $2) $4 $6 }
      | Form                        { $1 }
 
 Form : Form '<' Form               { BinOpE () (BCompar BClt) $1 $3 }
+     | Form '=' Form               { BinOpE () (BCompar BCeq) $1 $3 }
      | Form '+' Form               { BinOpE () (BArith BAadd) $1 $3 }
      | Form '-' Form               { BinOpE () (BArith BAsub) $1 $3 }
      | Form '*' Form               { BinOpE () (BArith BAmul) $1 $3 }
      | Fact                        { $1 }
 
 Fact : Fact Atom                   { AppE () $1 $2 }
-     | Atom                        { $1 }
+     | Acc                         { $1 }
+
+-- field access
+Acc : Acc '.' VAR                  { FldAccE () $1 (FldNm $3) }
+    | Atom                         { $1 }
 
 Atom : '(' Expr ')'                { $2 }
      | NUM                         { ValE () (IntV $1) }
@@ -102,7 +127,7 @@ parseError :: [Token] -> Except String a
 parseError (l:ls) = throwError (show l)
 parseError [] = throwError "Unexpected end of Input"
 
-parseProgram:: String -> Either String (Program (Maybe ClassName))
+parseProgram:: String -> Either String (Program (Maybe ClassName) ())
 parseProgram input = runExcept $ do
   tokenStream <- scanTokens input
   program tokenStream

@@ -26,7 +26,10 @@ tokens :-
   "#".*                         ;
 
   -- Syntax
+  assert                        { \s -> TokenAssert }
   class                         { \s -> TokenClass }
+  decl                          { \s -> TokenDecl }
+  defn                          { \s -> TokenDefn }
   extends                       { \s -> TokenExtends }
   let                           { \s -> TokenLet }
   True                          { \s -> TokenTrue }
@@ -36,6 +39,7 @@ tokens :-
   Int                           { \s -> TokenInt }
   $digit+                       { \s -> TokenNum (read s) }
   "->"                          { \s -> TokenArrow }
+  \.                            { \s -> TokenDot }
   \\                            { \s -> TokenLambda }
   \=                            { \s -> TokenEq }
   \<                            { \s -> TokenLt }
@@ -53,7 +57,10 @@ tokens :-
 
 data Token 
   =
-    TokenClass
+    TokenAssert
+  | TokenClass
+  | TokenDecl
+  | TokenDefn
   | TokenExtends
   | TokenLet
   | TokenTrue
@@ -61,6 +68,7 @@ data Token
   | TokenBool
   | TokenIn
   | TokenInt
+  | TokenDot
   | TokenLambda
   | TokenNum Integer
   | TokenSym String

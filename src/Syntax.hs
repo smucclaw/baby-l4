@@ -28,16 +28,19 @@ newtype PartyName = PtNm String
 
 ----- Program
 
-data Program t = Program [ClassDecl t] -- [VarDeclDefn]
+data Program ct at = Program [ClassDecl ct] [VarDecl] [Assertion at]
   deriving (Eq, Ord, Show, Read)
 
 ----- Types 
 data Tp
   = BoolT
   | IntT
-  | FunT Tp Tp
   | ClassT ClassName
+  | FunT Tp Tp
   | ErrT
+  deriving (Eq, Ord, Show, Read)
+
+data VarDecl = VarDecl VarName Tp
   deriving (Eq, Ord, Show, Read)
 
 -- Field attributes: for example cardinality restrictions
@@ -175,6 +178,10 @@ data Cmd t
     = Skip                                      -- Do nothing
     | VAssign VarName (Exp t)                   -- Assignment to variable
     | FAssign (Exp t) FieldName (Exp t)         -- Assignment to field
+  deriving (Eq, Ord, Show, Read)
+
+
+data Assertion t = Assertion (Exp t)
   deriving (Eq, Ord, Show, Read)
 
 ----------------------------------------------------------------------
