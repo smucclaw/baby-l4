@@ -1,8 +1,8 @@
-name:                core-language
+name:                baby-l4
 version:             0.1.0.0
 -- synopsis:
 -- description:
-homepage:            https://github.com/githubuser/core-language#readme
+homepage:            https://github.com/smucclaw/baby-l4
 license:             BSD3
 license-file:        LICENSE
 author:              Author name here
@@ -18,24 +18,17 @@ library
                   -- generated
                   Lexer
                   Parser
+                  -- generated from GF grammar
+                  Prop
                   -- from src
                   Syntax
+                  ToGF
                   --ExampleInput
                   --Exec
                   InterfaceNunchaku
                   --RuleToTa
                   --TaToUppaal
                   Typing
-                  -- from src-bnfc
-                  --AbsL
-                  --ErrM
-                  --LayoutL
-                  --LexL
-                  --ParL
-                  --PrintL
-                  --SkelL
-                  -- from src-l4
-                  --L4
   hs-source-dirs:
      src
      generated
@@ -49,9 +42,11 @@ library
                      -- required for lexer and parser
                      , haskeline  >= 0.7
                      , mtl        >= 2.2 && <2.4
+                     -- required for GF
+                     , gf
   default-language: Haskell2010
 
-executable core-language
+executable l4
   hs-source-dirs:      src
   main-is:             Main.hs
   default-language:    Haskell2010

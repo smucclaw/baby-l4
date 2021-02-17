@@ -13,5 +13,5 @@ expr2prop e = case e of
 val2atom :: Val -> GAtom
 val2atom e  = case e of
 --  BoolV b ->
-  IntV i -> GAKind GNat (GIInt (GInt i))
+  IntV i -> GAKind GNat (GIInt (GInt (fromInteger i)))
   _ -> undefined
