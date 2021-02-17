@@ -1,1 +1,5 @@
 .stack-work
+*.gfo
+*~
+*.pgf
+generated
