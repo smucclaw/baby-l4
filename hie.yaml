@@ -1,22 +1,26 @@
 cradle:
   stack:
+    - path: "./.stack-work/dist/*/*/build/Parser.hs"
+      component: "baby-l4:lib"
+    - path: "./.stack-work/dist/*/*/build/Lexer.hs"
+      component: "baby-l4:lib"
     - path: "./src"
-      component: "core-language:lib"
+      component: "baby-l4:lib"
 
     - path: "./src-bnfc"
-      component: "core-language:lib"
+      component: "baby-l4:lib"
 
     - path: "./src-l4"
-      component: "core-language:lib"
+      component: "baby-l4:lib"
 
     - path: "./src/Main.hs"
-      component: "core-language:exe:core-language"
+      component: "baby-l4:exe:l4"
 
     - path: "./src/Lexer.hs"
-      component: "core-language:exe:core-language"
+      component: "baby-l4:exe:l4"
 
     - path: "./src/Parser.hs"
-      component: "core-language:exe:core-language"
+      component: "baby-l4:exe:l4"
 
     - path: "./src/Syntax.hs"
-      component: "core-language:exe:core-language"
+      component: "baby-l4:exe:l4"
