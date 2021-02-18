@@ -1,26 +1,33 @@
 cradle:
-  stack:
-    - path: "./.stack-work/dist/*/*/build/Parser.hs"
-      component: "baby-l4:lib"
-    - path: "./.stack-work/dist/*/*/build/Lexer.hs"
-      component: "baby-l4:lib"
-    - path: "./src"
-      component: "baby-l4:lib"
+  multi:
+    - path: ./Setup.hs
+      config:
+        cradle:
+          direct:
+            arguments:
+              - "-package Cabal"
+              - "-package base"
 
-    - path: "./src-bnfc"
-      component: "baby-l4:lib"
+    - path: "./"
+      config:
+        cradle:
+          stack:
+            - path: "./.stack-work/"
+              component: "baby-l4:lib"
+            - path: "./generated"
+              component: "baby-l4:lib"
 
-    - path: "./src-l4"
-      component: "baby-l4:lib"
+            - path: "./src"
+              component: "baby-l4:lib"
 
-    - path: "./src/Main.hs"
-      component: "baby-l4:exe:l4"
+            - path: "./src/Main.hs"
+              component: "baby-l4:exe:l4"
 
-    - path: "./src/Lexer.hs"
-      component: "baby-l4:exe:l4"
+            - path: "./src/Lexer.hs"
+              component: "baby-l4:exe:l4"
 
-    - path: "./src/Parser.hs"
-      component: "baby-l4:exe:l4"
+            - path: "./src/Parser.hs"
+              component: "baby-l4:exe:l4"
 
-    - path: "./src/Syntax.hs"
-      component: "baby-l4:exe:l4"
+            - path: "./src/Syntax.hs"
+              component: "baby-l4:exe:l4"
