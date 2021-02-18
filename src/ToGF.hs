@@ -2,9 +2,19 @@ module ToGF where
 
 import Syntax
 import Prop -- the generated Haskell abstract syntax from the GF
---import PGF
+import PGF
+import Paths_baby_l4
 
-expr2prop :: Expr Tp -> GProp
+
+myPgf :: IO PGF
+myPgf = do
+  pgfFile <- Paths_baby_l4.getDataFileName "Prop.pgf"
+  PGF.readPGF pgfFile
+
+printPgf :: IO ()
+printPgf = print . categories =<< myPgf
+
+expr2prop :: Syntax.Expr Tp -> GProp
 expr2prop e = case e of
   ValE _ val -> GPAtom (val2atom val)
   _ -> undefined
