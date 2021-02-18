@@ -6,7 +6,7 @@ Abstract syntax for core L4 concepts.
 
 *Files:*
 
-- =AbsSyntax.hs= Declaration of data types (types, classes and instances,
+- =Syntax.hs= Declaration of data types (types, classes and instances,
   modules, expressions, timed automata)
 - =Exec.hs= Execution / evaluation of expresssions
 - =TaToUppaal.hs= Conversion of Timed Automata to the Uppaal XTA format, see
