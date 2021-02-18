@@ -39,7 +39,7 @@ lift_barith_op ba c1 c2 = case (c1, c2) of
 lift_binop_expr :: BinOp -> Expr Tp -> Expr Tp -> Expr Tp
 lift_binop_expr bop e1 e2 = case (bop, e1, e2) of
     (BArith ba, ValE t1 c1, ValE t2 c2) -> ValE (tp_barith t1 t2 ba) (lift_barith_op ba c1 c2)
-    
+
 constr_clos :: Tp -> Expr Tp -> Expr Tp -> Expr Tp
 constr_clos rtp f a = case f of
   ClosE t cbd (FunE _ v _ e) -> ClosE rtp ((v, a):cbd) e
@@ -55,7 +55,7 @@ constr_clos rtp f a = case f of
 eval_expr :: [(VarName, Expr Tp)] -> Expr Tp -> Expr Tp
 eval_expr bd x = case x of
   ValE t c -> ValE t c
-  # TODO: take into account dB indices
+  -- TODO: take into account dB indices
   VarE t v i ->
     case lookup v bd of
       Nothing -> ValE ErrT ErrV
