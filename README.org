@@ -16,6 +16,22 @@ Abstract syntax for core L4 concepts.
 
 The file =Test.hs= is for testing only and can be discarded.
 
+* Versions
+
+** 0.3.2
+
+- with lexicon :: =Business -> business_2=
+- wordnet annotations in classes :: e.g. =class Business (132) {=
+- classes :: e.g. =class Business...=
+
+** 0.3.4
+
+future version! will have support for More Things!
+
+- wordnet annotations deleted from classes :: =class Business {=
+
+
+
 * Uppaal
 
 ** Interactive use with the GUI
