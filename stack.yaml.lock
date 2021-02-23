@@ -28,14 +28,22 @@ packages:
       size: 1397
       sha256: c94bd9be1c7c038c25c993985753fc88bc742321119282ecb2c3edf4beb9b599
   original:
+<<<<<<< HEAD
     hackage: lsp-1.1.1.0@sha256:c8856e5fc71bc9834301731b5ba8786159e1d7e2d2d8ee07aec4f5421f2cf847,5568
+=======
+    hackage: lsp-1.1.1.0
+>>>>>>> Add files to project to give others for debugging.
 - completed:
     hackage: lsp-types-1.1.0.0@sha256:071289b1c5e2ba8fedf846cfe1931d1cfdaac24a624abdf5dcee52562b1f3e2a,4240
     pantry-tree:
       size: 3955
       sha256: c64a95700b5e32b3cbbb64d672f1595e0a521ae7caaacab805504300ae46f8aa
   original:
+<<<<<<< HEAD
     hackage: lsp-types-1.1.0.0@sha256:071289b1c5e2ba8fedf846cfe1931d1cfdaac24a624abdf5dcee52562b1f3e2a,4240
+=======
+    hackage: lsp-types-1.1.0.0
+>>>>>>> Add files to project to give others for debugging.
 - completed:
     hackage: dependent-map-0.4.0.0@sha256:ca2b131046f4340a1c35d138c5a003fe4a5be96b14efc26291ed35fd08c62221,1657
     pantry-tree:
