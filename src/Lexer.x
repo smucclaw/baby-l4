@@ -33,6 +33,7 @@ tokens :-
   decl                          { \s -> TokenDecl }
   defn                          { \s -> TokenDefn }
   extends                       { \s -> TokenExtends }
+  lexicon                       { \s -> TokenLexicon }
   rule                          { \s -> TokenRule }
 
   -- Types
@@ -88,6 +89,7 @@ data Token
   | TokenDecl
   | TokenDefn
   | TokenExtends
+  | TokenLexicon
   | TokenRule
 
   | TokenBool

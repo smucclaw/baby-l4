@@ -37,7 +37,7 @@ annotFieldName2FieldName (AFldNm fn a) = FldNm fn
 
 ----- Program
 
-data Program ct et = Program [ClassDecl ct] [VarDecl] [Rule et] [Assertion et] 
+data Program ct et = Program [Mapping] [ClassDecl ct] [VarDecl] [Rule et] [Assertion et] 
   deriving (Eq, Ord, Show, Read)
 
 ----- Types 
@@ -51,6 +51,8 @@ data Tp
   deriving (Eq, Ord, Show, Read)
 
 data VarDecl = VarDecl VarName Tp
+  deriving (Eq, Ord, Show, Read)
+data Mapping = Mapping VarName VarName
   deriving (Eq, Ord, Show, Read)
 
 -- Field attributes: for example cardinality restrictions

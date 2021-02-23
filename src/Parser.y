@@ -31,6 +31,7 @@ import Control.Monad.Except
     decl    { TokenDecl }
     defn    { TokenDefn }
     extends { TokenExtends }
+    lexicon { TokenLexicon }
     rule    { TokenRule }
 
     Bool  { TokenBool }
@@ -86,9 +87,12 @@ import Control.Monad.Except
 %left AMINUS
 %%
 
-Program : ClassDecls GlobalVarDecls Rules Assertions
-                                   { Program (reverse $1)  (reverse $2) (reverse $3) (reverse $4) }
-
+Program : Lexicon  ClassDecls GlobalVarDecls Rules Assertions
+                                   { Program (reverse $1) (reverse $2)  (reverse $3) (reverse $4) (reverse $5) }
+Lexicon : lexicon Mappings { $2 }
+Mappings :                   {[]}
+          | Mappings Mapping {$2 : $1 }
+Mapping : VAR '->' VAR { Mapping $1 $3 }
 ClassDecls :                       { [] }
            | ClassDecls ClassDecl  { $2 : $1 }
 ClassDecl : class VAR Annot ClassDef     { ClassDecl (AClsNm $2 $3) $4 }

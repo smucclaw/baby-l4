@@ -1,10 +1,15 @@
+# pending: sub-conditions
+# pending: define grammars for 'subject to', 'condition', 'date' & 'time'(?)
 
-# lexion
-# Business --> business_2 from WordNet
 
-# Business.value --> foo_42 from Sumo
 
-# BusinessEntity.value --> foo_43 from WordNet
+lexicon
+Business -> business_2 #from WordNet
+Value -> value_1 
+
+# Business.value -> foo_42 from Sumo
+
+# BusinessEntity.value -> foo_43 from WordNet
 
 
 class Business (132) {
@@ -33,6 +38,9 @@ class LocumSolicitor (0) extends LegalPractitioner {
 decl AssociatedWith: LegalPractitioner -> Appointment -> Bool
 decl AssociatedWithApp: Appointment -> BusinessEntity -> Bool
 
+decl SubjectTo : LegalPractitioner -> Appointment -> Bool
+
+
 # use the following declarations instead of the commented 'extends' classes ??
 # decl LawRelatedService: Business -> Bool
 # decl LocumSolicitor: LegalPractitioner -> Bool
@@ -45,6 +53,30 @@ for lpr: LegalPractitioner, app: Appointment
 if (exists bsn : Business. AssociatedWithApp app bsn && IncompatibleDignity bsn)
 then MustNotAcceptApp lpr app
 
+rule <r1b>
+for lpr: LegalPractitioner, app: Appointment
+if (exists bsn : Business. AssociatedWithApp app bsn && MateriallyInterferes bsn)
+then MustNotAcceptApp lpr app
+
+rule <r1c>
+for lpr: LegalPractitioner, app: Appointment
+if (exists bsn : Business. AssociatedWithApp app bsn && UnfairAttractBusiness bsn)
+then MustNotAcceptApp lpr app
+
+rule <r1d>
+for lpr: LegalPractitioner, app: Appointment
+if (exists bsn : Business. AssociatedWithApp app bsn && ShareLPRFees bsn)
+then MustNotAcceptApp lpr app
+
+rule <r1e>
+for lpr: LegalPractitioner, app: Appointment
+if (exists bsn : Business. AssociatedWithApp app bsn && BusinessFirstSchedule bsn)
+then MustNotAcceptApp lpr app
+
+rule <r1f>
+for lpr: LegalPractitioner, app: Appointment
+if (exists bsn : Business. AssociatedWithApp app bsn && ProhibitedBusiness bsn)
+then MustNotAcceptApp lpr app
 
 # first condition of IF: neg. of precond of rule 1a
 rule <r5>
@@ -55,6 +87,7 @@ if not (exists bsn : Business. AssociatedWith app bsn && IncompatibleDignity bsn
    (forall bse : BusinessEntity. AssociatedWithApp app bse -->
                   not (exists srv : Business.  LawRelatedService srv && Provides bse srv) &&
                   ConditionsSecondSchedule lpr bse)
-then MayAcceptApp lpr app
+then 
+App lpr app
 
 assert exists lpr: LegalPractitioner. exists app: Appointment. MayAcceptApp lpr app

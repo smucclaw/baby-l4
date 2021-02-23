@@ -29,10 +29,12 @@ locals_of_env :: Environment t -> [(VarName,Tp)]
 locals_of_env (Env _ _ (LVD ls)) = ls
 
 initialEnvOfProgram :: Program (Maybe ct) et -> Environment (Maybe ct)
-initialEnvOfProgram (Program cds gvs rls ass) = 
+initialEnvOfProgram (Program _ cds gvs rls ass) = 
   let initialModule = (Mdl (customCs ++ cds) [])
       initialGvs = GVD (map (\(VarDecl vn t) -> (vn, t)) gvs)
   in Env initialModule initialGvs (LVD [])
+
+-- TODO: recheck the typing 
 
 ----------------------------------------------------------------------
 -- Class manipulation
