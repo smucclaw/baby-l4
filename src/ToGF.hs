@@ -26,7 +26,7 @@ nlg prog = do
 -- Example: Program [] [VarDecl "myNumber" IntT,VarDecl "myTruth" BoolT] [] []
 program2prop :: (Show ct, Show et) => Program ct et -> [GProp]
 program2prop e = case e of
-  Program _cl vardecls _rs _as -> map vardecl2prop vardecls
+  Program _lex _cl vardecls _rs _as -> map vardecl2prop vardecls
   _ -> error $ "program2prop: not yet supported: " ++ show e
 
 vardecl2prop :: VarDecl -> GProp

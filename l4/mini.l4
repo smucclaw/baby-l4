@@ -1,3 +1,6 @@
+lexicon
+myNumber -> number123
+
 decl myNumber : Int
 
 decl myTruth : Bool
