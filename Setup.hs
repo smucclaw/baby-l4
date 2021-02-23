@@ -40,7 +40,9 @@ gfPP bi lbi clbi = PreProcessor {
                 [ "-make"
                 , "-f", "haskell"
                 , "-output-dir=" ++ outDir
-                , inDir </> inFile
+                , inDir </> "PropEng.gf"
+                , inDir </> "PropPor.gf"
+                , inDir </> "PropSwe.gf"
                 ]
         print args
         (gfProg, _) <- requireProgram verbosity gfProgram (withPrograms lbi)
