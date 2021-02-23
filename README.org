@@ -30,14 +30,14 @@ future version! will have support for More Things!
 
 - wordnet annotations deleted from classes :: =class Business {=
 
-* Parser Versions
+* Toolchain Versions
 
-** 0.3.1
+| l4 syntax | file    | parser status | nlg status                            | ide status             | reasoner status |
+|-----------+---------+---------------+---------------------------------------+------------------------+-----------------|
+|     0.3.2 | mini.l4 | ok            | ok                                    | syntax highlighting ok |                 |
+|     0.3.2 | cr.l4   | ok            | errors on typ2kind: not yet supported |                        |                 |
 
-| file    | result                                |
-|---------+---------------------------------------|
-| mini.l4 | runs OK                               |
-| cr.l4   | errors on typ2kind: not yet supported |
+We should have a test suite that creates this dashboard. See issue #4.
 
 #+begin_example
 l4: typ2kind: not yet supported: FunT (ClassT (ClsNm "LegalPractitioner")) (FunT (ClassT (ClsNm "Appointment")) BoolT)
