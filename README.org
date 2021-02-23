@@ -30,7 +30,20 @@ future version! will have support for More Things!
 
 - wordnet annotations deleted from classes :: =class Business {=
 
+* Parser Versions
 
+** 0.3.1
+
+| file    | result                                |
+|---------+---------------------------------------|
+| mini.l4 | runs OK                               |
+| cr.l4   | errors on typ2kind: not yet supported |
+
+#+begin_example
+l4: typ2kind: not yet supported: FunT (ClassT (ClsNm "LegalPractitioner")) (FunT (ClassT (ClsNm "Appointment")) BoolT)
+CallStack (from HasCallStack):
+  error, called at src/ToGF.hs:43:8 in baby-l4-0.1.0.0-7MSFL28Gv2uEWQACncPSnj:ToGF
+#+end_example
 
 * Uppaal
 
