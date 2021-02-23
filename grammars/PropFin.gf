@@ -52,7 +52,7 @@ lin
   Sum = mkFun2 "sum" (mkN "summa") possess_Prep ;
   Product = mkFun2 "product" (mkN "tulo") possess_Prep ;
   Nat = mkCN (mkN "luku") ;
-
+  Boolean = mkCN (P.mkN "totuusarvo") ;
 oper
   mkFun1, mkFun2 : Str -> N -> Prep -> {s : Symb ; v : N2} = \s,n,p -> 
     {s = mkSymb ("\\" + s) ; v = mkN2 n p} ;

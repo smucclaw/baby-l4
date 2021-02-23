@@ -48,6 +48,7 @@ lin
   Sum = mkFun2 "sum" (P.mkN "somme") possess_Prep ;
   Product = mkFun2 "product" (P.mkN "produit") possess_Prep ;
   Nat = mkCN (P.mkN "entier") ;
+  Boolean = mkCN (P.mkN "boolean") ;
 
 oper
   mkFun1, mkFun2 : Str -> N -> Prep -> {s : Symb ; v : N2} = \s,n,p -> 

@@ -124,6 +124,10 @@ lin
 
   IInt i = {s = symb i.s ; isSymbolic = True} ;
 
+  BTrue = {s = symb "true" ; isSymbolic = True} ;
+  BFalse = {s = symb "false" ; isSymbolic = True} ;
+
+
 
 -- symbolic applications by LaTeX macros
 

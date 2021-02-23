@@ -47,7 +47,7 @@ lin
   Sum = mkFun2 "sum" (mkN "Summe") possess_Prep ;
   Product = mkFun2 "product" (mkN "Produkt" "Produkte" neuter) possess_Prep ;
   Nat = mkCN (mkN "Zahl" "Zahlen" feminine) ;
-
+  Boolean = mkCN (P.mkN "Boolean") ;
 oper
   mkFun1, mkFun2 : Str -> N -> Prep -> {s : Symb ; v : N2} = \s,n,p -> 
     {s = mkSymb ("\\" + s) ; v = mkN2 n p} ;

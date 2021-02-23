@@ -36,7 +36,7 @@ concrete PropPor of Prop = PropI with
     Sum = mkFun2 "sum" (P.mkN "soma") possess_Prep ;
     Product = mkFun2 "product" (P.mkN "produto") possess_Prep ;
     Nat = mkCN (P.mkN "número") ;
-
+    Boolean = mkCN (P.mkN "booleano") ;
     oper
       mkFun1, mkFun2 : Str -> N -> Prep -> {s : Symb ; v : N2} = \s,n,p -> 
         {s = mkSymb  ("\\" + s) ; v = P.mkN2 n p} ;

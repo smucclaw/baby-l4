@@ -84,8 +84,10 @@ fun
 
   Even, Odd    : Pred1 ;
   Nat          : Kind ;
+  Boolean      : Kind ;
   Square       : Fun1 ;
   Sum, Product : Fun2 ;
   IInt         : Int -> Ind ;
+  BTrue, BFalse : Ind ;
 
 }

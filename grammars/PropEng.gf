@@ -51,6 +51,7 @@ lin
   Sum = mkFun2 "sum" ;
   Product = mkFun2 "product" ;
   Nat = mkCN (P.mkN "number") ;
+  Boolean = mkCN (P.mkA "Boolean") (P.mkN "value") ;
 
 oper
   mkFun1, mkFun2 : Str -> {s : Symb ; v : N2} = \s -> 
