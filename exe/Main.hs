@@ -8,14 +8,15 @@ process :: String -> IO ()
 process input = do
   let ast = parseProgram input
   case ast of
-    Right ast -> putStrLn (show ast)
+    Right ast -> do
+      putStrLn (show ast)
+      GF.nlg ast
     Left err -> do
       putStrLn "Parser Error:"
       print err
 
 main :: IO ()
 main = do
-  GF.printPgf
   args <- getArgs
   case args of
     []      -> putStrLn "Usage: core-language <input file>"
