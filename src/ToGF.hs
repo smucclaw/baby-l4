@@ -17,11 +17,11 @@ printPgf = print . categories =<< myPgf
 expr2prop :: Syntax.Expr Tp -> GProp
 expr2prop e = case e of
   ValE _ val -> GPAtom (val2atom val)
-  _ -> undefined
-
+  _ -> error $ "expr2prop: not yet supported: " ++ show e
 
 val2atom :: Val -> GAtom
 val2atom e  = case e of
---  BoolV b ->
+  BoolV True -> GAKind GBoolean GBTrue
+  BoolV False -> GAKind GBoolean GBFalse
   IntV i -> GAKind GNat (GIInt (GInt (fromInteger i)))
-  _ -> undefined
+  _ -> error $ "val2atom: not yet supported: " ++ show e
