@@ -9,6 +9,13 @@ import Distribution.Simple.Setup (installDest, InstallFlags (installVerbosity), 
 import Distribution.Simple.Flag
 import Distribution.Verbosity
 
+-- Custom preprocessor for GF files
+
+-- Currently has problems with stack due to:
+-- https://github.com/commercialhaskell/stack/issues/3491
+
+-- TODO: Fix the above issue
+
 main :: IO ()
 main = defaultMainWithHooks userHooks
 
