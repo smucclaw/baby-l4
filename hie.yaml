@@ -14,20 +14,15 @@ cradle:
           stack:
             - path: "./.stack-work/"
               component: "baby-l4:lib"
+
             - path: "./generated"
               component: "baby-l4:lib"
 
             - path: "./src"
               component: "baby-l4:lib"
 
-            - path: "./src/Main.hs"
+            - path: "./exe/Main.hs"
               component: "baby-l4:exe:l4"
 
-            - path: "./src/Lexer.hs"
-              component: "baby-l4:exe:l4"
-
-            - path: "./src/Parser.hs"
-              component: "baby-l4:exe:l4"
-
-            - path: "./src/Syntax.hs"
-              component: "baby-l4:exe:l4"
+            - path: "./lsp/Main.hs"
+              component: "baby-l4:exe:bl4-lsp-server"
