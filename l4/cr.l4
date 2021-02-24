@@ -1,4 +1,4 @@
-# l4version 0.3.2
+# l4version 0.3.4
 
 # pending: sub-conditions
 # pending: define grammars for 'subject to', 'condition', 'date' & 'time'(?)
@@ -14,27 +14,27 @@ Value -> value_1
 # BusinessEntity.value -> foo_43 from WordNet
 
 
-class Business (132) {
-      # foo (234): Int
-      # bar (346): Bool -> (Int,Int)
+class Business {
+      foo: Int
+      bar: Bool -> (Int,Int)
 }
 
-class LawRelatedService (0) extends Business {
+class LawRelatedService extends Business {
 }
 
-class BusinessEntity (0) {
+class BusinessEntity {
 }
 
-class Appointment (0) {
+class Appointment {
 }
 
-class Person (0) {
+class Person {
 }
 
-class LegalPractitioner (0) extends Person {
+class LegalPractitioner extends Person {
 }
 
-class LocumSolicitor (0) extends LegalPractitioner {
+class LocumSolicitor extends LegalPractitioner {
 }
 
 decl AssociatedWith: LegalPractitioner -> Appointment -> Bool

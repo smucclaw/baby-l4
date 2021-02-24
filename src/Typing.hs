@@ -41,10 +41,10 @@ initialEnvOfProgram (Program _ cds gvs rls ass) =
 ----------------------------------------------------------------------
 
 class_def_assoc :: [ClassDecl t] -> [(ClassName, ClassDef t)]
-class_def_assoc = map (\(ClassDecl acn cdf) -> (annotClassName2ClassName acn, cdf))
+class_def_assoc = map (\(ClassDecl cn cdf) -> (cn, cdf))
 
 field_assoc ::  [ClassDecl t] -> [(ClassName, [FieldDecl])]
-field_assoc = map (\(ClassDecl acn cdf) -> (annotClassName2ClassName acn, fields_of_class_def cdf))
+field_assoc = map (\(ClassDecl cn cdf) -> (cn, fields_of_class_def cdf))
 
 
 -- For a class name 'cn', returns the list of the names of the superclasses of 'cn'
@@ -74,8 +74,8 @@ super_classes_decls cds =
 elaborate_supers_in_class_decls :: [ClassDecl (Maybe ClassName)] -> [ClassDecl [ClassName]]
 elaborate_supers_in_class_decls cds =
   let cdf_assoc = class_def_assoc cds
-  in map (\(ClassDecl acn (ClassDef mcn fds)) -> 
-    (ClassDecl acn (ClassDef (tail (super_classes cdf_assoc [] (annotClassName2ClassName acn))) fds))) cds
+  in map (\(ClassDecl cn (ClassDef mcn fds)) -> 
+    (ClassDecl cn (ClassDef (tail (super_classes cdf_assoc [] cn)) fds))) cds
 
 
 local_fields :: [(ClassName, [FieldDecl])] -> ClassName -> [FieldDecl]
@@ -100,7 +100,7 @@ defined_superclass cns cdc =
     (ClassDecl cn (ClassDef (Just scn) _)) ->
       if elem scn cns
       then True
-      else error ("undefined superclass for class " ++ (case cn of (AClsNm n a) -> n))
+      else error ("undefined superclass for class " ++ (case cn of (ClsNm n) -> n))
 
 
 hasDuplicates :: (Ord a) => [a] -> Bool
@@ -110,7 +110,7 @@ wellformed_class_decls_in_module :: Module (Maybe ClassName) -> Bool
 wellformed_class_decls_in_module md =
   case md of
     (Mdl cds rls) ->
-      let class_names = map (annotClassName2ClassName . name_of_class_decl) cds
+      let class_names = map name_of_class_decl cds
       in all (defined_superclass class_names) cds && not (hasDuplicates class_names)
 
 -- TODO: still check that field decls only reference declared classes
@@ -152,7 +152,7 @@ is_subclass_of md subcl supercl = subcl == supercl || is_strict_subclass_of md s
 
 lookup_class_def_in_env :: Environment t -> ClassName -> [ClassDef t]
 lookup_class_def_in_env env cn =
-  map def_of_class_decl (filter (\cd -> (annotClassName2ClassName . name_of_class_decl) cd == cn) (class_decls_of_module (module_of_env env)))
+  map def_of_class_decl (filter (\cd -> name_of_class_decl cd == cn) (class_decls_of_module (module_of_env env)))
 
 tp_constval :: Environment t -> Val -> Tp
 tp_constval env x = case x of
@@ -166,7 +166,7 @@ tp_constval env x = case x of
     in case lookup_class_def_in_env env cn of
        [] -> error ("class name " ++ (case cn of (ClsNm n) -> n) ++ " not defined")
        [cd] ->
-         if map (\(FieldDecl afn t) -> (annotFieldName2FieldName afn, t)) (fields_of_class_def cd) == tfnvals
+         if map (\(FieldDecl fn t) -> (fn, t)) (fields_of_class_def cd) == tfnvals
          then ClassT cn
          else error ("record fields do not correspond to fields of class " ++ (case cn of (ClsNm n) -> n))
        _ -> error "internal error: duplicate class definition"

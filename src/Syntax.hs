@@ -57,7 +57,7 @@ data Mapping = Mapping VarName VarName
 
 -- Field attributes: for example cardinality restrictions
 -- data FieldAttribs = FldAtt
-data FieldDecl = FieldDecl AnnotFieldName Tp -- FieldAttribs
+data FieldDecl = FieldDecl FieldName Tp -- FieldAttribs
   deriving (Eq, Ord, Show, Read)
 
 -- superclass, list of field declarations
@@ -65,10 +65,10 @@ data ClassDef t = ClassDef t [FieldDecl]
   deriving (Eq, Ord, Show, Read)
 
 -- declares class with ClassName and definition as of ClassDef
-data ClassDecl t = ClassDecl AnnotClassName (ClassDef t)
+data ClassDecl t = ClassDecl ClassName (ClassDef t)
   deriving (Eq, Ord, Show, Read)
 
-name_of_class_decl :: ClassDecl t -> AnnotClassName
+name_of_class_decl :: ClassDecl t -> ClassName
 name_of_class_decl (ClassDecl cn _) = cn
 
 def_of_class_decl :: ClassDecl t -> ClassDef t
@@ -90,7 +90,7 @@ rules_of_module (Mdl _ rls) = rls
 
 -- Custom Classes and Preable Module
 -- some custom classes - should eventually go into a prelude and not be hard-wired
-objectC = ClassDecl (AClsNm "Object" (GFAnnot 0)) (ClassDef Nothing [])
+objectC = ClassDecl (ClsNm "Object") (ClassDef Nothing [])
 
 {-
 TODO: the following should be defined in concrete syntax in a preamble.

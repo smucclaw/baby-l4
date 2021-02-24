@@ -95,7 +95,7 @@ Mappings :                   {[]}
 Mapping : VAR '->' VAR { Mapping $1 $3 }
 ClassDecls :                       { [] }
            | ClassDecls ClassDecl  { $2 : $1 }
-ClassDecl : class VAR Annot ClassDef     { ClassDecl (AClsNm $2 $3) $4 }
+ClassDecl : class VAR ClassDef     { ClassDecl (ClsNm $2) $3 }
 
 ClassDef :  '{' FieldDecls '}'     { ClassDef (Just (ClsNm "Object")) (reverse $2) }
          |   extends VAR '{' FieldDecls '}'    
@@ -103,7 +103,7 @@ ClassDef :  '{' FieldDecls '}'     { ClassDef (Just (ClsNm "Object")) (reverse $
 FieldDecls :                       { [] }
            | FieldDecls FieldDecl  { $2 : $1 }
 
-FieldDecl : VAR Annot ':' Tp             { FieldDecl (AFldNm $1 $2) $4 }
+FieldDecl : VAR ':' Tp             { FieldDecl (FldNm $1) $3 }
 
 GlobalVarDecls :                         { [] }
          | GlobalVarDecls GlobalVarDecl  { $2 : $1 }
