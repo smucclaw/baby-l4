@@ -40,7 +40,7 @@ library
                   --RuleToTa
                   --TaToUppaal
                   Typing
-                  Simple
+                  LSPServer
   other-modules: Paths_baby_l4
   hs-source-dirs:
     src
@@ -70,6 +70,16 @@ library
 executable l4
   hs-source-dirs:      exe
   main-is:             Main.hs
+  default-language:    Haskell2010
+  build-depends:       base >= 4.7 && < 5
+                     , baby-l4
+                     , array
+                     , haskeline  >= 0.7
+                     , mtl        >= 2.2 && <2.4
+
+executable bl4-lsp-server
+  hs-source-dirs:      src
+  main-is:             LSPServer.hs
   default-language:    Haskell2010
   build-depends:       base >= 4.7 && < 5
                      , baby-l4

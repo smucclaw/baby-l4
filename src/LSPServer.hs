@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Simple where
+module LSPServer where
   
 import Language.LSP.Server
 import Language.LSP.Types
