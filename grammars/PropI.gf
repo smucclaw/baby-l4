@@ -16,6 +16,7 @@ lincat
   Ind  = {s : NP ; isSymbolic : Bool} ;
   Fun1 = {s : Symb ; v : N2} ;
   Fun2 = {s : Symb ; v : N2} ;
+  Noun = N ;
 
 lin
   PAtom a = {s = mkS a ; c = False} ;
@@ -39,6 +40,7 @@ lin
   APred2 f x y = mkCl x.s f y.s ;
 
   IVar x = {s = (symb x) ; isSymbolic = True} ;
+  IVarN n = {s = mkNP n ; isSymbolic = False} ;
 
   IFun1 f x = {
     s = case x.isSymbolic of {

@@ -1,7 +1,8 @@
 # l4version 0.3.4
 
 lexicon
-myNumber -> number123
+myNumber -> number_2_N
+myTruth -> truth_1_N
 
 decl myNumber : Int
 
