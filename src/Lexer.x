@@ -1,18 +1,23 @@
 {
-{-# OPTIONS_GHC -XFlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE DeriveFunctor #-}
 {-# OPTIONS -w  #-}
+{- HLINT ignore -}
 
-module Lexer (
-  Token(..)
-  -- scanTokens,
-  , AlexPosn(..)
-  , TokenKind(..)
-  , unLex
-  , Alex(..)
-  , runAlex'
-  , alexMonadScan'
-  , alexError'
-) where
+module Lexer
+-- (
+--   Token(..)
+--   -- scanTokens,
+--   , AlexPosn(..)
+--   , TokenKind(..)
+--   , unLex
+--   , Alex(..)
+--   , runAlex'
+--   , alexMonadScan'
+--   , alexError'
+--   , module Lexer
+-- )
+ where
 
 import Prelude hiding (lex)
 import Control.Monad.Except
@@ -36,7 +41,7 @@ tokens :-
 
   -- Syntax
   -- Structuring elements of an L4 file
-  
+
   assert                        { lex' TokenAssert }
   class                         { lex' TokenClass }
   decl                          { lex' TokenDecl }
@@ -83,7 +88,7 @@ tokens :-
   \)                            { lex' TokenRParen }
   \{                            { lex' TokenLBrace }
   \}                            { lex' TokenRBrace }
- 
+
   -- Numbers and identifiers
   $digit+                       { lex (TokenNum . read) }
   $alpha [$alpha $digit \_ \']* { lex TokenSym }
@@ -103,8 +108,12 @@ getFilePath = liftM filePath alexGetUserState
 setFilePath :: FilePath -> Alex ()
 setFilePath = alexSetUserState . AlexUserState
 
-data Token = Token AlexPosn TokenKind
-  deriving (Show)
+type Token = TokenAnn AlexPosn
+
+data TokenAnn a = Token { tokenPos:: a, tokenLen :: Int, tokenKind :: TokenKind }
+  deriving (Show, Functor)
+
+getTokenKind (Token _ _ k) = k
 
 data TokenKind
   = TokenAssert
@@ -129,7 +138,7 @@ data TokenKind
   | TokenFor
   | TokenTrue
   | TokenFalse
-  
+
   | TokenLambda
   | TokenArrow
   | TokenImpl
@@ -158,46 +167,46 @@ data TokenKind
 
 -- For nice parser error messages.
 unLex :: TokenKind -> String
-unLex TokenAssert  = "assert"                         
-unLex TokenClass   = "class"                          
-unLex TokenDecl    = "decl"                           
-unLex TokenDefn    = "defn"                           
-unLex TokenExtends = "extends"                        
-unLex TokenLexicon = "lexicon"                        
-unLex TokenRule    = "rule"                           
-unLex TokenBool    = "Bool"                           
-unLex TokenInt     = "Int"                            
-unLex TokenLet     = "let"                            
-unLex TokenIn      = "in"                             
-unLex TokenNot     = "not"                            
-unLex TokenForall  = "forall"                         
-unLex TokenExists  = "exists"                         
-unLex TokenIf      = "if"                             
-unLex TokenThen    = "then"                           
-unLex TokenElse    = "else"                           
-unLex TokenFor     = "for"                            
-unLex TokenTrue    = "True"                           
-unLex TokenFalse   = "False"                          
-unLex TokenArrow   = "->"                           
-unLex TokenLambda  = "\\"                             
-unLex TokenImpl    = "-->"                          
-unLex TokenOr      = "||"                           
-unLex TokenAnd     = "&&"                           
-unLex TokenEq      = "="                             
-unLex TokenLt      = "<"                             
-unLex TokenGt      = ">"                             
-unLex TokenAdd     = "+"                           
-unLex TokenSub     = "-"                           
-unLex TokenMul     = "*"                           
-unLex TokenDiv     = "/"                            
-unLex TokenMod     = "%"                            
-unLex TokenDot     = "."                             
-unLex TokenComma   = ","                             
-unLex TokenColon   = ":"                             
-unLex TokenLParen  = "("                             
-unLex TokenRParen  = ")"                             
-unLex TokenLBrace  = "{"                             
-unLex TokenRBrace  = "}"                             
+unLex TokenAssert  = "assert"
+unLex TokenClass   = "class"
+unLex TokenDecl    = "decl"
+unLex TokenDefn    = "defn"
+unLex TokenExtends = "extends"
+unLex TokenLexicon = "lexicon"
+unLex TokenRule    = "rule"
+unLex TokenBool    = "Bool"
+unLex TokenInt     = "Int"
+unLex TokenLet     = "let"
+unLex TokenIn      = "in"
+unLex TokenNot     = "not"
+unLex TokenForall  = "forall"
+unLex TokenExists  = "exists"
+unLex TokenIf      = "if"
+unLex TokenThen    = "then"
+unLex TokenElse    = "else"
+unLex TokenFor     = "for"
+unLex TokenTrue    = "True"
+unLex TokenFalse   = "False"
+unLex TokenArrow   = "->"
+unLex TokenLambda  = "\\"
+unLex TokenImpl    = "-->"
+unLex TokenOr      = "||"
+unLex TokenAnd     = "&&"
+unLex TokenEq      = "="
+unLex TokenLt      = "<"
+unLex TokenGt      = ">"
+unLex TokenAdd     = "+"
+unLex TokenSub     = "-"
+unLex TokenMul     = "*"
+unLex TokenDiv     = "/"
+unLex TokenMod     = "%"
+unLex TokenDot     = "."
+unLex TokenComma   = ","
+unLex TokenColon   = ":"
+unLex TokenLParen  = "("
+unLex TokenRParen  = ")"
+unLex TokenLBrace  = "{"
+unLex TokenRBrace  = "}"
 unLex TokenEOF     = "<EOF>"
 unLex (TokenNum i) = show i
 unLex (TokenSym s) = show s
@@ -205,12 +214,12 @@ unLex (TokenSym s) = show s
 alexEOF :: Alex Token
 alexEOF = do
   (p,_,_,_) <- alexGetInput
-  return $ Token p TokenEOF
+  return $ Token p 0 TokenEOF
 
 -- Unfortunately, we have to extract the matching bit of string
 -- ourselves...
 lex :: (String -> TokenKind) -> AlexAction Token
-lex f = \(p,_,_,s) i -> return $ Token p (f (take i s))
+lex f = \(p,_,_,s) i -> return $ Token p i (f (take i s))
 
 -- For constructing tokens that do not depend on
 -- the input
@@ -244,8 +253,44 @@ alexError' (AlexPn _ l c) msg = do
 runAlex' :: Alex a -> FilePath -> String -> Either String a
 runAlex' a fp input = runAlex input (setFilePath fp >> a)
 
+-- repeatUntil (== "\EOT") $ do {x <- getLine; print x; return x }
+repeatUntil :: Monad m => (a -> Bool) -> m a -> m [a]
+repeatUntil test single = single >>= go
+  where
+    go x | test x = pure [x]
+    go x = do
+      y <- single
+      ys <- go y
+      return (x:ys)
+
+isEof (Token _ _ TokenEOF) = True
+isEof _ = False
+
+scanTokens :: FilePath -> String -> Either String [Token]
+scanTokens = runAlex' allTokens
+  where
+    allTokens = repeatUntil isEof alexMonadScan'
+
+scanFile :: FilePath -> IO (Either String [Token])
+scanFile fname = scanTokens fname <$> readFile fname
+
+-- This might be useful for looking up token locations:
+-- http://hackage.haskell.org/package/IntervalMap
+-- or possibly:
+-- http://hackage.haskell.org/package/SegmentTree
+-- See: https://stackoverflow.com/questions/3893281/haskell-range-map-library
+
+
+-- matchesPos :: Int -> Int -> Token -> Bool
+-- matchesPos line col (Token (AlexPn _ l c) len _) =
+--   line == l -- && col == c
+--   && col >= c && col < c + len
+
+-- >>> Right x <- scanFile "l4/mini.l4"
+-- >>> mapM_ print x
+
 -- scanTokens :: String -> Except String [Token]
--- scanTokens str = go ('\n',[],str) where 
+-- scanTokens str = go ('\n',[],str) where
 --   go inp@(_,_bs,str) =
 --     case alexScan inp 0 of
 --      AlexEOF -> return []
