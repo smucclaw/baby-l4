@@ -12,6 +12,7 @@ cat
   Fun1 ;
   Fun2 ;
   Conj ;
+  Noun ;
 
 fun
   PAtom  : Atom  -> Prop ;
@@ -23,6 +24,7 @@ fun
   PExist : Var -> Prop -> Prop ;
 
   IVar   : Var -> Ind ;
+  IVarN  : Noun -> Ind ;
 
   APred1 : Pred1 -> Ind -> Atom ;
   APred2 : Pred2 -> Ind -> Ind -> Atom ;
@@ -90,4 +92,6 @@ fun
   IInt         : Int -> Ind ;
   BTrue, BFalse : Ind ;
 
+-- dummy instance of noun so that generated Prop.hs doesn't complain
+  Dummy : Noun ;
 }
