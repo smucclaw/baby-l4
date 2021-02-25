@@ -17,9 +17,9 @@ Abstract syntax for core L4 concepts.
 The file =Test.hs= is for testing only and can be discarded.
 
 * Build
-Build requires local installations of
-[[https://github.com/GrammaticalFramework/gf-core][GF]] and
-[[https://github.com/GrammaticalFramework/gf-rgl][RGL]]
+Build requires local installations
+[[https://github.com/GrammaticalFramework/gf-rgl][RGL]] which in turn depends on
+[[https://github.com/GrammaticalFramework/gf-core][GF]]
 please see respective repos for instructions.
 Set environment variable GF_LIB_PATH to local RGL installation.
 * Versions
