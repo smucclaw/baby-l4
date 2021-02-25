@@ -13,7 +13,6 @@ category:            Web
 Build-Type:          Custom
 cabal-version:       >=1.10
 extra-source-files:  README.org
-                   , grammars/*.gf
                    , grammars/Prop.gf
 
 -- data-files: LICENSE

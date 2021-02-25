@@ -14,18 +14,18 @@ main = defaultMainWithHooks userHooks
 
 userHooks :: UserHooks
 userHooks = simpleUserHooks {
-    hookedPreProcessors = gfPPSuffix : knownSuffixHandlers,
-    postCopy = \args insF pDesc lbi -> do
-        print $ buildDir lbi
-        let cdest = fromFlag $ copyDest insF
-        let dDir = datadir $ absoluteComponentInstallDirs pDesc lbi (localUnitId lbi) cdest
-        let verbosity = fromFlag $ copyVerbosity insF
-        let src = buildDir lbi </> "Prop.pgf"
-        let dst = dDir </> "Prop.pgf"
-        print dDir
-        createDirectoryIfMissingVerbose verbosity True dDir
-        installOrdinaryFile verbosity src dst
-        return ()
+    hookedPreProcessors = gfPPSuffix : knownSuffixHandlers
+    -- postCopy = \args insF pDesc lbi -> do
+    --     print $ buildDir lbi
+    --     let cdest = fromFlag $ copyDest insF
+    --     let dDir = datadir $ absoluteComponentInstallDirs pDesc lbi (localUnitId lbi) cdest
+    --     let verbosity = fromFlag $ copyVerbosity insF
+    --     let src = buildDir lbi </> "Prop.pgf"
+    --     let dst = dDir </> "Prop.pgf"
+    --     print dDir
+    --     createDirectoryIfMissingVerbose verbosity True dDir
+    --     installOrdinaryFile verbosity src dst
+    --     return ()
 }
 
 gfPPSuffix :: PPSuffixHandler
@@ -35,14 +35,14 @@ gfPP :: BuildInfo -> LocalBuildInfo -> ComponentLocalBuildInfo -> PreProcessor
 gfPP bi lbi clbi = PreProcessor {
     platformIndependent = True,
     runPreProcessor = \(inDir,inFile) (outDir,outFile) verbosity -> do
-        putStrLn $ "hello world! " ++ show ((inDir,inFile), (outDir,outFile), verbosity)
+        -- putStrLn $ "hello world! " ++ show ((inDir,inFile), (outDir,outFile), verbosity)
         let args =
                 [ "-make"
                 , "-f", "haskell"
+                , "--haskell=lexical"
+                , "--lexical=Noun"
                 , "-output-dir=" ++ outDir
-                , inDir </> "PropEng.gf"
-                , inDir </> "PropPor.gf"
-                , inDir </> "PropSwe.gf"
+                , inDir </> inFile
                 ]
         print args
         (gfProg, _) <- requireProgram verbosity gfProgram (withPrograms lbi)
