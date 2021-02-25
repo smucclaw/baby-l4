@@ -3,3 +3,5 @@
 *~
 *.pgf
 generated
+grammars/PropTop*
+grammars/PropLexicon*
