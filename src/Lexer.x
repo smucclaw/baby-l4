@@ -158,8 +158,49 @@ data TokenKind
 
 -- For nice parser error messages.
 unLex :: TokenKind -> String
-unLex = show
--- TODO: Do this properly!
+unLex TokenAssert  = "assert"                         
+unLex TokenClass   = "class"                          
+unLex TokenDecl    = "decl"                           
+unLex TokenDefn    = "defn"                           
+unLex TokenExtends = "extends"                        
+unLex TokenLexicon = "lexicon"                        
+unLex TokenRule    = "rule"                           
+unLex TokenBool    = "Bool"                           
+unLex TokenInt     = "Int"                            
+unLex TokenLet     = "let"                            
+unLex TokenIn      = "in"                             
+unLex TokenNot     = "not"                            
+unLex TokenForall  = "forall"                         
+unLex TokenExists  = "exists"                         
+unLex TokenIf      = "if"                             
+unLex TokenThen    = "then"                           
+unLex TokenElse    = "else"                           
+unLex TokenFor     = "for"                            
+unLex TokenTrue    = "True"                           
+unLex TokenFalse   = "False"                          
+unLex TokenArrow   = "->"                           
+unLex TokenLambda  = "\\"                             
+unLex TokenImpl    = "-->"                          
+unLex TokenOr      = "||"                           
+unLex TokenAnd     = "&&"                           
+unLex TokenEq      = "="                             
+unLex TokenLt      = "<"                             
+unLex TokenGt      = ">"                             
+unLex TokenAdd     = "+"                           
+unLex TokenSub     = "-"                           
+unLex TokenMul     = "*"                           
+unLex TokenDiv     = "/"                            
+unLex TokenMod     = "%"                            
+unLex TokenDot     = "."                             
+unLex TokenComma   = ","                             
+unLex TokenColon   = ":"                             
+unLex TokenLParen  = "("                             
+unLex TokenRParen  = ")"                             
+unLex TokenLBrace  = "{"                             
+unLex TokenRBrace  = "}"                             
+unLex TokenEOF     = "<EOF>"
+unLex (TokenNum i) = show i
+unLex (TokenSym s) = show s
 
 alexEOF :: Alex Token
 alexEOF = do
