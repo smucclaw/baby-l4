@@ -3,7 +3,11 @@
 lexicon
 myNumber -> number_2_N
 myTruth -> truth_1_N
+is_legal -> legal_1_A
+Business -> business_1_N
 
 decl myNumber : Int
 
 decl myTruth : Bool
+
+decl myBusiness : Business

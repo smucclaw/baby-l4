@@ -11,7 +11,7 @@ import Text.Printf (printf)
 
 createPGF :: (Show ct, Show et) => Program ct et -> IO PGF.PGF
 createPGF (Program lexicon _2 _3 _4 _5) = do
-  let langs = ["Eng","Swe"]
+  let langs = ["Eng","Swe", "Por"]
   let (abstract,concretes) = createLexicon langs lexicon
   -- Generate lexicon
   writeFile "grammars/PropLexicon.gf" abstract
@@ -26,7 +26,7 @@ createPGF (Program lexicon _2 _3 _4 _5) = do
   forM_ langs $
     \lang -> writeFile (concrName "PropTop" lang) (topCnc lang)
 
-  withArgs ["-make", "--output-dir=generated", "grammars/PropTopEng.gf", "grammars/PropTopSwe.gf"] GF.main
+  withArgs (["-make", "--output-dir=generated"] ++ map (concrName "PropTop") langs) GF.main
   PGF.readPGF "generated/PropTop.pgf"
 
 nlg :: (Show ct, Show et) => Program ct et -> IO ()
@@ -45,19 +45,19 @@ program2prop e = case e of
 
 vardecl2prop :: [Mapping] -> VarDecl -> GProp
 vardecl2prop lex (VarDecl vname vtyp) =
-  GPAtom (GAKind (typ2kind vtyp) (var2ind lex vname))
+  GPAtom (GAKind (typ2kind lex vtyp) (var2ind lex vname))
 
 var2ind :: [Mapping] -> VarName -> GInd
 var2ind lexicon name = case findMapping lexicon name of
     val:_ -> GIVarN (LexNoun name)
     []    -> GIVar (GVString (GString name)) -- Fall back to string literal
 
-typ2kind :: Tp -> GKind
-typ2kind e = case e of
+typ2kind :: [Mapping] -> Tp -> GKind
+typ2kind lexicon e = case e of
   BoolT -> GBoolean
   IntT  -> GNat
+  ClassT (ClsNm name) -> GKInd (var2ind lexicon name)
   _ -> error $ "typ2kind: not yet supported: " ++ show e
-  -- ClassT ClassName
   -- FunT Tp Tp
   -- TupleT [Tp]
   -- ErrT
@@ -89,7 +89,8 @@ createLexicon langs lexicon = (abstract,concretes)
     abstract = unlines $
       ["abstract PropLexicon = Prop ** {"] ++
       ["fun"] ++
-      [ name ++ " : " ++ "Noun ;"| Mapping name _ <- lexicon ] ++
+      [ printf "%s : %s ;" name (gfType val)
+      | Mapping name val <- lexicon ] ++
       ["}"]
     concretes =
       [ unlines $
@@ -102,3 +103,10 @@ createLexicon langs lexicon = (abstract,concretes)
 
 concrName :: String -> Lang -> String
 concrName = printf "grammars/%s%s.gf"
+
+gfType :: String -> String
+gfType str = case last str of
+  'N' -> "Noun"
+  'A' -> "Adj"
+  'V' -> "Verb"
+  _ -> error $ "gfType: not supported yet: " ++ str

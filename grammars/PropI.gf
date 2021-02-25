@@ -4,6 +4,7 @@ incomplete concrete PropI of Prop = open
   Syntax, 
   Symbolic, 
   Sentence, ---- ExtAdvS
+  WordNet,
   Prelude in {
 
 lincat
@@ -17,6 +18,7 @@ lincat
   Fun1 = {s : Symb ; v : N2} ;
   Fun2 = {s : Symb ; v : N2} ;
   Noun = N ;
+  Adj = A ;
 
 lin
   PAtom a = {s = mkS a ; c = False} ;
@@ -69,25 +71,29 @@ lin
 -- supplementary
 
 lincat
-  Kind = CN ;
+  Kind = {s : CN ; isClass : Bool} ;
   [Prop] = {s : [S] ; c : Bool} ; -- c = True if any of props is complex
   [Pred1] = [AP] ;
   [Ind] = [NP] ;
   [Var] = NP ;
 
 lin
-  AKind k x = mkCl x.s k ;
+  AKind k x = 
+    case k.isClass of {
+      True => mkCl x.s (mkVP have_V2 (mkNP k.s)) ;
+      False => mkCl x.s k.s 
+      } ;
 
   PConjs c ps = case ps.c of {
     True  => {s = mkS <colonConj : Conj> c.c (mkS <bulletConj : Conj> ps.s) ; c = False} ; ----
     False => {s = mkS c.s ps.s ; c = True}
     } ;
   PUnivs vs k p = {
-    s = ExtAdvS (mkAdv for_Prep (mkNP all_Predet (mkNP aPl_Det (mkCN k vs)))) p.s ;
+    s = ExtAdvS (mkAdv for_Prep (mkNP all_Predet (mkNP aPl_Det (mkCN k.s vs)))) p.s ;
     c = False
     } ;
   PExists vs k p = {
-    s = mkS (mkCl (mkNP a_Quant (mkCN (mkCN k vs) (mkAP (mkAP such_A) p.s)))) ;
+    s = mkS (mkCl (mkNP a_Quant (mkCN (mkCN k.s vs) (mkAP (mkAP such_A) p.s)))) ;
     c = False
     } ;
   PNegAtom a = {
@@ -115,12 +121,12 @@ lin
 
   IFunC f xs = {s = app f.v (mkNP and_Conj xs) ; isSymbolic = False} ;
 
-  IUniv k = {s = mkNP every_Det k ; isSymbolic = False} ;
-  IExist k = {s = mkNP someSg_Det k ; isSymbolic = False} ;
+  IUniv k = {s = mkNP every_Det k.s ; isSymbolic = False} ;
+  IExist k = {s = mkNP someSg_Det k.s ; isSymbolic = False} ;
 
   ConjInd co xs = {s = mkNP co.s xs ; isSymbolic = False} ;
 
-  ModKind k m = mkCN m k ;
+  ModKind k m = k ** {s = mkCN m k.s} ;
 
   PartPred f x = mkAP f x.s ; 
 
@@ -128,8 +134,7 @@ lin
 
   BTrue = {s = symb "true" ; isSymbolic = True} ;
   BFalse = {s = symb "false" ; isSymbolic = True} ;
-
-
+  KInd ind = {s = mkCN type_5_N ind.s ; isClass = True} ;
 
 -- symbolic applications by LaTeX macros
 
@@ -140,6 +145,13 @@ oper
 
   symbNP : Str -> NP = \s -> (symb (mkSymb s)) ;
 
+  mkKind = overload {
+
+    mkKind : N -> {s : CN ; isClass : Bool} = \n -> {
+      s = mkCN n ; isClass = False } ;
+    mkKind : CN -> {s : CN ; isClass : Bool} = \cn -> {
+      s = cn ; isClass = False }
+    } ;
 
 --- abuse of Conj category and its accidentally shared implementation
 

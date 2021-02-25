@@ -1,13 +1,16 @@
 cradle:
   multi:
-    - path: ./Setup.hs
+    # - path: ./Setup.hs
+    #   config:
+    #     cradle:
+    #       direct:
+    #         arguments:
+    #           - "-package Cabal"
+    #           - "-package base"
+    - path: "./grammars"
       config:
         cradle:
-          direct:
-            arguments:
-              - "-package Cabal"
-              - "-package base"
-
+          none:
     - path: "./"
       config:
         cradle:
