@@ -9,14 +9,6 @@ import System.Environment (withArgs)
 import Control.Monad (forM_)
 import Text.Printf (printf)
 
-
--- myPgf :: IO PGF
--- myPgf = do
---   -- pgfFile <- Paths_baby_l4.getDataFileName "Prop.pgf"
---   -- TODO: create the PGF file!
---   let pgfFile = "generated/PropTop.pgf"
---   PGF.readPGF pgfFile
-
 createPGF :: (Show ct, Show et) => Program ct et -> IO PGF.PGF
 createPGF (Program lexicon _2 _3 _4 _5) = do
   let langs = ["Eng","Swe"]
@@ -37,10 +29,6 @@ createPGF (Program lexicon _2 _3 _4 _5) = do
   withArgs ["-make", "--output-dir=generated", "grammars/PropTopEng.gf", "grammars/PropTopSwe.gf"] GF.main
   PGF.readPGF "generated/PropTop.pgf"
 
-
--- printPgf :: IO ()
--- printPgf = print . categories =<< myPgf
-
 nlg :: (Show ct, Show et) => Program ct et -> IO ()
 nlg prog = do
   gr <- createPGF prog
@@ -50,7 +38,6 @@ nlg prog = do
     , let pgfExpr = gf prop
     ]
 
--- Example: Program [] [VarDecl "myNumber" IntT,VarDecl "myTruth" BoolT] [] []
 program2prop :: (Show ct, Show et) => Program ct et -> [GProp]
 program2prop e = case e of
   Program lexicon _cl vardecls _rs _as -> map (vardecl2prop lexicon) vardecls
