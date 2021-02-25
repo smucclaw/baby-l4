@@ -4,9 +4,9 @@ import Parser (parseProgram)
 import System.Environment
 import qualified ToGF as GF
 
-process :: String -> IO ()
-process input = do
-  let ast = parseProgram input
+process :: FilePath -> String -> IO ()
+process filepath input = do
+  let ast = parseProgram filepath input
   case ast of
     Right ast -> do
       putStrLn (show ast)
@@ -22,4 +22,4 @@ main = do
     []      -> putStrLn "Usage: core-language <input file>"
     [fname] -> do
       contents <- readFile fname
-      process contents
+      process fname contents

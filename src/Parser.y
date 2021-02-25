@@ -20,58 +20,60 @@ import Control.Monad.Except
 -- Lexer structure 
 %tokentype { Token }
 
+
 -- Parser monad
-%monad { Except String } { (>>=) } { return }
+%monad { Alex }
+%lexer { lexwrap } { Token _ TokenEOF }
 %error { parseError }
 
 -- Token Names
 %token
-    assert  { TokenAssert }
-    class   { TokenClass }
-    decl    { TokenDecl }
-    defn    { TokenDefn }
-    extends { TokenExtends }
-    lexicon { TokenLexicon }
-    rule    { TokenRule }
+    assert  { Token _ TokenAssert }
+    class   { Token _ TokenClass }
+    decl    { Token _ TokenDecl }
+    defn    { Token _ TokenDefn }
+    extends { Token _ TokenExtends }
+    lexicon { Token _ TokenLexicon }
+    rule    { Token _ TokenRule }
 
-    Bool  { TokenBool }
-    Int   { TokenInt }
+    Bool  { Token _ TokenBool }
+    Int   { Token _ TokenInt }
 
-    let    { TokenLet }
-    in     { TokenIn }
-    not    { TokenNot }
-    forall { TokenForall }
-    exists { TokenExists }
-    if     { TokenIf }
-    then   { TokenThen }
-    else   { TokenElse }
-    for    { TokenFor }
-    true   { TokenTrue }
-    false  { TokenFalse }
+    let    { Token _ TokenLet }
+    in     { Token _ TokenIn }
+    not    { Token _ TokenNot }
+    forall { Token _ TokenForall }
+    exists { Token _ TokenExists }
+    if     { Token _ TokenIf }
+    then   { Token _ TokenThen }
+    else   { Token _ TokenElse }
+    for    { Token _ TokenFor }
+    true   { Token _ TokenTrue }
+    false  { Token _ TokenFalse }
     
-    '\\'  { TokenLambda }
-    '->'  { TokenArrow }
-    '-->' { TokenImpl }
-    '||'  { TokenOr }
-    '&&'  { TokenAnd }
-    '='   { TokenEq }
-    '<'   { TokenLt }
-    '>'   { TokenGt }
-    '+'   { TokenAdd }
-    '-'   { TokenSub }
-    '*'   { TokenMul }
-    '/'   { TokenDiv }
-    '%'   { TokenMod }
-    '.'   { TokenDot }
-    ','   { TokenComma }
-    ':'   { TokenColon }
-    '('   { TokenLParen }
-    ')'   { TokenRParen }
-    '{'   { TokenLBrace }
-    '}'   { TokenRBrace }
+    '\\'  { Token _ TokenLambda }
+    '->'  { Token _ TokenArrow }
+    '-->' { Token _ TokenImpl }
+    '||'  { Token _ TokenOr }
+    '&&'  { Token _ TokenAnd }
+    '='   { Token _ TokenEq }
+    '<'   { Token _ TokenLt }
+    '>'   { Token _ TokenGt }
+    '+'   { Token _ TokenAdd }
+    '-'   { Token _ TokenSub }
+    '*'   { Token _ TokenMul }
+    '/'   { Token _ TokenDiv }
+    '%'   { Token _ TokenMod }
+    '.'   { Token _ TokenDot }
+    ','   { Token _ TokenComma }
+    ':'   { Token _ TokenColon }
+    '('   { Token _ TokenLParen }
+    ')'   { Token _ TokenRParen }
+    '{'   { Token _ TokenLBrace }
+    '}'   { Token _ TokenRBrace }
 
-    NUM   { TokenNum $$ }
-    VAR   { TokenSym $$ }
+    NUM   { Token _ (TokenNum $$) }
+    VAR   { Token _ (TokenSym $$) }
 
 -- Operators
 %right '->'
@@ -195,15 +197,24 @@ Annot : '(' NUM ')'                 { GFAnnot $2 }
 
 
 {
+lexwrap :: (Token -> Alex a) -> Alex a
+lexwrap = (alexMonadScan' >>=)
 
-parseError :: [Token] -> Except String a
-parseError (l:ls) = throwError (show l)
-parseError [] = throwError "Unexpected end of Input"
+parseError :: Token -> Alex a
+parseError (Token p t) =
+  alexError' p ("parse error at token '" ++ unLex t ++ "'")
 
-parseProgram:: String -> Either String (Program (Maybe ClassName) ())
-parseProgram input = runExcept $ do
-  tokenStream <- scanTokens input
-  program tokenStream
+-- parseError :: [Token] -> Except String a
+-- parseError (l:ls) = throwError (show l)
+-- parseError [] = throwError "Unexpected end of Input"
+
+parseProgram :: FilePath -> String -> Either String (Program (Maybe ClassName) ())
+parseProgram = runAlex' program
+
+-- parseProgram:: String -> Either String (Program (Maybe ClassName) ())
+-- parseProgram input = runExcept $ do
+--   tokenStream <- scanTokens input
+--   program tokenStream
 
 -- still needed ???
 -- parseTokens :: String -> Either String [Token]
