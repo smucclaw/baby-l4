@@ -16,7 +16,8 @@ extra-deps:
   - constraints-extras-0.3.0.2@sha256:013b8d0392582c6ca068e226718a4fe8be8e22321cc0634f6115505bf377ad26,1853
 
 # Required for the option custom-preprocessor-extensions
-require-stack-version: ">= 2.6.0"
+# require-stack-version: ">= 2.6.0"
+# This will show a warning
 custom-preprocessor-extensions:
 - gf
 
