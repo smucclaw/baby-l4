@@ -12,7 +12,8 @@ cat
   Fun1 ;
   Fun2 ;
   Conj ;
-  Noun ;
+  -- For lexicon
+  Noun ; Adj ;
 
 fun
   PAtom  : Atom  -> Prop ;
@@ -76,7 +77,6 @@ fun
 fun
   Vertical, Horizontal : Pred1 ;
   Parallel, Equal : Pred2 ;
-  Line, Point : Kind ;
   Centre : Fun1 ;
   Intersection : Fun2 ;  
 
@@ -86,12 +86,18 @@ fun
 
   Even, Odd    : Pred1 ;
   Nat          : Kind ;
-  Boolean      : Kind ;
+  Boolean      : Kind ;    
+
+  -- Overgenerating, but we're using this grammar only to linearise
+  KInd         : Ind -> Kind ;
+
   Square       : Fun1 ;
   Sum, Product : Fun2 ;
   IInt         : Int -> Ind ;
   BTrue, BFalse : Ind ;
 
 -- dummy instance of noun so that generated Prop.hs doesn't complain
-  Dummy : Noun ;
+  DummyN : Noun ;
+  DummyA : Adj ;
+
 }

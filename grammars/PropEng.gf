@@ -3,7 +3,8 @@
 concrete PropEng of Prop = PropI - [PNeg, PNegAtom] with 
   (Syntax = SyntaxEng), 
   (Symbolic = SymbolicEng),
-  (Sentence = SentenceEng)
+  (Sentence = SentenceEng),
+  (WordNet = WordNetEng)
    ** open (P = ParadigmsEng), ExtraEng, Prelude in {
 
 -- exceptions
@@ -38,20 +39,18 @@ lin
   Horizontal = mkAP (P.mkA "horizontal") ;
   Parallel = P.mkA2 (P.mkA "parallel") to_Prep ;
   Equal = P.mkA2 (P.mkA "equal") to_Prep ;
-  Line = mkCN (P.mkN "line") ;
-  Point = mkCN (P.mkN "point") ;
   Centre = mkFun1 "centre" ;
   Intersection = mkFun2 "intersection" ;
 
-  Set k = mkCN set_N2 (mkNP a_Art plNum k) ; 
+  Set k = k ** {s = mkCN set_N2 (mkNP a_Art plNum k.s)} ; 
 
   Even = mkAP (P.mkA "even") ;
   Odd = mkAP (P.mkA "odd") ;
   Square = mkFun1 "square" ;
   Sum = mkFun2 "sum" ;
   Product = mkFun2 "product" ;
-  Nat = mkCN (P.mkN "number") ;
-  Boolean = mkCN (P.mkA "Boolean") (P.mkN "value") ;
+  Nat = mkKind (P.mkN "number") ;
+  Boolean = mkKind (mkCN (P.mkA "Boolean") (P.mkN "value")) ;
 
 oper
   mkFun1, mkFun2 : Str -> {s : Symb ; v : N2} = \s -> 
