@@ -106,6 +106,8 @@ is_legal is a function from the type business to a Boolean value
 is_legal är en funktion från typen affär till en boolesk variabel
 #+end_example
 
+So try running the command above; it does a =stack build= along the way, and you can expect the first run to take a little while.
+
 If you get an error involving =Syntax.gf=, then you need to get your =RGL= and =WordNet= installed correctly. To get =RGL= installed, you need =gf=.
 
 Where is gf? From inside the =baby-l4= directory (which is where you should already be, if you are reading this):
@@ -158,7 +160,7 @@ You need to create it.
 mkdir $GF_LIB_PATH
 #+end_example
 
-TODO: raise a PR against gf-rgl to =mkdir -p $GF_LIB_PATH= if it doesn't already exist. Note that this mkdir PR will be complicated the fact that a GF_LIB_PATH may be a colon-separated list.
+TODO: raise a PR against gf-rgl to =mkdir -p $GF_LIB_PATH= if it doesn't already exist. Note that this mkdir PR will be complicated by the fact that a GF_LIB_PATH may be a colon-separated list.
 
 Now we are ready to install to it.
 
@@ -215,9 +217,6 @@ stack run l4 l4/mini.l4
 should produce a whole bunch of errors you can ignore:
 
 #+begin_example
-┌─[mengwong@venice4] - [~/src/smucclaw/baby-l4] - [2021-02-26 14:57:56]
-└─[0] <git:(main 51df427✱✈) > stack run l4 l4/mini.l4
-
 Warning: Unable to find a known candidate for the Cabal entry Prop, but did find:
          * PropEng.gf
          * PropI.gf
