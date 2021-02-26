@@ -209,7 +209,7 @@ parseError (Token p _ t) =
 -- parseError (l:ls) = throwError (show l)
 -- parseError [] = throwError "Unexpected end of Input"
 
-parseProgram :: FilePath -> String -> Either String (Program (Maybe ClassName) ())
+parseProgram :: FilePath -> String -> Either Err (Program (Maybe ClassName) ())
 parseProgram = runAlex' program
 
 -- parseProgram:: String -> Either String (Program (Maybe ClassName) ())
