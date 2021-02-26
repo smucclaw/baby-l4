@@ -85,3 +85,5 @@ executable lsp-server-bl4
                      , array
                      , haskeline  >= 0.7
                      , mtl        >= 2.2 && <2.4
+                     , lens
+                     , hslogger
