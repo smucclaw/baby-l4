@@ -1,13 +1,13 @@
 # l4version 0.3.4
 
 lexicon
-myNumber -> number_2_N
-myTruth -> truth_1_N
+#myNumber -> number_2_N
 is_legal -> legal_1_A
 Business -> business_1_N
 
 decl myNumber : Int
 
-decl myTruth : Bool
-
 decl myBusiness : Business
+
+decl is_legal : Business -> Bool
+

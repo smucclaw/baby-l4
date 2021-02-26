@@ -26,6 +26,7 @@ fun
 
   IVar   : Var -> Ind ;
   IVarN  : Noun -> Ind ;
+  -- IVarA  : Adj -> Ind ;
 
   APred1 : Pred1 -> Ind -> Atom ;
   APred2 : Pred2 -> Ind -> Ind -> Atom ;
@@ -90,6 +91,7 @@ fun
 
   -- Overgenerating, but we're using this grammar only to linearise
   KInd         : Ind -> Kind ;
+  KFun         : Kind -> Kind -> Kind ;
 
   Square       : Fun1 ;
   Sum, Product : Fun2 ;
