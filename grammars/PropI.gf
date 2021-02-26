@@ -135,21 +135,25 @@ lin
   BTrue = {s = symb "true" ; isSymbolic = True} ;
   BFalse = {s = symb "false" ; isSymbolic = True} ;
   KInd ind = {s = mkCN type_5_N ind.s ; isClass = True} ;
-
 -- symbolic applications by LaTeX macros
 
 oper
+  funType : N3 -> LinKind -> LinKind -> LinKind = \f,arg,ret ->
+    {s = mkCN f (mkNP the_Det arg.s) (mkNP a_Det ret.s) ;
+     isClass = False} ;
+
   app1 : Symb -> NP -> NP = \f,x -> symbNP (f.s ++ "{" ++ (mkUtt x).s ++ "}") ; 
   app2 : Symb -> NP -> NP -> NP = \f,x,y -> 
     symbNP (f.s ++ "{" ++ (mkUtt x).s ++ "}" ++ "{" ++ (mkUtt y).s ++ "}") ; 
 
   symbNP : Str -> NP = \s -> (symb (mkSymb s)) ;
 
+  LinKind : Type = {s : CN ; isClass : Bool} ;
   mkKind = overload {
 
-    mkKind : N -> {s : CN ; isClass : Bool} = \n -> {
+    mkKind : N -> LinKind = \n -> {
       s = mkCN n ; isClass = False } ;
-    mkKind : CN -> {s : CN ; isClass : Bool} = \cn -> {
+    mkKind : CN -> LinKind = \cn -> {
       s = cn ; isClass = False }
     } ;
 

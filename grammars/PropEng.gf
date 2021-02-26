@@ -43,6 +43,7 @@ lin
   Intersection = mkFun2 "intersection" ;
 
   Set k = k ** {s = mkCN set_N2 (mkNP a_Art plNum k.s)} ; 
+  KFun = funType (P.mkN3 function_1_N from_Prep to_Prep) ;
 
   Even = mkAP (P.mkA "even") ;
   Odd = mkAP (P.mkA "odd") ;

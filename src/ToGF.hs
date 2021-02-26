@@ -32,7 +32,8 @@ createPGF (Program lexicon _2 _3 _4 _5) = do
 nlg :: (Show ct, Show et) => Program ct et -> IO ()
 nlg prog = do
   gr <- createPGF prog
-  sequence_ [
+  sequence_ [ do
+    putStrLn $ PGF.showExpr [] pgfExpr
     mapM_ putStrLn $ linearizeAll gr pgfExpr
     | prop <- program2prop prog
     , let pgfExpr = gf prop
@@ -49,16 +50,18 @@ vardecl2prop lex (VarDecl vname vtyp) =
 
 var2ind :: [Mapping] -> VarName -> GInd
 var2ind lexicon name = case findMapping lexicon name of
-    val:_ -> GIVarN (LexNoun name)
-    []    -> GIVar (GVString (GString name)) -- Fall back to string literal
+    val:_ -> if gfType val == "Noun"
+              then GIVarN (LexNoun name)
+              else GIVar (GVString (GString name)) 
+    _           -> GIVar (GVString (GString name)) -- Fall back to string literal
 
 typ2kind :: [Mapping] -> Tp -> GKind
 typ2kind lexicon e = case e of
   BoolT -> GBoolean
   IntT  -> GNat
   ClassT (ClsNm name) -> GKInd (var2ind lexicon name)
+  FunT arg ret -> GKFun (typ2kind lexicon arg) (typ2kind lexicon ret)
   _ -> error $ "typ2kind: not yet supported: " ++ show e
-  -- FunT Tp Tp
   -- TupleT [Tp]
   -- ErrT
 
