@@ -40,12 +40,11 @@ handlers = mconcat
 
 -- | Analyze the file and send any diagnostics to the client in a
 -- "textDocument/publishDiagnostics" notification
-sendDiagnostics :: J.Range -> J.NormalizedUri -> Maybe Int -> LspM Config ()
-sendDiagnostics range fileUri version = do
+sendDiagnostics :: J.NormalizedUri -> Maybe Int -> LspM Config ()
+sendDiagnostics fileUri version = do
   let
     diags = [J.Diagnostic
-              -- (J.Range (J.Position 0 1) (J.Position 0 5))
-              range
+              (J.Range (J.Position 0 1) (J.Position 0 5))
               (Just J.DsWarning)  -- severity
               Nothing  -- code
               (Just "lsp-hello") -- source
@@ -70,13 +69,16 @@ elog = liftIO . hPutStrLn stderr . tshow
 aposToPos :: AlexPosn -> Position
 aposToPos (AlexPn _ l c) = Position (l - 1) (c - 1)
 
+movePos :: Int -> Position -> Position
+movePos n (Position l c) = Position l (c + n)
+
 lookupToken :: Position -> TextDocumentIdentifier -> LspT () IO (Maybe Hover)
 lookupToken pos@(Position l c) (TextDocumentIdentifier uri) = do
   -- print doc
   let nuri = toNormalizedUri uri
-  sendDiagnostics (J.Range (J.Position 0 1) (J.Position 0 5)) nuri Nothing
+  sendDiagnostics nuri Nothing
   let Just loc = uriToFilePath uri
-  allTokens <- liftIO $ scanFile loc
+  allTokens <- liftIO $ scanFile loc
   -- print allTokens
 
   -- sendNotification SWindowShowMessage (ShowMessageParams MtInfo (tshow allTokens))
@@ -96,33 +98,32 @@ lookupToken pos@(Position l c) (TextDocumentIdentifier uri) = do
                   (Just J.DsError)  -- severity
                   Nothing  -- code
                   (Just "lexer") -- source
-                  (T.pack $ msg err)
+                  (T.pack $ msg err)
                   Nothing -- tags
                   (Just (J.List []))
                 ]
       publishDiagnostics 100 nuri Nothing (partitionBySource diags)
 
       _ <- sendNotification SWindowShowMessage $ ShowMessageParams MtError $ tshow err
-      return Nothing -- TODO: Report this error as a diagnostic
-      -- One problem with making the diagnostic is that alex by default shows errors as a string
-      -- Which we would have to parse to be able to find where the error is
-      -- Or somehow convince alex to use another type for reporting errors
+      return Nothing
+      -- TODO: Clear diagnostics when they are no longer relevant
     Right tokens -> do
       publishDiagnostics 100 nuri Nothing (partitionBySource [])
       let toks = find (matchesPos' (l + 1) (c + 1)) tokens
       -- sendNotification SWindowShowMessage $ ShowMessageParams MtInfo $ tshow pos <> tshow toks
-      -- TODO: Extract length from the token to make a range
       elog pos
       elog toks
-      for toks $ \tok -> do
-
+      pure $ toks <&> \tok@Token {tokenKind} ->
         let
-            ms = HoverContents $ markedUpContent "lsp-demo-simple-server" $ tshow toks
-            -- ms = HoverContents $ markedUpContent "lsp-demo-simple-server" $ tshow doc
-            range = Range pos pos
-            -- rsp = Hover ms (Just range)
-            rsp = Hover ms Nothing
-        return $ rsp
+          ms = HoverContents $ markedUpContent "haskell" $ tshow tok --tokenKind
+        in
+          Hover ms $ Just $ tokenRange tok
+
+tokenRange :: Token -> Range
+tokenRange Token {tokenPos, tokenLen, tokenKind} = Range startPos endPos
+  where
+    startPos = aposToPos tokenPos
+    endPos = movePos tokenLen startPos
 
 main :: IO Int
 main = do
