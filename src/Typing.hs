@@ -29,12 +29,12 @@ locals_of_env :: Environment t -> [(VarName,Tp)]
 locals_of_env (Env _ _ (LVD ls)) = ls
 
 initialEnvOfProgram :: Program (Maybe ct) et -> Environment (Maybe ct)
-initialEnvOfProgram (Program _ cds gvs rls ass) = 
+initialEnvOfProgram (Program _ cds gvs rls ass) =
   let initialModule = (Mdl (customCs ++ cds) [])
       initialGvs = GVD (map (\(VarDecl vn t) -> (vn, t)) gvs)
   in Env initialModule initialGvs (LVD [])
 
--- TODO: recheck the typing 
+-- TODO: recheck the typing
 
 ----------------------------------------------------------------------
 -- Class manipulation
@@ -58,10 +58,10 @@ super_classes cdf_assoc visited cn =
     -- reached the top of the hierarchy
     Just (ClassDef Nothing _) -> reverse (cn : visited)
     -- class has super-class with name scn
-    Just (ClassDef (Just scn) _) -> 
+    Just (ClassDef (Just scn) _) ->
       if elem scn visited
       then error ("cyclic superclass hierarchy for class " ++ (case cn of (ClsNm n) -> n))
-      else super_classes cdf_assoc (cn : visited) scn 
+      else super_classes cdf_assoc (cn : visited) scn
 
 -- For each of a list of class declarations, returns its list of superclass names
 super_classes_decls :: [ClassDecl (Maybe ClassName)] -> [[ClassName]]
@@ -74,7 +74,7 @@ super_classes_decls cds =
 elaborate_supers_in_class_decls :: [ClassDecl (Maybe ClassName)] -> [ClassDecl [ClassName]]
 elaborate_supers_in_class_decls cds =
   let cdf_assoc = class_def_assoc cds
-  in map (\(ClassDecl cn (ClassDef mcn fds)) -> 
+  in map (\(ClassDecl cn (ClassDef mcn fds)) ->
     (ClassDecl cn (ClassDef (tail (super_classes cdf_assoc [] cn)) fds))) cds
 
 
@@ -90,7 +90,7 @@ elaborate_fields_in_class_decls cds =
   let fd_assoc = field_assoc cds
   in map (\(ClassDecl cn (ClassDef scs locfds)) ->
             (ClassDecl cn (ClassDef scs (locfds ++ (concatMap (local_fields fd_assoc) scs))))) cds
-  
+
 
 -- the class decl does not reference an undefined superclass
 defined_superclass :: [ClassName] -> ClassDecl (Maybe ClassName) -> Bool
@@ -139,7 +139,7 @@ strict_superclasses_of :: Module [ClassName] -> ClassName -> [ClassName]
 strict_superclasses_of md cn = case lookup cn (class_def_assoc (class_decls_of_module md)) of
   Nothing -> error ("in strict_superclasses_of: undefined class " ++ (case cn of (ClsNm n) -> n))
   Just (ClassDef supcls _) -> supcls
-  
+
 is_strict_subclass_of :: Module [ClassName] -> ClassName -> ClassName -> Bool
 is_strict_subclass_of md subcl supercl = elem subcl (strict_superclasses_of md subcl)
 
@@ -160,7 +160,7 @@ tp_constval env x = case x of
   IntV _ -> IntT
   -- for record values to be well-typed, the fields have to correspond exactly (incl. order of fields) to the class fields.
   -- TODO: maybe relax some of these conditions.
-  RecordV cn fnvals -> 
+  RecordV cn fnvals ->
     -- list of: field name, type of value
     let tfnvals = map (\(fn, v) -> (fn, (tp_constval env v))) fnvals
     in case lookup_class_def_in_env env cn of
@@ -229,14 +229,14 @@ tpVar env (GlobalVar vn) =
 tpVar env (LocalVar _) = error "internal error: for type checking, variable should be GlobalVar"
 
 varIndexInEnv :: Environment t -> VarName -> Int
-varIndexInEnv (Env md _ (LVD vds)) vn =  
-  case elemIndex vn (map fst vds) of 
+varIndexInEnv (Env md _ (LVD vds)) vn =
+  case elemIndex vn (map fst vds) of
     Nothing -> 0    -- tpVar will detect the problem
     Just n -> n
 
 varIdentityInEnv :: Environment t -> Var -> Var
-varIdentityInEnv (Env md _ (LVD vds)) (GlobalVar vn) = 
-  case elemIndex vn (map fst vds) of 
+varIdentityInEnv (Env md _ (LVD vds)) (GlobalVar vn) =
+  case elemIndex vn (map fst vds) of
     Nothing -> (GlobalVar vn)
     Just n -> (LocalVar n)
 varIdentityInEnv env (LocalVar _) = error "internal error: for type checking, variable should be GlobalVar"
@@ -255,7 +255,7 @@ tpExpr :: Environment t -> Expr () -> Expr Tp
 tpExpr env x = case x of
   ValE () c -> ValE (tp_constval env c) c
   VarE () v -> VarE (tpVar env v) (varIdentityInEnv env v)
-  UnaOpE () uop e -> 
+  UnaOpE () uop e ->
     let te = (tpExpr env e)
         t   = tp_unaop (tpOfExpr te) uop
     in  UnaOpE t uop te
@@ -264,7 +264,7 @@ tpExpr env x = case x of
         te2 = (tpExpr env e2)
         t   = tp_binop (tpOfExpr te1) (tpOfExpr te2) bop
     in  BinOpE t bop te1 te2
-  IfThenElseE () c e1 e2 -> 
+  IfThenElseE () c e1 e2 ->
     let tc = (tpExpr env c)
         te1 = (tpExpr env e1)
         te2 = (tpExpr env e2)
@@ -272,7 +272,7 @@ tpExpr env x = case x of
       if tpOfExpr tc == BoolT && (tpOfExpr te1) == (tpOfExpr te2)
       then IfThenElseE (tpOfExpr te1) tc te1 te2
       else  IfThenElseE ErrT tc te1 te2
-  AppE () fe ae -> 
+  AppE () fe ae ->
     let tfe = (tpExpr env fe)
         tae = (tpExpr env ae)
         tf = (tpOfExpr tfe)
@@ -283,17 +283,17 @@ tpExpr env x = case x of
         then AppE tbody tfe tae
         else AppE ErrT tfe tae
       _ -> AppE ErrT tfe tae
-  FunE () pt tparam e -> 
+  FunE () pt tparam e ->
     let te = (tpExpr (pushVardeclEnv pt tparam env) e)
         t   = (tpOfExpr te)
-    in  
+    in
       -- TODO: the test should come before the recursive call
       -- because pushVardeclEnv may lead to a Haskell match failure.
       if compatiblePatternType pt tparam
       then FunE (FunT tparam t) pt tparam te
       else FunE ErrT pt tparam te
   -- ClosE: no explicit typing because not externally visible
-  CastE () ctp e ->        
+  CastE () ctp e ->
     let te = (tpExpr env e)
     in if cast_compatible (tpOfExpr te) ctp
        then CastE ctp ctp te
@@ -340,14 +340,14 @@ well_formed_transition_cond ta_clks (TransCond ccs e) =
 
 -- TODO: still type-check command c
 well_formed_transition_action :: [ClassName] -> [Clock] -> TransitionAction () -> Bool
-well_formed_transition_action ta_act_clss ta_clks (TransAction act clks c) = 
+well_formed_transition_action ta_act_clss ta_clks (TransAction act clks c) =
   well_formed_action ta_act_clss act &&
   list_subset clks ta_clks
 
 well_formed_transition :: [Loc] -> [ClassName] -> [Clock] -> Transition () -> Bool
-well_formed_transition ta_locs ta_act_clss ta_clks (Trans l1 trcond tract l2) = 
+well_formed_transition ta_locs ta_act_clss ta_clks (Trans l1 trcond tract l2) =
   elem l1 ta_locs && elem l2 ta_locs &&
-  well_formed_transition_cond ta_clks trcond && 
+  well_formed_transition_cond ta_clks trcond &&
   well_formed_transition_action ta_act_clss ta_clks tract
 
 type_transition_cond :: Environment [ClassName] -> TransitionCond () -> TransitionCond Tp
@@ -375,11 +375,11 @@ well_formed_ta env (TmdAut nm ta_locs ta_act_clss ta_clks trans init_locs invs l
       then (TmdAut nm ta_locs ta_act_clss ta_clks ttrans init_locs invs (zip lbls_locs tes))
       else error "ill-formed timed automaton (labels)"
   else error "ill-formed timed automaton (transitions)"
-      
+
 well_formed_ta_sys :: Environment [ClassName] -> TASys () ext -> TASys Tp ext
 well_formed_ta_sys env (TmdAutSys tas ext) =
   if distinct (map name_of_ta tas)
   then TmdAutSys (map (well_formed_ta env) tas) ext
   else error "duplicate TA names"
-  
+
 
