@@ -11,7 +11,7 @@ import Text.Printf (printf)
 
 createPGF :: (Show ct, Show et) => Program ct et -> IO PGF.PGF
 createPGF (Program lexicon _2 _3 _4 _5) = do
-  let langs = ["Eng","Swe", "Por"]
+  let langs = ["Eng","Swe"]
   let (abstract,concretes) = createLexicon langs lexicon
   -- Generate lexicon
   writeFile "grammars/PropLexicon.gf" abstract
