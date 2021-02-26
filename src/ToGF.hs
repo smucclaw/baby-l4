@@ -26,7 +26,7 @@ createPGF (Program lexicon _2 _3 _4 _5) = do
   forM_ langs $
     \lang -> writeFile (concrName "PropTop" lang) (topCnc lang)
 
-  withArgs (["-make", "--output-dir=generated"] ++ map (concrName "PropTop") langs) GF.main
+  withArgs (["-make", "--output-dir=generated", "-v=0"] ++ map (concrName "PropTop") langs) GF.main
   PGF.readPGF "generated/PropTop.pgf"
 
 nlg :: (Show ct, Show et) => Program ct et -> IO ()
