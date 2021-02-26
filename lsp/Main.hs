@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 module Main where
 
 import Language.LSP.Server
@@ -11,9 +12,16 @@ import Data.List (find)
 import Data.Text.IO (hPutStrLn)
 import System.IO (stderr)
 
+import           Control.Lens hiding (Iso)
 import qualified Language.LSP.Types            as J
+import qualified Language.LSP.Types.Lens       as J
 import           Language.LSP.Diagnostics
-import Data.Traversable
+import           System.Log.Logger
+import Data.Traversable ( for )
+-- import Control.Monad.Identity (Identity(runIdentity))
+import Data.Functor.Const (Const(..))
+import Parser (parseProgram)
+import Data.Foldable (for_)
 
 type Config = ()
 
@@ -31,11 +39,20 @@ handlers = mconcat
       rsp <- lookupToken pos doc
       -- responder (Right $ Just rsp)
       responder (Right rsp)
-  -- , notificationHandler J.STextDocumentDidOpen $ \msg -> do
-  --   let doc  = msg ^. J.params . J.textDocument . J.uri
-  --       fileName =  J.uriToFilePath doc
-  --   liftIO $ debugM "reactor.handle" $ "Processing DidOpenTextDocument for: " ++ show fileName
-  --   sendDiagnostics (J.toNormalizedUri doc) (Just 0)
+  , notificationHandler J.STextDocumentDidOpen $ \msg -> do
+    let doc  = msg ^. J.params . J.textDocument . J.uri
+        fileName =  J.uriToFilePath doc
+    liftIO $ debugM "reactor.handle" $ "Processing DidOpenTextDocument for: " ++ show fileName
+    for_ fileName $ \fn -> do
+      contents <- liftIO $ readFile fn
+      parseAndSendErrors doc $ T.pack contents
+  , notificationHandler J.STextDocumentDidSave $ \msg -> do
+    let doc  = msg ^. J.params . J.textDocument . J.uri
+        fileName =  J.uriToFilePath doc
+    liftIO $ debugM "reactor.handle" $ "Processing DidSaveTextDocument for: " ++ show fileName
+    for_ fileName $ \fn -> do
+      contents <- liftIO $ readFile fn
+      parseAndSendErrors doc $ T.pack contents
   ]
 
 -- | Analyze the file and send any diagnostics to the client in a
@@ -53,6 +70,28 @@ sendDiagnostics fileUri version = do
               (Just (J.List []))
             ]
   publishDiagnostics 100 fileUri version (partitionBySource diags)
+
+parseAndSendErrors :: J.Uri -> T.Text -> LspM Config ()
+parseAndSendErrors uri contents = do
+  let Just loc = uriToFilePath uri
+  let pres = parseProgram loc $ T.unpack contents
+  case pres of
+    Right err -> pure ()
+    Left err -> do
+      let
+        nuri = toNormalizedUri uri
+        AlexPn _ el ec = epos err
+        errpos = aposToPos $ epos err
+        diags = [J.Diagnostic
+                  (J.Range errpos errpos)
+                  (Just J.DsError)  -- severity
+                  Nothing  -- code
+                  (Just "lexer") -- source
+                  (T.pack $ msg err)
+                  Nothing -- tags
+                  (Just (J.List []))
+                ]
+      publishDiagnostics 100 nuri Nothing (partitionBySource diags)
 
 
 tshow :: Show a => a -> T.Text
@@ -125,6 +164,22 @@ tokenRange Token {tokenPos, tokenLen, tokenKind} = Range startPos endPos
     startPos = aposToPos tokenPos
     endPos = movePos tokenLen startPos
 
+syncOptions :: J.TextDocumentSyncOptions
+syncOptions = J.TextDocumentSyncOptions
+  { J._openClose         = Just True
+  , J._change            = Just J.TdSyncIncremental
+  , J._willSave          = Just False
+  , J._willSaveWaitUntil = Just False
+  , J._save              = Just $ J.InR $ J.SaveOptions $ Just False
+  }
+
+lspOptions :: Options
+lspOptions = defaultOptions
+  { textDocumentSync = Just syncOptions
+  , executeCommandCommands = Just ["lsp-hello-command"]
+  }
+
+
 main :: IO Int
 main = do
   setupLogger Nothing ["lsp-demo"] minBound
@@ -133,5 +188,5 @@ main = do
     , doInitialize = \env _req -> pure $ Right env
     , staticHandlers = handlers
     , interpretHandler = \env -> Iso (runLspT env) liftIO
-    , options = defaultOptions
+    , options = lspOptions
     }
