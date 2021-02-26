@@ -82,33 +82,53 @@ E<> AutA.l3 and AutB.l2
 A textual trace is then written to standard output.
 
 
-* Installation and Prequisites
+* Installation and Prerequisites
 
 The goal is for this to work:
 
 #+begin_example
-$ stack run l4 l4/mini.l4
+stack run l4 l4/mini.l4
 #+end_example
 
-and you should get this output:
+and you should (eventually) get this output:
 
 #+begin_example
+Program [Mapping "is_legal" "legal_1_A",Mapping "Business" "business_1_N"] [] [VarDecl "myNumber" IntT,VarDecl "myBusiness" (ClassT (ClsNm "Business")),VarDecl "is_legal" (FunT (ClassT (ClsNm "Business")) BoolT)] [] []
 
+PAtom (AKind Nat (IVar (VString "myNumber")))
+myNumber is a number
+myNumber är ett tal
+PAtom (AKind (KInd (IVarN Business)) (IVar (VString "myBusiness")))
+myBusiness has type business
+myBusiness är av typen affär
+PAtom (AKind (KFun (KInd (IVarN Business)) Boolean) (IVar (VString "is_legal")))
+is_legal is a function from the type business to a Boolean value
+is_legal är en funktion från typen affär till en boolesk variabel
 #+end_example
 
 If you get an error involving =Syntax.gf=, then you need to get your =RGL= and =WordNet= installed correctly. To get =RGL= installed, you need =gf=.
 
 Where is gf? From inside the =baby-l4= directory (which is where you should already be, if you are reading this):
 
+Inside baby-l4, run
+
 #+begin_example
-┌─[mengwong@venice4] - [~/src/smucclaw/baby-l4] - [2021-02-26 14:38:35]
-└─[0] <git:(main 020265a✈) > stack exec which gf
+stack exec which gf
+#+end_example
+
+You should see something like:
+
+#+begin_example
 /Users/mengwong/.stack/snapshots/x86_64-osx/0d89070f643fd180a58cfc42b9ba6fbece00cfd59cde65a81136970789de7eb9/8.8.4/bin/gf
 #+end_example
 
 Why? Baby-l4's =stack build= installs a working =gf= as a dependency, so we will use that instead of installing =gf-core= from source.
 
-Copy that path.
+Because it's huge, save it to a variable in the shell:
+
+#+begin_example
+mygf=`stack exec which gf`
+#+end_example
 
 ** Set up GF_LIB_PATH
 
@@ -118,12 +138,16 @@ In your =~/.zshenv= or in your =~/.profile=, depending on whether you belong to 
 export GF_LIB_PATH=$HOME/gf_lib_path
 #+end_example
 
-For that environment variable to take effect, you can restart your shell or just paste it at your shell prompt. Now you should see:
+For that environment variable to take effect, you can restart your shell or just paste it at your shell prompt. Now when you run:
 
 #+begin_example
-┌─[mengwong@venice4] - [~/src/smucclaw/baby-l4] - [2021-02-26 14:38:36]
-└─[0] <git:(main 020265a✈) > echo $GF_LIB_PATH
-/Users/mengwong/gf_lib_path
+echo $GF_LIB_PATH
+#+end_example
+
+You should see:
+
+#+begin_example
+/Users/<you>/gf_lib_path
 #+end_example
 
 This is where gf will install the RGL, and where baby-l4's codebase will look for it.
@@ -131,8 +155,7 @@ This is where gf will install the RGL, and where baby-l4's codebase will look fo
 You need to create it.
 
 #+begin_example
-┌─[mengwong@venice4] - [~/src/smucclaw/baby-l4] - [2021-02-26 14:43:34]
-└─[1] <git:(main 020265a✈) > mkdir $GF_LIB_PATH
+mkdir $GF_LIB_PATH
 #+end_example
 
 TODO: raise a PR against gf-rgl to =mkdir -p $GF_LIB_PATH= if it doesn't already exist. Note that this mkdir PR will be complicated the fact that a GF_LIB_PATH may be a colon-separated list.
@@ -140,6 +163,8 @@ TODO: raise a PR against gf-rgl to =mkdir -p $GF_LIB_PATH= if it doesn't already
 Now we are ready to install to it.
 
 ** Clone gf-rgl
+
+Download gf-rgl from Github:
 
 #+begin_example
 mkdir ~/src
@@ -150,11 +175,15 @@ cd gf-rgl
 
 You should now be in a directory called =~/src/gf-rgl=
 
-Run (substituting your actual gf path for the =--gf== argument below):
+In the =gf-rgl= directory, run:
 
 #+begin_example
-┌─[mengwong@venice4] - [~/src/gf-rgl] - [2021-02-26 14:33:25]
-└─[0] <git:(master 24bc8462) > ./Setup.sh --gf=/Users/mengwong/.stack/snapshots/x86_64-osx/0d89070f643fd180a58cfc42b9ba6fbece00cfd59cde65a81136970789de7eb9/8.8.4/bin/gf
+./Setup.sh --gf=$mygf
+#+end_example
+
+You should see:
+
+#+begin_example
 Building [prelude]
 Building [present]
 Building [alltenses]
@@ -168,11 +197,94 @@ First, clone gf-wordnet:
 #+begin_example
 cd ~/src
 git clone https://github.com/GrammaticalFramework/gf-wordnet
+cd gf-wordnet
 #+end_example
 
-Then run gf on some of the WordNet*.gf files, installing the compiled gfo files to GF_LIB_PATH.
+Then run =mygf= on some of the WordNet*.gf files; this command will install the compiled gfo files to GF_LIB_PATH.
 
 #+begin_example
-┌─[mengwong@venice4] - [~/src/gf-wordnet] - [2021-02-26 14:47:04]
-└─[127] <git:(master 6a717246) > `cd ~/src/smucclaw/baby-l4; stack exec which gf` --gfo-dir=$GF_LIB_PATH WordNetEng.gf WordNetSwe.gf WordNetPor.gf
+$mygf --gfo-dir=$GF_LIB_PATH WordNetEng.gf WordNetSwe.gf
 #+end_example
+
+** Did it work?
+
+#+begin_example
+stack run l4 l4/mini.l4
+#+end_example
+
+should produce a whole bunch of errors you can ignore:
+
+#+begin_example
+┌─[mengwong@venice4] - [~/src/smucclaw/baby-l4] - [2021-02-26 14:57:56]
+└─[0] <git:(main 51df427✱✈) > stack run l4 l4/mini.l4
+
+Warning: Unable to find a known candidate for the Cabal entry Prop, but did find:
+         * PropEng.gf
+         * PropI.gf
+         * PropLexiconEng.gf
+         * PropLexicon.gf
+         * PropTopEng.gf
+         * PropLatex.gf
+         * Prop.gf
+         * PropTopSwe.gf
+         * PropLexiconPor.gf
+         * Prop.gfo
+         * PropPor.gf
+         * PropSwe.gf
+         * PropTop.gf
+         * PropTopPor.gf
+         * PropLexiconSwe.gf If you are using a custom preprocessor for this module with its own file extension, consider adding the file(s)
+         to your .cabal under extra-source-files.
+baby-l4-0.1.0.0: unregistering (local file changes: README.org)
+baby-l4> configure (lib + exe)
+Configuring baby-l4-0.1.0.0...
+baby-l4> build (lib + exe)
+Preprocessing library for baby-l4-0.1.0.0..
+Building library for baby-l4-0.1.0.0..
+Preprocessing executable 'l4' for baby-l4-0.1.0.0..
+Building executable 'l4' for baby-l4-0.1.0.0..
+
+Warning: Unable to find a known candidate for the Cabal entry Prop, but did find:
+         * PropEng.gf
+         * PropI.gf
+         * PropLexiconEng.gf
+         * PropLexicon.gf
+         * PropTopEng.gf
+         * PropLatex.gf
+         * Prop.gf
+         * PropTopSwe.gf
+         * PropLexiconPor.gf
+         * Prop.gfo
+         * PropPor.gf
+         * PropSwe.gf
+         * PropTop.gf
+         * PropTopPor.gf
+         * PropLexiconSwe.gf If you are using a custom preprocessor for this module with its own file extension, consider adding the file(s)
+         to your .cabal under extra-source-files.
+baby-l4> copy/register
+Installing library in /Users/mengwong/src/smucclaw/baby-l4/.stack-work/install/x86_64-osx/0d89070f643fd180a58cfc42b9ba6fbece00cfd59cde65a81136970789de7eb9/8.8.4/lib/x86_64-osx-ghc-8.8.4/baby-l4-0.1.0.0-2uuTWxtfYE14aM49x0XA7O
+Installing executable lsp-server-bl4 in /Users/mengwong/src/smucclaw/baby-l4/.stack-work/install/x86_64-osx/0d89070f643fd180a58cfc42b9ba6fbece00cfd59cde65a81136970789de7eb9/8.8.4/bin
+Installing executable l4 in /Users/mengwong/src/smucclaw/baby-l4/.stack-work/install/x86_64-osx/0d89070f643fd180a58cfc42b9ba6fbece00cfd59cde65a81136970789de7eb9/8.8.4/bin
+Registering library for baby-l4-0.1.0.0..
+#+end_example
+
+... and eventually produce the desired output:
+
+#+begin_example
+Program [Mapping "is_legal" "legal_1_A",Mapping "Business" "business_1_N"] [] [VarDecl "myNumber" IntT,VarDecl "myBusiness" (ClassT (ClsNm "Business")),VarDecl "is_legal" (FunT (ClassT (ClsNm "Business")) BoolT)] [] []
+
+PAtom (AKind Nat (IVar (VString "myNumber")))
+myNumber is a number
+myNumber är ett tal
+PAtom (AKind (KInd (IVarN Business)) (IVar (VString "myBusiness")))
+myBusiness has type business
+myBusiness är av typen affär
+PAtom (AKind (KFun (KInd (IVarN Business)) Boolean) (IVar (VString "is_legal")))
+is_legal is a function from the type business to a Boolean value
+is_legal är en funktion från typen affär till en boolesk variabel
+#+end_example
+
+** Help
+
+If this install procedure did not go as planned, ask for help on Slack.
+
