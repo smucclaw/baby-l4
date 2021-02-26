@@ -20,21 +20,6 @@ type Config = ()
 handlers :: Handlers (LspM ())
 handlers = mconcat
   [ notificationHandler SInitialized $ \_not -> do
-      -- let params = ShowMessageRequestParams MtInfo "Turn on code lenses?"
-      --       (Just [MessageActionItem "Turn on", MessageActionItem "Don't"])
-      -- _ <- sendRequest SWindowShowMessageRequest params $ \case
-      --     Right (Just (MessageActionItem "Turn on")) -> do
-      --       let regOpts = CodeLensRegistrationOptions Nothing Nothing (Just False)
-
-      --       _ <- registerCapability STextDocumentCodeLens regOpts $ \_req responder -> do
-      --         let cmd = Command "Say hello" "lsp-hello-command" Nothing
-      --             rsp = List [CodeLens (mkRange 0 0 0 100) (Just cmd) Nothing]
-      --         responder (Right rsp)
-      --       pure ()
-      --     Right _ ->
-      --       sendNotification SWindowShowMessage (ShowMessageParams MtInfo "Not turning on code lenses")
-      --     Left err ->
-      --       sendNotification SWindowShowMessage (ShowMessageParams MtError $ "Something went wrong!\n" <> T.pack (show err))
       elog "Hello world!"
       pure ()
   , requestHandler STextDocumentHover $ \req responder -> do
