@@ -288,3 +288,19 @@ is_legal är en funktion från typen affär till en boolesk variabel
 
 If this install procedure did not go as planned, ask for help on Slack.
 
+** FAQ
+
+*** My gf-rgl and gf-wordnet paths are different. Could i get away with just appending both to GF_LIB_PATH?
+
+Yes, use colons to separate, as is the convention with =$PATH= variables.
+
+** [PASSIVE-AGGRESSIVE] I want to do all this with Nix
+
+If you are using Nix, obviously you are competent enough to figure it out on your own.
+
+There is also something to do with flake.
+
+** [PASSIVE-AGGRESSIVE] Shouldn't the above instructions be reducible to a very small shell script?
+
+Yes, patches welcome!
+
