@@ -2,7 +2,7 @@
 
 * Overview
 
-Abstract syntax for core L4 concepts. 
+Abstract syntax for core L4 concepts.
 
 *Files:*
 
@@ -10,7 +10,7 @@ Abstract syntax for core L4 concepts.
   modules, expressions, timed automata)
 - =Exec.hs= Execution / evaluation of expresssions
 - =TaToUppaal.hs= Conversion of Timed Automata to the Uppaal XTA format, see
-  https://www.it.uu.se/research/group/darts/uppaal/help.php?file=System_Descriptions/Introduction.shtml 
+  https://www.it.uu.se/research/group/darts/uppaal/help.php?file=System_Descriptions/Introduction.shtml
 - =TransL.hs= Translation from L4 BNFC to the core abstract syntax. Very incomplete.
 - =Typing.hs= Type checking of abstract syntax.
 
@@ -68,10 +68,10 @@ produces a textual Uppaal XTA file. The file can in principle be read in by
 the GUI. As there is no graphical layout information information associated
 with the file, the elements of the automata are first arranged in an arbitrary
 fashion. After manually rearranging and storing the model, a =.ugi= file
-stores graphic information. 
+stores graphic information.
 
 The XTA file can be run (together with a query in a =.q= file) with shell
-command =verifyta= contained in the download bundle, as in =bin-Linux/verifyta -t0 
+command =verifyta= contained in the download bundle, as in =bin-Linux/verifyta -t0
 test_haskell_uppaal.xta test_haskell_uppaal.q=, where =test_haskell_uppaal.q=
 is, for example:
 
@@ -295,9 +295,19 @@ Yes, use colons to separate, as is the convention with =$PATH= variables.
 
 ** [PASSIVE-AGGRESSIVE] I want to do all this with Nix
 
-If you are using Nix, obviously you are competent enough to figure it out on your own.
+Yes! You can do that!
 
-There is also something to do with flake.
+All you need to do is run =nix-shell= in the baby-l4 directory or =direnv enable= if you have direnv installed.
+This will automatically install gf-rgl and gf-wordnet set the =$GF_LIB_PATH= variable to point to them.
+
+If you want to use this installation elsewhere, you can run
+
+#+begin_example
+echo "export GF_LIB_PATH=$GF_LIB_PATH" >> ~/.zshenv
+echo "export GF_LIB_PATH=$GF_LIB_PATH" >> ~/.profile
+#+end_example
+
+to export the generated lib-path to your shell profile.
 
 ** [PASSIVE-AGGRESSIVE] Shouldn't the above instructions be reducible to a very small shell script?
 
