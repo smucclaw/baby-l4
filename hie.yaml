@@ -1,8 +1,9 @@
 cradle:
   multi:
-    # - path: ./Setup.hs
-    #   config:
-    #     cradle:
+    - path: ./Setup.hs
+      config:
+        cradle:
+          none: {}
     #       direct:
     #         arguments:
     #           - "-package Cabal"
@@ -11,6 +12,11 @@ cradle:
       config:
         cradle:
           none:
+          # direct:
+          #   arguments:
+          #     - "-package Cabal"
+          #     - "-package base"
+
     - path: "./"
       config:
         cradle:
