@@ -1,0 +1,121 @@
+{
+  "nodes": {
+    "bnfc": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1604002702,
+        "narHash": "sha256-pbclcb8PrjadaBI6GzPjLdzzg47LCpBKPvkRmAoY448=",
+        "owner": "BNFC",
+        "repo": "bnfc",
+        "rev": "d43e2571acae7a8254f289bff5868f9006aa74eb",
+        "type": "github"
+      },
+      "original": {
+        "owner": "BNFC",
+        "ref": "master",
+        "repo": "bnfc",
+        "type": "github"
+      }
+    },
+    "gf-core": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1603794229,
+        "narHash": "sha256-AyE/wwFpcyHqPbenXyanSaO5rA1mCmJ+4f0R4kdpi6g=",
+        "owner": "GrammaticalFramework",
+        "repo": "gf-core",
+        "rev": "7dc6717b5e95122a810d3b580981fc4ce0c9744b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "GrammaticalFramework",
+        "ref": "master",
+        "repo": "gf-core",
+        "type": "github"
+      }
+    },
+    "gf-nix": {
+      "inputs": {
+        "bnfc": "bnfc",
+        "gf-core": "gf-core",
+        "gf-rgl": "gf-rgl",
+        "gf-wordnet": "gf-wordnet",
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1614325735,
+        "narHash": "sha256-fOWlk0zgBiGq2x4PZK+myDXHrHLjavfW7TACD1U7anU=",
+        "owner": "anka-213",
+        "repo": "cclaw-nix-stuff",
+        "rev": "0250e1ea2fe7153c3fe35c2aa89ef32fc990c489",
+        "type": "github"
+      },
+      "original": {
+        "owner": "anka-213",
+        "ref": "nix-flakes",
+        "repo": "cclaw-nix-stuff",
+        "type": "github"
+      }
+    },
+    "gf-rgl": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1603791882,
+        "narHash": "sha256-syVXqpEDjicX/QglJYCz/nbC/gnFPc/qjWfSwdEpwGU=",
+        "owner": "GrammaticalFramework",
+        "repo": "gf-rgl",
+        "rev": "ae7e895b1491f63793caabf6aeb6d0d863cb293d",
+        "type": "github"
+      },
+      "original": {
+        "owner": "GrammaticalFramework",
+        "ref": "master",
+        "repo": "gf-rgl",
+        "type": "github"
+      }
+    },
+    "gf-wordnet": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1611164100,
+        "narHash": "sha256-8mrbWXuirmtIIuGPiVBAxbEe+y3Mhbt3HQP22KJw1Vc=",
+        "owner": "GrammaticalFramework",
+        "repo": "gf-wordnet",
+        "rev": "51a04ad2e8b27ea07772314243624b523bb9c8f1",
+        "type": "github"
+      },
+      "original": {
+        "owner": "GrammaticalFramework",
+        "ref": "master",
+        "repo": "gf-wordnet",
+        "type": "github"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1614288967,
+        "narHash": "sha256-6Q2gH8lMzF6wMO9//2nE7v/9U2LXR2h/wDLuGpfQJ4M=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "04ac9dcd311956d1756d77f4baf9258392ee7bdd",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixpkgs-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "gf-nix": "gf-nix",
+        "nixpkgs": "nixpkgs"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}
