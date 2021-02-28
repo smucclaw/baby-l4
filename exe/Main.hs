@@ -1,6 +1,7 @@
 module Main where
 
 import Parser (parseProgram)
+import Typing (tpProgram)
 import System.Environment
 import qualified ToGF as GF
 
@@ -9,7 +10,8 @@ process filepath input = do
   let ast = parseProgram filepath input
   case ast of
     Right ast -> do
-      putStrLn (show ast)
+      print (tpProgram ast)
+      --print ast
       GF.nlg ast
     Left err -> do
       putStrLn "Parser Error:"

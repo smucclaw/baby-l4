@@ -3,6 +3,7 @@
 module Typing where
 
 import Data.List
+import Data.Maybe
 import Syntax
 
 ----------------------------------------------------------------------
@@ -10,29 +11,29 @@ import Syntax
 ----------------------------------------------------------------------
 
 -- Typing is done in an environment, composed of
--- the global decls of a module and
--- local variable declarations
-data GlobalVarDecls = GVD [(VarName, Tp)]
+-- the class decls, global and local variable declarations
+type VarEnvironment = [(VarName, Tp)]
+newtype GlobalVarDecls = GVD VarEnvironment
   deriving (Eq, Ord, Show, Read)
-data LocalVarDecls = LVD [(VarName, Tp)]
+newtype LocalVarDecls = LVD VarEnvironment
   deriving (Eq, Ord, Show, Read)
-data Environment t = Env (Module t) GlobalVarDecls LocalVarDecls
+data Environment t = Env [ClassDecl t] GlobalVarDecls LocalVarDecls
   deriving (Eq, Ord, Show, Read)
 
-module_of_env :: Environment t -> Module t
-module_of_env (Env m _ _) = m
+classDeclsOfEnv :: Environment t -> [ClassDecl t]
+classDeclsOfEnv (Env m _ _) = m
 
-globals_of_env :: Environment t -> [(VarName,Tp)]
-globals_of_env (Env _ (GVD gs) _) = gs
+globalsOfEnv :: Environment t -> [(VarName,Tp)]
+globalsOfEnv (Env _ (GVD gs) _) = gs
 
-locals_of_env :: Environment t -> [(VarName,Tp)]
-locals_of_env (Env _ _ (LVD ls)) = ls
+localsOfEnv :: Environment t -> [(VarName,Tp)]
+localsOfEnv (Env _ _ (LVD ls)) = ls
 
 initialEnvOfProgram :: Program (Maybe ct) et -> Environment (Maybe ct)
 initialEnvOfProgram (Program _ cds gvs rls ass) = 
-  let initialModule = (Mdl (customCs ++ cds) [])
+  let initialClassDecls = (customCs ++ cds)
       initialGvs = GVD (map (\(VarDecl vn t) -> (vn, t)) gvs)
-  in Env initialModule initialGvs (LVD [])
+  in Env initialClassDecls initialGvs (LVD [])
 
 -- TODO: recheck the typing 
 
@@ -48,7 +49,7 @@ field_assoc = map (\(ClassDecl cn cdf) -> (cn, fields_of_class_def cdf))
 
 
 -- For a class name 'cn', returns the list of the names of the superclasses of 'cn'
--- Here, 'cdf_assoc' is an association of class names and class defs as contained in a module.
+-- Here, 'cdf_assoc' is an association of class names and class defs as contained in a program.
 -- 'visited' is the list of class names already visited on the way up the class hierarchy
 super_classes :: [(ClassName, ClassDef (Maybe ClassName))] -> [ClassName] -> ClassName -> [ClassName]
 super_classes cdf_assoc visited cn =
@@ -105,7 +106,7 @@ defined_superclass cns cdc =
 
 hasDuplicates :: (Ord a) => [a] -> Bool
 hasDuplicates xs = length (nub xs) /= length xs
-
+{-
 wellformed_class_decls_in_module :: Module (Maybe ClassName) -> Bool
 wellformed_class_decls_in_module md =
   case md of
@@ -145,6 +146,10 @@ is_strict_subclass_of md subcl supercl = elem subcl (strict_superclasses_of md s
 
 is_subclass_of :: Module [ClassName] -> ClassName -> ClassName -> Bool
 is_subclass_of md subcl supercl = subcl == supercl || is_strict_subclass_of md subcl supercl
+-}
+
+-- TODO: preliminary hack
+is_subclass_of md subcl supercl = True
 
 ----------------------------------------------------------------------
 -- Typing functions
@@ -152,17 +157,17 @@ is_subclass_of md subcl supercl = subcl == supercl || is_strict_subclass_of md s
 
 lookup_class_def_in_env :: Environment t -> ClassName -> [ClassDef t]
 lookup_class_def_in_env env cn =
-  map def_of_class_decl (filter (\cd -> name_of_class_decl cd == cn) (class_decls_of_module (module_of_env env)))
+  map def_of_class_decl (filter (\cd -> name_of_class_decl cd == cn) (classDeclsOfEnv env))
 
-tp_constval :: Environment t -> Val -> Tp
-tp_constval env x = case x of
+tpConstval :: Environment t -> Val -> Tp
+tpConstval env x = case x of
   BoolV _ -> BoolT
   IntV _ -> IntT
   -- for record values to be well-typed, the fields have to correspond exactly (incl. order of fields) to the class fields.
   -- TODO: maybe relax some of these conditions.
   RecordV cn fnvals -> 
     -- list of: field name, type of value
-    let tfnvals = map (\(fn, v) -> (fn, (tp_constval env v))) fnvals
+    let tfnvals = map (\(fn, v) -> (fn, (tpConstval env v))) fnvals
     in case lookup_class_def_in_env env cn of
        [] -> error ("class name " ++ (case cn of (ClsNm n) -> n) ++ " not defined")
        [cd] ->
@@ -180,70 +185,66 @@ tpOfExpr x = case x of
   IfThenElseE t _ _ _ -> t
   AppE t _ _  -> t
   FunE t _ _ _  -> t
+  QuantifE t _ _ _ _ -> t
+  FldAccE t _ _ -> t
+  TupleE t _ -> t
   CastE t _ _     -> t
   ListE t _ _     -> t
 
 
-tp_uarith :: Tp -> UArithOp -> Tp
-tp_uarith t ua = if t == IntT then IntT else ErrT
+tpUarith :: Tp -> UArithOp -> Tp
+tpUarith t ua = if t == IntT then IntT else ErrT
 
-tp_ubool :: Tp -> UBoolOp -> Tp
-tp_ubool t ub = if t == BoolT then BoolT else ErrT
+tpUbool :: Tp -> UBoolOp -> Tp
+tpUbool t ub = if t == BoolT then BoolT else ErrT
 
-tp_unaop :: Tp -> UnaOp -> Tp
-tp_unaop t uop = case uop of
-  UArith ua  -> tp_uarith t ua
-  UBool ub   -> tp_ubool t ub
+tpUnaop :: Tp -> UnaOp -> Tp
+tpUnaop t uop = case uop of
+  UArith ua  -> tpUarith t ua
+  UBool ub   -> tpUbool t ub
 
 
-tp_barith :: Tp -> Tp -> BArithOp -> Tp
-tp_barith t1 t2 ba = if (t1 == t2) && t1 == IntT then IntT else ErrT
+tpBarith :: Tp -> Tp -> BArithOp -> Tp
+tpBarith t1 t2 ba = if (t1 == t2) && t1 == IntT then IntT else ErrT
 
-tp_bcompar :: Tp -> Tp -> BComparOp -> Tp
-tp_bcompar t1 t2 bc = if (t1 == t2) then BoolT else ErrT
+tpBcompar :: Tp -> Tp -> BComparOp -> Tp
+tpBcompar t1 t2 bc = if (t1 == t2) then BoolT else ErrT
 
-tp_bbool :: Tp -> Tp -> BBoolOp -> Tp
-tp_bbool t1 t2 bc = if (t1 == t2) && t1 == BoolT then BoolT else ErrT
+tpBbool :: Tp -> Tp -> BBoolOp -> Tp
+tpBbool t1 t2 bc = if (t1 == t2) && t1 == BoolT then BoolT else ErrT
 
-tp_binop :: Tp -> Tp -> BinOp -> Tp
-tp_binop t1 t2 bop = case bop of
-  BArith ba  -> tp_barith t1 t2 ba
-  BCompar bc -> tp_bcompar t1 t2 bc
-  BBool bb   -> tp_bbool t1 t2 bb
+tpBinop :: Tp -> Tp -> BinOp -> Tp
+tpBinop t1 t2 bop = case bop of
+  BArith ba  -> tpBarith t1 t2 ba
+  BCompar bc -> tpBcompar t1 t2 bc
+  BBool bb   -> tpBbool t1 t2 bb
 
 
 -- the first type can be cast to the second type
 -- TODO: still to be defined
-cast_compatible :: Tp -> Tp -> Bool
-cast_compatible te ctp = True
+castCompatible :: Tp -> Tp -> Bool
+castCompatible te ctp = True
 
 
 -- typing of a variable that is initially (after parsing) only known by its name
 tpVar :: Environment t -> Var -> Tp
 tpVar env (GlobalVar vn) =
-  case lookup vn (globals_of_env env) of
-    Nothing -> (case lookup vn (locals_of_env env) of
-                Nothing -> ErrT
-                Just t -> t)
+  case lookup vn (globalsOfEnv env) of
+    Nothing -> Data.Maybe.fromMaybe ErrT (lookup vn (localsOfEnv env))
     Just t -> t
 tpVar env (LocalVar _) = error "internal error: for type checking, variable should be GlobalVar"
 
-varIndexInEnv :: Environment t -> VarName -> Int
-varIndexInEnv (Env md _ (LVD vds)) vn =  
-  case elemIndex vn (map fst vds) of 
-    Nothing -> 0    -- tpVar will detect the problem
-    Just n -> n
-
 varIdentityInEnv :: Environment t -> Var -> Var
-varIdentityInEnv (Env md _ (LVD vds)) (GlobalVar vn) = 
-  case elemIndex vn (map fst vds) of 
-    Nothing -> (GlobalVar vn)
-    Just n -> (LocalVar n)
+varIdentityInEnv (Env _ _ (LVD vds)) (GlobalVar vn) = 
+  maybe (GlobalVar vn) LocalVar (elemIndex vn (map fst vds))
 varIdentityInEnv env (LocalVar _) = error "internal error: for type checking, variable should be GlobalVar"
 
-pushVardeclEnv :: Pattern -> Tp -> Environment t -> Environment t
-pushVardeclEnv (VarP vn) t (Env md gv (LVD vds)) = Env md gv (LVD ((vn, t):vds))
-pushVardeclEnv (VarListP vns) (TupleT ts) (Env md gv (LVD vds)) = Env md gv (LVD ((zip vns ts) ++vds))
+pushLocalVarEnv :: [(VarName, Tp)] -> Environment t -> Environment t
+pushLocalVarEnv nvds (Env cls gv (LVD vds)) = Env cls gv (LVD (reverse nvds ++ vds))
+
+pushPatternEnv :: Pattern -> Tp -> Environment t -> Environment t
+pushPatternEnv (VarP vn) t (Env cls gv (LVD vds)) = Env cls gv (LVD ((vn, t):vds))
+pushPatternEnv (VarListP vns) (TupleT ts) (Env cls gv (LVD vds)) = Env cls gv (LVD (reverse (zip vns ts) ++ vds))
 
 compatiblePatternType :: Pattern -> Tp -> Bool
 compatiblePatternType (VarP vn) t = True
@@ -253,30 +254,30 @@ compatiblePatternType _ _ = False
 -- TODO: FldAccE, ListE
 tpExpr :: Environment t -> Expr () -> Expr Tp
 tpExpr env x = case x of
-  ValE () c -> ValE (tp_constval env c) c
+  ValE () c -> ValE (tpConstval env c) c
   VarE () v -> VarE (tpVar env v) (varIdentityInEnv env v)
   UnaOpE () uop e -> 
-    let te = (tpExpr env e)
-        t   = tp_unaop (tpOfExpr te) uop
+    let te = tpExpr env e
+        t  = tpUnaop (tpOfExpr te) uop
     in  UnaOpE t uop te
   BinOpE () bop e1 e2 ->
-    let te1 = (tpExpr env e1)
-        te2 = (tpExpr env e2)
-        t   = tp_binop (tpOfExpr te1) (tpOfExpr te2) bop
+    let te1 = tpExpr env e1
+        te2 = tpExpr env e2
+        t   = tpBinop (tpOfExpr te1) (tpOfExpr te2) bop
     in  BinOpE t bop te1 te2
   IfThenElseE () c e1 e2 -> 
-    let tc = (tpExpr env c)
-        te1 = (tpExpr env e1)
-        te2 = (tpExpr env e2)
+    let tc = tpExpr env c
+        te1 = tpExpr env e1
+        te2 = tpExpr env e2
     in
       if tpOfExpr tc == BoolT && (tpOfExpr te1) == (tpOfExpr te2)
       then IfThenElseE (tpOfExpr te1) tc te1 te2
       else  IfThenElseE ErrT tc te1 te2
   AppE () fe ae -> 
-    let tfe = (tpExpr env fe)
-        tae = (tpExpr env ae)
-        tf = (tpOfExpr tfe)
-        ta = (tpOfExpr tae)
+    let tfe = tpExpr env fe
+        tae = tpExpr env ae
+        tf  = tpOfExpr tfe
+        ta  = tpOfExpr tae
     in case tf of
       FunT tpar tbody ->
         if tpar == ta
@@ -284,18 +285,24 @@ tpExpr env x = case x of
         else AppE ErrT tfe tae
       _ -> AppE ErrT tfe tae
   FunE () pt tparam e -> 
-    let te = (tpExpr (pushVardeclEnv pt tparam env) e)
-        t   = (tpOfExpr te)
+    let te = tpExpr (pushPatternEnv pt tparam env) e
+        t  = tpOfExpr te
     in  
       -- TODO: the test should come before the recursive call
-      -- because pushVardeclEnv may lead to a Haskell match failure.
+      -- because pushPatternEnv may lead to a Haskell match failure.
       if compatiblePatternType pt tparam
       then FunE (FunT tparam t) pt tparam te
       else FunE ErrT pt tparam te
   -- ClosE: no explicit typing because not externally visible
+  QuantifE () q vn vt e -> 
+    let te = tpExpr (pushLocalVarEnv [(vn, vt)] env) e
+    in
+      if tpOfExpr te == BoolT
+      then QuantifE BoolT q vn vt te
+      else QuantifE ErrT q vn vt te
   CastE () ctp e ->        
-    let te = (tpExpr env e)
-    in if cast_compatible (tpOfExpr te) ctp
+    let te = tpExpr env e
+    in if castCompatible (tpOfExpr te) ctp
        then CastE ctp ctp te
        else CastE ErrT ctp te
 
@@ -308,7 +315,22 @@ tpCmd env (VAssign v e) =
     in
       if (tpVar env v) == tpOfExpr te
       then VAssign v te
-      else error ("types do not correspond in assignment")
+      else error "types do not correspond in assignment"
+
+
+-- TODO: still take local variables into account
+tpRule :: Environment t -> Rule () -> Rule Tp
+tpRule env (Rule rn vds precond postcond) = 
+  let renv = pushLocalVarEnv (map (\(VarDecl vn vt) -> (vn, vt)) vds) env
+  in Rule rn vds (tpExpr renv precond) (tpExpr renv postcond)
+tpAssertion :: Environment t -> Assertion () -> Assertion Tp
+tpAssertion env (Assertion e) = Assertion (tpExpr env e)
+
+-- TODO: check types of global variable declarations
+tpProgram :: Program (Maybe ClassName) () -> Program (Maybe ClassName) Tp
+tpProgram prg@(Program lex cls gvars rls asrt) = 
+  let env = initialEnvOfProgram prg 
+  in Program lex cls gvars (map (tpRule env) rls) (map (tpAssertion env) asrt)
 
 
 ----------------------------------------------------------------------
@@ -364,7 +386,7 @@ well_formed_ta :: Environment [ClassName] -> TA () -> TA Tp
 well_formed_ta env (TmdAut nm ta_locs ta_act_clss ta_clks trans init_locs invs lbls) =
   if
     all (well_formed_transition ta_locs ta_act_clss ta_clks) trans &&
-    all (\act_cls -> is_subclass_of (module_of_env env) act_cls (ClsNm "Event")) ta_act_clss &&
+    all (\act_cls -> is_subclass_of (classDeclsOfEnv env) act_cls (ClsNm "Event")) ta_act_clss &&
     all (\(l, ccs) -> elem l ta_locs && list_subset (map clock_of_constraint ccs) ta_clks) invs
   then
     let lbls_locs = map fst lbls
