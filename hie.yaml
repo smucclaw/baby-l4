@@ -3,10 +3,19 @@ cradle:
     - path: ./Setup.hs
       config:
         cradle:
-          direct:
-            arguments:
-              - "-package Cabal"
-              - "-package base"
+          none: {}
+    #       direct:
+    #         arguments:
+    #           - "-package Cabal"
+    #           - "-package base"
+    - path: "./grammars"
+      config:
+        cradle:
+          none:
+          # direct:
+          #   arguments:
+          #     - "-package Cabal"
+          #     - "-package base"
 
     - path: "./"
       config:
@@ -25,4 +34,4 @@ cradle:
               component: "baby-l4:exe:l4"
 
             - path: "./lsp/Main.hs"
-              component: "baby-l4:exe:bl4-lsp-server"
+              component: "baby-l4:exe:lsp-server-bl4"

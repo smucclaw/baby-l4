@@ -1,19 +1,25 @@
 --# -path=.:present
 
-concrete PropSwe of Prop = PropI - [PUniv]  with 
+concrete PropSwe of Prop = PropI - [PUniv, AKind]  with 
   (Syntax = SyntaxSwe), 
   (Symbolic = SymbolicSwe), 
   (Symbol = SymbolSwe),
-  (Sentence = SentenceSwe)
+  (Sentence = SentenceSwe),
+  (WordNet = WordNetSwe)
    ** open (P = ParadigmsSwe), Prelude in {
 
 flags coding = utf8 ;
 
--- exception
+-- exceptions
 
 lin
   PUniv v p = {s = ExtAdvS (mkAdv for_Prep (mkNP everybody_NP (lin Adv v))) p.s ; c = False} ;
 
+  AKind k x = 
+    case k.isClass of {
+      True => mkCl x.s (mkAdv part_Prep (mkNP the_Det k.s)) ;
+      False => mkCl x.s k.s 
+      } ;
 -- instance of interface
 
 oper
@@ -34,20 +40,20 @@ lin
   Horizontal = mkAP (P.mkA "horisontal") ;
   Parallel = P.mkA2 (P.mkA "parallell") to_Prep ;
   Equal = P.mkA2 (P.mkA "lika") with_Prep ;
-  Line = mkCN (P.mkN "linje" "linjer") ;
-  Point = mkCN (P.mkN "punkt" "punkter") ;
   Centre = mkFun1 "centre" (P.mkN "mittpunkt" "mittpunkter") possess_Prep ;
   Intersection = mkFun2 "intersection" (P.mkN "snitt" "snitt") possess_Prep ;
 
-  Set k = mkCN set_N2 (mkNP a_Art plNum k) ; 
+  Set k = k ** {
+    s = mkCN set_N2 (mkNP a_Art plNum k.s)} ; 
+  KFun = funType (P.mkN3 function_1_N from_Prep to_Prep) ;
 
   Even = mkAP (P.mkA "jämn") ;
   Odd = mkAP (P.mkA "udda") ;
   Square = mkFun1 "square" (P.mkN "kvadrat" "kvadrater") possess_Prep ;
   Sum = mkFun2 "sum" (P.mkN "summa") possess_Prep ;
   Product = mkFun2 "product" (P.mkN "produkt" "produkter") possess_Prep ;
-  Nat = mkCN (P.mkN "tal" "tal") ;
-  Boolean = mkCN (P.mkA "boolesk") (P.mkN "variabel") ;
+  Nat = mkKind (P.mkN "tal" "tal") ;
+  Boolean = mkKind (mkCN (P.mkA "boolesk") (P.mkN "variabel")) ;
 oper
   mkFun1, mkFun2 : Str -> N -> Prep -> {s : Symb ; v : N2} = \s,n,p -> 
     {s = mkSymb ("\\" + s) ; v = P.mkN2 n p} ;

@@ -35,7 +35,7 @@ initialEnvOfProgram (Program _ cds gvs rls ass) =
       initialGvs = GVD (map (\(VarDecl vn t) -> (vn, t)) gvs)
   in Env initialClassDecls initialGvs (LVD [])
 
--- TODO: recheck the typing 
+-- TODO: recheck the typing
 
 ----------------------------------------------------------------------
 -- Class manipulation
@@ -59,10 +59,10 @@ super_classes cdf_assoc visited cn =
     -- reached the top of the hierarchy
     Just (ClassDef Nothing _) -> reverse (cn : visited)
     -- class has super-class with name scn
-    Just (ClassDef (Just scn) _) -> 
+    Just (ClassDef (Just scn) _) ->
       if elem scn visited
       then error ("cyclic superclass hierarchy for class " ++ (case cn of (ClsNm n) -> n))
-      else super_classes cdf_assoc (cn : visited) scn 
+      else super_classes cdf_assoc (cn : visited) scn
 
 -- For each of a list of class declarations, returns its list of superclass names
 super_classes_decls :: [ClassDecl (Maybe ClassName)] -> [[ClassName]]
@@ -75,7 +75,7 @@ super_classes_decls cds =
 elaborate_supers_in_class_decls :: [ClassDecl (Maybe ClassName)] -> [ClassDecl [ClassName]]
 elaborate_supers_in_class_decls cds =
   let cdf_assoc = class_def_assoc cds
-  in map (\(ClassDecl cn (ClassDef mcn fds)) -> 
+  in map (\(ClassDecl cn (ClassDef mcn fds)) ->
     (ClassDecl cn (ClassDef (tail (super_classes cdf_assoc [] cn)) fds))) cds
 
 
@@ -91,7 +91,7 @@ elaborate_fields_in_class_decls cds =
   let fd_assoc = field_assoc cds
   in map (\(ClassDecl cn (ClassDef scs locfds)) ->
             (ClassDecl cn (ClassDef scs (locfds ++ (concatMap (local_fields fd_assoc) scs))))) cds
-  
+
 
 -- the class decl does not reference an undefined superclass
 defined_superclass :: [ClassName] -> ClassDecl (Maybe ClassName) -> Bool
@@ -140,7 +140,7 @@ strict_superclasses_of :: Module [ClassName] -> ClassName -> [ClassName]
 strict_superclasses_of md cn = case lookup cn (class_def_assoc (class_decls_of_module md)) of
   Nothing -> error ("in strict_superclasses_of: undefined class " ++ (case cn of (ClsNm n) -> n))
   Just (ClassDef supcls _) -> supcls
-  
+
 is_strict_subclass_of :: Module [ClassName] -> ClassName -> ClassName -> Bool
 is_strict_subclass_of md subcl supercl = elem subcl (strict_superclasses_of md subcl)
 
@@ -165,7 +165,7 @@ tpConstval env x = case x of
   IntV _ -> IntT
   -- for record values to be well-typed, the fields have to correspond exactly (incl. order of fields) to the class fields.
   -- TODO: maybe relax some of these conditions.
-  RecordV cn fnvals -> 
+  RecordV cn fnvals ->
     -- list of: field name, type of value
     let tfnvals = map (\(fn, v) -> (fn, (tpConstval env v))) fnvals
     in case lookup_class_def_in_env env cn of
@@ -237,6 +237,7 @@ tpVar env (LocalVar _) = error "internal error: for type checking, variable shou
 varIdentityInEnv :: Environment t -> Var -> Var
 varIdentityInEnv (Env _ _ (LVD vds)) (GlobalVar vn) = 
   maybe (GlobalVar vn) LocalVar (elemIndex vn (map fst vds))
+
 varIdentityInEnv env (LocalVar _) = error "internal error: for type checking, variable should be GlobalVar"
 
 pushLocalVarEnv :: [(VarName, Tp)] -> Environment t -> Environment t
@@ -362,14 +363,14 @@ well_formed_transition_cond ta_clks (TransCond ccs e) =
 
 -- TODO: still type-check command c
 well_formed_transition_action :: [ClassName] -> [Clock] -> TransitionAction () -> Bool
-well_formed_transition_action ta_act_clss ta_clks (TransAction act clks c) = 
+well_formed_transition_action ta_act_clss ta_clks (TransAction act clks c) =
   well_formed_action ta_act_clss act &&
   list_subset clks ta_clks
 
 well_formed_transition :: [Loc] -> [ClassName] -> [Clock] -> Transition () -> Bool
-well_formed_transition ta_locs ta_act_clss ta_clks (Trans l1 trcond tract l2) = 
+well_formed_transition ta_locs ta_act_clss ta_clks (Trans l1 trcond tract l2) =
   elem l1 ta_locs && elem l2 ta_locs &&
-  well_formed_transition_cond ta_clks trcond && 
+  well_formed_transition_cond ta_clks trcond &&
   well_formed_transition_action ta_act_clss ta_clks tract
 
 type_transition_cond :: Environment [ClassName] -> TransitionCond () -> TransitionCond Tp
@@ -397,11 +398,11 @@ well_formed_ta env (TmdAut nm ta_locs ta_act_clss ta_clks trans init_locs invs l
       then (TmdAut nm ta_locs ta_act_clss ta_clks ttrans init_locs invs (zip lbls_locs tes))
       else error "ill-formed timed automaton (labels)"
   else error "ill-formed timed automaton (transitions)"
-      
+
 well_formed_ta_sys :: Environment [ClassName] -> TASys () ext -> TASys Tp ext
 well_formed_ta_sys env (TmdAutSys tas ext) =
   if distinct (map name_of_ta tas)
   then TmdAutSys (map (well_formed_ta env) tas) ext
   else error "duplicate TA names"
-  
+
 

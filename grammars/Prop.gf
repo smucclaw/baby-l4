@@ -12,6 +12,8 @@ cat
   Fun1 ;
   Fun2 ;
   Conj ;
+  -- For lexicon
+  Noun ; Adj ;
 
 fun
   PAtom  : Atom  -> Prop ;
@@ -23,6 +25,8 @@ fun
   PExist : Var -> Prop -> Prop ;
 
   IVar   : Var -> Ind ;
+  IVarN  : Noun -> Ind ;
+  -- IVarA  : Adj -> Ind ;
 
   APred1 : Pred1 -> Ind -> Atom ;
   APred2 : Pred2 -> Ind -> Ind -> Atom ;
@@ -74,7 +78,6 @@ fun
 fun
   Vertical, Horizontal : Pred1 ;
   Parallel, Equal : Pred2 ;
-  Line, Point : Kind ;
   Centre : Fun1 ;
   Intersection : Fun2 ;  
 
@@ -84,10 +87,19 @@ fun
 
   Even, Odd    : Pred1 ;
   Nat          : Kind ;
-  Boolean      : Kind ;
+  Boolean      : Kind ;    
+
+  -- Overgenerating, but we're using this grammar only to linearise
+  KInd         : Ind -> Kind ;
+  KFun         : Kind -> Kind -> Kind ;
+
   Square       : Fun1 ;
   Sum, Product : Fun2 ;
   IInt         : Int -> Ind ;
   BTrue, BFalse : Ind ;
+
+-- dummy instance of noun so that generated Prop.hs doesn't complain
+  DummyN : Noun ;
+  DummyA : Adj ;
 
 }
