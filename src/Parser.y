@@ -193,10 +193,6 @@ RuleVarDecls :                       { [] }
 RulePrecond : if Expr      { $2 }
 RuleConcl   : then Expr    { $2 }
 
--- Annotations for GF
-Annot : '(' NUM ')'                 { GFAnnot $2 }
-
-
 {
 lexwrap :: (Token -> Alex a) -> Alex a
 lexwrap = (alexMonadScan' >>=)

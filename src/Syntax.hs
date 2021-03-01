@@ -5,21 +5,14 @@ module Syntax where
 -- Definition of expressions
 ----------------------------------------------------------------------
 
--- GF Annotations to names
-newtype GFAnnot = GFAnnot Integer
-  deriving (Eq, Ord, Show, Read)
 
 ----- Names 
 type VarName = String
 type RuleName = String
 
-data AnnotClassName = AClsNm String GFAnnot
-  deriving (Eq, Ord, Show, Read)
 newtype ClassName = ClsNm String
   deriving (Eq, Ord, Show, Read)
 newtype FieldName = FldNm String
-  deriving (Eq, Ord, Show, Read)
-data AnnotFieldName = AFldNm String GFAnnot
   deriving (Eq, Ord, Show, Read)
 newtype PartyName = PtNm String
   deriving (Eq, Ord, Show, Read)
@@ -113,8 +106,8 @@ data Val
   deriving (Eq, Ord, Show, Read)
 
 data Var 
-    = GlobalVar VarName
-    | LocalVar Int
+    = GlobalVar VarName             -- global variable only known by its name
+    | LocalVar VarName Int          -- local variable known by its provisional name and deBruijn index. 
   deriving (Eq, Ord, Show, Read)
 
 -- unary arithmetic operators
