@@ -232,13 +232,13 @@ tpVar env (GlobalVar vn) =
   case lookup vn (globalsOfEnv env) of
     Nothing -> Data.Maybe.fromMaybe ErrT (lookup vn (localsOfEnv env))
     Just t -> t
-tpVar env (LocalVar _) = error "internal error: for type checking, variable should be GlobalVar"
+tpVar env (LocalVar _ _) = error "internal error: for type checking, variable should be GlobalVar"
 
 varIdentityInEnv :: Environment t -> Var -> Var
 varIdentityInEnv (Env _ _ (LVD vds)) (GlobalVar vn) = 
-  maybe (GlobalVar vn) LocalVar (elemIndex vn (map fst vds))
+  maybe (GlobalVar vn) (LocalVar vn) (elemIndex vn (map fst vds))
 
-varIdentityInEnv env (LocalVar _) = error "internal error: for type checking, variable should be GlobalVar"
+varIdentityInEnv env (LocalVar _ _) = error "internal error: for type checking, variable should be GlobalVar"
 
 pushLocalVarEnv :: [(VarName, Tp)] -> Environment t -> Environment t
 pushLocalVarEnv nvds (Env cls gv (LVD vds)) = Env cls gv (LVD (reverse nvds ++ vds))
