@@ -38,10 +38,19 @@ class LocumSolicitor extends LegalPractitioner {
 }
 
 decl AssociatedWith: LegalPractitioner -> Appointment -> Bool
-decl AssociatedWithApp: Appointment -> BusinessEntity -> Bool
+decl AssociatedWithAppB: Appointment -> Business -> Bool
+decl AssociatedWithAppBE: Appointment -> BusinessEntity -> Bool
 
 decl SubjectTo : LegalPractitioner -> Appointment -> Bool
+decl MayAcceptApp : LegalPractitioner -> Appointment -> Bool
+decl MustNotAcceptApp : LegalPractitioner -> Appointment -> Bool
 
+decl IncompatibleDignity : Business -> Bool
+decl MateriallyInterferes : Business -> Bool
+decl UnfairAttractBusiness : Business -> Bool
+decl ShareLPRFees : Business -> Bool
+decl BusinessFirstSchedule : Business -> Bool
+decl ProhibitedBusiness : Business -> Bool
 
 # use the following declarations instead of the commented 'extends' classes ??
 # decl LawRelatedService: Business -> Bool
@@ -52,32 +61,32 @@ decl SubjectTo : LegalPractitioner -> Appointment -> Bool
 
 rule <r1a>
 for lpr: LegalPractitioner, app: Appointment
-if (exists bsn : Business. AssociatedWithApp app bsn && IncompatibleDignity bsn)
+if (exists bsn : Business. AssociatedWithAppB app bsn && IncompatibleDignity bsn)
 then MustNotAcceptApp lpr app
 
 rule <r1b>
 for lpr: LegalPractitioner, app: Appointment
-if (exists bsn : Business. AssociatedWithApp app bsn && MateriallyInterferes bsn)
+if (exists bsn : Business. AssociatedWithAppB app bsn && MateriallyInterferes bsn)
 then MustNotAcceptApp lpr app
 
 rule <r1c>
 for lpr: LegalPractitioner, app: Appointment
-if (exists bsn : Business. AssociatedWithApp app bsn && UnfairAttractBusiness bsn)
+if (exists bsn : Business. AssociatedWithAppB app bsn && UnfairAttractBusiness bsn)
 then MustNotAcceptApp lpr app
 
 rule <r1d>
 for lpr: LegalPractitioner, app: Appointment
-if (exists bsn : Business. AssociatedWithApp app bsn && ShareLPRFees bsn)
+if (exists bsn : Business. AssociatedWithAppB app bsn && ShareLPRFees bsn)
 then MustNotAcceptApp lpr app
 
 rule <r1e>
 for lpr: LegalPractitioner, app: Appointment
-if (exists bsn : Business. AssociatedWithApp app bsn && BusinessFirstSchedule bsn)
+if (exists bsn : Business. AssociatedWithAppB app bsn && BusinessFirstSchedule bsn)
 then MustNotAcceptApp lpr app
 
 rule <r1f>
 for lpr: LegalPractitioner, app: Appointment
-if (exists bsn : Business. AssociatedWithApp app bsn && ProhibitedBusiness bsn)
+if (exists bsn : Business. AssociatedWithAppB app bsn && ProhibitedBusiness bsn)
 then MustNotAcceptApp lpr app
 
 # first condition of IF: neg. of precond of rule 1a

@@ -38,7 +38,7 @@ lift_barith_op ba c1 c2 = case (c1, c2) of
 
 lift_binop_expr :: BinOp -> Expr Tp -> Expr Tp -> Expr Tp
 lift_binop_expr bop e1 e2 = case (bop, e1, e2) of
-    (BArith ba, ValE t1 c1, ValE t2 c2) -> ValE (tp_barith t1 t2 ba) (lift_barith_op ba c1 c2)
+    (BArith ba, ValE t1 c1, ValE t2 c2) -> ValE (tpBarith t1 t2 ba) (lift_barith_op ba c1 c2)
 
 constr_clos :: Tp -> Expr Tp -> Expr Tp -> Expr Tp
 constr_clos rtp f a = case f of

@@ -11,7 +11,8 @@ newtype GFAnnot = GFAnnot Integer
 
 ----- Names 
 type VarName = String
---  deriving (Eq, Ord, Show, Read)
+type RuleName = String
+
 data AnnotClassName = AClsNm String GFAnnot
   deriving (Eq, Ord, Show, Read)
 newtype ClassName = ClsNm String
@@ -20,19 +21,8 @@ newtype FieldName = FldNm String
   deriving (Eq, Ord, Show, Read)
 data AnnotFieldName = AFldNm String GFAnnot
   deriving (Eq, Ord, Show, Read)
-newtype RuleName = RlNm String
-  deriving (Eq, Ord, Show, Read)
 newtype PartyName = PtNm String
   deriving (Eq, Ord, Show, Read)
-
-
-
-annotClassName2ClassName :: AnnotClassName -> ClassName
-annotClassName2ClassName (AClsNm cn a) = ClsNm cn
-
-annotFieldName2FieldName :: AnnotFieldName -> FieldName
-annotFieldName2FieldName (AFldNm fn a) = FldNm fn
-
 
 
 ----- Program
@@ -77,16 +67,6 @@ def_of_class_decl (ClassDecl _ cd) = cd
 fields_of_class_def :: ClassDef t -> [FieldDecl]
 fields_of_class_def (ClassDef scn fds) = fds
 
-data GeneralRule = TBD
-  deriving (Eq, Ord, Show, Read)
-data Module t = Mdl [ClassDecl t] [GeneralRule]
-  deriving (Eq, Ord, Show, Read)
-
-class_decls_of_module :: Module t -> [ClassDecl t]
-class_decls_of_module (Mdl cds _) = cds
-
-rules_of_module :: Module t -> [GeneralRule]
-rules_of_module (Mdl _ rls) = rls
 
 -- Custom Classes and Preable Module
 -- some custom classes - should eventually go into a prelude and not be hard-wired
@@ -122,7 +102,6 @@ customCs = [objectC, qualifNumC, currencyC] ++ currencyCs ++ [timeC] ++ timeCs +
 -}
 
 customCs = [objectC]
-preambleMdl = Mdl customCs []
 
 ----- Expressions 
 data Val
@@ -210,7 +189,7 @@ data Cmd t
   deriving (Eq, Ord, Show, Read)
 
 
-data Rule t = Rule VarName [VarDecl] (Expr t) (Expr t)
+data Rule t = Rule RuleName [VarDecl] (Expr t) (Expr t)
   deriving (Eq, Ord, Show, Read)
 
 data Assertion t = Assertion (Expr t)
