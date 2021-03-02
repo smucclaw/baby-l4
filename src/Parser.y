@@ -24,57 +24,57 @@ import Control.Monad.Except
 
 -- Parser monad
 %monad { Alex }
-%lexer { lexwrap } { Token _ _ TokenEOF }
+%lexer { lexwrap } { Token _ TokenEOF }
 %error { parseError }
 
 -- Token Names
 %token
-    assert  { Token _ _ TokenAssert }
-    class   { Token _ _ TokenClass }
-    decl    { Token _ _ TokenDecl }
-    defn    { Token _ _ TokenDefn }
-    extends { Token _ _ TokenExtends }
-    lexicon { Token _ _ TokenLexicon }
-    rule    { Token _ _ TokenRule }
+    assert  { Token _ TokenAssert }
+    class   { Token _ TokenClass }
+    decl    { Token _ TokenDecl }
+    defn    { Token _ TokenDefn }
+    extends { Token _ TokenExtends }
+    lexicon { Token _ TokenLexicon }
+    rule    { Token _ TokenRule }
 
-    Bool  { Token _ _ TokenBool }
-    Int   { Token _ _ TokenInt }
+    Bool  { Token _ TokenBool }
+    Int   { Token _ TokenInt }
 
-    let    { Token _ _ TokenLet }
-    in     { Token _ _ TokenIn }
-    not    { Token _ _ TokenNot }
-    forall { Token _ _ TokenForall }
-    exists { Token _ _ TokenExists }
-    if     { Token _ _ TokenIf }
-    then   { Token _ _ TokenThen }
-    else   { Token _ _ TokenElse }
-    for    { Token _ _ TokenFor }
-    true   { Token _ _ TokenTrue }
-    false  { Token _ _ TokenFalse }
+    let    { Token _ TokenLet }
+    in     { Token _ TokenIn }
+    not    { Token _ TokenNot }
+    forall { Token _ TokenForall }
+    exists { Token _ TokenExists }
+    if     { Token _ TokenIf }
+    then   { Token _ TokenThen }
+    else   { Token _ TokenElse }
+    for    { Token _ TokenFor }
+    true   { Token _ TokenTrue }
+    false  { Token _ TokenFalse }
 
-    '\\'  { Token _ _ TokenLambda }
-    '->'  { Token _ _ TokenArrow }
-    '-->' { Token _ _ TokenImpl }
-    '||'  { Token _ _ TokenOr }
-    '&&'  { Token _ _ TokenAnd }
-    '='   { Token _ _ TokenEq }
-    '<'   { Token _ _ TokenLt }
-    '>'   { Token _ _ TokenGt }
-    '+'   { Token _ _ TokenAdd }
-    '-'   { Token _ _ TokenSub }
-    '*'   { Token _ _ TokenMul }
-    '/'   { Token _ _ TokenDiv }
-    '%'   { Token _ _ TokenMod }
-    '.'   { Token _ _ TokenDot }
-    ','   { Token _ _ TokenComma }
-    ':'   { Token _ _ TokenColon }
-    '('   { Token _ _ TokenLParen }
-    ')'   { Token _ _ TokenRParen }
-    '{'   { Token _ _ TokenLBrace }
-    '}'   { Token _ _ TokenRBrace }
+    '\\'  { Token _ TokenLambda }
+    '->'  { Token _ TokenArrow }
+    '-->' { Token _ TokenImpl }
+    '||'  { Token _ TokenOr }
+    '&&'  { Token _ TokenAnd }
+    '='   { Token _ TokenEq }
+    '<'   { Token _ TokenLt }
+    '>'   { Token _ TokenGt }
+    '+'   { Token _ TokenAdd }
+    '-'   { Token _ TokenSub }
+    '*'   { Token _ TokenMul }
+    '/'   { Token _ TokenDiv }
+    '%'   { Token _ TokenMod }
+    '.'   { Token _ TokenDot }
+    ','   { Token _ TokenComma }
+    ':'   { Token _ TokenColon }
+    '('   { Token _ TokenLParen }
+    ')'   { Token _ TokenRParen }
+    '{'   { Token _ TokenLBrace }
+    '}'   { Token _ TokenRBrace }
 
-    NUM   { Token _ _ (TokenNum $$) }
-    VAR   { Token _ _ (TokenSym $$) }
+    NUM   { Token pos (TokenNum $$) }
+    VAR   { Token pos (TokenSym $$) }
 
 -- Operators
 %right '->'
@@ -144,37 +144,37 @@ VarsCommaSep :                      { [] }
             | VAR                   { [$1] }
             | VarsCommaSep ',' VAR  { $3 : $1 }
 
-Expr : '\\' Pattern ':' ATp '->' Expr  { FunE () $2 $4 $6 }
-     | forall VAR ':' Tp '.' Expr      { QuantifE () All $2 $4 $6 }
-     | exists VAR ':' Tp '.' Expr      { QuantifE () Ex $2 $4 $6 }
-     | Expr '-->' Expr             { BinOpE () (BBool BBimpl) $1 $3 }
-     | Expr '||' Expr              { BinOpE () (BBool BBor) $1 $3 }
-     | Expr '&&' Expr              { BinOpE () (BBool BBand) $1 $3 }
-     | if Expr then Expr else Expr { IfThenElseE () $2 $4 $6 }
-     | not Expr                    { UnaOpE () (UBool UBneg) $2 }
-     | Expr '<' Expr               { BinOpE () (BCompar BClt) $1 $3 }
-     | Expr '>' Expr               { BinOpE () (BCompar BCgt) $1 $3 }
-     | Expr '=' Expr               { BinOpE () (BCompar BCeq) $1 $3 }
-     | Expr '+' Expr               { BinOpE () (BArith BAadd) $1 $3 }
-     | Expr '-' Expr               { BinOpE () (BArith BAsub) $1 $3 }
-     | '-' Expr %prec AMINUS       { UnaOpE () (UArith UAminus) $2 }
-     | Expr '*' Expr               { BinOpE () (BArith BAmul) $1 $3 }
-     | Expr '/' Expr               { BinOpE () (BArith BAdiv) $1 $3 }
-     | Expr '%' Expr               { BinOpE () (BArith BAmod) $1 $3 }
+Expr : '\\' Pattern ':' ATp '->' Expr  { FunE (tokenRange $1 $6) $2 $4 $6 }
+     | forall VAR ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) All $2 $4 $6 }
+     | exists VAR ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) Ex $2 $4 $6 }
+     | Expr '-->' Expr             { BinOpE (tokenRange $1 $3) (BBool BBimpl) $1 $3 }
+     | Expr '||' Expr              { BinOpE (tokenRange $1 $3) (BBool BBor) $1 $3 }
+     | Expr '&&' Expr              { BinOpE (tokenRange $1 $3) (BBool BBand) $1 $3 }
+     | if Expr then Expr else Expr { IfThenElseE (tokenRange $1 $6) $2 $4 $6 }
+     | not Expr                    { UnaOpE (tokenRange $1 $2) (UBool UBneg) $2 }
+     | Expr '<' Expr               { BinOpE (tokenRange $1 $3) (BCompar BClt) $1 $3 }
+     | Expr '>' Expr               { BinOpE (tokenRange $1 $3) (BCompar BCgt) $1 $3 }
+     | Expr '=' Expr               { BinOpE (tokenRange $1 $3) (BCompar BCeq) $1 $3 }
+     | Expr '+' Expr               { BinOpE (tokenRange $1 $3) (BArith BAadd) $1 $3 }
+     | Expr '-' Expr               { BinOpE (tokenRange $1 $3) (BArith BAsub) $1 $3 }
+     | '-' Expr %prec AMINUS       { UnaOpE (tokenRange $1 $2) (UArith UAminus) $2 }
+     | Expr '*' Expr               { BinOpE (tokenRange $1 $3) (BArith BAmul) $1 $3 }
+     | Expr '/' Expr               { BinOpE (tokenRange $1 $3) (BArith BAdiv) $1 $3 }
+     | Expr '%' Expr               { BinOpE (tokenRange $1 $3) (BArith BAmod) $1 $3 }
      | App                         { $1 }
 
-App : App Acc                     { AppE () $1 $2 }
+App : App Acc                     { AppE (tokenRange $1 $2) $1 $2 }
     | Acc                          { $1 }
 
 -- field access
-Acc : Acc '.' VAR                  { FldAccE () $1 (FldNm $3) }
+Acc : Acc '.' VAR                  { FldAccE (tokenRange $1 (Wrap pos)) $1 (FldNm $3) }
     | Atom                         { $1 }
 
-Atom : '(' ExprsCommaSep ')'       { let ecs = $2 in if length ecs == 1 then head ecs else TupleE () (reverse ecs) }
-     | NUM                         { ValE () (IntV $1) }
-     | VAR                         { VarE () (GlobalVar $1) }
-     | true                        { ValE () (BoolV True) }
-     | false                       { ValE () (BoolV False) }
+Atom : '(' ExprsCommaSep ')'       { let ecs = $2 in if length ecs == 1 then head ecs else TupleE (tokenRange $1 $3) (reverse ecs) }
+     | NUM                         { ValE (pos) (IntV $1) }
+     | VAR                         { VarE (pos) (GlobalVar $1) }
+     | true                        { ValE (tokenPos $1) (BoolV True) }
+     | false                       { ValE (tokenPos $1) (BoolV False) }
 
 ExprsCommaSep :                      { [] }
             | Expr                   { [$1] }
@@ -198,15 +198,20 @@ lexwrap :: (Token -> Alex a) -> Alex a
 lexwrap = (alexMonadScan' >>=)
 
 parseError :: Token -> Alex a
-parseError (Token p _ t) =
+parseError (Token p t) =
   alexError' p ("parse error at token '" ++ unLex t ++ "'")
 
 -- parseError :: [Token] -> Except String a
 -- parseError (l:ls) = throwError (show l)
 -- parseError [] = throwError "Unexpected end of Input"
 
-parseProgram :: FilePath -> String -> Either Err (Program (Maybe ClassName) ())
+parseProgram :: FilePath -> String -> Either Err (Program (Maybe ClassName) _)
 parseProgram = runAlex' program
+
+newtype Wrapper a = Wrap a
+
+instance HasAnn Wrapper where
+  getAnn (Wrap a) = a
 
 -- parseProgram:: String -> Either String (Program (Maybe ClassName) ())
 -- parseProgram input = runExcept $ do

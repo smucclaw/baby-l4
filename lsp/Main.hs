@@ -80,10 +80,8 @@ parseAndSendErrors uri contents = do
     Left err -> do
       let
         nuri = toNormalizedUri uri
-        AlexPn _ el ec = epos err
-        errpos = aposToPos $ epos err
         diags = [J.Diagnostic
-                  (J.Range errpos errpos)
+                  (epos err)
                   (Just J.DsError)  -- severity
                   Nothing  -- code
                   (Just "lexer") -- source
@@ -97,22 +95,16 @@ parseAndSendErrors uri contents = do
 tshow :: Show a => a -> T.Text
 tshow = T.pack . show
 
-matchesPos' :: Int -> Int -> Token -> Bool
-matchesPos' line col (Token (AlexPn _ l c) len _) =
-  line == l -- && col == c
-  && col >= c && col < c + len
+posInRange :: Position -> Range -> Bool
+posInRange (Position line col) (Range (Position top left) (Position bottom right)) =
+  (line == top && col >= left || line > top)
+  && (line == bottom && col <= right || line < bottom)
 
 elog :: (MonadIO m, Show a) => a -> m ()
 elog = liftIO . hPutStrLn stderr . tshow
 
-aposToPos :: AlexPosn -> Position
-aposToPos (AlexPn _ l c) = Position (l - 1) (c - 1)
-
-movePos :: Int -> Position -> Position
-movePos n (Position l c) = Position l (c + n)
-
 lookupToken :: Position -> TextDocumentIdentifier -> LspT () IO (Maybe Hover)
-lookupToken pos@(Position l c) (TextDocumentIdentifier uri) = do
+lookupToken pos (TextDocumentIdentifier uri) = do
   -- print doc
   let nuri = toNormalizedUri uri
   sendDiagnostics nuri Nothing
@@ -130,10 +122,8 @@ lookupToken pos@(Position l c) (TextDocumentIdentifier uri) = do
   case allTokens of
     Left err -> do
       let
-        AlexPn _ el ec = epos err
-        errpos = aposToPos $ epos err
         diags = [J.Diagnostic
-                  (J.Range errpos errpos)
+                  (epos err)
                   (Just J.DsError)  -- severity
                   Nothing  -- code
                   (Just "lexer") -- source
@@ -148,7 +138,7 @@ lookupToken pos@(Position l c) (TextDocumentIdentifier uri) = do
       -- TODO: Clear diagnostics when they are no longer relevant
     Right tokens -> do
       publishDiagnostics 100 nuri Nothing (partitionBySource [])
-      let toks = find (matchesPos' (l + 1) (c + 1)) tokens
+      let toks = find (posInRange pos . tokenPos) tokens
       -- sendNotification SWindowShowMessage $ ShowMessageParams MtInfo $ tshow pos <> tshow toks
       elog pos
       elog toks
@@ -156,13 +146,7 @@ lookupToken pos@(Position l c) (TextDocumentIdentifier uri) = do
         let
           ms = HoverContents $ markedUpContent "haskell" $ tshow tok --tokenKind
         in
-          Hover ms $ Just $ tokenRange tok
-
-tokenRange :: Token -> Range
-tokenRange Token {tokenPos, tokenLen, tokenKind} = Range startPos endPos
-  where
-    startPos = aposToPos tokenPos
-    endPos = movePos tokenLen startPos
+          Hover ms $ Just $ tokenPos tok
 
 syncOptions :: J.TextDocumentSyncOptions
 syncOptions = J.TextDocumentSyncOptions

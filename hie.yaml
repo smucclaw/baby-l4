@@ -16,6 +16,14 @@ cradle:
           #   arguments:
           #     - "-package Cabal"
           #     - "-package base"
+    - path: "*.x"
+      config:
+        cradle:
+          none:
+    - path: "*.y"
+      config:
+        cradle:
+          none:
 
     - path: "./"
       config:
