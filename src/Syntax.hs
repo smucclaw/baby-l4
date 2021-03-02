@@ -1,12 +1,18 @@
 
+{-# LANGUAGE DeriveTraversable #-}
 module Syntax where
+
+-- Class for annotated expressions
+class HasAnn f where
+  getAnn :: f a -> a
+
 
 ----------------------------------------------------------------------
 -- Definition of expressions
 ----------------------------------------------------------------------
 
 
------ Names 
+----- Names
 type VarName = String
 type RuleName = String
 
@@ -20,10 +26,13 @@ newtype PartyName = PtNm String
 
 ----- Program
 
-data Program ct et = Program [Mapping] [ClassDecl ct] [VarDecl] [Rule et] [Assertion et] 
-  deriving (Eq, Ord, Show, Read)
+data Program ct et = Program [Mapping] [ClassDecl ct] [VarDecl] [Rule et] [Assertion et]
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
 
------ Types 
+removeAnnotations :: Program ct et -> Program ct ()
+removeAnnotations = (()<$)
+
+----- Types
 data Tp
   = BoolT
   | IntT
@@ -79,7 +88,7 @@ currencyC = ClassDecl (ClsNm "Currency")
                     (ClassDef (Just (ClsNm "QualifiedNumeric")) [])
 currencyCs = [ClassDecl (ClsNm "SGD") (ClassDef (Just (ClsNm "Currency")) []),
               ClassDecl (ClsNm "USD") (ClassDef (Just (ClsNm "Currency")) [])]
-  
+
 -- Time as QualifiedNumeric, with Year, Month, Day etc. as subclasses
 -- TODO: treatment of time needs a second thought
 --       (so far no distinction between time point and duration)
@@ -96,7 +105,7 @@ customCs = [objectC, qualifNumC, currencyC] ++ currencyCs ++ [timeC] ++ timeCs +
 
 customCs = [objectC]
 
------ Expressions 
+----- Expressions
 data Val
     = BoolV Bool
     | IntV Integer
@@ -105,9 +114,9 @@ data Val
     | ErrV
   deriving (Eq, Ord, Show, Read)
 
-data Var 
+data Var
     = GlobalVar VarName             -- global variable only known by its name
-    | LocalVar VarName Int          -- local variable known by its provisional name and deBruijn index. 
+    | LocalVar VarName Int          -- local variable known by its provisional name and deBruijn index.
   deriving (Eq, Ord, Show, Read)
 
 -- unary arithmetic operators
@@ -147,12 +156,12 @@ data BinOp
 data ListOp = AndList | OrList | XorList | CommaList
     deriving (Eq, Ord, Show, Read)
 
-data Pattern 
+data Pattern
     = VarP String
     | VarListP [String]
     deriving (Eq, Ord, Show, Read)
 
-data Quantif = All | Ex 
+data Quantif = All | Ex
     deriving (Eq, Ord, Show, Read)
 
 
@@ -171,7 +180,24 @@ data Expr t
     | TupleE t [Expr t]                         -- tuples
     | CastE t Tp (Expr t)                       -- cast to type
     | ListE t ListOp [Expr t]                   -- list expression
-    deriving (Eq, Ord, Show, Read)
+    deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
+instance HasAnn Expr where
+  getAnn = tpOfExpr
+
+tpOfExpr :: Expr t -> t
+tpOfExpr x = case x of
+  ValE t _      -> t
+  VarE t _      -> t
+  UnaOpE t _ _  -> t
+  BinOpE t _ _ _  -> t
+  IfThenElseE t _ _ _ -> t
+  AppE t _ _  -> t
+  FunE t _ _ _  -> t
+  QuantifE t _ _ _ _ -> t
+  FldAccE t _ _ -> t
+  TupleE t _ -> t
+  CastE t _ _     -> t
+  ListE t _ _     -> t
 
 
 -- Cmd t is a command of type t
@@ -183,10 +209,10 @@ data Cmd t
 
 
 data Rule t = Rule RuleName [VarDecl] (Expr t) (Expr t)
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
 
 data Assertion t = Assertion (Expr t)
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
 
 ----------------------------------------------------------------------
 -- Definition of Timed Automata

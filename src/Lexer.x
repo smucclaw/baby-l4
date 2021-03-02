@@ -30,7 +30,9 @@ import Data.Word (Word8)
 
 import Data.Char (ord)
 import qualified Data.Bits
+import qualified Language.LSP.Types            as J
 
+import Syntax (HasAnn(..))
 
 
 }
@@ -308,7 +310,7 @@ alexMonadScan = do
   sc <- alexGetStartCode
   case alexScan inp__ sc of
     AlexEOF -> alexEOF
-    AlexError (pos@(AlexPn _ line column),_,_,_) -> alexError $ Err pos $ "lexical error at line " ++ (show line) ++ ", column " ++ (show column)
+    AlexError (pos@(AlexPn _ line column),_,_,_) -> alexError $ Err (alex2lspRng pos 1) $ "lexical error at line " ++ (show line) ++ ", column " ++ (show column)
     AlexSkip  inp__' _len -> do
         alexSetInput inp__'
         alexMonadScan
@@ -351,7 +353,7 @@ token t input__ len = return (t input__ len)
 -- End copied AlexWrapper code --
 ---------------------------------
 
-data Err = Err { epos :: AlexPosn , msg :: String }
+data Err = Err { epos :: J.Range , msg :: String }
   deriving (Show)
 
 -- To improve error messages, We keep the path of the file we are
@@ -367,12 +369,12 @@ getFilePath = liftM filePath alexGetUserState
 setFilePath :: FilePath -> Alex ()
 setFilePath = alexSetUserState . AlexUserState
 
-type Token = TokenAnn AlexPosn
+type Token = TokenAnn J.Range
 
-data TokenAnn a = Token { tokenPos:: a, tokenLen :: Int, tokenKind :: TokenKind }
+data TokenAnn a = Token { tokenPos:: a, tokenKind :: TokenKind }
   deriving (Show, Functor)
 
-getTokenKind (Token _ _ k) = k
+getTokenKind (Token _ k) = k
 
 data TokenKind
   = TokenAssert
@@ -473,12 +475,12 @@ unLex (TokenSym s) = show s
 alexEOF :: Alex Token
 alexEOF = do
   (p,_,_,_) <- alexGetInput
-  return $ Token p 0 TokenEOF
+  return $ Token (alex2lspRng p 0) TokenEOF
 
 -- Unfortunately, we have to extract the matching bit of string
 -- ourselves...
 lex :: (String -> TokenKind) -> AlexAction Token
-lex f = \(p,_,_,s) i -> return $ Token p i (f (take i s))
+lex f = \(p,_,_,s) i -> return $ Token (alex2lspRng p i) (f (take i s))
 
 -- For constructing tokens that do not depend on
 -- the input
@@ -494,7 +496,7 @@ alexMonadScan' = do
   case alexScan inp sc of
     AlexEOF -> alexEOF
     AlexError (p, _, _, s) ->
-        alexError' p ("lexical error at character '" ++ take 1 s ++ "'")
+        alexError' (alex2lspRng p 1) ("lexical error at character '" ++ take 1 s ++ "'")
     AlexSkip  inp' len -> do
         alexSetInput inp'
         alexMonadScan'
@@ -503,10 +505,10 @@ alexMonadScan' = do
         action (ignorePendingBytes inp) len
 
 -- Signal an error, including a commonly accepted source code position.
-alexError' :: AlexPosn -> String -> Alex a
-alexError' p@(AlexPn _ l c) msg = do
+alexError' :: J.Range -> String -> Alex a
+alexError' p@(J.Range (J.Position l c) _) msg = do
   fp <- getFilePath
-  alexError $ Err p (fp ++ ":" ++ show l ++ ":" ++ show c ++ ": " ++ msg)
+  alexError $ Err p (fp ++ ":" ++ show (l+1) ++ ":" ++ show (c+1) ++ ": " ++ msg)
 
 -- A variant of runAlex, keeping track of the path of the file we are lexing.
 runAlex' :: Alex a -> FilePath -> String -> Either Err a
@@ -522,8 +524,7 @@ repeatUntil test single = single >>= go
       ys <- go y
       return (x:ys)
 
-isEof (Token _ _ TokenEOF) = True
-isEof _ = False
+isEof x = tokenKind x == TokenEOF
 
 scanTokens :: FilePath -> String -> Either Err [Token]
 scanTokens = runAlex' allTokens
@@ -532,6 +533,31 @@ scanTokens = runAlex' allTokens
 
 scanFile :: FilePath -> IO (Either Err [Token])
 scanFile fname = scanTokens fname <$> readFile fname
+
+alex2lspRng :: AlexPosn -> Int -> J.Range
+alex2lspRng tokenPos tokenLen = J.Range startPos endPos
+  where
+    startPos = aposToPos tokenPos
+    endPos = offset tokenLen startPos
+
+aposToPos :: AlexPosn -> J.Position
+aposToPos (AlexPn _ l c) = J.Position (l - 1) (c - 1)
+
+-- horizontal offset, assuming tokens do not extend over several lines
+offset :: Int -> J.Position -> J.Position
+offset n (J.Position l c) = J.Position l (c + n)
+
+coordFromTo :: J.Range -> J.Range -> J.Range
+coordFromTo (J.Range f1 t1) (J.Range f2 t2) = J.Range f1 t2
+
+tokenRange :: (HasAnn f, HasAnn g) => f J.Range -> g J.Range -> J.Range
+tokenRange a b = coordFromTo (getAnn a) (getAnn b)
+
+startOf :: J.Range -> J.Position
+startOf (J.Range s _) = s
+
+instance HasAnn TokenAnn where
+  getAnn = tokenPos
 
 -- This might be useful for looking up token locations:
 -- http://hackage.haskell.org/package/IntervalMap
