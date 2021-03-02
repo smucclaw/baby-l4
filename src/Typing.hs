@@ -30,7 +30,7 @@ localsOfEnv :: Environment t -> [(VarName,Tp)]
 localsOfEnv (Env _ _ (LVD ls)) = ls
 
 initialEnvOfProgram :: Program (Maybe ct) et -> Environment (Maybe ct)
-initialEnvOfProgram (Program _ cds gvs rls ass) = 
+initialEnvOfProgram (Program _ cds gvs rls ass) =
   let initialClassDecls = (customCs ++ cds)
       initialGvs = GVD (map (\(VarDecl vn t) -> (vn, t)) gvs)
   in Env initialClassDecls initialGvs (LVD [])
@@ -176,21 +176,6 @@ tpConstval env x = case x of
          else error ("record fields do not correspond to fields of class " ++ (case cn of (ClsNm n) -> n))
        _ -> error "internal error: duplicate class definition"
 
-tpOfExpr :: Expr t -> t
-tpOfExpr x = case x of
-  ValE t _      -> t
-  VarE t _      -> t
-  UnaOpE t _ _  -> t
-  BinOpE t _ _ _  -> t
-  IfThenElseE t _ _ _ -> t
-  AppE t _ _  -> t
-  FunE t _ _ _  -> t
-  QuantifE t _ _ _ _ -> t
-  FldAccE t _ _ -> t
-  TupleE t _ -> t
-  CastE t _ _     -> t
-  ListE t _ _     -> t
-
 
 tpUarith :: Tp -> UArithOp -> Tp
 tpUarith t ua = if t == IntT then IntT else ErrT
@@ -235,7 +220,7 @@ tpVar env (GlobalVar vn) =
 tpVar env (LocalVar _ _) = error "internal error: for type checking, variable should be GlobalVar"
 
 varIdentityInEnv :: Environment t -> Var -> Var
-varIdentityInEnv (Env _ _ (LVD vds)) (GlobalVar vn) = 
+varIdentityInEnv (Env _ _ (LVD vds)) (GlobalVar vn) =
   maybe (GlobalVar vn) (LocalVar vn) (elemIndex vn (map fst vds))
 
 varIdentityInEnv env (LocalVar _ _) = error "internal error: for type checking, variable should be GlobalVar"
@@ -257,7 +242,7 @@ tpExpr :: Environment t -> Expr () -> Expr Tp
 tpExpr env x = case x of
   ValE () c -> ValE (tpConstval env c) c
   VarE () v -> VarE (tpVar env v) (varIdentityInEnv env v)
-  UnaOpE () uop e -> 
+  UnaOpE () uop e ->
     let te = tpExpr env e
         t  = tpUnaop (tpOfExpr te) uop
     in  UnaOpE t uop te
@@ -266,7 +251,7 @@ tpExpr env x = case x of
         te2 = tpExpr env e2
         t   = tpBinop (tpOfExpr te1) (tpOfExpr te2) bop
     in  BinOpE t bop te1 te2
-  IfThenElseE () c e1 e2 -> 
+  IfThenElseE () c e1 e2 ->
     let tc = tpExpr env c
         te1 = tpExpr env e1
         te2 = tpExpr env e2
@@ -274,7 +259,7 @@ tpExpr env x = case x of
       if tpOfExpr tc == BoolT && (tpOfExpr te1) == (tpOfExpr te2)
       then IfThenElseE (tpOfExpr te1) tc te1 te2
       else  IfThenElseE ErrT tc te1 te2
-  AppE () fe ae -> 
+  AppE () fe ae ->
     let tfe = tpExpr env fe
         tae = tpExpr env ae
         tf  = tpOfExpr tfe
@@ -285,23 +270,23 @@ tpExpr env x = case x of
         then AppE tbody tfe tae
         else AppE ErrT tfe tae
       _ -> AppE ErrT tfe tae
-  FunE () pt tparam e -> 
+  FunE () pt tparam e ->
     let te = tpExpr (pushPatternEnv pt tparam env) e
         t  = tpOfExpr te
-    in  
+    in
       -- TODO: the test should come before the recursive call
       -- because pushPatternEnv may lead to a Haskell match failure.
       if compatiblePatternType pt tparam
       then FunE (FunT tparam t) pt tparam te
       else FunE ErrT pt tparam te
   -- ClosE: no explicit typing because not externally visible
-  QuantifE () q vn vt e -> 
+  QuantifE () q vn vt e ->
     let te = tpExpr (pushLocalVarEnv [(vn, vt)] env) e
     in
       if tpOfExpr te == BoolT
       then QuantifE BoolT q vn vt te
       else QuantifE ErrT q vn vt te
-  CastE () ctp e ->        
+  CastE () ctp e ->
     let te = tpExpr env e
     in if castCompatible (tpOfExpr te) ctp
        then CastE ctp ctp te
@@ -321,7 +306,7 @@ tpCmd env (VAssign v e) =
 
 -- TODO: still take local variables into account
 tpRule :: Environment t -> Rule () -> Rule Tp
-tpRule env (Rule rn vds precond postcond) = 
+tpRule env (Rule rn vds precond postcond) =
   let renv = pushLocalVarEnv (map (\(VarDecl vn vt) -> (vn, vt)) vds) env
   in Rule rn vds (tpExpr renv precond) (tpExpr renv postcond)
 tpAssertion :: Environment t -> Assertion () -> Assertion Tp
@@ -329,8 +314,8 @@ tpAssertion env (Assertion e) = Assertion (tpExpr env e)
 
 -- TODO: check types of global variable declarations
 tpProgram :: Program (Maybe ClassName) () -> Program (Maybe ClassName) Tp
-tpProgram prg@(Program lex cls gvars rls asrt) = 
-  let env = initialEnvOfProgram prg 
+tpProgram prg@(Program lex cls gvars rls asrt) =
+  let env = initialEnvOfProgram prg
   in Program lex cls gvars (map (tpRule env) rls) (map (tpAssertion env) asrt)
 
 

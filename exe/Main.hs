@@ -10,7 +10,7 @@ process filepath input = do
   let ast = parseProgram filepath input
   case ast of
     Right ast -> do
-      print (tpProgram ast)
+      print (tpProgram $ () <$ ast)
       --print ast
       GF.nlg ast
     Left err -> do
