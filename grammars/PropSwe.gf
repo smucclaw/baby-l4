@@ -46,7 +46,8 @@ lin
   Set k = k ** {
     s = mkCN set_N2 (mkNP a_Art plNum k.s)} ; 
   KFun = funType (P.mkN3 function_1_N from_Prep to_Prep) ;
-
+  PAdj2 a = P.mkA2 a to_Prep ;
+  
   Even = mkAP (P.mkA "jämn") ;
   Odd = mkAP (P.mkA "udda") ;
   Square = mkFun1 "square" (P.mkN "kvadrat" "kvadrater") possess_Prep ;

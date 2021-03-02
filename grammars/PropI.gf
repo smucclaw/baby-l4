@@ -19,6 +19,8 @@ lincat
   Fun2 = {s : Symb ; v : N2} ;
   Noun = N ;
   Adj = A ;
+  Verb = V ;
+  Verb2 = V2 ;
 
 lin
   PAtom a = {s = mkS a ; c = False} ;
@@ -113,6 +115,7 @@ lin
   BasePred1 = mkListAP ;
   ConsPred1 = mkListAP ;
 
+  PAdj1 = mkAP ;
 lin
   ConjPred1 c = mkAP c.s ;
 
@@ -135,6 +138,7 @@ lin
   BTrue = {s = symb "true" ; isSymbolic = True} ;
   BFalse = {s = symb "false" ; isSymbolic = True} ;
   KInd ind = {s = mkCN type_5_N ind.s ; isClass = True} ;
+  KNoun noun = {s = mkCN noun ; isClass = False} ;
 -- symbolic applications by LaTeX macros
 
 oper
