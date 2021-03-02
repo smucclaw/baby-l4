@@ -5,13 +5,14 @@ incomplete concrete PropI of Prop = open
   Symbolic, 
   Sentence, ---- ExtAdvS
   WordNet,
+  Extend,
   Prelude in {
 
 lincat
   Prop = {s : S ; c : Bool} ; -- c = True for connectives
-  Atom = Cl ;
-  Pred1 = AP ;
-  Pred2 = A2 ;
+  Atom = {s : NP ; vp : VPS} ;
+  Pred1 = VPS ;
+  Pred2 = VPS2 ;
   Var = Symb ;
   Conj = {s : Syntax.Conj ; c : S} ;  -- s = and ; c = all these hold
   Ind  = {s : NP ; isSymbolic : Bool} ;
@@ -19,11 +20,22 @@ lincat
   Fun2 = {s : Symb ; v : N2} ;
   Noun = N ;
   Adj = A ;
+  Adj2 = A2 ;
   Verb = V ;
   Verb2 = V2 ;
 
+oper
+  -- TODO: add ReflVPS2 to Extend
+  -- TODO: Add this function to Extend
+  a2slash : A2 -> VPSlash = \a2 ->
+    let vp : VP = mkVP (mkAP a2) ;
+        dummyVPS : VPSlash = mkVPSlash WordNet.abandon_1_V2 ; -- random V2 from WN
+    in dummyVPS **  -- has necessary fields for VPSlash
+             vp **  -- has all the right fields except for c2
+              {c2 = a2.c2} ; -- has the right c3
+
 lin
-  PAtom a = {s = mkS a ; c = False} ;
+  PAtom a = {s = PredVPS a.s a.vp ; c = False} ;
   PNeg p = { 
     s = mkS negativePol (mkCl 
           (mkVP (mkNP the_Quant (mkCN case_N (mkAdv that_Subj p.s))))) ; 
@@ -40,8 +52,8 @@ lin
             (mkAP (mkAP such_A) p.s)))) ;
     c = False
     } ;
-  APred1 f x = mkCl x.s f ;
-  APred2 f x y = mkCl x.s f y.s ;
+  APred1 f x = {s = x.s ; vp = f} ;
+  APred2 f x y = {s = x.s ; vp = ComplVPS2 f y.s} ;
 
   IVar x = {s = (symb x) ; isSymbolic = True} ;
   IVarN n = {s = mkNP n ; isSymbolic = False} ;
@@ -75,16 +87,21 @@ lin
 lincat
   Kind = {s : CN ; isClass : Bool} ;
   [Prop] = {s : [S] ; c : Bool} ; -- c = True if any of props is complex
-  [Pred1] = [AP] ;
+  [Pred1] = [VPS] ;
   [Ind] = [NP] ;
   [Var] = NP ;
 
+oper
+ myVPS : VP -> Extend.VPS = \vp -> Extend.MkVPS (mkTemp presentTense simultaneousAnt) positivePol vp ;
+ myVPS2 : VPSlash -> Extend.VPS2 = \vp -> Extend.MkVPS2 (mkTemp presentTense simultaneousAnt) positivePol vp ;
+
 lin
   AKind k x = 
-    case k.isClass of {
-      True => mkCl x.s (mkVP have_V2 (mkNP k.s)) ;
-      False => mkCl x.s k.s 
-      } ;
+    {s = x.s ;
+     vp = case k.isClass of {
+            True => myVPS (mkVP have_V2 (mkNP k.s)) ;
+            False => myVPS (mkVP k.s)}
+    } ;
 
   PConjs c ps = case ps.c of {
     True  => {s = mkS <colonConj : Conj> c.c (mkS <bulletConj : Conj> ps.s) ; c = False} ; ----
@@ -98,10 +115,10 @@ lin
     s = mkS (mkCl (mkNP a_Quant (mkCN (mkCN k.s vs) (mkAP (mkAP such_A) p.s)))) ;
     c = False
     } ;
-  PNegAtom a = {
-    s = mkS negativePol a ;
-    c = False
-    } ;
+  -- PNegAtom a = {
+  --   s = mkS negativePol a ;
+  --   c = False
+  --   } ;
 
   BaseProp p q = {s = mkListS p.s q.s ; c = orB p.c q.c} ;
   ConsProp p ps = {s = mkListS p.s ps.s ; c = orB p.c ps.c} ;
@@ -112,15 +129,21 @@ lin
   BaseInd x y = mkListNP x.s y.s ;
   ConsInd x xs = mkListNP x.s xs ;
 
-  BasePred1 = mkListAP ;
-  ConsPred1 = mkListAP ;
+  BasePred1 = BaseVPS ;
+  ConsPred1 = ConsVPS ;
 
-  PAdj1 = mkAP ;
+-- The non-chosen field is just some random word from WordNet
+  PAdj1 a = myVPS (mkVP a) ;
+  PAdj2 a = myVPS2 (a2slash a) ;
+--  PAdj12 a = myVPS2 (mkVP a) ;
+  PVerb1 v = myVPS (mkVP v) ;
+  PVerb2 v = myVPS2 (mkVPSlash v) ;
+
 lin
-  ConjPred1 c = mkAP c.s ;
+  ConjPred1 c = ConjVPS c.s ;
 
-  APredColl f ps = mkCl (mkNP and_Conj ps) (mkAP f) ;
-  APredRefl f x = mkCl x.s (reflAP f) ;
+  APredColl f ps = {s = mkNP and_Conj ps ; vp = ComplVPS2 f it_NP} ; -- TODO empty NP
+  APredRefl f x = {s = <x.s : NP> ; vp = ComplVPS2 f it_NP} ; -- TODO: actual reflexive
 
   IFunC f xs = {s = app f.v (mkNP and_Conj xs) ; isSymbolic = False} ;
 
@@ -129,9 +152,9 @@ lin
 
   ConjInd co xs = {s = mkNP co.s xs ; isSymbolic = False} ;
 
-  ModKind k m = k ** {s = mkCN m k.s} ;
+  -- ModKind k m = k ** {s = mkCN m k.s} ;
 
-  PartPred f x = mkAP f x.s ; 
+  PartPred f x = ComplVPS2 f x.s ; 
 
   IInt i = {s = symb i.s ; isSymbolic = True} ;
 

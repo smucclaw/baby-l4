@@ -65,30 +65,33 @@ program2prop e = case e of
 vardecl2prop :: VarDecl -> CuteCats GProp
 vardecl2prop (VarDecl vname vtyp) = do
   typ <- typ2kind vtyp
-  name <- var2ind vname
+  name <- var2ind (GlobalVar vname)
   pure $ GPAtom (GAKind typ name)
 
-var2ind :: VarName -> CuteCats GInd
-var2ind name = do
+var2ind :: Var -> CuteCats GInd
+var2ind var = do
+  let name = varName var
   lex <- asks lexicon
   return $ case findMapping lex name of
     val : _ | gfType val == "Noun" -> GIVarN (LexNoun name)
     _ -> GIVar (GVString (GString name)) -- Fall back to string literal
 
-var2pred :: VarName -> CuteCats GPred1
-var2pred name = do
+var2pred :: Var -> CuteCats GPred1
+var2pred var = do
+  let name = varName var
   lex <- asks lexicon
   return $ case findMapping lex name of
     val : _ | gfType val == "Adj" -> GPAdj1 (LexAdj name)
     _ -> undefined
 
-var2pred2 :: VarName -> CuteCats GPred2
-var2pred2 name = do
+var2pred2 :: Var -> CuteCats GPred2
+var2pred2 var = do
+  let name = varName var
   lex <- asks lexicon
   return $ case findMapping lex name of
-    val : _ | gfType val == "Adj" -> GPAdj2 (LexAdj name)
+    val : _ | gfType val == "Adj2" -> GPAdj2 (LexAdj2 name)
+    val : _ | gfType val == "Verb2" -> GPVerb2 (LexVerb2 name)
     _ -> undefined
-
 
 typ2kind :: Tp -> CuteCats GKind
 typ2kind e = case e of
@@ -111,25 +114,26 @@ expr2prop :: Syntax.Expr () -> CuteCats GProp
 expr2prop e = case e of
   ValE _ val -> pure $ GPAtom (val2atom val)
   FunApp1 f x ->
-    do f' <- var2pred f
-       x' <- var2ind x
-       pure $ GPAtom (GAPred1 f' x')
+    do
+      f' <- var2pred f
+      x' <- var2ind x
+      pure $ GPAtom (GAPred1 f' x')
   FunApp2 f x y ->
     do f' <- var2pred2 f
        x' <- var2ind x
        y' <- var2ind y
        pure $ GPAtom (GAPred2 f' x' y')
   Exist x cl exp ->
-    do prop <- expr2prop exp
-       typ <- typ2kind cl
-       pure $ GPExists (GListVar [GVString (GString x)]) typ prop
+    do
+      prop <- expr2prop exp
+      typ <- typ2kind cl
+      pure $ GPExists (GListVar [GVString (GString x)]) typ prop
   Forall x _cl exp ->
-    do prop <- expr2prop exp
-       pure $ GPUniv (GVString (GString x)) prop
+    do
+      prop <- expr2prop exp
+      pure $ GPUniv (GVString (GString x)) prop
   --VarE _ var -> var2prop var
   _ -> error $ "expr2prop: not yet supported: " ++ show e
-
-
 
 pattern AppU :: Syntax.Expr () -> Syntax.Expr () -> Syntax.Expr ()
 pattern AppU x y = AppE () x y
@@ -137,12 +141,17 @@ pattern AppU x y = AppE () x y
 pattern VarU :: Var -> Syntax.Expr ()
 pattern VarU x = VarE () x
 
-pattern FunApp1 :: VarName -> VarName -> Syntax.Expr ()
-pattern FunApp1 f x = AppU (VarU (GlobalVar f)) (VarU (GlobalVar x))
-  -- AppU (VarU (GlobalVar f)) (VarU (LocalVar x int))
+varName :: Var -> VarName 
+varName (GlobalVar n) = n
+varName (LocalVar n _) = n
 
-pattern FunApp2 :: VarName -> VarName -> VarName -> Syntax.Expr ()
-pattern FunApp2 f x y = AppU (AppU (VarU (GlobalVar f)) (VarU (GlobalVar x))) (VarU (GlobalVar y))
+pattern FunApp1 :: Var -> Var -> Syntax.Expr ()
+pattern FunApp1 f x = AppU (VarU f) (VarU x)
+
+-- AppU (VarU (GlobalVar f)) (VarU (LocalVar x int))
+
+pattern FunApp2 :: Var -> Var -> Var -> Syntax.Expr ()
+pattern FunApp2 f x y = AppU (AppU (VarU f) (VarU x)) (VarU y)
 
 -- Quantification
 

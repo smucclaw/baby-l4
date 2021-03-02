@@ -13,7 +13,7 @@ cat
   Fun2 ;
   Conj ;
   -- For lexicon
-  Noun ; Adj ; Verb ; Verb2 ;
+  Noun ; Adj ; Adj2 ; Verb ; Verb2 ; 
 
 fun
   PAtom  : Atom  -> Prop ;
@@ -94,16 +94,25 @@ fun
   IInt         : Int -> Ind ;
   BTrue, BFalse : Ind ;
 
+  ----------------------------
+  -- Not part of the original
+
   -- Overgenerating, but we're using this grammar only to linearise
   KNoun        : Noun -> Kind ;
   KInd         : Ind -> Kind ;
   KFun         : Kind -> Kind -> Kind ;
 
   PAdj1 : Adj -> Pred1 ;
-  PAdj2 : Adj -> Pred2 ;
+  PAdj2 : Adj2 -> Pred2 ;
+  PAdj12 : Adj -> Pred2 ; -- force A to A2
+  PVerb1 : Verb -> Pred1 ;
+  PVerb2 : Verb2 -> Pred2 ;
 
 -- dummy instance of noun so that generated Prop.hs doesn't complain
   DummyN : Noun ;
   DummyA : Adj ;
+  DummyA2 : Adj2 ;
+  DummyV : Verb ;
+  DummyV2 : Verb2 ;
 
 }

@@ -4,6 +4,10 @@ lexicon
 #myNumber -> number_2_N
 is_legal -> legal_1_A
 Business -> business_1_N
+IncompatibleDignity -> incompatible_1_A
+# TODO: support compound nouns, A2 and V2
+LegalPractitioner -> lawyer_N
+MustNotAcceptApp -> accept_2_V2
 
 decl myNumber : Int
 
@@ -11,3 +15,7 @@ decl myBusiness : Business
 
 decl is_legal : Business -> Bool
 
+rule <r1a>
+for lpr: LegalPractitioner, app: Appointment
+if (exists bsn : Business. IncompatibleDignity bsn)
+then MustNotAcceptApp lpr app
