@@ -74,7 +74,7 @@ import Control.Monad.Except
     '}'   { Token _ TokenRBrace }
 
     NUM   { Token pos (TokenNum $$) }
-    VAR   { Token pos (TokenSym $$) }
+    VAR   { Token _ (TokenSym _) }
 
 -- Operators
 %right '->'
@@ -95,28 +95,28 @@ Program : Lexicon  ClassDecls GlobalVarDecls Rules Assertions
 Lexicon : lexicon Mappings { $2 }
 Mappings :                   {[]}
           | Mappings Mapping {$2 : $1 }
-Mapping : VAR '->' VAR { Mapping $1 $3 }
+Mapping : VAR '->' VAR { Mapping (tokenRange $1 $3) (tokenSym $1) (tokenSym $3) }
 ClassDecls :                       { [] }
            | ClassDecls ClassDecl  { $2 : $1 }
-ClassDecl : class VAR ClassDef     { ClassDecl (ClsNm $2) $3 }
+ClassDecl : class VAR ClassDef     { ClassDecl (ClsNm $ tokenSym $2) $3 }
 
 ClassDef :  '{' FieldDecls '}'     { ClassDef (Just (ClsNm "Object")) (reverse $2) }
          |   extends VAR '{' FieldDecls '}'
-                                   { ClassDef (Just (ClsNm $2)) (reverse $4) }
+                                   { ClassDef (Just (ClsNm $ tokenSym $2)) (reverse $4) }
 FieldDecls :                       { [] }
            | FieldDecls FieldDecl  { $2 : $1 }
 
-FieldDecl : VAR ':' Tp             { FieldDecl (FldNm $1) $3 }
+FieldDecl : VAR ':' Tp             { FieldDecl (FldNm $ tokenSym $1) $3 }
 
 GlobalVarDecls :                         { [] }
          | GlobalVarDecls GlobalVarDecl  { $2 : $1 }
 
-GlobalVarDecl : decl VAR ':' Tp          { VarDecl $2 $4 }
+GlobalVarDecl : decl VAR ':' Tp          { VarDecl (tokenSym $2) $4 }
 
 VarDeclsCommaSep :  VarDecl              { [$1] }
          | VarDeclsCommaSep  ',' VarDecl { $3 : $1 }
 
-VarDecl : VAR ':' Tp                     { VarDecl $1 $3 }
+VarDecl : VAR ':' Tp                     { VarDecl (tokenSym $1) $3 }
 
 
 Assertions :                       { [] }
@@ -126,7 +126,7 @@ Assertion : assert Expr            { Assertion $2 }
 -- Atomic type
 ATp   : Bool                      { BoolT }
      | Int                        { IntT }
-     | VAR                        { ClassT (ClsNm $1) }
+     | VAR                        { ClassT (ClsNm $ tokenSym $1) }
      | '(' TpsCommaSep ')'        { let tcs = $2 in if length tcs == 1 then head tcs else TupleT (reverse tcs) }
 
 TpsCommaSep :                      { [] }
@@ -137,44 +137,44 @@ Tp   : ATp                        { $1 }
      | Tp '->' Tp                 { FunT $1 $3 }
 
 
-Pattern : VAR                      { VarP $1 }
+Pattern : VAR                      { VarP $ tokenSym $1 }
     | '(' VarsCommaSep ')'         { let vcs = $2 in if length vcs == 1 then VarP (head vcs) else VarListP (reverse vcs) }
 
 VarsCommaSep :                      { [] }
-            | VAR                   { [$1] }
-            | VarsCommaSep ',' VAR  { $3 : $1 }
+            | VAR                   { [tokenSym $1] }
+            | VarsCommaSep ',' VAR  { tokenSym $3 : $1 }
 
-Expr : '\\' Pattern ':' ATp '->' Expr  { FunE (tokenRange $1 $6) $2 $4 $6 }
-     | forall VAR ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) All $2 $4 $6 }
-     | exists VAR ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) Ex $2 $4 $6 }
-     | Expr '-->' Expr             { BinOpE (tokenRange $1 $3) (BBool BBimpl) $1 $3 }
-     | Expr '||' Expr              { BinOpE (tokenRange $1 $3) (BBool BBor) $1 $3 }
-     | Expr '&&' Expr              { BinOpE (tokenRange $1 $3) (BBool BBand) $1 $3 }
-     | if Expr then Expr else Expr { IfThenElseE (tokenRange $1 $6) $2 $4 $6 }
-     | not Expr                    { UnaOpE (tokenRange $1 $2) (UBool UBneg) $2 }
-     | Expr '<' Expr               { BinOpE (tokenRange $1 $3) (BCompar BClt) $1 $3 }
-     | Expr '>' Expr               { BinOpE (tokenRange $1 $3) (BCompar BCgt) $1 $3 }
-     | Expr '=' Expr               { BinOpE (tokenRange $1 $3) (BCompar BCeq) $1 $3 }
-     | Expr '+' Expr               { BinOpE (tokenRange $1 $3) (BArith BAadd) $1 $3 }
-     | Expr '-' Expr               { BinOpE (tokenRange $1 $3) (BArith BAsub) $1 $3 }
-     | '-' Expr %prec AMINUS       { UnaOpE (tokenRange $1 $2) (UArith UAminus) $2 }
-     | Expr '*' Expr               { BinOpE (tokenRange $1 $3) (BArith BAmul) $1 $3 }
-     | Expr '/' Expr               { BinOpE (tokenRange $1 $3) (BArith BAdiv) $1 $3 }
-     | Expr '%' Expr               { BinOpE (tokenRange $1 $3) (BArith BAmod) $1 $3 }
+Expr : '\\' Pattern ':' ATp '->' Expr  { FunE (tokenRange $1 $6) () $2 $4 $6 }
+     | forall VAR ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) () All (tokenSym $2) $4 $6 }
+     | exists VAR ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) () Ex (tokenSym $2) $4 $6 }
+     | Expr '-->' Expr             { BinOpE (tokenRange $1 $3) () (BBool BBimpl) $1 $3 }
+     | Expr '||' Expr              { BinOpE (tokenRange $1 $3) () (BBool BBor) $1 $3 }
+     | Expr '&&' Expr              { BinOpE (tokenRange $1 $3) () (BBool BBand) $1 $3 }
+     | if Expr then Expr else Expr { IfThenElseE (tokenRange $1 $6) () $2 $4 $6 }
+     | not Expr                    { UnaOpE (tokenRange $1 $2) () (UBool UBneg) $2 }
+     | Expr '<' Expr               { BinOpE (tokenRange $1 $3) () (BCompar BClt) $1 $3 }
+     | Expr '>' Expr               { BinOpE (tokenRange $1 $3) () (BCompar BCgt) $1 $3 }
+     | Expr '=' Expr               { BinOpE (tokenRange $1 $3) () (BCompar BCeq) $1 $3 }
+     | Expr '+' Expr               { BinOpE (tokenRange $1 $3) () (BArith BAadd) $1 $3 }
+     | Expr '-' Expr               { BinOpE (tokenRange $1 $3) () (BArith BAsub) $1 $3 }
+     | '-' Expr %prec AMINUS       { UnaOpE (tokenRange $1 $2) () (UArith UAminus) $2 }
+     | Expr '*' Expr               { BinOpE (tokenRange $1 $3) () (BArith BAmul) $1 $3 }
+     | Expr '/' Expr               { BinOpE (tokenRange $1 $3) () (BArith BAdiv) $1 $3 }
+     | Expr '%' Expr               { BinOpE (tokenRange $1 $3) () (BArith BAmod) $1 $3 }
      | App                         { $1 }
 
-App : App Acc                     { AppE (tokenRange $1 $2) $1 $2 }
+App : App Acc                     { AppE (tokenRange $1 $2) () $1 $2 }
     | Acc                          { $1 }
 
 -- field access
-Acc : Acc '.' VAR                  { FldAccE (tokenRange $1 (Wrap pos)) $1 (FldNm $3) }
+Acc : Acc '.' VAR                  { FldAccE (tokenRange $1 $3) () $1 (FldNm $ tokenSym $3) }
     | Atom                         { $1 }
 
-Atom : '(' ExprsCommaSep ')'       { let ecs = $2 in if length ecs == 1 then head ecs else TupleE (tokenRange $1 $3) (reverse ecs) }
-     | NUM                         { ValE (pos) (IntV $1) }
-     | VAR                         { VarE (pos) (GlobalVar $1) }
-     | true                        { ValE (tokenPos $1) (BoolV True) }
-     | false                       { ValE (tokenPos $1) (BoolV False) }
+Atom : '(' ExprsCommaSep ')'       { let ecs = $2 in if length ecs == 1 then head ecs else TupleE (tokenRange $1 $3) () (reverse ecs) }
+     | NUM                         { ValE (pos) () (IntV $1) }
+     | VAR                         { VarE (tokenPos $1) () (GlobalVar $ tokenSym $1) }
+     | true                        { ValE (tokenPos $1) () (BoolV True) }
+     | false                       { ValE (tokenPos $1) () (BoolV False) }
 
 ExprsCommaSep :                      { [] }
             | Expr                   { [$1] }
@@ -185,7 +185,7 @@ Rules  :                       { [] }
        | Rules Rule            { $2 : $1}
 Rule:  RuleName RuleVarDecls RulePrecond RuleConcl { Rule $1 $2 $3 $4 }
 
-RuleName: rule '<' VAR '>'     { $3 }
+RuleName: rule '<' VAR '>'     { tokenSym $3 }
 
 RuleVarDecls :                       { [] }
              | for VarDeclsCommaSep  { reverse $2 }
@@ -194,6 +194,9 @@ RulePrecond : if Expr      { $2 }
 RuleConcl   : then Expr    { $2 }
 
 {
+
+tokenSym (Token _ (TokenSym sym)) = sym
+
 lexwrap :: (Token -> Alex a) -> Alex a
 lexwrap = (alexMonadScan' >>=)
 
@@ -207,11 +210,6 @@ parseError (Token p t) =
 
 parseProgram :: FilePath -> String -> Either Err (Program (Maybe ClassName) _)
 parseProgram = runAlex' program
-
-newtype Wrapper a = Wrap a
-
-instance HasAnn Wrapper where
-  getAnn (Wrap a) = a
 
 -- parseProgram:: String -> Either String (Program (Maybe ClassName) ())
 -- parseProgram input = runExcept $ do
