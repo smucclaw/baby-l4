@@ -313,4 +313,19 @@ to export the generated lib-path to your shell profile.
 
 Yes, patches welcome!
 
-* testing.
+* Exporters
+
+We transpile to several targets:
+
+** GF
+
+see the =nlg= branch.
+
+** DocAssemble
+
+We create a YAML file that drives a user interview to collect the data needed to parameterize a given L4 file.
+
+** JSON
+
+We pull out the simple parameters to a contract, e.g. party name, address, etc, and we stick it inside a JSON file that will subsequently be written into a PDF via XMP. See the ex-xmp project under complaw.
+

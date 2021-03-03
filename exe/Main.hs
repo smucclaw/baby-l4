@@ -4,6 +4,9 @@ import Parser (parseProgram)
 import Typing (tpProgram)
 import System.Environment
 import qualified ToGF as GF
+import qualified ToDA as DA
+
+-- TODO: add OptParse.Applicative to do the same as the current l4
 
 process :: FilePath -> String -> IO ()
 process filepath input = do
@@ -13,6 +16,7 @@ process filepath input = do
       print (tpProgram $ () <$ ast)
       --print ast
       GF.nlg ast
+      DA.yaml ast
     Left err -> do
       putStrLn "Parser Error:"
       print err

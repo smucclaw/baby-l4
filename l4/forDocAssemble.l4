@@ -1,0 +1,23 @@
+# l4version 0.3.4
+
+lexicon
+#myNumber -> number_2_N
+is_legal -> legal_1_A
+Business -> business_1_N
+
+class Business {
+  name: String
+  uen: String
+  someNum: Int
+}
+
+-- the above should be enough information to set up a DocAssemble interview.
+
+decl myNumber : Int
+
+decl myBusiness : Business
+
+-- okay, how do we say that myBusiness is called "MegaCorp"?
+
+decl is_legal : Business -> Bool
+
