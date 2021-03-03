@@ -10,9 +10,9 @@ process filepath input = do
   let ast = parseProgram filepath input
   case ast of
     Right ast -> do
-      print (tpProgram $ () <$ ast)
-      --print ast
-      GF.nlg ast
+      let tast = tpProgram $ () <$ ast
+      print tast
+      GF.nlg $ () <$ tast
     Left err -> do
       putStrLn "Parser Error:"
       print err
