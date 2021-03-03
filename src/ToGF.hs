@@ -94,6 +94,7 @@ var2pred2 var = do
   return $ case findMapping lex name of
     val : _ | gfType val == "Adj2" -> GPAdj2 (LexAdj2 name)
     val : _ | gfType val == "Verb2" -> GPVerb2 (LexVerb2 name)
+    val : _ | gfType val == "Noun2" -> GPNoun2 (LexNoun2 name)
     _ -> error $ "var2pred2: not supported yet: " ++ show var
 
 typ2kind :: Tp -> CuteCats GKind
