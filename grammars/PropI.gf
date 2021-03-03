@@ -19,20 +19,11 @@ lincat
   Fun1 = {s : Symb ; v : N2} ;
   Fun2 = {s : Symb ; v : N2} ;
   Noun = N ;
+  Noun2 = N2 ;
   Adj = A ;
   Adj2 = A2 ;
   Verb = V ;
   Verb2 = V2 ;
-
-oper
-  -- TODO: add ReflVPS2 to Extend
-  -- TODO: Add this function to Extend
-  a2slash : A2 -> VPSlash = \a2 ->
-    let vp : VP = mkVP (mkAP a2) ;
-        dummyVPS : VPSlash = mkVPSlash WordNet.abandon_1_V2 ; -- random V2 from WN
-    in dummyVPS **  -- has necessary fields for VPSlash
-             vp **  -- has all the right fields except for c2
-              {c2 = a2.c2} ; -- has the right c3
 
 lin
   PAtom a = {s = PredVPS a.s a.vp ; c = False} ;
@@ -133,9 +124,10 @@ lin
   ConsPred1 = ConsVPS ;
 
   PAdj1 a = myVPS (mkVP a) ;
-  PAdj2 a = myVPS2 (a2slash a) ;
+  PAdj2 a = myVPS2 (A2VPSlash a) ;
 --  PAdj12 a = myVPS2 (mkVP a) ;
   PNoun1 n = myVPS (mkVP n) ;
+  PNoun2 n = myVPS2 (N2VPSlash n) ;
   PVerb1 v = myVPS (mkVP v) ;
   PVerb2 v = myVPS2 (mkVPSlash v) ;
 
@@ -143,7 +135,7 @@ lin
   ConjPred1 c = ConjVPS c.s ;
 
   APredColl f ps = {s = mkNP and_Conj ps ; vp = ComplVPS2 f it_NP} ; -- TODO empty NP
-  APredRefl f x = {s = <x.s : NP> ; vp = ComplVPS2 f it_NP} ; -- TODO: actual reflexive
+  APredRefl f x = {s = <x.s : NP> ; vp = ReflVPS2 f ReflPron} ;
 
   IFunC f xs = {s = app f.v (mkNP and_Conj xs) ; isSymbolic = False} ;
 

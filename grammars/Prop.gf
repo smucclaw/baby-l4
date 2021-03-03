@@ -13,7 +13,7 @@ cat
   Fun2 ;
   Conj ;
   -- For lexicon
-  Noun ; Adj ; Adj2 ; Verb ; Verb2 ; 
+  Noun ; Noun2 ; Adj ; Adj2 ; Verb ; Verb2 ; 
 
 fun
   PAtom  : Atom  -> Prop ;
@@ -104,8 +104,9 @@ fun
 
   PAdj1 : Adj -> Pred1 ;
   PAdj2 : Adj2 -> Pred2 ;
-  PNoun1 : Noun -> Pred1 ;
   PAdj12 : Adj -> Pred2 ; -- force A to A2
+  PNoun1 : Noun -> Pred1 ;
+  PNoun2 : Noun2 -> Pred2 ;
   PVerb1 : Verb -> Pred1 ;
   PVerb2 : Verb2 -> Pred2 ;
 

@@ -36,7 +36,8 @@ nlg prog = do
   gr <- createPGF prog
   sequence_
     [ do
-        putStrLn $ PGF.showExpr [] pgfExpr
+        -- putStrLn $ PGF.showExpr [] pgfExpr
+        putStrLn ""
         mapM_ putStrLn $ linearizeAll gr pgfExpr
       | prop <- program2prop prog,
         let pgfExpr = gf prop
