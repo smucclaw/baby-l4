@@ -104,6 +104,7 @@ fun
 
   PAdj1 : Adj -> Pred1 ;
   PAdj2 : Adj2 -> Pred2 ;
+  PNoun1 : Noun -> Pred1 ;
   PAdj12 : Adj -> Pred2 ; -- force A to A2
   PVerb1 : Verb -> Pred1 ;
   PVerb2 : Verb2 -> Pred2 ;

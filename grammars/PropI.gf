@@ -132,10 +132,10 @@ lin
   BasePred1 = BaseVPS ;
   ConsPred1 = ConsVPS ;
 
--- The non-chosen field is just some random word from WordNet
   PAdj1 a = myVPS (mkVP a) ;
   PAdj2 a = myVPS2 (a2slash a) ;
 --  PAdj12 a = myVPS2 (mkVP a) ;
+  PNoun1 n = myVPS (mkVP n) ;
   PVerb1 v = myVPS (mkVP v) ;
   PVerb2 v = myVPS2 (mkVPSlash v) ;
 

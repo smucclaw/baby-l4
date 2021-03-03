@@ -4,10 +4,20 @@ lexicon
 #myNumber -> number_2_N
 is_legal -> legal_1_A
 Business -> business_1_N
+BusinessEntity -> business_1_N
 IncompatibleDignity -> incompatible_1_A
 # TODO: support compound nouns, A2 and V2
 LegalPractitioner -> lawyer_N
-MustNotAcceptApp -> accept_2_V2
+LocumSolicitor -> lawyer_N
+AcceptApp -> accept_4_V2
+AssociatedWithApp -> associate_1_V2
+AssociatedWithAppB -> associate_1_V2
+AssociatedWith -> associate_1_V2
+Appointment -> appointment_1_N
+LawRelatedService -> service_1_N
+Provides -> provide_1_V2
+ConditionsSecondSchedule -> condition_3_V2
+App -> appoint_2_V2
 
 decl myNumber : Int
 
@@ -17,5 +27,15 @@ decl is_legal : Business -> Bool
 
 rule <r1a>
 for lpr: LegalPractitioner, app: Appointment
-if (exists bsn : Business. IncompatibleDignity bsn)
-then MustNotAcceptApp lpr app
+if (exists bsn : Business. AssociatedWithAppB app bsn && IncompatibleDignity bsn)
+then not (AcceptApp lpr app)
+
+# first condition of IF: neg. of precond of rule 1a
+rule <r5>
+for lpr: LocumSolicitor, app: Appointment
+if not (exists bsn : Business. AssociatedWith app bsn && IncompatibleDignity bsn) &&
+   (forall bse : BusinessEntity. AssociatedWithApp app bse -->
+                  not (exists srv : Business.  LawRelatedService srv && Provides bse srv) &&
+                  ConditionsSecondSchedule lpr bse)
+then 
+AcceptApp lpr app

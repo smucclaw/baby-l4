@@ -28,7 +28,7 @@ createPGF (Program lexicon _2 _3 _4 _5) = do
   writeFile "grammars/PropTop.gf" topAbs
   forM_ langs $
     \lang -> writeFile (concrName "PropTop" lang) (topCnc lang)
-  withArgs (["-make", "--output-dir=generated", "-v=0"] ++ map (concrName "PropTop") langs) GF.main
+  withArgs (["-make", "--output-dir=generated", "--gfo-dir=/tmp", "-v=0"] ++ map (concrName "PropTop") langs) GF.main
   PGF.readPGF "generated/PropTop.pgf"
 
 nlg :: (Show ct) => Program ct () -> IO ()
@@ -82,7 +82,9 @@ var2pred var = do
   lex <- asks lexicon
   return $ case findMapping lex name of
     val : _ | gfType val == "Adj" -> GPAdj1 (LexAdj name)
-    _ -> undefined
+    val : _ | gfType val == "Verb" -> GPVerb1 (LexVerb name)
+    val : _ | gfType val == "Noun" -> GPNoun1 (LexNoun name)
+    _ -> error $ "var2pred: not supported yet: " ++ show var
 
 var2pred2 :: Var -> CuteCats GPred2
 var2pred2 var = do
@@ -91,7 +93,7 @@ var2pred2 var = do
   return $ case findMapping lex name of
     val : _ | gfType val == "Adj2" -> GPAdj2 (LexAdj2 name)
     val : _ | gfType val == "Verb2" -> GPVerb2 (LexVerb2 name)
-    _ -> undefined
+    _ -> error $ "var2pred2: not supported yet: " ++ show var
 
 typ2kind :: Tp -> CuteCats GKind
 typ2kind e = case e of
@@ -113,37 +115,54 @@ rule2prop (Rule nm vars ifE thenE) = local (updateVars vars) $
 expr2prop :: Syntax.Expr () -> CuteCats GProp
 expr2prop e = case e of
   ValE _ val -> pure $ GPAtom (val2atom val)
-  FunApp1 f x ->
-    do
-      f' <- var2pred f
-      x' <- var2ind x
-      pure $ GPAtom (GAPred1 f' x')
-  FunApp2 f x y ->
-    do f' <- var2pred2 f
-       x' <- var2ind x
-       y' <- var2ind y
-       pure $ GPAtom (GAPred2 f' x' y')
-  Exist x cl exp ->
-    do
-      prop <- expr2prop exp
-      typ <- typ2kind cl
-      pure $ GPExists (GListVar [GVString (GString x)]) typ prop
-  Forall x _cl exp ->
-    do
-      prop <- expr2prop exp
-      pure $ GPUniv (GVString (GString x)) prop
+  FunApp1 f x -> do
+    f' <- var2pred f
+    x' <- var2ind x
+    pure $ GPAtom (GAPred1 f' x')
+  FunApp2 f x y -> do
+    f' <- var2pred2 f
+    x' <- var2ind x
+    y' <- var2ind y
+    pure $ GPAtom (GAPred2 f' x' y')
+  Exist x cl exp -> do
+    prop <- expr2prop exp
+    typ <- typ2kind cl
+    pure $ GPExists (GListVar [GVString (GString x)]) typ prop
+  Forall x cl exp -> do
+    prop <- expr2prop exp
+    typ <- typ2kind cl
+    pure $ GPUnivs (GListVar [GVString (GString x)]) typ prop
+  And e1 e2 -> do
+    exp1 <- expr2prop e1
+    exp2 <- expr2prop e2
+    pure $ GPConj GCAnd exp1 exp2
+  Or e1 e2 -> do
+    exp1 <- expr2prop e1
+    exp2 <- expr2prop e2
+    pure $ GPConj GCOr exp1 exp2
+  Impl e1 e2 -> do
+    exp1 <- expr2prop e1
+    exp2 <- expr2prop e2
+    pure $ GPImpl exp1 exp2
+  Not e -> GPNeg <$> expr2prop e
   --VarE _ var -> var2prop var
   _ -> error $ "expr2prop: not yet supported: " ++ show e
+
+val2atom :: Val -> GAtom
+val2atom e = case e of
+  BoolV True -> GAKind GBoolean GBTrue
+  BoolV False -> GAKind GBoolean GBFalse
+  IntV i -> GAKind GNat (GIInt (GInt (fromInteger i)))
+  _ -> error $ "val2atom: not yet supported: " ++ show e
+
+----------------------------------------
+-- Patterns
 
 pattern AppU :: Syntax.Expr () -> Syntax.Expr () -> Syntax.Expr ()
 pattern AppU x y = AppE () x y
 
 pattern VarU :: Var -> Syntax.Expr ()
 pattern VarU x = VarE () x
-
-varName :: Var -> VarName 
-varName (GlobalVar n) = n
-varName (LocalVar n _) = n
 
 pattern FunApp1 :: Var -> Var -> Syntax.Expr ()
 pattern FunApp1 f x = AppU (VarU f) (VarU x)
@@ -161,15 +180,26 @@ pattern Exist x typ exp = QuantifE () Ex x typ exp
 pattern Forall :: VarName -> Tp -> Syntax.Expr () -> Syntax.Expr ()
 pattern Forall x typ exp = QuantifE () All x typ exp
 
-val2atom :: Val -> GAtom
-val2atom e = case e of
-  BoolV True -> GAKind GBoolean GBTrue
-  BoolV False -> GAKind GBoolean GBFalse
-  IntV i -> GAKind GNat (GIInt (GInt (fromInteger i)))
-  _ -> error $ "val2atom: not yet supported: " ++ show e
+-- Binary operations
+
+pattern And :: Syntax.Expr () -> Syntax.Expr () -> Syntax.Expr ()
+pattern And e1 e2 = BinOpE () (BBool BBand) e1 e2
+
+pattern Or :: Syntax.Expr () -> Syntax.Expr () -> Syntax.Expr ()
+pattern Or e1 e2 = BinOpE () (BBool BBor) e1 e2
+
+pattern Not :: Syntax.Expr () -> Syntax.Expr ()
+pattern Not e = UnaOpE () (UBool UBneg) e
+
+pattern Impl :: Syntax.Expr () -> Syntax.Expr () -> Syntax.Expr ()
+pattern Impl e1 e2 = BinOpE () (BBool BBimpl) e1 e2
 
 ----------------------------------------
 -- Generic helper functions
+
+varName :: Var -> VarName
+varName (GlobalVar n) = n
+varName (LocalVar n _) = n
 
 updateVars :: [VarDecl] -> Env -> Env
 updateVars vs env = env {vardecls = vs : vardecls env}
