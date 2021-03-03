@@ -146,6 +146,10 @@ expr2prop e = case e of
     exp2 <- expr2prop e2
     pure $ GPImpl exp1 exp2
   Not e -> GPNeg <$> expr2prop e
+  TupleE _ es -> do 
+    props <- mapM expr2prop es
+    pure $ GPConjs GCAnd (GListProp props)
+
   --VarE _ var -> var2prop var
   _ -> error $ "expr2prop: not yet supported: " ++ show e
 
@@ -171,7 +175,7 @@ pattern FunApp1 f x = AppU (VarU f) (VarU x)
 -- AppU (VarU (GlobalVar f)) (VarU (LocalVar x int))
 
 pattern FunApp2 :: Var -> Var -> Var -> Syntax.Expr ()
-pattern FunApp2 f x y = AppU (AppU (VarU f) (VarU x)) (VarU y)
+pattern FunApp2 f x y = AppU (FunApp1 f x) (VarU y)
 
 -- Quantification
 
