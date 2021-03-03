@@ -10,9 +10,9 @@ incomplete concrete PropI of Prop = open
 
 lincat
   Prop = {s : S ; c : Bool} ; -- c = True for connectives
-  Atom = {s : NP ; vp : VPS} ;
-  Pred1 = VPS ;
-  Pred2 = VPS2 ;
+  Atom = {s : NP ; vp : MyPol => VPS} ;
+  Pred1 = MyPol => VPS ;
+  Pred2 = MyPol => VPS2 ;
   Var = Symb ;
   Conj = {s : Syntax.Conj ; c : S} ;  -- s = and ; c = all these hold
   Ind  = {s : NP ; isSymbolic : Bool} ;
@@ -25,8 +25,11 @@ lincat
   Verb = V ;
   Verb2 = V2 ;
 
+param
+  MyPol = MyPos | MyNeg ;
+
 lin
-  PAtom a = {s = PredVPS a.s a.vp ; c = False} ;
+  PAtom a = {s = PredVPS a.s (a.vp ! MyPos) ; c = False} ;
   PNeg p = { 
     s = mkS negativePol (mkCl 
           (mkVP (mkNP the_Quant (mkCN case_N (mkAdv that_Subj p.s))))) ; 
@@ -44,7 +47,7 @@ lin
     c = False
     } ;
   APred1 f x = {s = x.s ; vp = f} ;
-  APred2 f x y = {s = x.s ; vp = ComplVPS2 f y.s} ;
+  APred2 f x y = {s = x.s ; vp = \\pol => ComplVPS2 (f ! pol) y.s} ;
 
   IVar x = {s = (symb x) ; isSymbolic = True} ;
   IVarN n = {s = mkNP n ; isSymbolic = False} ;
@@ -78,13 +81,19 @@ lin
 lincat
   Kind = {s : CN ; isClass : Bool} ;
   [Prop] = {s : [S] ; c : Bool} ; -- c = True if any of props is complex
-  [Pred1] = [VPS] ;
+  [Pred1] = MyPol => [VPS] ;
   [Ind] = [NP] ;
   [Var] = NP ;
 
 oper
- myVPS : VP -> Extend.VPS = \vp -> Extend.MkVPS (mkTemp presentTense simultaneousAnt) positivePol vp ;
- myVPS2 : VPSlash -> Extend.VPS2 = \vp -> Extend.MkVPS2 (mkTemp presentTense simultaneousAnt) positivePol vp ;
+  myVPS : VP -> MyPol => Extend.VPS = \vp ->
+    let vps : Pol -> VPS = \pol -> Extend.MkVPS (mkTemp presentTense simultaneousAnt) pol vp ;
+     in table { MyPos => vps positivePol ;
+                MyNeg => vps negativePol } ;   
+  myVPS2 : VPSlash -> MyPol => Extend.VPS2 = \vp -> 
+    let vps2 : Pol -> VPS2 = \pol -> Extend.MkVPS2 (mkTemp presentTense simultaneousAnt) pol vp ;
+     in table { MyPos => vps2 positivePol ;
+                MyNeg => vps2 negativePol } ;  
 
 lin
   AKind k x = 
@@ -106,10 +115,10 @@ lin
     s = mkS (mkCl (mkNP a_Quant (mkCN (mkCN k.s vs) (mkAP (mkAP such_A) p.s)))) ;
     c = False
     } ;
-  -- PNegAtom a = {
-  --   s = mkS negativePol a ;
-  --   c = False
-  --   } ;
+  PNegAtom a = {
+    s = PredVPS a.s (a.vp ! MyNeg) ;
+    c = False
+    } ;
 
   BaseProp p q = {s = mkListS p.s q.s ; c = orB p.c q.c} ;
   ConsProp p ps = {s = mkListS p.s ps.s ; c = orB p.c ps.c} ;
@@ -120,8 +129,8 @@ lin
   BaseInd x y = mkListNP x.s y.s ;
   ConsInd x xs = mkListNP x.s xs ;
 
-  BasePred1 = BaseVPS ;
-  ConsPred1 = ConsVPS ;
+  BasePred1 p q = \\pol => BaseVPS (p ! pol) (q ! pol) ;
+  ConsPred1 p ps = \\pol => ConsVPS (p ! pol) (ps ! pol) ;
 
   PAdj1 a = myVPS (mkVP a) ;
   PAdj2 a = myVPS2 (A2VPSlash a) ;
@@ -132,10 +141,10 @@ lin
   PVerb2 v = myVPS2 (mkVPSlash v) ;
 
 lin
-  ConjPred1 c = ConjVPS c.s ;
+  ConjPred1 c ps = \\pol => ConjVPS c.s (ps ! pol) ;
 
-  APredColl f ps = {s = mkNP and_Conj ps ; vp = ComplVPS2 f it_NP} ; -- TODO empty NP
-  APredRefl f x = {s = <x.s : NP> ; vp = ReflVPS2 f ReflPron} ;
+  APredColl f ps = {s = mkNP and_Conj ps ; vp = \\pol => ComplVPS2 (f ! pol) it_NP} ; -- TODO empty NP
+  APredRefl f x = {s = <x.s : NP> ; vp = \\pol => ReflVPS2 (f ! pol) ReflPron} ;
 
   IFunC f xs = {s = app f.v (mkNP and_Conj xs) ; isSymbolic = False} ;
 
@@ -146,7 +155,7 @@ lin
 
   -- ModKind k m = k ** {s = mkCN m k.s} ;
 
-  PartPred f x = ComplVPS2 f x.s ; 
+  PartPred f x = \\pol => ComplVPS2 (f ! pol) x.s ; 
 
   IInt i = {s = symb i.s ; isSymbolic = True} ;
 

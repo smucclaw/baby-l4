@@ -126,6 +126,15 @@ expr2prop e = case e of
     x' <- var2ind x
     y' <- var2ind y
     pure $ GPAtom (GAPred2 f' x' y')
+  NotPred1 f x -> do
+    f' <- var2pred f
+    x' <- var2ind x
+    pure $ GPNegAtom (GAPred1 f' x')
+  NotPred2 f x y -> do
+    f' <- var2pred2 f
+    x' <- var2ind x
+    y' <- var2ind y
+    pure $ GPNegAtom (GAPred2 f' x' y')
   Exist x cl exp -> do
     prop <- expr2prop exp
     typ <- typ2kind cl
@@ -193,6 +202,12 @@ pattern And e1 e2 = BinOpE () (BBool BBand) e1 e2
 
 pattern Or :: Syntax.Expr () -> Syntax.Expr () -> Syntax.Expr ()
 pattern Or e1 e2 = BinOpE () (BBool BBor) e1 e2
+
+pattern NotPred1 :: Var -> Var -> Syntax.Expr ()
+pattern NotPred1 f x = Not (FunApp1 f x)
+
+pattern NotPred2 :: Var -> Var -> Var -> Syntax.Expr ()
+pattern NotPred2 f x y = Not (FunApp2 f x y)
 
 pattern Not :: Syntax.Expr () -> Syntax.Expr ()
 pattern Not e = UnaOpE () (UBool UBneg) e

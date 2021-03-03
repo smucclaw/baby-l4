@@ -1,6 +1,6 @@
 --# -path=.:present
 
-concrete PropEng of Prop = PropI - [PNeg, PNegAtom] with 
+concrete PropEng of Prop = PropI - [PNeg] with 
   (Syntax = SyntaxEng), 
   (Symbolic = SymbolicEng),
   (Sentence = SentenceEng),
@@ -16,10 +16,6 @@ lin
           (mkVP (mkNP the_Quant (mkCN case_N (mkAdv that_Subj p.s))))) ; 
     c = False ---- ?
     } ;
-  -- PNegAtom a = {
-  --   s = mkS ExtraEng.UncNeg a ;
-  --   c = False
-  --   } ;
 
 -- instance of interface
 
