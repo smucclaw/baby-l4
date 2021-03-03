@@ -1,7 +1,6 @@
 
-{-# LANGUAGE DeriveTraversable #-}
--- {-# LANGUAGE NoFieldSelectors #-}
-{-# OPTIONS_GHC -Wpartial-fields #-}
+{-# LANGUAGE DeriveFunctor #-}
+-- {-# OPTIONS_GHC -Wpartial-fields #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 module Syntax where
 
@@ -189,11 +188,6 @@ data Pattern
 
 data Quantif = All | Ex
     deriving (Eq, Ord, Show, Read, Data, Typeable)
-
-
-data FooBar
-  = Foo {x :: Int, _y :: Char}
-  | Bar {x :: Int}
 
 
 -- Expr t is an expression of type t (to be determined during type checking / inference)
