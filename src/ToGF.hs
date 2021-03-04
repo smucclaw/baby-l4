@@ -149,6 +149,12 @@ expr2prop e = case e of
   TupleE _ es -> do 
     props <- mapM expr2prop es
     pure $ GPConjs GCAnd (GListProp props)
+  IfThenElse e1 e2 e3 -> do
+    exp1 <- expr2prop e1
+    exp2 <- expr2prop e2
+    exp3 <- expr2prop e3 
+    pure $ GPIfThenElse exp1 exp2 exp3
+  
 
   --VarE _ var -> var2prop var
   _ -> error $ "expr2prop: not yet supported: " ++ show e
@@ -198,6 +204,9 @@ pattern Not e = UnaOpE () (UBool UBneg) e
 
 pattern Impl :: Syntax.Expr () -> Syntax.Expr () -> Syntax.Expr ()
 pattern Impl e1 e2 = BinOpE () (BBool BBimpl) e1 e2
+
+pattern IfThenElse :: Syntax.Expr () -> Syntax.Expr () -> Syntax.Expr () -> Syntax.Expr () 
+pattern IfThenElse e1 e2 e3 = IfThenElseE () e1 e2 e3
 
 ----------------------------------------
 -- Generic helper functions
