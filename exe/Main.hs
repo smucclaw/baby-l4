@@ -16,7 +16,7 @@ process filepath input = do
 
       -- to check if GF_LIB_PATH env variable is available
       putStrLn "* debug: GF_LIB_PATH env variable is: "
-      catchIOError (getEnv "GF_LIB_PATH") (return . ("*   "++) . show)
+      catchIOError (getEnv "GF_LIB_PATH") (return . show)
         >>= putStrLn . ("*   "++)
       
       GF.nlg ast
