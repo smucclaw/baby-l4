@@ -4,6 +4,7 @@ import Parser (parseProgram)
 import Typing (tpProgram)
 import System.Environment
 import qualified ToGF as GF
+import System.IO.Error (catchIOError)
 
 process :: FilePath -> String -> IO ()
 process filepath input = do
@@ -12,6 +13,12 @@ process filepath input = do
     Right ast -> do
       print (tpProgram $ () <$ ast)
       --print ast
+
+      -- to check if GF_LIB_PATH env variable is available
+      putStrLn "* debug: GF_LIB_PATH env variable is: "
+      catchIOError (getEnv "GF_LIB_PATH") (return . ("*   "++) . show)
+        >>= putStrLn . ("*   "++)
+      
       GF.nlg ast
     Left err -> do
       putStrLn "Parser Error:"
