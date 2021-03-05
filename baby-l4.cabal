@@ -33,6 +33,7 @@ library
                   -- from src
                   Syntax
                   ToGF
+                  ToDA
                   --ExampleInput
                   --Exec
                   InterfaceNunchaku

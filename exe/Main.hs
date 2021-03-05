@@ -15,8 +15,9 @@ process filepath input = do
     Right ast -> do
       print (tpProgram $ () <$ ast)
       --print ast
-      GF.nlg ast
-      DA.yaml ast
+      -- GF.nlg ast
+      print "NOW WE PRINT THE DOCASSEMBLE"
+      DA.createDocAssemble ast
     Left err -> do
       putStrLn "Parser Error:"
       print err

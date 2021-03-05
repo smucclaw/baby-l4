@@ -313,9 +313,9 @@ to export the generated lib-path to your shell profile.
 
 Yes, patches welcome!
 
-* Exporters
+* Exporters and Transpilers
 
-We transpile to several targets:
+We transpile from the AST to several /backend/ targets:
 
 ** GF
 
@@ -323,9 +323,42 @@ see the =nlg= branch.
 
 ** DocAssemble
 
-We create a YAML file that drives a user interview to collect the data needed to parameterize a given L4 file.
+We create a YAML file that drives a user interview to collect the data needed to parameterize a given L4 file. Python is involved.
+
+** Python
+
+We output the "ontology" defined in L4 to a class hierarchy defined in Python. The [[l4/cr.l4][cr.l4]] sample file contains quite a lot of class, so this is a good example to work with.
 
 ** JSON
 
 We pull out the simple parameters to a contract, e.g. party name, address, etc, and we stick it inside a JSON file that will subsequently be written into a PDF via XMP. See the ex-xmp project under complaw.
+
+(Maybe we do YAML later, or maybe we just punt to an external json2yaml engine.)
+
+** s(CASP)
+
+We transform to Prologgy, s(CASP) syntax.
+
+** Nunchaku? Z3? UPPAAL? Alloy?
+
+We transform to a model checker of some sort.
+
+** Diagrams and Visualization
+
+We transform to something the =diagrams= package can work with.
+
+* Developer Guide
+
+** How to write your own backend
+
+1. create a new =ToBackend.hs= file in =Lib/=
+2. think hard about what Intermediate Representation would be a good midway point between the AST's types and your target's types
+3. transform the AST to the Intermediate Representation
+4. transform the Intermediate Representation to the target types
+5. but maybe there is no need for an IR? You can transform from the AST to the target's types directly. (Later, refactor in regret.)
+6. if the target knows how to show output (as presumably the =diagrams= library does), tell it to produce output.
+7. if the target needs a bit more help with showing output, familiarize yourself with the [[https://hackage.haskell.org/package/prettyprinter][prettyprinter]] library.
+
+
+
 
