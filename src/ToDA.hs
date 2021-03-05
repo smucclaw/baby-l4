@@ -37,9 +37,9 @@ myshowfielddecl (FieldDecl (FldNm fieldname) tp) =
   (take 4 $ repeat ' ') ++ fieldname ++ " = " ++ mytpassignment tp
 
 tptype :: Tp -> String
-tptype ( BoolT ) = "Boolean"
-tptype ( IntT ) = "Int"
-tptype ( ClassT (ClsNm "String") ) = "String"
+tptype ( BoolT ) = "boolean"
+tptype ( IntT ) = "int"
+tptype ( ClassT (ClsNm "String") ) = "string"
 tptype ( ClassT (ClsNm classname) ) = classname
 tptype ( FunT tp1 tp2 ) = "function from " ++ show tp1 ++ " to " ++ show tp2
 tptype ( TupleT tps ) = "tuple" 
@@ -53,7 +53,7 @@ mytpassignment ( IntT ) = "0"
 mytpassignment ( ClassT (ClsNm "String") ) = "\"\""
 mytpassignment ( ClassT classname ) = "moo"
 mytpassignment ( FunT tp1 tp2 ) = "moo"
-mytpassignment ( TupleT tps ) = "moo" 
+mytpassignment ( TupleT tps ) = "(moo, moo)" 
 mytpassignment ( ErrT ) = "moo"
 
 
