@@ -13,6 +13,7 @@ cat
   Fun2 ;
   Conj ;
   -- For lexicon
+  -- fdjkjkv 
   Noun ; Noun2 ; Adj ; Adj2 ; Verb ; Verb2 ; 
 
 fun
@@ -20,6 +21,8 @@ fun
   PNeg   : Prop  -> Prop ;
   PConj  : Conj  -> Prop -> Prop -> Prop ;
   PImpl  : Prop  -> Prop -> Prop ;
+
+  PIfThenElse : Prop -> Prop -> Prop -> Prop ;
 
   PUniv  : Var -> Prop -> Prop ;
   PExist : Var -> Prop -> Prop ;
