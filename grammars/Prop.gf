@@ -51,6 +51,7 @@ fun
   PConjs  : Conj  -> [Prop] -> Prop ;
   PUnivs  : [Var] -> Kind -> Prop -> Prop ;
   PExists : [Var] -> Kind -> Prop -> Prop ;
+  PNotExists : [Var] -> Kind -> Prop -> Prop ;
 
   PNegAtom  : Atom -> Prop ;
 
