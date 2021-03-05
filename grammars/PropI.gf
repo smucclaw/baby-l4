@@ -115,6 +115,10 @@ lin
     s = mkS (mkCl (mkNP a_Quant (mkCN (mkCN k.s vs) (mkAP (mkAP such_A) p.s)))) ;
     c = False
     } ;
+  PNotExists vs k p = {
+    s = mkS negativePol (mkCl (mkNP a_Quant (mkCN (mkCN k.s vs) (mkAP (mkAP such_A) p.s)))) ;
+    c = False
+    } ;
   PNegAtom a = {
     s = PredVPS a.s (a.vp ! MyNeg) ;
     c = False

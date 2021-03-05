@@ -1,5 +1,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE TypeFamilies #-} 
 
 module ToGF where
 
@@ -13,10 +14,11 @@ import Prop
 import Syntax
 import System.Environment (withArgs)
 import Text.Printf (printf)
+import TransProp
 
 createPGF :: (Show ct) => Program ct () -> IO PGF.PGF
 createPGF (Program lexicon _2 _3 _4 _5) = do
-  let langs = ["Eng", "Swe"]
+  let langs = ["Eng"]
   let (abstract, concretes) = createLexicon langs lexicon
   -- Generate lexicon
   writeFile "grammars/PropLexicon.gf" abstract
@@ -38,9 +40,13 @@ nlg prog = do
     [ do
         -- putStrLn $ PGF.showExpr [] pgfExpr
         putStrLn ""
-        mapM_ putStrLn $ linearizeAll gr pgfExpr
+        putStrLn "no transfer"
+        mapM_ putStrLn $ linearizeAll gr pgfExpr 
+        putStrLn "optimize"
+        mapM_ putStrLn $ linearizeAll gr optpgf 
       | prop <- program2prop prog,
-        let pgfExpr = gf prop
+        let pgfExpr = gf prop,
+        let optpgf = transfer MOptimize pgfExpr
     ]
 
 -----------------------------------------------------------------------------
@@ -94,7 +100,7 @@ var2pred2 var = do
   return $ case findMapping lex name of
     val : _ | gfType val == "Adj2" -> GPAdj2 (LexAdj2 name)
     val : _ | gfType val == "Verb2" -> GPVerb2 (LexVerb2 name)
-    val : _ | gfType val == "Noun2" -> GPNoun2 (LexNoun2 name)
+    --val : _ | gfType val == "Noun2" -> GPNoun2 (LexNoun2 name)
     _ -> error $ "var2pred2: not supported yet: " ++ show var
 
 typ2kind :: Tp -> CuteCats GKind
@@ -138,7 +144,7 @@ expr2prop e = case e of
   Exist x cl exp -> do
     prop <- expr2prop exp
     typ <- typ2kind cl
-    pure $ GPExists (GListVar [GVString (GString x)]) typ prop
+    pure $ GPExists (GListVar [GVString (GString x)]) typ prop 
   Forall x cl exp -> do
     prop <- expr2prop exp
     typ <- typ2kind cl
@@ -166,7 +172,7 @@ expr2prop e = case e of
     pure $ GPIfThenElse exp1 exp2 exp3
   
 
-  --VarE _ var -> var2prop var
+ --VarE _ var -> var2prop var
   _ -> error $ "expr2prop: not yet supported: " ++ show e
 
 val2atom :: Val -> GAtom

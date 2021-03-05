@@ -34,6 +34,7 @@ fun
   APred1 : Pred1 -> Ind -> Atom ;
   APred2 : Pred2 -> Ind -> Ind -> Atom ;
 
+
   IFun1  : Fun1 -> Ind -> Ind ;
   IFun2  : Fun2 -> Ind -> Ind -> Ind ;
 
@@ -54,6 +55,7 @@ fun
   PConjs  : Conj  -> [Prop] -> Prop ;
   PUnivs  : [Var] -> Kind -> Prop -> Prop ;
   PExists : [Var] -> Kind -> Prop -> Prop ;
+  PNotExists : [Var] -> Kind -> Prop -> Prop ;
 
   PNegAtom  : Atom -> Prop ;
 
