@@ -42,6 +42,9 @@ import Syntax (HasAnn(..))
 $digit = 0-9
 $alpha = [a-zA-Z]
 $eol   = [\n]
+$graphic    = $printable # $white # $eol #\n #\" 
+
+@string     = \" ($graphic # \")* \"
 
 tokens :-
 
@@ -102,9 +105,13 @@ tokens :-
   \{                            { lex' TokenLBrace }
   \}                            { lex' TokenRBrace }
 
+
   -- Numbers and identifiers
   $digit+                       { lex (TokenNum . read) }
   $alpha [$alpha $digit \_ \']* { lex TokenSym }
+  @string[.$white. # $eol ]*                      { lex TokenStringLit }
+  -- need to ask if there's a way to combine TokenSym and TokenStringLit into one regex 
+
 
 
 {
@@ -421,6 +428,7 @@ data TokenKind
   | TokenLParen
   | TokenRParen
   | TokenEOF
+  | TokenStringLit String
 
   | TokenNum Integer
   | TokenSym String
@@ -471,6 +479,7 @@ unLex TokenRBrace  = "}"
 unLex TokenEOF     = "<EOF>"
 unLex (TokenNum i) = show i
 unLex (TokenSym s) = show s
+unLex (TokenStringLit s) = show s
 
 alexEOF :: Alex Token
 alexEOF = do

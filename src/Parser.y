@@ -75,6 +75,8 @@ import Control.Monad.Except
 
     NUM   { Token pos (TokenNum $$) }
     VAR   { Token pos (TokenSym $$) }
+    VARLIT  { Token pos (TokenStringLit $$)}
+
 
 -- Operators
 %right '->'
@@ -95,7 +97,7 @@ Program : Lexicon  ClassDecls GlobalVarDecls Rules Assertions
 Lexicon : lexicon Mappings { $2 }
 Mappings :                   {[]}
           | Mappings Mapping {$2 : $1 }
-Mapping : VAR '->' VAR { Mapping $1 $3 }
+Mapping : VAR '->' VARLIT { Mapping $1 $3  }
 ClassDecls :                       { [] }
            | ClassDecls ClassDecl  { $2 : $1 }
 ClassDecl : class VAR ClassDef     { ClassDecl (ClsNm $2) $3 }
@@ -162,6 +164,9 @@ Expr : '\\' Pattern ':' ATp '->' Expr  { FunE (tokenRange $1 $6) $2 $4 $6 }
      | Expr '/' Expr               { BinOpE (tokenRange $1 $3) (BArith BAdiv) $1 $3 }
      | Expr '%' Expr               { BinOpE (tokenRange $1 $3) (BArith BAmod) $1 $3 }
      | App                         { $1 }
+Tuples :    {[]}
+        | Tuples ',' Tuple { [$2] : $1 }
+Tuple : Tuple Expr { TupleE [$2] }
 
 App : App Acc                     { AppE (tokenRange $1 $2) $1 $2 }
     | Acc                          { $1 }
