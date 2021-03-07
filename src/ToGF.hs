@@ -9,9 +9,19 @@ import System.Environment (withArgs)
 import Control.Monad (forM_)
 import Text.Printf (printf)
 
-createPGF :: (Show ct, Show et) => Program ct et -> IO PGF.PGF
-createPGF (Program lexicon _2 _3 _4 _5) = do
-  let langs = ["Eng","Swe"]
+-- moved this here from exe/Main.hs, needed to tell optparse which languages to output
+data GFlang  = GFall | GFeng | GFswe deriving Show
+
+gfl2lang:: GFlang -> [Lang]
+gfl2lang gfLang =
+  case gfLang of
+    GFall -> ["Eng","Swe"]
+    GFeng -> ["Eng"]
+    GFswe -> ["Swe"]
+
+createPGF :: (Show ct, Show et) => GFlang -> Program ct et -> IO PGF.PGF
+createPGF gfl (Program lexicon _2 _3 _4 _5) = do
+  let langs = gfl2lang gfl
   let (abstract,concretes) = createLexicon langs lexicon
   -- Generate lexicon
   writeFile "grammars/PropLexicon.gf" abstract
@@ -29,9 +39,9 @@ createPGF (Program lexicon _2 _3 _4 _5) = do
   withArgs (["-make", "--output-dir=generated", "-v=0"] ++ map (concrName "PropTop") langs) GF.main
   PGF.readPGF "generated/PropTop.pgf"
 
-nlg :: (Show ct, Show et) => Program ct et -> IO ()
-nlg prog = do
-  gr <- createPGF prog
+nlg :: (Show ct, Show et) => GFlang -> Program ct et -> IO ()
+nlg gfl prog = do
+  gr <- createPGF gfl prog
   sequence_ [ do
     putStrLn $ PGF.showExpr [] pgfExpr
     mapM_ putStrLn $ linearizeAll gr pgfExpr

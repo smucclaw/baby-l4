@@ -27,26 +27,29 @@ readPrelude = do
       Left err -> do
         error "Parser Error in Prelude"
 
-process :: FilePath -> String -> IO ()
-process filepath input = do
-  let ast = parseProgram filepath input
+process :: InputOpts -> String -> IO ()
+process args input = do
+  let fpath = filepath args
+      ast = parseProgram fpath input
   case ast of
     Right ast -> do
       -- print ast
       preludeAst <- readPrelude
       -- print (preludeAst)
       print (tpProgram preludeAst ast)
-      --GF.nlg ast
+      GF.nlg (getGFL $ format args) ast
     Left err -> do
       putStrLn "Parser Error:"
       print err
+  where
+    getGFL (Fgf gfl) = gfl
+    getGFL (Fall) = GF.GFall
 
-data Format  = Fall | Fgf GFlang deriving Show
-data GFlang  = GFeng | GFmalay deriving Show
+data Format  = Fall | Fgf GF.GFlang deriving Show
 
 data InputOpts = InputOpts
   { format   :: Format
-  , filepath :: FilePath --Maybe FilePath
+  , filepath :: FilePath
   } deriving Show
 
 optsParse :: Parser InputOpts
@@ -56,8 +59,9 @@ optsParse = InputOpts <$>
                <> command "gf" (info gfSubparser gfHelper))
             <*> argument str (metavar "Filename")
         where
-          gfSubparser = subparser ( command "en" (info (pure (Fgf GFeng))   (progDesc "tell GF to output english"))
-                                 <> command "my" (info (pure (Fgf GFmalay)) (progDesc "tell GF to output malay"))
+          gfSubparser = subparser ( command "all" (info (pure (Fgf GF.GFall)) (progDesc "tell GF to output all languages"))
+                                 <> command "en" (info (pure (Fgf GF.GFeng))   (progDesc "tell GF to output english"))
+                                 <> command "swe" (info (pure (Fgf GF.GFswe)) (progDesc "tell GF to output swedish"))
                                   )
                         <**> helper
           gfHelper = fullDesc
