@@ -92,17 +92,23 @@ import Control.Monad.Except
 
 Program : Lexicon  ClassDecls GlobalVarDecls Rules Assertions
                                    { Program (reverse $1) (reverse $2)  (reverse $3) (reverse $4) (reverse $5) }
-Lexicon : lexicon Mappings { $2 }
+
+Lexicon :                   { [] }
+        |  lexicon Mappings { $2 }
+
 Mappings :                   {[]}
           | Mappings Mapping {$2 : $1 }
 Mapping : VAR '->' VAR { Mapping $1 $3 }
+
 ClassDecls :                       { [] }
            | ClassDecls ClassDecl  { $2 : $1 }
 ClassDecl : class VAR ClassDef     { ClassDecl (ClsNm $2) $3 }
 
-ClassDef :  '{' FieldDecls '}'     { ClassDef (Just (ClsNm "Object")) (reverse $2) }
-         |   extends VAR '{' FieldDecls '}'
-                                   { ClassDef (Just (ClsNm $2)) (reverse $4) }
+ClassDef :   Fields                { ClassDef (Just (ClsNm "Object")) (reverse $1) }
+         |   extends VAR Fields    { ClassDef (Just (ClsNm $2)) (reverse $3) }
+
+Fields  :                          { [] }
+        | '{' FieldDecls '}'       { $2 }
 FieldDecls :                       { [] }
            | FieldDecls FieldDecl  { $2 : $1 }
 
@@ -124,7 +130,7 @@ Assertions :                       { [] }
 Assertion : assert Expr            { Assertion $2 }
 
 -- Atomic type
-ATp   : Bool                      { BoolT }
+ATp  : Bool                       { BoolT }
      | Int                        { IntT }
      | VAR                        { ClassT (ClsNm $1) }
      | '(' TpsCommaSep ')'        { let tcs = $2 in if length tcs == 1 then head tcs else TupleT (reverse tcs) }

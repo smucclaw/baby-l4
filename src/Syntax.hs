@@ -26,7 +26,11 @@ newtype PartyName = PtNm String
 
 ----- Program
 
-data Program ct et = Program [Mapping] [ClassDecl ct] [VarDecl] [Rule et] [Assertion et]
+data Program ct et = Program{ lexiconOfProgram :: [Mapping]
+                            , classDeclsOfProgram ::  [ClassDecl ct] 
+                            , globalsOfProgram :: [VarDecl] 
+                            , rulesOfProgram :: [Rule et]
+                            , assertionsOfProgram :: [Assertion et] }
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
 
 removeAnnotations :: Program ct et -> Program ct ()
