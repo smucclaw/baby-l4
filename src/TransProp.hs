@@ -43,8 +43,6 @@ optimize t = case t of
   GPUnivs  (GListVar [x]) k p -> inSitu GPUnivs  (GIUniv k)  k x $ optimize p 
   GPExists (GListVar [x]) k p -> inSitu GPExists (GIExist k) k x $ optimize p
   GPNeg (GPExists a k p) -> GPNotExists a k p 
-  GPNeg (GPAtom (GAPred1 f x)) -> GPAtom (GNotAPred1 f x)
-  GPNeg (GPAtom (GAPred2 f x y)) -> GPAtom (GNotAPred2 f x y) 
   _ -> composOp optimize t
 
 -- assumes everything inside is binary conjunctions

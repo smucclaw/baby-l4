@@ -33,8 +33,6 @@ fun
 
   APred1 : Pred1 -> Ind -> Atom ;
   APred2 : Pred2 -> Ind -> Ind -> Atom ;
-  NotAPred1 : Pred1 -> Ind -> Atom ;
-  NotAPred2 : Pred2 -> Ind -> Ind-> Atom ;
 
   IFun1  : Fun1 -> Ind -> Ind ;
   IFun2  : Fun2 -> Ind -> Ind -> Ind ;
