@@ -118,7 +118,7 @@ lin
     c = False
     } ;
   PNotExists vs k p = {
-    s = mkS negativePol (mkCl (mkNP a_Quant (mkCN (mkCN k.s vs) (mkAP (mkAP such_A) p.s)))) ;
+    s = mkS negativePol (ExistCN (mkCN (mkCN k.s vs) (mkAP (mkAP such_A) p.s))) ;
     c = False
     } ;
   PNegAtom a = {
