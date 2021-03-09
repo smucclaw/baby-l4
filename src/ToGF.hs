@@ -89,9 +89,10 @@ var2pred var = do
   lex <- asks lexicon
   return $ case findMapping lex name of
     val : _ | gfType val == "Adj" -> GPAdj1 (LexAdj name)
-    val : _ | gfType val == "Verb" -> GPVerb1 (LexVerb name)
-    val : _ | gfType val == "Noun" -> GPNoun1 (LexNoun name)
-    _ -> error $ "var2pred: not supported yet: " ++ show var
+            | gfType val == "Verb" -> GPVerb1 (LexVerb name)
+            | gfType val == "Noun" -> GPNoun1 (LexNoun name)
+    _ -> GPVar1 (GVString (GString name))
+    --error $ "var2pred: not supported yet: " ++ show var
 
 var2pred2 :: Var -> CuteCats GPred2
 var2pred2 var = do
