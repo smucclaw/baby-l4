@@ -267,6 +267,13 @@ gfType str = case (reverse . takeWhile (/= '_') . reverse) str of
   "N2" -> "Noun2"
   "A2" -> "Adj2"
   "V2" -> "Verb2"
+  _ -> case take 4 str of 
+         "mkA2" -> "Adj2"
+         "mkV2" -> "Verb2"
+         "mkN2" -> "Noun2"
+         "mkA " -> "Adj"
+         "mkV " -> "Verb"
+         "mkN " -> "Noun"
   _ -> error $ "gfType: not supported yet: " ++ str
 
 --  foo :: Program Tp
