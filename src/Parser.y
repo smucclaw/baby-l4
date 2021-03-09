@@ -75,7 +75,7 @@ import Control.Monad.Except
 
     NUM   { Token pos (TokenNum $$) }
     VAR   { Token pos (TokenSym $$) }
-    VARLIT  { Token pos (TokenStringLit $$)}
+    STRLIT  { Token pos (TokenStringLit $$)}
 
 
 -- Operators
@@ -97,7 +97,7 @@ Program : Lexicon  ClassDecls GlobalVarDecls Rules Assertions
 Lexicon : lexicon Mappings { $2 }
 Mappings :                   {[]}
           | Mappings Mapping {$2 : $1 }
-Mapping : VAR '->' VAR { Mapping $1 $3  }
+Mapping : VAR '->' STRLIT { Mapping $1 $3  }
 ClassDecls :                       { [] }
            | ClassDecls ClassDecl  { $2 : $1 }
 ClassDecl : class VAR ClassDef     { ClassDecl (ClsNm $2) $3 }
