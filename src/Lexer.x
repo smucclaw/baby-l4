@@ -32,7 +32,7 @@ import Data.Char (ord)
 import qualified Data.Bits
 import qualified Language.LSP.Types            as J
 
-import Syntax (HasAnn(..))
+import Syntax (HasLoc(..), SRng(..), Pos(..))
 
 
 }
@@ -362,7 +362,7 @@ token t input__ len = return (t input__ len)
 -- End copied AlexWrapper code --
 ---------------------------------
 
-data Err = Err { epos :: J.Range , msg :: String }
+data Err = Err { epos :: SRng , msg :: String }
   deriving (Show)
 
 -- To improve error messages, We keep the path of the file we are
@@ -378,10 +378,8 @@ getFilePath = liftM filePath alexGetUserState
 setFilePath :: FilePath -> Alex ()
 setFilePath = alexSetUserState . AlexUserState
 
-type Token = TokenAnn J.Range
-
-data TokenAnn a = Token { tokenPos:: a, tokenKind :: TokenKind }
-  deriving (Show, Functor)
+data Token = Token { tokenPos :: SRng, tokenKind :: TokenKind }
+  deriving (Show)
 
 getTokenKind (Token _ k) = k
 
@@ -516,8 +514,8 @@ alexMonadScan' = do
         action (ignorePendingBytes inp) len
 
 -- Signal an error, including a commonly accepted source code position.
-alexError' :: J.Range -> String -> Alex a
-alexError' p@(J.Range (J.Position l c) _) msg = do
+alexError' :: SRng -> String -> Alex a
+alexError' p@(SRng (Pos l c) _) msg = do
   fp <- getFilePath
   alexError $ Err p (fp ++ ":" ++ show (l+1) ++ ":" ++ show (c+1) ++ ": " ++ msg)
 
@@ -545,30 +543,30 @@ scanTokens = runAlex' allTokens
 scanFile :: FilePath -> IO (Either Err [Token])
 scanFile fname = scanTokens fname <$> readFile fname
 
-alex2lspRng :: AlexPosn -> Int -> J.Range
-alex2lspRng tokenPos tokenLen = J.Range startPos endPos
+alex2lspRng :: AlexPosn -> Int -> SRng
+alex2lspRng tokenPos tokenLen = SRng startPos endPos
   where
     startPos = aposToPos tokenPos
     endPos = offset tokenLen startPos
 
-aposToPos :: AlexPosn -> J.Position
-aposToPos (AlexPn _ l c) = J.Position (l - 1) (c - 1)
+aposToPos :: AlexPosn -> Pos
+aposToPos (AlexPn _ l c) = Pos (l - 1) (c - 1)
 
 -- horizontal offset, assuming tokens do not extend over several lines
-offset :: Int -> J.Position -> J.Position
-offset n (J.Position l c) = J.Position l (c + n)
+offset :: Int -> Pos -> Pos
+offset n (Pos l c) = Pos l (c + n)
 
-coordFromTo :: J.Range -> J.Range -> J.Range
-coordFromTo (J.Range f1 t1) (J.Range f2 t2) = J.Range f1 t2
+coordFromTo :: SRng -> SRng -> SRng
+coordFromTo (SRng f1 t1) (SRng f2 t2) = SRng f1 t2
 
-tokenRange :: (HasAnn f, HasAnn g) => f J.Range -> g J.Range -> J.Range
-tokenRange a b = coordFromTo (getAnn a) (getAnn b)
+tokenRange :: (HasLoc f, HasLoc g) => f -> g -> SRng
+tokenRange a b = coordFromTo (getLoc a) (getLoc b)
 
-startOf :: J.Range -> J.Position
-startOf (J.Range s _) = s
+startOf :: SRng -> Pos
+startOf (SRng s _) = s
 
-instance HasAnn TokenAnn where
-  getAnn = tokenPos
+instance HasLoc Token where
+  getLoc = tokenPos
 
 -- This might be useful for looking up token locations:
 -- http://hackage.haskell.org/package/IntervalMap

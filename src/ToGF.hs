@@ -123,7 +123,7 @@ rule2prop (Rule nm vars ifE thenE) = local (updateVars vars) $
 
 expr2prop :: Syntax.Expr () -> CuteCats GProp
 expr2prop e = case e of
-  ValE _ val -> pure $ GPAtom (val2atom val)
+  ValE _ _ val -> pure $ GPAtom (val2atom val)
   FunApp1 f x -> do
     f' <- var2pred f
     x' <- var2ind x
@@ -154,7 +154,7 @@ expr2prop e = case e of
     exp2 <- expr2prop e2
     pure $ GPImpl exp1 exp2
   Not e -> GPNeg <$> expr2prop e
-  TupleE _ es -> do 
+  TupleE _ _ es -> do 
     props <- mapM expr2prop es
     pure $ GPConjs GCAnd (GListProp props)
   IfThenElse e1 e2 e3 -> do
@@ -178,43 +178,43 @@ val2atom e = case e of
 -- Patterns
 
 pattern AppU :: Syntax.Expr () -> Syntax.Expr () -> Syntax.Expr ()
-pattern AppU x y = AppE () x y
+pattern AppU x y <- AppE _ () x y
 
 pattern VarU :: Var -> Syntax.Expr ()
-pattern VarU x = VarE () x
+pattern VarU x <- VarE _ () x
 
 pattern FunApp1 :: Var -> Var -> Syntax.Expr ()
-pattern FunApp1 f x = AppU (VarU f) (VarU x)
+pattern FunApp1 f x <- AppU (VarU f) (VarU x)
 
 -- AppU (VarU (GlobalVar f)) (VarU (LocalVar x int))
 
 pattern FunApp2 :: Var -> Var -> Var -> Syntax.Expr ()
-pattern FunApp2 f x y = AppU (FunApp1 f x) (VarU y)
+pattern FunApp2 f x y <- AppU (FunApp1 f x) (VarU y)
 
 -- Quantification
 
 pattern Exist :: VarName -> Tp -> Syntax.Expr () -> Syntax.Expr ()
-pattern Exist x typ exp = QuantifE () Ex x typ exp
+pattern Exist x typ exp <- QuantifE _ () Ex x typ exp
 
 pattern Forall :: VarName -> Tp -> Syntax.Expr () -> Syntax.Expr ()
-pattern Forall x typ exp = QuantifE () All x typ exp
+pattern Forall x typ exp <- QuantifE _ () All x typ exp
 
 -- Binary operations
 
 pattern And :: Syntax.Expr () -> Syntax.Expr () -> Syntax.Expr ()
-pattern And e1 e2 = BinOpE () (BBool BBand) e1 e2
+pattern And e1 e2 <- BinOpE _ () (BBool BBand) e1 e2
 
 pattern Or :: Syntax.Expr () -> Syntax.Expr () -> Syntax.Expr ()
-pattern Or e1 e2 = BinOpE () (BBool BBor) e1 e2
+pattern Or e1 e2 <- BinOpE _ () (BBool BBor) e1 e2
 
 pattern Not :: Syntax.Expr () -> Syntax.Expr ()
-pattern Not e = UnaOpE () (UBool UBneg) e
+pattern Not e <- UnaOpE _ () (UBool UBneg) e
 
 pattern Impl :: Syntax.Expr () -> Syntax.Expr () -> Syntax.Expr ()
-pattern Impl e1 e2 = BinOpE () (BBool BBimpl) e1 e2
+pattern Impl e1 e2 <- BinOpE _ () (BBool BBimpl) e1 e2
 
 pattern IfThenElse :: Syntax.Expr () -> Syntax.Expr () -> Syntax.Expr () -> Syntax.Expr () 
-pattern IfThenElse e1 e2 e3 = IfThenElseE () e1 e2 e3
+pattern IfThenElse e1 e2 e3 <- IfThenElseE _ () e1 e2 e3
 
 ----------------------------------------
 -- Generic helper functions
@@ -229,9 +229,8 @@ updateVars vs env = env {vardecls = vs : vardecls env}
 findMapping :: [Mapping] -> String -> [String]
 findMapping haystack needle =
   [ val
-    | Mapping name val <- haystack,
-      name == needle
-  ]
+  | Mapping _ name val <- haystack
+  , name == needle ]
 
 type Lang = String
 
@@ -243,7 +242,7 @@ createLexicon langs lexicon = (abstract, concretes)
         ["abstract PropLexicon = Prop ** {"]
           ++ ["fun"]
           ++ [ printf "%s : %s ;" name (gfType val)
-               | Mapping name val <- lexicon
+               | Mapping _ name val <- lexicon
              ]
           ++ ["}"]
     concretes =
@@ -251,7 +250,7 @@ createLexicon langs lexicon = (abstract, concretes)
           [printf "concrete PropLexicon%s of PropLexicon = Prop%s ** open WordNet%s, Paradigms%s in {" lang lang lang lang]
             ++ ["lin"]
             ++ [ printf "%s = %s ;" name val
-                 | Mapping name val <- lexicon
+                 | Mapping _ name val <- lexicon
                ]
             ++ ["}"]
         | lang <- langs
@@ -275,39 +274,5 @@ gfType str = case (reverse . takeWhile (/= '_') . reverse) str of
          "mkA " -> "Adj"
          "mkV " -> "Verb"
          "mkN " -> "Noun"
-  _ -> error $ "gfType: not supported yet: " ++ str
+         _ -> error $ "gfType: not supported yet: " ++ str
 
---  foo :: Program Tp
-foo =
-  Program
-    [Mapping "is_legal" "legal_1_A", Mapping "Business" "business_1_N", Mapping "IncompatibleDignity" "incompatible_1_A"]
-    []
-    [VarDecl "myNumber" IntT, VarDecl "myBusiness" (ClassT (ClsNm "Business")), VarDecl "is_legal" (FunT (ClassT (ClsNm "Business")) BoolT)]
-    [ Rule
-        "r1a"
-        [VarDecl "lpr" (ClassT (ClsNm "LegalPractitioner")), VarDecl "app" (ClassT (ClsNm "Appointment"))]
-        ( QuantifE
-            ErrT
-            Ex
-            "bsn"
-            (ClassT (ClsNm "Business"))
-            ( AppE
-                ErrT
-                ( AppE
-                    ErrT
-                    (VarE ErrT (GlobalVar "IncompatibleDignity"))
-                    (VarE (ClassT (ClsNm "Business")) (LocalVar "bsn" 0))
-                )
-                (VarE (ClassT (ClsNm "Appointment")) (LocalVar "app" 1))
-            )
-        )
-        ( AppE
-            ErrT
-            (AppE ErrT (VarE ErrT (GlobalVar "MustNotAcceptApp")) (VarE (ClassT (ClsNm "LegalPractitioner")) (LocalVar "lpr" 1)))
-            ( VarE
-                (ClassT (ClsNm "Appointment"))
-                (LocalVar "app" 0)
-            )
-        )
-    ]
-    []
