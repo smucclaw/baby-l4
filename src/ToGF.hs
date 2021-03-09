@@ -40,9 +40,9 @@ nlg prog = do
     [ do
         -- putStrLn $ PGF.showExpr [] pgfExpr
         putStrLn ""
-        putStrLn "no transfer"
+        putStrLn "direct translation from logic"
         mapM_ putStrLn $ linearizeAll gr pgfExpr 
-        putStrLn "optimize"
+        putStrLn "more natural"
         mapM_ putStrLn $ linearizeAll gr optpgf 
       | prop <- program2prop prog,
         let pgfExpr = gf prop,
@@ -66,8 +66,6 @@ program2prop e = case e of
      in runReader
           (mapM rule2prop rules)
           env0
-
--- _ -> error $ "program2prop: not yet supported: " ++ show e
 
 vardecl2prop :: VarDecl -> CuteCats GProp
 vardecl2prop (VarDecl vname vtyp) = do
@@ -101,8 +99,8 @@ var2pred2 var = do
   return $ case findMapping lex name of
     val : _ | gfType val == "Adj2" -> GPAdj2 (LexAdj2 name)
     val : _ | gfType val == "Verb2" -> GPVerb2 (LexVerb2 name)
-    --val : _ | gfType val == "Noun2" -> GPNoun2 (LexNoun2 name)
-    _ -> error $ "var2pred2: not supported yet: " ++ show var
+    val : _ | gfType val == "Noun2" -> GPNoun2 (LexNoun2 name)
+    _ ->  GPVar2 (GVString (GString name))
 
 typ2kind :: Tp -> CuteCats GKind
 typ2kind e = case e of
@@ -247,7 +245,7 @@ createLexicon langs lexicon = (abstract, concretes)
           ++ ["}"]
     concretes =
       [ unlines $
-          [printf "concrete PropLexicon%s of PropLexicon = Prop%s ** open WordNet%s, Paradigms%s in {" lang lang lang lang]
+          [printf "concrete PropLexicon%s of PropLexicon = Prop%s ** open WordNet%s, Paradigms%s, Extend%s in {" lang lang lang lang lang]
             ++ ["lin"]
             ++ [ printf "%s = %s ;" name val
                  | Mapping _ name val <- lexicon
@@ -274,5 +272,6 @@ gfType str = case (reverse . takeWhile (/= '_') . reverse) str of
          "mkA " -> "Adj"
          "mkV " -> "Verb"
          "mkN " -> "Noun"
+         "Comp" -> "Noun" -- hack: to support CompoundN
          _ -> error $ "gfType: not supported yet: " ++ str
 
