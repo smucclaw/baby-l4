@@ -5,7 +5,8 @@ concrete PropEng of Prop = PropI - [PNeg] with
   (Symbolic = SymbolicEng),
   (Sentence = SentenceEng),
   (Extend = ExtendEng),
-  (WordNet = WordNetEng)
+  (WordNet = WordNetEng),
+  (Verb = VerbEng)
    ** open (P = ParadigmsEng), ExtraEng, Prelude in {
 
 -- exceptions

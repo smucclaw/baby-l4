@@ -6,6 +6,7 @@ incomplete concrete PropI of Prop = open
   Sentence, ---- ExtAdvS
   WordNet,
   Extend,
+  Verb,
   Prelude in {
 
 lincat
@@ -24,6 +25,7 @@ lincat
   Adj2 = A2 ;
   Verb = V ;
   Verb2 = V2 ;
+  PassVerb2 = VP ;
 
 param
   MyPol = MyPos | MyNeg ;
@@ -143,6 +145,11 @@ lin
   PNoun2 n = myVPS2 (N2VPSlash n) ;
   PVerb1 v = myVPS (mkVP v) ;
   PVerb2 v = myVPS2 (mkVPSlash v) ;
+  Passive = passiveVP ;
+  PPassV2 vp = myVPS vp ;
+
+  PVar1 var = myVPS (mkVP (symb var)) ;
+  PVar2 var = myVPS2 (VPSlashPrep (mkVP (symb var)) to_Prep) ; ----
 
 lin
   ConjPred1 c ps = \\pol => ConjVPS c.s (ps ! pol) ;
@@ -167,7 +174,6 @@ lin
   BFalse = {s = symb "false" ; isSymbolic = True} ;
   KInd ind = {s = mkCN type_5_N ind.s ; isClass = True} ;
   KNoun noun = {s = mkCN noun ; isClass = False} ;
--- symbolic applications by LaTeX macros
 
 oper
   funType : N3 -> LinKind -> LinKind -> LinKind = \f,arg,ret ->

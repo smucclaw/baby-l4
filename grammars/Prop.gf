@@ -14,7 +14,7 @@ cat
   Conj ;
   -- For lexicon
   -- fdjkjkv 
-  Noun ; Noun2 ; Adj ; Adj2 ; Verb ; Verb2 ; 
+  Noun ; Noun2 ; Adj ; Adj2 ; Verb ; Verb2 ; PassVerb2 ;
 
 fun
   PAtom  : Atom  -> Prop ;
@@ -115,9 +115,17 @@ fun
   PNoun2 : Noun2 -> Pred2 ;
   PVerb1 : Verb -> Pred1 ;
   PVerb2 : Verb2 -> Pred2 ;
+  PPassV2 : PassVerb2 -> Pred1 ;
+  Passive : Verb2 -> PassVerb2 ;
+
+  -- Fallback: if word not in lexicon, make it into var
+  PVar1 : Var -> Pred1 ;
+  PVar2 : Var -> Pred2 ;
+
 
 -- dummy instance of noun so that generated Prop.hs doesn't complain
   DummyN : Noun ;
+  DummyN2 : Noun2 ;
   DummyA : Adj ;
   DummyA2 : Adj2 ;
   DummyV : Verb ;

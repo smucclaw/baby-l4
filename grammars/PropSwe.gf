@@ -6,7 +6,8 @@ concrete PropSwe of Prop = PropI - [PUniv, AKind]  with
   (Symbol = SymbolSwe),
   (Sentence = SentenceSwe),
   (Extend = ExtendSwe),
-  (WordNet = WordNetSwe)
+  (WordNet = WordNetSwe),
+  (Verb = VerbSwe)
    ** open (P = ParadigmsSwe), Prelude in {
 
 flags coding = utf8 ;
