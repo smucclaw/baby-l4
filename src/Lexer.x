@@ -43,8 +43,8 @@ $digit = 0-9
 $alpha = [a-zA-Z]
 $eol   = [\n]
 $graphic    = $printable # $white # $eol #\n #\" 
-
-@string     = \" ($graphic # \")* \"
+$inString   = [$graphic $white]
+@string     = \" ($inString)* \"
 
 tokens :-
 
@@ -107,9 +107,11 @@ tokens :-
 
 
   -- Numbers and identifiers
+
   $digit+                       { lex (TokenNum . read) }
   $alpha [$alpha $digit \_ \']* { lex TokenSym }
-  @string[.$white. # $eol ]*                      { lex TokenStringLit }
+  @string                       { lex (TokenStringLit . read) }
+
   -- need to ask if there's a way to combine TokenSym and TokenStringLit into one regex 
 
 
