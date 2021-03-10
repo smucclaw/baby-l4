@@ -106,6 +106,8 @@ fun
   KInd         : Ind -> Kind ;
   KFun         : Kind -> Kind -> Kind ;
 
+  INoun : Noun -> Ind ;
+
   PAdj1 : Adj -> Pred1 ;
   PAdj2 : Adj2 -> Pred2 ;
   PAdj12 : Adj -> Pred2 ; -- force A to A2

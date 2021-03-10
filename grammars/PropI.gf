@@ -151,6 +151,8 @@ lin
   PVar1 var = myVPS (mkVP (symb var)) ;
   PVar2 var = myVPS2 (VPSlashPrep (mkVP (symb var)) to_Prep) ; ----
 
+  INoun n = {s = mkNP the_Det n ; isSymbolic = False} ;
+
 lin
   ConjPred1 c ps = \\pol => ConjVPS c.s (ps ! pol) ;
 
@@ -160,7 +162,7 @@ lin
   IFunC f xs = {s = app f.v (mkNP and_Conj xs) ; isSymbolic = False} ;
 
   IUniv k = {s = mkNP every_Det k.s ; isSymbolic = False} ;
-  IExist k = {s = mkNP someSg_Det k.s ; isSymbolic = False} ;
+  IExist k = {s = mkNP aSg_Det k.s ; isSymbolic = False} ;
 
   ConjInd co xs = {s = mkNP co.s xs ; isSymbolic = False} ;
 

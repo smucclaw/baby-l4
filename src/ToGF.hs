@@ -69,7 +69,7 @@ program2prop e = case e of
 
 vardecl2prop :: VarDecl -> CuteCats GProp
 vardecl2prop (VarDecl vname vtyp) = do
-  typ <- typ2kind vtyp
+  typ <- tp2kind vtyp
   name <- var2ind (GlobalVar vname)
   pure $ GPAtom (GAKind typ name)
 
@@ -102,15 +102,26 @@ var2pred2 var = do
     val : _ | gfType val == "Noun2" -> GPNoun2 (LexNoun2 name)
     _ -> GPVar2 (GVString (GString name))
 
-typ2kind :: Tp -> CuteCats GKind
-typ2kind e = case e of
+tp2kind :: Tp -> CuteCats GKind
+tp2kind e = case e of
   BoolT -> pure GBoolean
   IntT -> pure GNat
   ClassT (ClsNm name) -> pure $ GKNoun (LexNoun name)
-  FunT arg ret -> GKFun <$> typ2kind arg <*> typ2kind ret
+  FunT arg ret -> GKFun <$> tp2kind arg <*> tp2kind ret
   -- TupleT [Tp]
   -- ErrT
-  _ -> error $ "typ2kind: not yet supported: " ++ show e
+  _ -> error $ "tp2kind: not yet supported: " ++ show e
+
+tp2ind :: Tp -> CuteCats GInd
+tp2ind e = case e of
+  --BoolT -> pure GBoolean
+  --IntT -> pure GNat
+  ClassT (ClsNm name) -> pure $ GINoun (LexNoun name)
+  --FunT arg ret -> GKFun <$> tp2kind arg <*> tp2kind ret
+  -- TupleT [Tp]
+  -- ErrT
+  _ -> error $ "tp2kind: not yet supported: " ++ show e
+
 
 rule2prop :: Rule Tp -> CuteCats GProp
 rule2prop (Rule nm vars ifE thenE) = local (updateVars vars) $
@@ -124,20 +135,21 @@ expr2prop e = case e of
   ValE _ _ val -> pure $ GPAtom (val2atom val)
   FunApp1 f x xTp -> do
     f' <- var2pred f
+--    x' <- tp2ind xTp
     x' <- var2ind x
     pure $ GPAtom (GAPred1 f' x')
   FunApp2 f x xTp y yTp -> do
     f' <- var2pred2 f
-    x' <- var2ind x
-    y' <- var2ind y
+    x' <- tp2ind xTp
+    y' <- tp2ind yTp
     pure $ GPAtom (GAPred2 f' x' y')
   Exist x cl exp -> do
     prop <- expr2prop exp
-    typ <- typ2kind cl
+    typ <- tp2kind cl
     pure $ GPExists (GListVar [GVString (GString x)]) typ prop
   Forall x cl exp -> do
     prop <- expr2prop exp
-    typ <- typ2kind cl
+    typ <- tp2kind cl
     pure $ GPUnivs (GListVar [GVString (GString x)]) typ prop
   And e1 e2 -> do
     exp1 <- expr2prop e1
