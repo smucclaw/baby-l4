@@ -12,7 +12,7 @@ process filepath input = do
     Right ast -> do
       let tast = tpProgram $ () <$ ast
       print tast
-      GF.nlg $ () <$ tast
+      GF.nlg tast
     Left err -> do
       putStrLn "Parser Error:"
       print err
