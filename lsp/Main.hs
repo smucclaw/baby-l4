@@ -170,7 +170,7 @@ lookupToken pos (TextDocumentIdentifier uri) = do
       -- TODO: Clear diagnostics when they are no longer relevant
       -- TODO: The line below does nothing! See #19
       publishDiagnostics 100 nuri Nothing (partitionBySource [])
-      publishDiagnostics 100 nuri Nothing (Map.singleton(Just "lexer")(Data.SortedList.toSortedList []))
+      publishDiagnostics 100 nuri Nothing (Map.singleton(Just "lexer")(Data.SortedList.toSortedList [])) --"lexer" in this case is the diagnosticsource
       
       let toks = find (posInRange pos . tokenPos) tokens
       -- sendNotification SWindowShowMessage $ ShowMessageParams MtInfo $ tshow pos <> tshow toks
