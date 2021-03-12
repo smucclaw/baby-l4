@@ -1,6 +1,4 @@
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 -- To DocAssemble! Which is to say, a bit of Python.
@@ -70,7 +68,12 @@ createDocAssemble p = putDoc $ (hiss p <> PP.line)
 
 instance Pythonic (Program ct et) where
   hiss (Program mapping classdecls vardecls rules assertions) =
-    hiss classdecls
+    vsep [ "## CLASS DECLARATIONS ##", hiss classdecls
+         , "## VARIABLE DECLARATIONS ##", hiss vardecls
+         ]
+
+instance Pythonic (VarDecl) where
+  hiss vd = viaShow vd
 
 instance Pythonic (ClassDecl ct) where
   hiss (ClassDecl (ClsNm classname) (ClassDef t fielddecs)) =
@@ -80,6 +83,10 @@ instance Pythonic (ClassDecl ct) where
     ++ (hiss <$> fielddecs)
 
   hisslist cds = concatWith (\x y -> x <> PP.line <> PP.line <> y) (hiss <$> cds)
+
+-- pycomment :: Doc ann -> Doc ann
+-- pycomment mydoc = -- prefix every line of a thing with some ##
+--
 
 instance Pythonic FieldDecl where
   hiss (FieldDecl (FldNm fieldname) tp) =
