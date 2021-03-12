@@ -10,6 +10,8 @@ import qualified Data.Text as T
 import Lexer
 import Data.List (find)
 import Data.Text.IO (hPutStrLn)
+import qualified Data.Map as Map
+import Data.SortedList
 import System.IO (stderr)
 
 import           Control.Lens hiding (Iso)
@@ -22,6 +24,11 @@ import Data.Traversable ( for )
 import Data.Functor.Const (Const(..))
 import Parser (parseProgram)
 import Data.Foldable (for_)
+import qualified Data.List as List
+import Syntax
+import Control.Lens.Extras (template)
+import Data.Data (Data)
+-- import Syntax (Pos(..),SRng(..))
 
 type Config = ()
 
@@ -81,7 +88,7 @@ parseAndSendErrors uri contents = do
       let
         nuri = toNormalizedUri uri
         diags = [J.Diagnostic
-                  (epos err)
+                  (errorRange err)
                   (Just J.DsError)  -- severity
                   Nothing  -- code
                   (Just "lexer") -- source
@@ -95,11 +102,35 @@ parseAndSendErrors uri contents = do
 tshow :: Show a => a -> T.Text
 tshow = T.pack . show
 
-posInRange :: Position -> Range -> Bool
-posInRange (Position line col) (Range (Position top left) (Position bottom right)) =
+posInRange :: Position -> SRng -> Bool
+posInRange (Position line col) (SRng (Pos top left) (Pos bottom right)) =
   (line == top && col >= left || line > top)
   && (line == bottom && col <= right || line < bottom)
 
+-- | Convert l4 source ranges to lsp source ranges
+posToRange :: SRng -> Range
+posToRange (SRng (Pos l1 c1) (Pos l2 c2)) = Range (Position l1 l2) (Position l2 c2)
+
+-- | Extract the range from an alex/happy error
+errorRange :: Err -> Range
+errorRange = posToRange . epos
+
+-- TODO: Use findAllExpressions and findExprAt to extract types for hover
+
+-- TODO: Show type errors as diagnostics
+
+findAllExpressions :: (Data ct, Data et) => Program ct et -> [Expr et]
+findAllExpressions = toListOf template
+
+-- | Find the smallest subexpression which contains the specified position
+findExprAt :: J.Position -> Expr t -> Expr t
+findExprAt pos expr =
+  case List.find (posInRange pos . getLoc) (childExprs expr) of
+    Nothing -> expr
+    Just sub -> findExprAt pos sub
+
+-- | Temporary bad debugging function.
+-- Use @debugM@ instead
 elog :: (MonadIO m, Show a) => a -> m ()
 elog = liftIO . hPutStrLn stderr . tshow
 
@@ -123,7 +154,7 @@ lookupToken pos (TextDocumentIdentifier uri) = do
     Left err -> do
       let
         diags = [J.Diagnostic
-                  (epos err)
+                  (errorRange err)
                   (Just J.DsError)  -- severity
                   Nothing  -- code
                   (Just "lexer") -- source
@@ -135,9 +166,12 @@ lookupToken pos (TextDocumentIdentifier uri) = do
 
       _ <- sendNotification SWindowShowMessage $ ShowMessageParams MtError $ tshow err
       return Nothing
-      -- TODO: Clear diagnostics when they are no longer relevant
     Right tokens -> do
+      -- TODO: Clear diagnostics when they are no longer relevant
+      -- TODO: The line below does nothing! See #19
       publishDiagnostics 100 nuri Nothing (partitionBySource [])
+      publishDiagnostics 100 nuri Nothing (Map.singleton(Just "lexer")(Data.SortedList.toSortedList [])) --"lexer" in this case is the diagnosticsource
+      
       let toks = find (posInRange pos . tokenPos) tokens
       -- sendNotification SWindowShowMessage $ ShowMessageParams MtInfo $ tshow pos <> tshow toks
       elog pos
@@ -146,7 +180,7 @@ lookupToken pos (TextDocumentIdentifier uri) = do
         let
           ms = HoverContents $ markedUpContent "haskell" $ tshow tok --tokenKind
         in
-          Hover ms $ Just $ tokenPos tok
+          Hover ms $ Just $ posToRange $ tokenPos tok
 
 syncOptions :: J.TextDocumentSyncOptions
 syncOptions = J.TextDocumentSyncOptions

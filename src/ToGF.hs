@@ -52,7 +52,7 @@ var2ind :: [Mapping] -> VarName -> GInd
 var2ind lexicon name = case findMapping lexicon name of
     val:_ -> if gfType val == "Noun"
               then GIVarN (LexNoun name)
-              else GIVar (GVString (GString name)) 
+              else GIVar (GVString (GString name))
     _           -> GIVar (GVString (GString name)) -- Fall back to string literal
 
 typ2kind :: [Mapping] -> Tp -> GKind
@@ -67,7 +67,7 @@ typ2kind lexicon e = case e of
 
 expr2prop :: Syntax.Expr Tp -> GProp
 expr2prop e = case e of
-  ValE _ val -> GPAtom (val2atom val)
+  ValE _ _ val -> GPAtom (val2atom val)
   _ -> error $ "expr2prop: not yet supported: " ++ show e
 
 val2atom :: Val -> GAtom
@@ -81,7 +81,7 @@ val2atom e  = case e of
 findMapping :: [Mapping] -> String -> [String]
 findMapping haystack needle =
   [ val
-  | Mapping name val <- haystack
+  | Mapping _ name val <- haystack
   , name == needle ]
 
 type Lang = String
@@ -93,14 +93,14 @@ createLexicon langs lexicon = (abstract,concretes)
       ["abstract PropLexicon = Prop ** {"] ++
       ["fun"] ++
       [ printf "%s : %s ;" name (gfType val)
-      | Mapping name val <- lexicon ] ++
+      | Mapping _ name val <- lexicon ] ++
       ["}"]
     concretes =
       [ unlines $
           [printf "concrete PropLexicon%s of PropLexicon = Prop%s ** open WordNet%s in {" lang lang lang] ++
           ["lin"] ++
           [printf "%s = %s ;" name val
-          | Mapping name val <- lexicon ] ++
+          | Mapping _ name val <- lexicon ] ++
           ["}"]
       | lang <- langs ]
 
