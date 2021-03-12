@@ -15,7 +15,7 @@ readPrelude = do
     contents <- readFile l4PreludeFilepath
     case parseProgram l4PreludeFilepath contents of
       Right ast -> do
-        print ast
+        -- print ast
         return (() <$ ast)
       Left err -> do
         error "Parser Error in Prelude"
@@ -25,12 +25,12 @@ process filepath input = do
   let ast = parseProgram filepath input
   case ast of
     Right ast -> do
-      --print ast
-      --print (() <$ ast)
+      -- print ast
+      -- print (() <$ ast)
       preludeAst <- readPrelude
       print (tpProgram preludeAst $ () <$ ast)
       --print ast
-      GF.nlg ast
+      --GF.nlg ast
     Left err -> do
       putStrLn "Parser Error:"
       print err

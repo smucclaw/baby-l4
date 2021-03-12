@@ -13,33 +13,18 @@ import Syntax
 -- Typing is done in an environment, composed of
 -- the class decls, global and local variable declarations
 type VarEnvironment = [(VarName, Tp)]
-{-
-newtype GlobalVarDecls = GVD VarEnvironment
-  deriving (Eq, Ord, Show, Read)
-newtype LocalVarDecls = LVD VarEnvironment
-  deriving (Eq, Ord, Show, Read)
-  -}
+
 data Environment t = Env { classDeclsOfEnv :: [ClassDecl t]
                          , globalsOfEnv :: VarEnvironment
                          , localsOfEnv :: VarEnvironment }
   deriving (Eq, Ord, Show, Read)
 
-{-
-classDeclsOfEnv :: Environment t -> [ClassDecl t]
-classDeclsOfEnv (Env m _ _) = m
-
-globalsOfEnv :: Environment t -> [(VarName,Tp)]
-globalsOfEnv (Env _ (GVD gs) _) = gs
-
-localsOfEnv :: Environment t -> [(VarName,Tp)]
-localsOfEnv (Env _ _ (LVD ls)) = ls
--}
-initialEnvOfProgram :: [ClassDecl (Maybe ct)]  -> Program (Maybe ct) et -> Environment (Maybe ct)
-initialEnvOfProgram cds prg =
-  let initialGvs = map (\(VarDecl vn t) -> (vn, t)) (globalsOfProgram prg)
+-- prg is the current program to be typed
+initialEnvOfProgram :: [ClassDecl t] -> [VarDecl] -> Environment t
+initialEnvOfProgram cds gvars =
+  let initialGvs = map (\(VarDecl vn t) -> (vn, t)) gvars
   in Env cds initialGvs []
 
--- TODO: recheck the typing
 
 ----------------------------------------------------------------------
 -- Class manipulation
@@ -75,7 +60,8 @@ superClassesDecls cds =
   in map (superClasses cdf_assoc [] . fst) cdf_assoc
 
 
--- in a class declaration, replace the reference to the immediate super-class by the list of all super-classes
+-- in a class declaration, replace the reference to the immediate super-class 
+-- by the list of all super-classes (from more to less specific, excluding the current class from the list)
 elaborateSupersInClassDecls :: [ClassDecl (Maybe ClassName)] -> [ClassDecl [ClassName]]
 elaborateSupersInClassDecls cds =
   let cdf_assoc = classDefAssoc cds
@@ -120,43 +106,89 @@ wellFormedFieldDecls (ClassDecl cn cdf) = not (hasDuplicates (fields_of_class_de
 -- - no ref to undefined superclass
 -- - no cyclic graph hierarchy (implemented in superClasses above)
 -- - no duplicate field declarations (local and inherited)
-elaborateClsProgram :: Program (Maybe ClassName) et -> Program [ClassName] et
-elaborateClsProgram prg =
-  let cds = classDeclsOfProgram prg
-  in  if wellformedClassDecls cds
-      then
-        let ecdcs = elaborateFieldsInClassDecls (elaborateSupersInClassDecls cds)
-        in
-          if all wellFormedFieldDecls ecdcs
-          then prg { classDeclsOfProgram = ecdcs }
-          else error "Problem in field declarations: duplicate field declarations"
-      else error "Problem in class declarations"
+elaborateClsProgram :: [ClassDecl (Maybe ClassName)] -> [ClassDecl [ClassName]]
+elaborateClsProgram cds =
+  if wellformedClassDecls cds
+  then
+    let ecdcs = elaborateFieldsInClassDecls (elaborateSupersInClassDecls cds)
+    in
+      if all wellFormedFieldDecls ecdcs
+      then ecdcs
+      else error "Problem in field declarations: duplicate field declarations"
+  else error "Problem in class declarations"
 
 
-strictSuperclassesOf :: [ClassDecl [ClassName]] -> ClassName -> [ClassName]
-strictSuperclassesOf cds cn = case lookup cn (classDefAssoc cds) of
+strictSuperclassesOf :: Environment [ClassName] -> ClassName -> [ClassName]
+strictSuperclassesOf env cn = case lookup cn (classDefAssoc (classDeclsOfEnv env)) of
   Nothing -> error ("in strictSuperclassesOf: undefined class " ++ (case cn of (ClsNm n) -> n))
   Just (ClassDef supcls _) -> supcls
 
-isStrictSuperclassesOf :: [ClassDecl [ClassName]] -> ClassName -> ClassName -> Bool
-isStrictSuperclassesOf cds subcl supercl = subcl `elem` (strictSuperclassesOf cds subcl)
+superclassesOf :: Environment [ClassName] -> ClassName -> [ClassName]
+superclassesOf env cn = cn : strictSuperclassesOf env cn
 
-isSubclassOf :: [ClassDecl [ClassName]] -> ClassName -> ClassName -> Bool
-isSubclassOf cds subcl supercl = subcl == supercl || isStrictSuperclassesOf cds subcl supercl
+isStrictSubclassOf :: Environment [ClassName] -> ClassName -> ClassName -> Bool
+isStrictSubclassOf env subcl supercl = supercl `elem` strictSuperclassesOf env subcl
 
+isSubclassOf :: Environment [ClassName] -> ClassName -> ClassName -> Bool
+isSubclassOf env subcl supercl = supercl `elem` superclassesOf env subcl
+
+longestCommonPrefix :: Eq a=> [a] -> [a] -> [a]
+longestCommonPrefix (x:xs) (y:ys) = if x == y then x:longestCommonPrefix xs ys else []
+longestCommonPrefix _ _ = []
+
+-- least common superclass of two classes (given by their name) 
+-- that must at least have Object as common superclass
+leastCommonSuperClass :: Environment [ClassName] -> ClassName -> ClassName -> ClassName
+leastCommonSuperClass env cn1 cn2 =
+  last (longestCommonPrefix (reverse (superclassesOf env cn1)) (reverse (superclassesOf env cn2)))
+
+leastCommonSuperType :: Environment [ClassName] -> Tp -> Tp -> Tp
+leastCommonSuperType env (ClassT cn1) (ClassT cn2) = ClassT (leastCommonSuperClass env cn1 cn2)
+leastCommonSuperType _ _ _ = error "internal errror: leastCommonSuperType should only be called on class types"
+
+-- find all class definitions for class with name cn in environment
+-- (assuming possibly duplicate definitions which would be an error)
+-- TODO: this function is redundant with the functions above
+-- Remove after error processing of classes and expressions is clearer
+lookupClassDefInEnv :: Environment t -> ClassName -> [ClassDef t]
+lookupClassDefInEnv env cn =
+  map def_of_class_decl (filter (\cd -> name_of_class_decl cd == cn) (classDeclsOfEnv env))
+
+
+----------------------------------------------------------------------
+-- Linking classes from the prelude to internal predicates
+----------------------------------------------------------------------
+
+booleanT = (ClassT (ClsNm "Boolean"))
+integerT = (ClassT (ClsNm "Integer"))
+
+isBooleanTp :: Tp -> Bool
+isBooleanTp BoolT = True     -- TODO: BoolT currently still tolerated, but to be phased out
+isBooleanTp (ClassT (ClsNm "Boolean")) = True
+isBooleanTp _ = False
+
+-- Note: IntT not taken as number type
+isNumberTp :: Environment [ClassName] -> Tp -> Bool
+isNumberTp env (ClassT t) = isSubclassOf env t (ClsNm "Number")
+isNumberTp _ _ = False
+
+isScalarType :: Tp -> Bool
+isScalarType BoolT = True
+isScalarType IntT = True
+isScalarType (ClassT _) = True
+isScalarType (FunT _ _) = False
+isScalarType (TupleT ts) = all isScalarType ts
+isScalarType ErrT = True
 
 ----------------------------------------------------------------------
 -- Typing functions
 ----------------------------------------------------------------------
 
-lookupClassDefInEnv :: Environment t -> ClassName -> [ClassDef t]
-lookupClassDefInEnv env cn =
-  map def_of_class_decl (filter (\cd -> name_of_class_decl cd == cn) (classDeclsOfEnv env))
 
 tpConstval :: Environment t -> Val -> Tp
 tpConstval env x = case x of
-  BoolV _ -> BoolT
-  IntV _ -> IntT
+  BoolV _ -> booleanT
+  IntV _ -> integerT
   -- for record values to be well-typed, the fields have to correspond exactly (incl. order of fields) to the class fields.
   -- TODO: maybe relax some of these conditions.
   RecordV cn fnvals ->
@@ -171,32 +203,43 @@ tpConstval env x = case x of
        _ -> error "internal error: duplicate class definition"
 
 
-tpUarith :: Tp -> UArithOp -> Tp
-tpUarith t ua = if t == IntT then IntT else ErrT
+tpUarith :: Environment [ClassName] -> Tp -> UArithOp -> Tp
+tpUarith env t ua = if isNumberTp env t then t else ErrT
 
-tpUbool :: Tp -> UBoolOp -> Tp
-tpUbool t ub = if t == BoolT then BoolT else ErrT
+tpUbool :: Environment [ClassName] -> Tp -> UBoolOp -> Tp
+tpUbool env t ub = if isBooleanTp t then t else ErrT
 
-tpUnaop :: Tp -> UnaOp -> Tp
-tpUnaop t uop = case uop of
-  UArith ua  -> tpUarith t ua
-  UBool ub   -> tpUbool t ub
+tpUnaop :: Environment [ClassName] -> Tp -> UnaOp -> Tp
+tpUnaop env t uop = case uop of
+  UArith ua  -> tpUarith env t ua
+  UBool ub   -> tpUbool env t ub
 
 
-tpBarith :: Tp -> Tp -> BArithOp -> Tp
-tpBarith t1 t2 ba = if t1 == t2 && t1 == IntT then IntT else ErrT
+tpBarith :: Environment [ClassName] -> Tp -> Tp -> BArithOp -> Tp
+tpBarith env t1 t2 ba =
+  if isNumberTp env t1 && isNumberTp env t2
+    then leastCommonSuperType env t1 t2
+    else ErrT
 
-tpBcompar :: Tp -> Tp -> BComparOp -> Tp
-tpBcompar t1 t2 bc = if t1 == t2 then BoolT else ErrT
+-- TODO: more liberal condition for comparison?
+tpBcompar :: Environment [ClassName] -> Tp -> Tp -> BComparOp -> Tp
+tpBcompar env t1 t2 bc =
+  if isScalarType t1 && isScalarType t2
+  then
+    if (compatibleType env t1 t2 || compatibleType env t2 t1)
+    then booleanT
+    else ErrT
+  else ErrT
 
-tpBbool :: Tp -> Tp -> BBoolOp -> Tp
-tpBbool t1 t2 bc = if t1 == t2 && t1 == BoolT then BoolT else ErrT
+tpBbool :: Environment [ClassName] -> Tp -> Tp -> BBoolOp -> Tp
+tpBbool env t1 t2 bc =
+  if isBooleanTp t1 && isBooleanTp t2 then booleanT else ErrT
 
-tpBinop :: Tp -> Tp -> BinOp -> Tp
-tpBinop t1 t2 bop = case bop of
-  BArith ba  -> tpBarith t1 t2 ba
-  BCompar bc -> tpBcompar t1 t2 bc
-  BBool bb   -> tpBbool t1 t2 bb
+tpBinop :: Environment [ClassName] -> Tp -> Tp -> BinOp -> Tp
+tpBinop env t1 t2 bop = case bop of
+  BArith ba  -> tpBarith env t1 t2 ba
+  BCompar bc -> tpBcompar env t1 t2 bc
+  BBool bb   -> tpBbool env t1 t2 bb
 
 
 -- the first type can be cast to the second type
@@ -216,42 +259,64 @@ tpVar env (LocalVar _ _) = error "internal error: for type checking, variable sh
 varIdentityInEnv :: Environment t -> Var -> Var
 varIdentityInEnv (Env _ _ vds) (GlobalVar vn) =
   maybe (GlobalVar vn) (LocalVar vn) (elemIndex vn (map fst vds))
-
 varIdentityInEnv env (LocalVar _ _) = error "internal error: for type checking, variable should be GlobalVar"
 
 pushLocalVarEnv :: [(VarName, Tp)] -> Environment t -> Environment t
 pushLocalVarEnv nvds (Env cls gv vds) = Env cls gv (reverse nvds ++ vds)
 
+-- the function returns the environment unchanged if a pattern and its type 
+-- are not compatible in the sense of the following function
 pushPatternEnv :: Pattern -> Tp -> Environment t -> Environment t
 pushPatternEnv (VarP vn) t (Env cls gv vds) = Env cls gv  ((vn, t):vds)
 pushPatternEnv (VarListP vns) (TupleT ts) (Env cls gv vds) = Env cls gv (reverse (zip vns ts) ++ vds)
+pushPatternEnv _ _ env = env
 
+-- a pattern and its type are compatible
 compatiblePatternType :: Pattern -> Tp -> Bool
 compatiblePatternType (VarP vn) t = True
 compatiblePatternType (VarListP vns) (TupleT ts) = length vns == length ts
 compatiblePatternType _ _ = False
 
+-- compatibleType extends subclassing to all type constructors. 
+-- compatibleType env t1 t2 roughly means that t1 is a subtype of t2
+compatibleType :: Environment [ClassName] -> Tp -> Tp -> Bool
+compatibleType _ BoolT BoolT = True
+compatibleType _ IntT IntT = True
+compatibleType env (ClassT c1) (ClassT c2) = isSubclassOf env c1 c2
+compatibleType env (FunT dom1 cod1) (FunT dom2 cod2) =
+  compatibleType env dom2 dom1 && compatibleType env cod1 cod2
+compatibleType env (TupleT ts1) (TupleT ts2) =
+  (length ts1 == length ts2) &&
+  all (uncurry (compatibleType env)) (zip ts1 ts2)
+compatibleType _ _ _ = False 
+
 -- TODO: FldAccE, ListE
-tpExpr :: Environment t -> Expr () -> Expr Tp
+tpExpr :: Environment [ClassName] -> Expr () -> Expr Tp
 tpExpr env x = case x of
   ValE () c -> ValE (tpConstval env c) c
   VarE () v -> VarE (tpVar env v) (varIdentityInEnv env v)
   UnaOpE () uop e ->
     let te = tpExpr env e
-        t  = tpUnaop (tpOfExpr te) uop
+        t  = tpUnaop env (tpOfExpr te) uop
     in  UnaOpE t uop te
   BinOpE () bop e1 e2 ->
     let te1 = tpExpr env e1
         te2 = tpExpr env e2
-        t   = tpBinop (tpOfExpr te1) (tpOfExpr te2) bop
+        t   = tpBinop env (tpOfExpr te1) (tpOfExpr te2) bop
     in  BinOpE t bop te1 te2
   IfThenElseE () c e1 e2 ->
     let tc = tpExpr env c
         te1 = tpExpr env e1
         te2 = tpExpr env e2
+        t1 = tpOfExpr te1
+        t2 = tpOfExpr te2
     in
-      if tpOfExpr tc == BoolT && tpOfExpr te1 == tpOfExpr te2
-      then IfThenElseE (tpOfExpr te1) tc te1 te2
+      if isBooleanTp (tpOfExpr tc)
+      then if compatibleType env t1 t2
+           then IfThenElseE t2 tc te1 te2
+           else if compatibleType env t2 t1 
+                then IfThenElseE t1 tc te1 te2
+                else IfThenElseE ErrT tc te1 te2
       else  IfThenElseE ErrT tc te1 te2
   AppE () fe ae ->
     let tfe = tpExpr env fe
@@ -260,7 +325,7 @@ tpExpr env x = case x of
         ta  = tpOfExpr tae
     in case tf of
       FunT tpar tbody ->
-        if tpar == ta
+        if compatibleType env ta tpar
         then AppE tbody tfe tae
         else AppE ErrT tfe tae
       _ -> AppE ErrT tfe tae
@@ -268,17 +333,18 @@ tpExpr env x = case x of
     let te = tpExpr (pushPatternEnv pt tparam env) e
         t  = tpOfExpr te
     in
-      -- TODO: the test should come before the recursive call
-      -- because pushPatternEnv may lead to a Haskell match failure.
+      -- the recursive call comes before the test should
+      -- because even in case of an error, a typed subexpression has to be computed
       if compatiblePatternType pt tparam
       then FunE (FunT tparam t) pt tparam te
       else FunE ErrT pt tparam te
+  
   -- ClosE: no explicit typing because not externally visible
   QuantifE () q vn vt e ->
     let te = tpExpr (pushLocalVarEnv [(vn, vt)] env) e
     in
-      if tpOfExpr te == BoolT
-      then QuantifE BoolT q vn vt te
+      if isBooleanTp (tpOfExpr te)
+      then QuantifE booleanT q vn vt te
       else QuantifE ErrT q vn vt te
   CastE () ctp e ->
     let te = tpExpr env e
@@ -288,7 +354,7 @@ tpExpr env x = case x of
 
 
 
-tpCmd :: Environment t -> Cmd () -> Cmd Tp
+tpCmd :: Environment [ClassName] -> Cmd () -> Cmd Tp
 tpCmd env Skip = Skip
 tpCmd env (VAssign v e) =
     let te = tpExpr env e
@@ -299,22 +365,22 @@ tpCmd env (VAssign v e) =
 
 
 -- TODO: still take local variables into account
-tpRule :: Environment t -> Rule () -> Rule Tp
+tpRule :: Environment [ClassName] -> Rule () -> Rule Tp
 tpRule env (Rule rn vds precond postcond) =
   let renv = pushLocalVarEnv (map (\(VarDecl vn vt) -> (vn, vt)) vds) env
   in Rule rn vds (tpExpr renv precond) (tpExpr renv postcond)
-tpAssertion :: Environment t -> Assertion () -> Assertion Tp
+tpAssertion :: Environment [ClassName] -> Assertion () -> Assertion Tp
 tpAssertion env (Assertion e) = Assertion (tpExpr env e)
 
 -- TODO: check types of global variable declarations
 -- Assumption: prelude only contains class declarations
 tpProgram :: Program (Maybe ClassName) () -> Program (Maybe ClassName) () -> Program [ClassName] Tp
-tpProgram prelude prg =
-  let pcls = classDeclsOfProgram prelude
-      initialClassDecls = (customCs ++ pcls ++ classDeclsOfProgram prg)
-      env = initialEnvOfProgram initialClassDecls prg
-      (Program lex allCls gvars rls asrt) = elaborateClsProgram (prg {classDeclsOfProgram = initialClassDecls})
-  in Program lex allCls gvars (map (tpRule env) rls) (map (tpAssertion env) asrt)
+tpProgram prelude (Program lex cds gvars rls asrt) =
+  let pcds = classDeclsOfProgram prelude
+      initialClassDecls = (customCs ++ pcds ++ cds)
+      elabClassDecls = elaborateClsProgram initialClassDecls
+      env = initialEnvOfProgram elabClassDecls gvars
+  in Program lex elabClassDecls gvars (map (tpRule env) rls) (map (tpAssertion env) asrt)
 
 
 ----------------------------------------------------------------------
@@ -370,7 +436,7 @@ wellFormedTA :: Environment [ClassName] -> TA () -> TA Tp
 wellFormedTA env (TmdAut nm ta_locs ta_act_clss ta_clks trans init_locs invs lbls) =
   if
     all (wellFormedTransition ta_locs ta_act_clss ta_clks) trans &&
-    all (\act_cls -> isSubclassOf (classDeclsOfEnv env) act_cls (ClsNm "Event")) ta_act_clss &&
+    all (\c -> isSubclassOf env c (ClsNm "Event")) ta_act_clss &&
     all (\(l, ccs) -> elem l ta_locs && listSubset (map clockOfConstraint ccs) ta_clks) invs
   then
     let lbls_locs = map fst lbls

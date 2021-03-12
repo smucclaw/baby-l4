@@ -104,7 +104,7 @@ ClassDecls :                       { [] }
            | ClassDecls ClassDecl  { $2 : $1 }
 ClassDecl : class VAR ClassDef     { ClassDecl (ClsNm $2) $3 }
 
-ClassDef :   Fields                { ClassDef (Just (ClsNm "Object")) (reverse $1) }
+ClassDef :   Fields                { ClassDef (Just (ClsNm "Class")) (reverse $1) }
          |   extends VAR Fields    { ClassDef (Just (ClsNm $2)) (reverse $3) }
 
 Fields  :                          { [] }

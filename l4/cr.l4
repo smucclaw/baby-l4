@@ -15,8 +15,8 @@ Value -> value_1
 
 
 class Business {
-      foo: Int
-      bar: Bool -> (Int,Int)
+      foo: Integer
+      bar: Boolean -> (Integer,Integer)
 }
 
 class LawRelatedService extends Business {
@@ -37,24 +37,24 @@ class LegalPractitioner extends Person {
 class LocumSolicitor extends LegalPractitioner {
 }
 
-decl AssociatedWith: LegalPractitioner -> Appointment -> Bool
-decl AssociatedWithAppB: Appointment -> Business -> Bool
-decl AssociatedWithAppBE: Appointment -> BusinessEntity -> Bool
+decl AssociatedWith: LegalPractitioner -> Appointment -> Boolean
+decl AssociatedWithAppB: Appointment -> Business -> Boolean
+decl AssociatedWithAppBE: Appointment -> BusinessEntity -> Boolean
 
-decl SubjectTo : LegalPractitioner -> Appointment -> Bool
-decl MayAcceptApp : LegalPractitioner -> Appointment -> Bool
-decl MustNotAcceptApp : LegalPractitioner -> Appointment -> Bool
+decl SubjectTo : LegalPractitioner -> Appointment -> Boolean
+decl MayAcceptApp : LegalPractitioner -> Appointment -> Boolean
+decl MustNotAcceptApp : LegalPractitioner -> Appointment -> Boolean
 
-decl IncompatibleDignity : Business -> Bool
-decl MateriallyInterferes : Business -> Bool
-decl UnfairAttractBusiness : Business -> Bool
-decl ShareLPRFees : Business -> Bool
-decl BusinessFirstSchedule : Business -> Bool
-decl ProhibitedBusiness : Business -> Bool
+decl IncompatibleDignity : Business -> Boolean
+decl MateriallyInterferes : Business -> Boolean
+decl UnfairAttractBusiness : Business -> Boolean
+decl ShareLPRFees : Business -> Boolean
+decl BusinessFirstSchedule : Business -> Boolean
+decl ProhibitedBusiness : Business -> Boolean
 
 # use the following declarations instead of the commented 'extends' classes ??
-# decl LawRelatedService: Business -> Bool
-# decl LocumSolicitor: LegalPractitioner -> Bool
+# decl LawRelatedService: Business -> Boolean
+# decl LocumSolicitor: LegalPractitioner -> Boolean
 
 
 # SECTION 34
@@ -102,3 +102,5 @@ then
 App lpr app
 
 assert exists lpr: LegalPractitioner. exists app: Appointment. MayAcceptApp lpr app
+
+assert exists lpr: LegalPractitioner. exists app: Appointment. MustNotAcceptApp lpr app
