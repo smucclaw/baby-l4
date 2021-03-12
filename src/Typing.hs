@@ -240,26 +240,26 @@ compatiblePatternType _ _ = False
 -- TODO: FldAccE, ListE
 tpExpr :: Environment t -> Expr () -> Expr Tp
 tpExpr env x = case x of
-  ValE loc () c -> ValE loc (tpConstval env c) c
-  VarE loc () v -> VarE loc (tpVar env v) (varIdentityInEnv env v)
-  UnaOpE loc () uop e ->
+  ValE () c -> ValE (tpConstval env c) c
+  VarE () v -> VarE (tpVar env v) (varIdentityInEnv env v)
+  UnaOpE () uop e ->
     let te = tpExpr env e
         t  = tpUnaop (tpOfExpr te) uop
-    in  UnaOpE loc t uop te
-  BinOpE loc () bop e1 e2 ->
+    in  UnaOpE t uop te
+  BinOpE () bop e1 e2 ->
     let te1 = tpExpr env e1
         te2 = tpExpr env e2
         t   = tpBinop (tpOfExpr te1) (tpOfExpr te2) bop
-    in  BinOpE loc t bop te1 te2
-  IfThenElseE loc () c e1 e2 ->
+    in  BinOpE t bop te1 te2
+  IfThenElseE () c e1 e2 ->
     let tc = tpExpr env c
         te1 = tpExpr env e1
         te2 = tpExpr env e2
     in
       if tpOfExpr tc == BoolT && (tpOfExpr te1) == (tpOfExpr te2)
-      then IfThenElseE loc (tpOfExpr te1) tc te1 te2
-      else  IfThenElseE loc ErrT tc te1 te2
-  AppE loc () fe ae ->
+      then IfThenElseE (tpOfExpr te1) tc te1 te2
+      else  IfThenElseE ErrT tc te1 te2
+  AppE () fe ae ->
     let tfe = tpExpr env fe
         tae = tpExpr env ae
         tf  = tpOfExpr tfe
@@ -267,30 +267,30 @@ tpExpr env x = case x of
     in case tf of
       FunT tpar tbody ->
         if tpar == ta
-        then AppE loc tbody tfe tae
-        else AppE loc ErrT tfe tae
-      _ -> AppE loc ErrT tfe tae
-  FunE loc () pt tparam e ->
+        then AppE tbody tfe tae
+        else AppE ErrT tfe tae
+      _ -> AppE ErrT tfe tae
+  FunE () pt tparam e ->
     let te = tpExpr (pushPatternEnv pt tparam env) e
         t  = tpOfExpr te
     in
       -- TODO: the test should come before the recursive call
       -- because pushPatternEnv may lead to a Haskell match failure.
       if compatiblePatternType pt tparam
-      then FunE loc (FunT tparam t) pt tparam te
-      else FunE loc ErrT pt tparam te
+      then FunE (FunT tparam t) pt tparam te
+      else FunE ErrT pt tparam te
   -- ClosE: no explicit typing because not externally visible
-  QuantifE loc () q vn vt e ->
+  QuantifE () q vn vt e ->
     let te = tpExpr (pushLocalVarEnv [(vn, vt)] env) e
     in
       if tpOfExpr te == BoolT
-      then QuantifE loc BoolT q vn vt te
-      else QuantifE loc ErrT q vn vt te
-  CastE loc () ctp e ->
+      then QuantifE BoolT q vn vt te
+      else QuantifE ErrT q vn vt te
+  CastE () ctp e ->
     let te = tpExpr env e
     in if castCompatible (tpOfExpr te) ctp
-       then CastE loc ctp ctp te
-       else CastE loc ErrT ctp te
+       then CastE ctp ctp te
+       else CastE ErrT ctp te
 
 
 
