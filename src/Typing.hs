@@ -1,5 +1,7 @@
 -- Typing of expressions
 
+{-# LANGUAGE PatternSynonyms #-}
+
 module Typing where
 
 import Data.List
@@ -290,21 +292,38 @@ compatibleType env (TupleT ts1) (TupleT ts2) =
   all (uncurry (compatibleType env)) (zip ts1 ts2)
 compatibleType _ _ _ = False 
 
+
+{-
+newtype Fix f = Fixa (f (Fix f))
+
+data ExpF a = Bin a a | T
+
+pattern BinX a b = Fixa (Bin a b)
+
+type ExpR = Fix ExpF
+
+cata :: (f a -> b) -> Fix f -> b 
+cata = _
+
+trans :: (f a -> g a) -> Fix f -> Fix g
+trans = _
+-}
+
 -- TODO: FldAccE, ListE
 tpExpr :: Environment [ClassName] -> Expr () -> Expr Tp
 tpExpr env x = case x of
-  ValE () c -> ValE (tpConstval env c) c
-  VarE () v -> VarE (tpVar env v) (varIdentityInEnv env v)
-  UnaOpE () uop e ->
+  ValE rng () c -> ValE rng (tpConstval env c) c
+  VarE rng () v -> VarE rng (tpVar env v) (varIdentityInEnv env v)
+  UnaOpE rng () uop e ->
     let te = tpExpr env e
         t  = tpUnaop env (tpOfExpr te) uop
-    in  UnaOpE t uop te
-  BinOpE () bop e1 e2 ->
+    in  UnaOpE rng t uop te
+  BinOpE rng () bop e1 e2 ->
     let te1 = tpExpr env e1
         te2 = tpExpr env e2
         t   = tpBinop env (tpOfExpr te1) (tpOfExpr te2) bop
-    in  BinOpE t bop te1 te2
-  IfThenElseE () c e1 e2 ->
+    in  BinOpE rng t bop te1 te2
+  IfThenElseE rng () c e1 e2 ->
     let tc = tpExpr env c
         te1 = tpExpr env e1
         te2 = tpExpr env e2
@@ -313,12 +332,12 @@ tpExpr env x = case x of
     in
       if isBooleanTp (tpOfExpr tc)
       then if compatibleType env t1 t2
-           then IfThenElseE t2 tc te1 te2
+           then IfThenElseE rng t2 tc te1 te2
            else if compatibleType env t2 t1 
-                then IfThenElseE t1 tc te1 te2
-                else IfThenElseE ErrT tc te1 te2
-      else  IfThenElseE ErrT tc te1 te2
-  AppE () fe ae ->
+                then IfThenElseE rng t1 tc te1 te2
+                else IfThenElseE rng ErrT tc te1 te2
+      else  IfThenElseE rng ErrT tc te1 te2
+  AppE rng () fe ae ->
     let tfe = tpExpr env fe
         tae = tpExpr env ae
         tf  = tpOfExpr tfe
@@ -326,31 +345,31 @@ tpExpr env x = case x of
     in case tf of
       FunT tpar tbody ->
         if compatibleType env ta tpar
-        then AppE tbody tfe tae
-        else AppE ErrT tfe tae
-      _ -> AppE ErrT tfe tae
-  FunE () pt tparam e ->
+        then AppE rng tbody tfe tae
+        else AppE rng ErrT tfe tae
+      _ -> AppE rng ErrT tfe tae
+  FunE rng () pt tparam e ->
     let te = tpExpr (pushPatternEnv pt tparam env) e
         t  = tpOfExpr te
     in
       -- the recursive call comes before the test should
       -- because even in case of an error, a typed subexpression has to be computed
       if compatiblePatternType pt tparam
-      then FunE (FunT tparam t) pt tparam te
-      else FunE ErrT pt tparam te
+      then FunE rng (FunT tparam t) pt tparam te
+      else FunE rng ErrT pt tparam te
   
   -- ClosE: no explicit typing because not externally visible
-  QuantifE () q vn vt e ->
+  QuantifE rng () q vn vt e ->
     let te = tpExpr (pushLocalVarEnv [(vn, vt)] env) e
     in
       if isBooleanTp (tpOfExpr te)
-      then QuantifE booleanT q vn vt te
-      else QuantifE ErrT q vn vt te
-  CastE () ctp e ->
+      then QuantifE rng booleanT q vn vt te
+      else QuantifE rng ErrT q vn vt te
+  CastE rng () ctp e ->
     let te = tpExpr env e
     in if castCompatible (tpOfExpr te) ctp
-       then CastE ctp ctp te
-       else CastE ErrT ctp te
+       then CastE rng ctp ctp te
+       else CastE rng ErrT ctp te
 
 
 
