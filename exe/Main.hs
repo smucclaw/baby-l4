@@ -18,7 +18,6 @@ process filepath input = do
       -- GF.nlg ast
       print "NOW WE PRINT THE DOCASSEMBLE"
       DA.createDocAssemble ast
-      putStrLn $ DA.hiss ast
     Left err -> do
       putStrLn "Parser Error:"
       print err

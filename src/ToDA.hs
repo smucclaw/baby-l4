@@ -1,4 +1,7 @@
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 -- To DocAssemble! Which is to say, a bit of Python.
 
@@ -10,7 +13,8 @@ import System.Environment (withArgs)
 import Control.Monad (forM_)
 import Text.Printf (printf)
 import Data.List (intercalate)
-import Prettyprinter
+import Prettyprinter as PP
+import Prettyprinter.Render.Text (putDoc)
 
 -- prettyprinting
 
@@ -22,10 +26,32 @@ import Prettyprinter
 -- for example if i have something like a class definition "MyClass" that i want to dump out to a Python program
 -- the output would be "class MyClass:\n"
 
+class Javascripty x where
+  asjs :: x -> Doc ann
+  asjsList :: [x] -> Doc ann
+  asjsList xs = encloseSep lbracket rbracket comma (asjs <$> xs)
+
+class AsYAML x where
+  asyaml :: x -> Doc ann
+  default asyaml :: (Pretty x) => x -> Doc ann
+  asyaml x = pretty x
+  asyamlList :: [x] -> Doc ann
+  asyamlList xs = vsep (("-" <+>) <$> (asyaml <$> xs))
+
+instance (AsYAML a) => AsYAML [a] where
+  asyaml = asyamlList
+
+instance AsYAML Int
+instance AsYAML Bool
+instance (Pretty a) => AsYAML (Maybe a)
+
+instance AsYAML Char where
+  asyamlList cs = pretty cs
+
 class Pythonic x where
-  hiss :: x -> String
-  hisslist :: [x] -> String
-  hisslist xs = "[" ++ (intercalate ", " (hiss <$> xs)) ++ "]"
+  hiss :: x -> Doc ann
+  hisslist :: [x] -> Doc ann
+  hisslist xs = encloseSep lbracket rbracket comma (hiss <$> xs)
 
 instance Pythonic Bool where
   hiss True  = "1" -- 1 is truthy. though we could also have True
@@ -40,7 +66,7 @@ instance Pythonic a => Pythonic [a] where
 
 
 createDocAssemble :: (Show ct, Show et) => Program ct et -> IO ()
-createDocAssemble p = putStrLn $ hiss p
+createDocAssemble p = putDoc $ (hiss p <> PP.line)
 
 instance Pythonic (Program ct et) where
   hiss (Program mapping classdecls vardecls rules assertions) =
@@ -48,22 +74,24 @@ instance Pythonic (Program ct et) where
 
 instance Pythonic (ClassDecl ct) where
   hiss (ClassDecl (ClsNm classname) (ClassDef t fielddecs)) =
-    "class " ++ classname ++ ":\n" ++
-    "  \"\"\"\n  this is a pythonic docstring\n  \"\"\"\n"
-    ++ unlines (hiss <$> fielddecs)
-  hisslist cds = intercalate "\n\n" (hiss <$> cds)
+    nest 4 . vsep $
+    [ "class" <+> pretty classname <> ":"
+    , dquotes dquote, "this is a pythonic docstring", dquotes dquote ]
+    ++ (hiss <$> fielddecs)
+
+  hisslist cds = concatWith (\x y -> x <> PP.line <> PP.line <> y) (hiss <$> cds)
 
 instance Pythonic FieldDecl where
   hiss (FieldDecl (FldNm fieldname) tp) =
-    (take 4 $ repeat ' ') ++ "# " ++ fieldname ++ " is a " ++ tptype tp ++ "\n" ++
-    (take 4 $ repeat ' ') ++ fieldname ++ " = " ++ hiss tp
+    vsep [ "#" <+> pretty fieldname <+> "is a" <+> tptype tp
+         , pretty fieldname <+> "=" <+> hiss tp ]
 
-tptype :: Tp -> String
+tptype :: Tp -> Doc ann
 tptype ( BoolT ) = "boolean"
 tptype ( IntT ) = "int"
 tptype ( ClassT (ClsNm "String") ) = "string"
-tptype ( ClassT (ClsNm classname) ) = classname
-tptype ( FunT tp1 tp2 ) = "function from " ++ show tp1 ++ " to " ++ show tp2
+tptype ( ClassT (ClsNm classname) ) = viaShow classname
+tptype ( FunT tp1 tp2 ) = "function from " <> viaShow tp1 <+> "to" <+> viaShow tp2
 tptype ( TupleT tps ) = "tuple" 
 tptype ( ErrT ) = "error"
 
