@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleInstances #-}
+
 -- To DocAssemble! Which is to say, a bit of Python.
 
 module ToDA where
@@ -7,6 +9,7 @@ import Paths_baby_l4
 import System.Environment (withArgs)
 import Control.Monad (forM_)
 import Text.Printf (printf)
+import Data.List (intercalate)
 
 -- prettyprinting
 
@@ -14,27 +17,45 @@ import Text.Printf (printf)
 -- import some sort of YAML library so we aren't just doing all the prettyprinting ourselves
 -- import some sort of Python library, ditto
 
+-- a "Pythonic" data type can be dumped to python syntax.
+-- for example if i have something like a class definition "MyClass" that i want to dump out to a Python program
+-- the output would be "class MyClass:\n"
+
+class Pythonic x where
+  hiss :: x -> String
+  hisslist :: [x] -> String
+  hisslist xs = "[" ++ (intercalate ", " (hiss <$> xs)) ++ "]"
+
+instance Pythonic Bool where
+  hiss True  = "1" -- 1 is truthy. though we could also have True
+  hiss False = "0" -- 0 is falsey. though we could also have False.
+
+instance Pythonic a => Pythonic (Maybe a) where
+  hiss Nothing = "0"
+  hiss (Just x) = hiss x
+
+instance Pythonic a => Pythonic [a] where
+  hiss x = hisslist x
+
+
 createDocAssemble :: (Show ct, Show et) => Program ct et -> IO ()
-createDocAssemble (Program mapping classdecls vardecls rules assertions) =
-  putStrLn $ myshowcds classdecls
+createDocAssemble p = putStrLn $ hiss p
 
-myshowcds :: (Show ct) => [ClassDecl ct] -> String
-myshowcds cds = unlines $ "# CLASS DECLARATIONS!!!!!111" : (myshowcd <$> cds)
+instance Pythonic (Program ct et) where
+  hiss (Program mapping classdecls vardecls rules assertions) =
+    hiss classdecls
 
-myshowcd :: (Show ct) => ClassDecl ct -> String
-myshowcd (ClassDecl (ClsNm classname) (ClassDef t fielddecs)) =
-  "class " ++ classname ++ ":\n"
-  -- ++ " " ++ show t ++ "\n"
-  ++ unlines (myshowfielddecl <$> fielddecs)
+instance Pythonic (ClassDecl ct) where
+  hiss (ClassDecl (ClsNm classname) (ClassDef t fielddecs)) =
+    "class " ++ classname ++ ":\n" ++
+    "  \"\"\"\n  this is a pythonic docstring\n  \"\"\"\n"
+    ++ unlines (hiss <$> fielddecs)
+  hisslist cds = intercalate "\n\n" (hiss <$> cds)
 
-    -- FieldDecl (FldNm "name") (ClassT (ClsNm "String"))
-    -- FieldDecl (FldNm "uen") (ClassT (ClsNm "String"))
-    -- FieldDecl (FldNm "someNum") IntT
-
-myshowfielddecl :: FieldDecl -> String
-myshowfielddecl (FieldDecl (FldNm fieldname) tp) =
-  (take 4 $ repeat ' ') ++ "# " ++ fieldname ++ " is a " ++ tptype tp ++ "\n" ++
-  (take 4 $ repeat ' ') ++ fieldname ++ " = " ++ mytpassignment tp
+instance Pythonic FieldDecl where
+  hiss (FieldDecl (FldNm fieldname) tp) =
+    (take 4 $ repeat ' ') ++ "# " ++ fieldname ++ " is a " ++ tptype tp ++ "\n" ++
+    (take 4 $ repeat ' ') ++ fieldname ++ " = " ++ hiss tp
 
 tptype :: Tp -> String
 tptype ( BoolT ) = "boolean"
@@ -45,16 +66,14 @@ tptype ( FunT tp1 tp2 ) = "function from " ++ show tp1 ++ " to " ++ show tp2
 tptype ( TupleT tps ) = "tuple" 
 tptype ( ErrT ) = "error"
 
-
-
-mytpassignment :: Tp -> String
-mytpassignment ( BoolT ) = "false"
-mytpassignment ( IntT ) = "0"
-mytpassignment ( ClassT (ClsNm "String") ) = "\"\""
-mytpassignment ( ClassT classname ) = "moo"
-mytpassignment ( FunT tp1 tp2 ) = "moo"
-mytpassignment ( TupleT tps ) = "(moo, moo)" 
-mytpassignment ( ErrT ) = "moo"
+instance Pythonic Tp where
+  hiss ( BoolT ) = "false"
+  hiss ( IntT ) = "0"
+  hiss ( ClassT (ClsNm "String") ) = "\"\""
+  hiss ( ClassT classname ) = "moo"
+  hiss ( FunT tp1 tp2 ) = "moo"
+  hiss ( TupleT tps ) = "(moo, moo)" 
+  hiss ( ErrT ) = "moo"
 
 
 -- data Program ct et = Program [Mapping] [ClassDecl ct] [VarDecl] [Rule et] [Assertion et]
