@@ -10,6 +10,7 @@ import System.Environment (withArgs)
 import Control.Monad (forM_)
 import Text.Printf (printf)
 import Data.List (intercalate)
+import Prettyprinter
 
 -- prettyprinting
 
