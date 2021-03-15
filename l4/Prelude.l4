@@ -1,0 +1,12 @@
+# l4version 0.3.4
+
+class Boolean extends Object
+
+class Number extends Object
+class Float extends Number
+class Integer extends Number
+
+class String extends Object
+
+class Class extends Object
+
