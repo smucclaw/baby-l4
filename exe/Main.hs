@@ -1,3 +1,6 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+
 module Main where
 
 import Parser (parseProgram)
@@ -7,6 +10,7 @@ import System.Environment ( getArgs, getEnv )
 import qualified ToGF as GF
 import System.IO ( stderr, hPutStr, hPutStrLn )
 import System.IO.Error (catchIOError)
+import Control.Exception (catch, SomeException (SomeException))
 
 
 
@@ -29,10 +33,12 @@ process filepath input = do
     Right ast -> do
       -- print ast
       -- print (() <$ ast)
-      preludeAst <- readPrelude
-      print (tpProgram preludeAst)
+
+      -- preludeAst <- readPrelude
+      -- print (tpProgram preludeAst)
+
       print (tpProgram ast)
-      --print ast
+      
       --GF.nlg ast
     Left err -> do
       putStrLn "Parser Error:"
@@ -54,3 +60,7 @@ debugGF = do
   hPutStrLn stderr "* debug"
   hPutStr stderr "- GF_LIB_PATH env variable :: "
   hPutStrLn stderr =<< catchIOError (getEnv "GF_LIB_PATH") (return . show)
+
+-- | catch and print all exceptions
+catchAll :: IO () -> IO ()
+catchAll ioAction = catch ioAction (print @SomeException)
