@@ -26,6 +26,7 @@ import qualified Data.List as List
 import Syntax
 import Control.Lens.Extras (template)
 import Data.Data (Data)
+import Data.Either.Combinators (rightToMaybe)
 -- import Syntax (Pos(..),SRng(..))
 
 type Config = ()
@@ -37,26 +38,21 @@ handlers = mconcat
       pure ()
   , requestHandler STextDocumentHover $ \req responder -> do
       let RequestMessage _ _ _ (HoverParams doc pos _workDone) = req
-          Position _l _c' = pos
-          rsp = Hover ms (Just range)
-          ms = HoverContents $ markedUpContent "lsp-demo-simple-server" "Hello world"
-          range = Range pos pos
-      rsp <- lookupToken pos doc
-      -- responder (Right $ Just rsp)
+      rsp <- liftIO $ lookupTokenBare pos doc
       responder (Right rsp)
   , notificationHandler J.STextDocumentDidOpen $ \msg -> do
     let doc  = msg ^. J.params . J.textDocument . J.uri
         fileName =  J.uriToFilePath doc
     liftIO $ debugM "reactor.handle" $ "Processing DidOpenTextDocument for: " ++ show fileName
     for_ fileName $ \fn -> do
-      contents <- liftIO $ readFile fn
+      contents <- liftIO $ readFile fn
       parseAndSendErrors doc $ T.pack contents
   , notificationHandler J.STextDocumentDidSave $ \msg -> do
     let doc  = msg ^. J.params . J.textDocument . J.uri
         fileName =  J.uriToFilePath doc
     liftIO $ debugM "reactor.handle" $ "Processing DidSaveTextDocument for: " ++ show fileName
     for_ fileName $ \fn -> do
-      contents <- liftIO $ readFile fn
+      contents <- liftIO $ readFile fn
       parseAndSendErrors doc $ T.pack contents
   ]
 
@@ -102,8 +98,8 @@ tshow = T.pack . show
 
 posInRange :: Position -> SRng -> Bool
 posInRange (Position line col) (SRng (Pos top left) (Pos bottom right)) =
-  (line == top && col >= left || line > top)
-  && (line == bottom && col <= right || line < bottom)
+  (line == top && col >= left || line > top)
+  && (line == bottom && col <= right || line < bottom)
 
 -- | Convert l4 source ranges to lsp source ranges
 posToRange :: SRng -> Range
@@ -174,9 +170,37 @@ lookupToken pos (TextDocumentIdentifier uri) = do
       elog toks
       pure $ toks <&> \tok@Token {tokenKind} ->
         let
-          ms = HoverContents $ markedUpContent "haskell" $ tshow tok --tokenKind
+          contents = HoverContents $ markedUpContent "haskell" $ tshow tok --tokenKind
+          range = Just $ posToRange $ tokenPos tok
         in
-          Hover ms $ Just $ posToRange $ tokenPos tok
+          Hover contents range
+
+-- | scanFile gives IO (Either Err [Token]) but for Hover we don't need error processing
+-- so this function flips Either to Maybe
+justReader :: FilePath -> IO (Maybe [Token])
+justReader f = fmap rightToMaybe (scanFile f)
+
+okayReader :: Maybe FilePath -> IO (Maybe [Token])
+okayReader = maybe (pure Nothing) justReader
+
+readAllTokens :: Uri -> IO (Maybe [Token])
+readAllTokens = okayReader . uriToFilePath
+
+tokensToHover :: Position -> [Token] -> Maybe Hover
+tokensToHover pos tokens = do
+      tok <- find (posInRange pos . tokenPos) tokens
+      return $ tokenToHover tok
+
+tokenToHover :: Token -> Hover
+tokenToHover tok = Hover contents range
+  where
+    contents = HoverContents $ markedUpContent "haskell" $ tshow tok
+    range = Just $ posToRange $ tokenPos tok
+
+lookupTokenBare :: Position -> TextDocumentIdentifier -> IO (Maybe Hover)
+lookupTokenBare pos (TextDocumentIdentifier uri) = do
+  allTokens <- readAllTokens uri
+  return (allTokens >>= tokensToHover pos)
 
 syncOptions :: J.TextDocumentSyncOptions
 syncOptions = J.TextDocumentSyncOptions
