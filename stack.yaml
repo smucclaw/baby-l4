@@ -26,3 +26,7 @@ flags:
   gf:
     c-runtime: false
     server: false
+
+# nix:
+#   enable: true
+#   pure: false
