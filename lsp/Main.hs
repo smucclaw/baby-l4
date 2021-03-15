@@ -10,6 +10,8 @@ import qualified Data.Text as T
 import Lexer
 import Data.List (find)
 import Data.Text.IO (hPutStrLn)
+import qualified Data.Map as Map
+import Data.SortedList
 import System.IO (stderr)
 
 import           Control.Lens hiding (Iso)
@@ -164,16 +166,17 @@ lookupToken pos (TextDocumentIdentifier uri) = do
       -- TODO: Clear diagnostics when they are no longer relevant
       -- TODO: The line below does nothing! See #19
       publishDiagnostics 100 nuri Nothing (partitionBySource [])
+      publishDiagnostics 100 nuri Nothing (Map.singleton(Just "lexer")(Data.SortedList.toSortedList [])) --"lexer" in this case is the diagnosticsource
+      
       let toks = find (posInRange pos . tokenPos) tokens
       -- sendNotification SWindowShowMessage $ ShowMessageParams MtInfo $ tshow pos <> tshow toks
       elog pos
       elog toks
       pure $ toks <&> \tok@Token {tokenKind} ->
         let
-          contents = HoverContents $ markedUpContent "haskell" $ tshow tok --tokenKind
-          range = Just $ posToRange $ tokenPos tok
+          ms = HoverContents $ markedUpContent "haskell" $ tshow tok --tokenKind
         in
-          Hover contents range
+          Hover ms $ Just $ posToRange $ tokenPos tok
 
 -- | scanFile gives IO (Either Err [Token]) but for Hover we don't need error processing
 -- so this function flips Either to Maybe

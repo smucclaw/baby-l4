@@ -89,4 +89,6 @@ executable lsp-server-bl4
                      , mtl        >= 2.2 && <2.4
                      , lens
                      , hslogger
+                     , containers
+                     , sorted-list
                      , either
