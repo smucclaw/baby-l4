@@ -90,7 +90,7 @@ instance Pythonic (ClassDecl ct) where
 
 instance Pythonic FieldDecl where
   hiss (FieldDecl (FldNm fieldname) tp) =
-    vsep [ "#" <+> pretty fieldname <+> "is a" <+> tptype tp
+    vsep [ hsep ["#", pretty fieldname, "is a", tptype tp]
          , pretty fieldname <+> "=" <+> hiss tp ]
 
 tptype :: Tp -> Doc ann
