@@ -52,8 +52,8 @@ class Pythonic x where
   hisslist xs = encloseSep lbracket rbracket comma (hiss <$> xs)
 
 instance Pythonic Bool where
-  hiss True  = "1" -- 1 is truthy. though we could also have True
-  hiss False = "0" -- 0 is falsey. though we could also have False.
+  hiss True  = "True"  -- 1 is truthy. though we could also have True
+  hiss False = "False" -- 0 is falsey. though we could also have False.
 
 instance Pythonic a => Pythonic (Maybe a) where
   hiss Nothing = "0"
@@ -66,11 +66,18 @@ instance Pythonic a => Pythonic [a] where
 createDocAssemble :: (Show ct, Show et) => Program ct et -> IO ()
 createDocAssemble p = putDoc $ (hiss p <> PP.line)
 
+
+
+
 instance Pythonic (Program ct et) where
   hiss (Program mapping classdecls vardecls rules assertions) =
-    vsep [ "## CLASS DECLARATIONS ##", hiss classdecls
-         , "## VARIABLE DECLARATIONS ##", hiss vardecls
+    vsep [ "from typing import NewType"
+         , "## CLASS DECLARATIONS ##", hiss classdecls
+         , "## VARIABLE DECLARATIONS ##", pyComment $ hiss vardecls
          ]
+
+-- input:  decl AssociatedWith: LegalPractitioner -> Appointment -> Bool
+-- output: def AssociatedWith(var1 : LegalPractitioner, var2 : Appointment) -> bool:
 
 instance Pythonic (VarDecl) where
   hiss vd = viaShow vd
@@ -85,23 +92,44 @@ instance Pythonic (ClassDecl ct) where
   hisslist cds = concatWith (\x y -> x <> PP.line <> PP.line <> y) (hiss <$> cds)
 
 -- pycomment :: Doc ann -> Doc ann
--- pycomment mydoc = -- prefix every line of a thing with some ##
---
+pyComment mydoc = vsep $ pretty . ("# " ++) <$> (lines $ show mydoc)
 
 instance Pythonic FieldDecl where
+  hiss (FieldDecl (FldNm fieldname) (FunT tp1 tp2)) =
+    hang 4 (vsep [ hsep [ "def", pretty fieldname, encloseSep lparen rparen comma
+                          [ pretty mvName <> ":" <+> tpt
+                          | (mvName, tpt) <- zip metavariableNames (tptype <$> [tp1])
+                          ]
+                        , "->" <+> tptype tp2
+                        , ":"]
+                 , "# body of the function definition"
+                 , "return None"
+                 ] )
   hiss (FieldDecl (FldNm fieldname) tp) =
     vsep [ hsep ["#", pretty fieldname, "is a", tptype tp]
-         , pretty fieldname <+> "=" <+> hiss tp ]
+         , hsep [ pretty fieldname, typeannotation tp, "=" <+> hiss tp ] ]
+
+metavariableNames = [ metavariableName ++ "_" ++ show i
+                    | i <- [1..] ]
+metavariableName = "foo"
+
+typeannotation :: Tp -> Doc ann
+typeannotation tp = ":" <+> tptype tp
 
 tptype :: Tp -> Doc ann
-tptype ( BoolT ) = "boolean"
+tptype ( BoolT ) = "bool"
 tptype ( IntT ) = "int"
-tptype ( ClassT (ClsNm "String") ) = "string"
+tptype ( ClassT (ClsNm "String") ) = "str"
 tptype ( ClassT (ClsNm classname) ) = viaShow classname
-tptype ( FunT tp1 tp2 ) = "function from " <> viaShow tp1 <+> "to" <+> viaShow tp2
-tptype ( TupleT tps ) = "tuple" 
+
+--     def bar(var1 : bool, var2: tuple) -> str:
+--        return None
+
+tptype ( FunT tp1 tp2 ) = tptype tp1 <+> "->" <+> tptype tp2
+tptype ( TupleT tps ) = encloseSep lparen rparen comma (tptype <$> tps)
 tptype ( ErrT ) = "error"
 
+-- the "null" definition for a field declaration inside a class
 instance Pythonic Tp where
   hiss ( BoolT ) = "false"
   hiss ( IntT ) = "0"

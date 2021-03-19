@@ -13,10 +13,10 @@ process filepath input = do
   let ast = parseProgram filepath input
   case ast of
     Right ast -> do
-      print (tpProgram $ () <$ ast)
+      -- print (tpProgram $ () <$ ast)
       --print ast
       -- GF.nlg ast
-      print "NOW WE PRINT THE DOCASSEMBLE"
+      putStrLn "####  NOW WE PRINT THE DOCASSEMBLE"
       DA.createDocAssemble ast
     Left err -> do
       putStrLn "Parser Error:"
