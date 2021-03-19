@@ -78,6 +78,13 @@ packages:
       sha256: d22f820a1f63497f7fd7e1f04b7d356d92de35582258f6ad55428c88b09e63ff
   original:
     hackage: prettyprinter-1.7.0
+- completed:
+    hackage: language-python-0.5.8@sha256:527615d39d4240ca45ed8cb7fe44cbcb28a07732cc98dff0380d04de8b55f59d,2473
+    pantry-tree:
+      size: 1999
+      sha256: ba645bac3c5a0058e7c2c14c2ba5cb95ac093819a1f1a5f498bedbb091e542d5
+  original:
+    hackage: language-python-0.5.8
 snapshots:
 - completed:
     size: 532177

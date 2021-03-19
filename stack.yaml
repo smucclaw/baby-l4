@@ -15,7 +15,8 @@ extra-deps:
   - unliftio-core-0.2.0.1@sha256:9b3e44ea9aacacbfc35b3b54015af450091916ac3618a41868ebf6546977659a,1082
   - constraints-extras-0.3.0.2@sha256:013b8d0392582c6ca068e226718a4fe8be8e22321cc0634f6115505bf377ad26,1853
   - prettyprinter-1.7.0
-
+  - language-python-0.5.8
+  
 # Required for the option custom-preprocessor-extensions
 # require-stack-version: ">= 2.6.0"
 # This will show a warning

@@ -56,6 +56,8 @@ library
                      , prettyprinter
                      , split
                      , text
+                     -- we output to python!
+                     , language-python
                      -- required for lexer and parser
                      , haskeline  >= 0.7
                      , mtl        >= 2.2 && <2.4
