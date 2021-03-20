@@ -1,4 +1,4 @@
-# l4version 0.3.4
+# l4version 0.3.6
 
 # pending: sub-conditions
 # pending: define grammars for 'subject to', 'condition', 'date' & 'time'(?)
@@ -19,23 +19,17 @@ class Business {
       bar: Boolean -> (Integer,Integer)
 }
 
-class LawRelatedService extends Business {
-}
+class LawRelatedService extends Business
 
-class BusinessEntity {
-}
+class BusinessEntity
 
-class Appointment {
-}
+class Appointment
 
-class Person {
-}
+class Person
 
-class LegalPractitioner extends Person {
-}
+class LegalPractitioner extends Person
 
-class LocumSolicitor extends LegalPractitioner {
-}
+class LocumSolicitor extends LegalPractitioner
 
 decl AssociatedWith: LegalPractitioner -> Appointment -> Boolean
 decl AssociatedWithAppB: Appointment -> Business -> Boolean

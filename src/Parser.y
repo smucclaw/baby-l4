@@ -36,6 +36,7 @@ import Control.Monad.Except
     extends { Token _ TokenExtends }
     lexicon { Token _ TokenLexicon }
     rule    { Token _ TokenRule }
+    derivable { Token _ TokenDerivable }
 
     Bool  { Token _ TokenBool }
     Int   { Token _ TokenInt }
@@ -59,7 +60,9 @@ import Control.Monad.Except
     '&&'  { Token _ TokenAnd }
     '='   { Token _ TokenEq }
     '<'   { Token _ TokenLt }
+    '<='  { Token _ TokenLte }
     '>'   { Token _ TokenGt }
+    '>='  { Token _ TokenGte }
     '+'   { Token _ TokenAdd }
     '-'   { Token _ TokenSub }
     '*'   { Token _ TokenMul }
@@ -75,6 +78,7 @@ import Control.Monad.Except
 
     NUM   { Token pos (TokenNum $$) }
     VAR   { Token _ (TokenSym _) }
+    STR   { Token _ (TokenString _) }
 
 -- Operators
 %right '->'
@@ -84,7 +88,7 @@ import Control.Monad.Except
 %right '||'
 %right '&&'
 %left not
-%nonassoc '<' '=' '>'
+%nonassoc '<' '<=' '=' '>' '>='
 %left '+' '-'
 %left '*' '/' '%'
 %left AMINUS
@@ -157,8 +161,12 @@ Expr : '\\' Pattern ':' ATp '->' Expr  { FunE (tokenRange $1 $6) () $2 $4 $6 }
      | Expr '&&' Expr              { BinOpE (tokenRange $1 $3) () (BBool BBand) $1 $3 }
      | if Expr then Expr else Expr { IfThenElseE (tokenRange $1 $6) () $2 $4 $6 }
      | not Expr                    { UnaOpE (tokenRange $1 $2) () (UBool UBneg) $2 }
+     | not derivable VAR Atom      { NotDeriv (tokenRange $1 $4) () True (GlobalVar $ tokenSym $3) $4 }
+     | not derivable not VAR Atom  { NotDeriv (tokenRange $1 $5) () False (GlobalVar $ tokenSym $4) $5 }
      | Expr '<' Expr               { BinOpE (tokenRange $1 $3) () (BCompar BClt) $1 $3 }
+     | Expr '<=' Expr              { BinOpE (tokenRange $1 $3) () (BCompar BClte) $1 $3 }
      | Expr '>' Expr               { BinOpE (tokenRange $1 $3) () (BCompar BCgt) $1 $3 }
+     | Expr '>=' Expr              { BinOpE (tokenRange $1 $3) () (BCompar BCgte) $1 $3 }
      | Expr '=' Expr               { BinOpE (tokenRange $1 $3) () (BCompar BCeq) $1 $3 }
      | Expr '+' Expr               { BinOpE (tokenRange $1 $3) () (BArith BAadd) $1 $3 }
      | Expr '-' Expr               { BinOpE (tokenRange $1 $3) () (BArith BAsub) $1 $3 }
@@ -177,6 +185,7 @@ Acc : Acc '.' VAR                  { FldAccE (tokenRange $1 $3) () $1 (FldNm $ t
 
 Atom : '(' ExprsCommaSep ')'       { let ecs = $2 in if length ecs == 1 then head ecs else TupleE (tokenRange $1 $3) () (reverse ecs) }
      | NUM                         { ValE (pos) () (IntV $1) }
+     | STR                         { ValE (tokenPos $1) () (StringV (tokenString $1)) }
      | VAR                         { VarE (tokenPos $1) () (GlobalVar $ tokenSym $1) }
      | true                        { ValE (tokenPos $1) () (BoolV True) }
      | false                       { ValE (tokenPos $1) () (BoolV False) }
@@ -200,7 +209,8 @@ RuleConcl   : then Expr    { $2 }
 
 {
 
-tokenSym (Token _ (TokenSym sym)) = sym
+tokenSym    (Token _ (TokenSym sym)) = sym
+tokenString (Token _ (TokenString str)) = str
 
 lexwrap :: (Token -> Alex a) -> Alex a
 lexwrap = (alexMonadScan' >>=)

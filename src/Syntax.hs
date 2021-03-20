@@ -82,21 +82,15 @@ data FieldDecl = FieldDecl FieldName Tp -- FieldAttribs
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 -- superclass, list of field declarations
-data ClassDef t = ClassDef t [FieldDecl]
+data ClassDef t = ClassDef { supersOfClassDef :: t
+                           , fieldsOfClassDef :: [FieldDecl] }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 -- declares class with ClassName and definition as of ClassDef
-data ClassDecl t = ClassDecl ClassName (ClassDef t)
+data ClassDecl t = ClassDecl { nameOfClassDecl :: ClassName
+                             , defOfClassDecl :: ClassDef t }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
-name_of_class_decl :: ClassDecl t -> ClassName
-name_of_class_decl (ClassDecl cn _) = cn
-
-def_of_class_decl :: ClassDecl t -> ClassDef t
-def_of_class_decl (ClassDecl _ cd) = cd
-
-fields_of_class_def :: ClassDef t -> [FieldDecl]
-fields_of_class_def (ClassDef scn fds) = fds
 
 
 -- Custom Classes and Preable Module
@@ -138,6 +132,7 @@ customCs = [objectC]
 data Val
     = BoolV Bool
     | IntV Integer
+    | StringV String
     -- TODO: instead of RecordV, introduce RecordE in type Expr
     | RecordV ClassName [(FieldName, Val)]
     | ErrV
@@ -209,6 +204,9 @@ data Expr t
     | TupleE      SRng t [Expr t]                     -- tuples
     | CastE       SRng t Tp (Expr t)                  -- cast to type
     | ListE       SRng t ListOp [Expr t]              -- list expression
+    | NotDeriv    SRng t Bool Var (Expr t)            -- Negation as failure "not". 
+                                                      -- The Bool expresses whether "not" precedes a positive literal (True)
+                                                      -- or is itself classically negated (False)
     deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 instance HasLoc (Expr t) where
   getLoc x = case x of

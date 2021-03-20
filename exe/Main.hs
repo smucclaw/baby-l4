@@ -32,13 +32,9 @@ process filepath input = do
   case ast of
     Right ast -> do
       -- print ast
-      -- print (() <$ ast)
-
-      -- preludeAst <- readPrelude
-      -- print (tpProgram preludeAst)
-
-      print (tpProgram ast)
-      
+      preludeAst <- readPrelude
+      -- print (preludeAst)
+      print (tpProgram preludeAst ast)
       --GF.nlg ast
     Left err -> do
       putStrLn "Parser Error:"
