@@ -1,4 +1,4 @@
-
+{-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 {-# LANGUAGE DeriveFunctor #-}
 -- {-# OPTIONS_GHC -Wpartial-fields #-}
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -199,7 +199,7 @@ data Expr t
     | AppE        SRng t (Expr t) (Expr t)            -- function application
     | FunE        SRng t Pattern Tp (Expr t)          -- function abstraction
     | QuantifE    SRng t Quantif VarName Tp (Expr t)  -- quantifier
-    | ClosE       SRng t [(VarName, Expr t)] (Expr t) -- closure  (not externally visible)
+    -- | ClosE       SRng t [(VarName, Expr t)] (Expr t) -- closure  (not externally visible)
     | FldAccE     SRng t (Expr t) FieldName           -- field access
     | TupleE      SRng t [Expr t]                     -- tuples
     | CastE       SRng t Tp (Expr t)                  -- cast to type
@@ -222,6 +222,7 @@ instance HasLoc (Expr t) where
     TupleE      loc _ _       -> loc
     CastE       loc _ _ _     -> loc
     ListE       loc _ _ _     -> loc
+    NotDeriv    loc _ _ _ _   -> loc 
 
 childExprs :: Expr t -> [Expr t]
 childExprs x = case x of
@@ -237,7 +238,7 @@ childExprs x = case x of
     TupleE      _ _ xs      -> xs
     CastE       _ _ _ x     -> [x]
     ListE       _ _ _ xs     -> xs
-
+    NotDeriv    _ _ _ _ e    -> [e]
 
 tpOfExpr :: Expr t -> t
 tpOfExpr x = case x of
@@ -253,7 +254,7 @@ tpOfExpr x = case x of
   TupleE      _ t _       -> t
   CastE       _ t _ _     -> t
   ListE       _ t _ _     -> t
-
+  NotDeriv    _ t _ _ _    -> t
 
 -- Cmd t is a command of type t
 data Cmd t

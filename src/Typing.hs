@@ -1,5 +1,5 @@
 -- Typing of expressions
-
+{-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 {-# LANGUAGE PatternSynonyms #-}
 
 module Typing where
@@ -222,7 +222,7 @@ tpConstval env x = case x of
          then ClassT cn
          else error ("record fields do not correspond to fields of class " ++ (case cn of (ClsNm n) -> n))
        _ -> error "internal error: duplicate class definition"
-
+  ErrV -> ErrT 
 
 tpUarith :: Environment [ClassName] -> Tp -> UArithOp -> Tp
 tpUarith env t ua = if isNumberTp env t then t else ErrT
@@ -328,7 +328,7 @@ trans :: (f a -> g a) -> Fix f -> Fix g
 trans = _
 -}
 
--- TODO: FldAccE, ListE
+-- TODO: ListE
 tpExpr :: Environment [ClassName] -> Expr () -> Expr Tp
 tpExpr env x = case x of
   ValE rng () c -> ValE rng (tpConstval env c) c
@@ -419,8 +419,9 @@ tpExpr env x = case x of
           else NotDeriv rng ErrT sign v te
         else NotDeriv rng ErrT sign v te
       _ -> NotDeriv rng ErrT sign v te
-
-
+  ListE rng () lop es -> error "typing of lists not implemented yet"
+  
+-- TODO:FAssign
 tpCmd :: Environment [ClassName] -> Cmd () -> Cmd Tp
 tpCmd env Skip = Skip
 tpCmd env (VAssign v e) =
@@ -429,7 +430,7 @@ tpCmd env (VAssign v e) =
       if tpVar env v == tpOfExpr te
       then VAssign v te
       else error "types do not correspond in assignment"
-
+tpCmd env (FAssign _ _ _) = error "typing of FAssign not implemented yet"
 
 -- TODO: still take local variables into account
 tpRule :: Environment [ClassName] -> Rule () -> Rule Tp
