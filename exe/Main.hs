@@ -36,7 +36,8 @@ process args input = do
       -- print ast
       preludeAst <- readPrelude
       -- print (preludeAst)
-      print (tpProgram preludeAst ast)
+      hPutStrLn stderr $ show (tpProgram preludeAst ast)
+      --print ast
       GF.nlg (getGFL $ format args) ast
     Left err -> do
       putStrLn "Parser Error:"

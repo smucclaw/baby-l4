@@ -6,6 +6,7 @@ import PGF
 import Paths_baby_l4
 import qualified GF
 import System.Environment (withArgs)
+import System.IO (stderr, hPutStrLn)
 import Control.Monad (forM_)
 import Text.Printf (printf)
 
@@ -43,7 +44,7 @@ nlg :: (Show ct, Show et) => GFlang -> Program ct et -> IO ()
 nlg gfl prog = do
   gr <- createPGF gfl prog
   sequence_ [ do
-    putStrLn $ PGF.showExpr [] pgfExpr
+    hPutStrLn stderr $ PGF.showExpr [] pgfExpr
     mapM_ putStrLn $ linearizeAll gr pgfExpr
     | prop <- program2prop prog
     , let pgfExpr = gf prop
