@@ -40,11 +40,20 @@ createPGF gfl (Program lexicon _2 _3 _4 _5) = do
   withArgs (["-make", "--output-dir=generated", "-v=0"] ++ map (concrName "PropTop") langs) GF.main
   PGF.readPGF "generated/PropTop.pgf"
 
+nlgAST :: (Show ct, Show et) => GFlang -> Program ct et -> IO ()
+nlgAST gfl prog = do
+  gr <- createPGF gfl prog
+  sequence_ [ do
+    hPutStrLn stderr $ PGF.showExpr [] pgfExpr
+    mapM_ putStrLn $ linearizeAll gr pgfExpr
+    | prop <- program2prop prog
+    , let pgfExpr = gf prop
+    ]
+
 nlg :: (Show ct, Show et) => GFlang -> Program ct et -> IO ()
 nlg gfl prog = do
   gr <- createPGF gfl prog
   sequence_ [ do
-    hPutStrLn stderr $ PGF.showExpr [] pgfExpr
     mapM_ putStrLn $ linearizeAll gr pgfExpr
     | prop <- program2prop prog
     , let pgfExpr = gf prop

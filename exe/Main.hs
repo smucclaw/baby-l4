@@ -12,6 +12,7 @@ import qualified ToGF as GF
 import System.IO ( stderr, hPutStr, hPutStrLn )
 import System.IO.Error (catchIOError)
 import Control.Exception (catch, SomeException (SomeException))
+import Control.Monad ( when )
 
 
 
@@ -33,23 +34,28 @@ process args input = do
       ast = parseProgram fpath input
   case ast of
     Right ast -> do
-      -- print ast
       preludeAst <- readPrelude
-      -- print (preludeAst)
-      hPutStrLn stderr $ show (tpProgram preludeAst ast)
-      --print ast
-      GF.nlg (getGFL $ format args) ast
+
+      when (astHS args == True) $ do
+        hPutStrLn stderr $ show (tpProgram preludeAst ast)
+      when (astGF args == True) $ do
+        GF.nlgAST (getGFL $ format args) ast
+      when (astGF args == False) $ do
+        GF.nlg (getGFL $ format args) ast
     Left err -> do
       putStrLn "Parser Error:"
       print err
   where
+    getGFL (Fall)    = GF.GFall
     getGFL (Fgf gfl) = gfl
-    getGFL (Fall) = GF.GFall
 
-data Format  = Fall | Fgf GF.GFlang deriving Show
+
+data Format   = Fall | Fgf GF.GFlang deriving Show
 
 data InputOpts = InputOpts
   { format   :: Format
+  , astHS    :: Bool
+  , astGF    :: Bool
   , filepath :: FilePath
   } deriving Show
 
@@ -58,6 +64,8 @@ optsParse = InputOpts <$>
               subparser
                 ( command "all" (info (pure Fall) (progDesc "Prints all available formats"))
                <> command "gf" (info gfSubparser gfHelper))
+            <*> switch (long "astHS" <> help "Print Haskell AST to STDERR")
+            <*> switch (long "astGF" <> help "Print GF AST to STDERR")
             <*> argument str (metavar "Filename")
         where
           gfSubparser = subparser ( command "all" (info (pure (Fgf GF.GFall)) (progDesc "tell GF to output all languages"))
@@ -77,7 +85,7 @@ main = do
   opts <- customExecParser (prefs showHelpOnError) optsParse'
 
   contents <- readFile $ filepath opts
-  process (filepath opts) contents
+  process opts contents
 
 
 -- | to check if GF_LIB_PATH env variable is available
