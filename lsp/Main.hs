@@ -28,7 +28,7 @@ import qualified Data.List as List
 import Syntax
 import Control.Lens.Extras (template)
 import Data.Data (Data)
-import Data.Either.Combinators (rightToMaybe)
+import Data.Either.Combinators (rightToMaybe, maybeToRight)
 import Control.Monad.Trans.Except (except, ExceptT)
 import Control.Monad.Except
 -- import Syntax (Pos(..),SRng(..))
@@ -217,7 +217,7 @@ uriToFilePath' :: Monad m => Uri -> ExceptT Err m FilePath
 uriToFilePath' uri = extract "Read token Error" $ uriToFilePath uri
 
 extract :: Monad m => String -> Maybe a -> ExceptT Err m a
-extract a = except . maybe ( Left (StringErr a)) Right
+extract a = except . maybeToRight (StringErr a)
 
 tokensToHover :: Position -> [Token] -> Maybe Hover
 tokensToHover pos tokens = do
