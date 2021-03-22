@@ -137,9 +137,9 @@ errorRange (Err s _) = posToRange s
 errorRange (StringErr _) = Range (Position 0 0) (Position 999 0)
 
 -- TODO: Use findAllExpressions and findExprAt to extract types for hover
-
 -- TODO: Show type errors as diagnostics
 
+-- | Use magic to find all Expressions in a program
 findAllExpressions :: (Data ct, Data et) => Program ct et -> [Expr et]
 findAllExpressions = toListOf template
 
@@ -149,6 +149,10 @@ findExprAt pos expr =
   case List.find (posInRange pos . getLoc) (childExprs expr) of
     Nothing -> expr
     Just sub -> findExprAt pos sub
+
+-- | Given a position and a parsed program, try to find if there is any expression at that location
+findAnyExprAt :: (Data ct, Data et) => J.Position -> Program ct et -> Maybe (Expr et)
+findAnyExprAt pos = List.find (posInRange pos . getLoc) . findAllExpressions
 
 -- | Temporary bad debugging function.
 -- Use @debugM@ instead
