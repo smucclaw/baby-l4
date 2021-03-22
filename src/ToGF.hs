@@ -40,9 +40,9 @@ nlg prog = do
     [ do
         -- putStrLn $ PGF.showExpr [] pgfExpr
         putStrLn ""
-        putStrLn "direct translation from logic"
+        putStrLn "DIRECT TRANSLATION"
         mapM_ putStrLn $ linearizeAll gr pgfExpr
-        putStrLn "more natural"
+        putStrLn "MORE NATURAL"
         mapM_ putStrLn $ linearizeAll gr optpgf
       | prop <- program2prop prog,
         let pgfExpr = gf prop,
@@ -287,75 +287,3 @@ gfType str = case (reverse . takeWhile (/= '_') . reverse) str of
     "mkN " -> "Noun"
     "Comp" -> "Noun" -- hack: to support CompoundN
     _ -> error $ "gfType: not supported yet: " ++ str
-
-foo =
-  Program
-    [Mapping (SRng {start = Pos {line = 3, col = 0}, end = Pos {line = 3, col = 26}}) "Business" "business_1_N", Mapping (SRng {start = Pos {line = 4, col = 0}, end = Pos {line = 4, col = 51}}) "BusinessEntity" "CompoundN business_1_N entity_N", Mapping (SRng {start = Pos {line = 5, col = 0}, end = Pos {line = 5, col = 56}}) "IncompatibleDignity" "mkA2 incompatible_1_A with_Prep", Mapping (SRng {start = Pos {line = 6, col = 0}, end = Pos {line = 6, col = 31}}) "LegalPractitioner" "lawyer_N", Mapping (SRng {start = Pos {line = 7, col = 0}, end = Pos {line = 7, col = 28}}) "LocumSolicitor" "lawyer_N", Mapping (SRng {start = Pos {line = 8, col = 0}, end = Pos {line = 8, col = 26}}) "AcceptApp" "accept_4_V2", Mapping (SRng {start = Pos {line = 9, col = 0}, end = Pos {line = 9, col = 47}}) "AssociatedWith" "mkA2 associated_A with_Prep", Mapping (SRng {start = Pos {line = 10, col = 0}, end = Pos {line = 10, col = 32}}) "Appointment" "appointment_1_N", Mapping (SRng {start = Pos {line = 11, col = 0}, end = Pos {line = 11, col = 34}}) "LawRelatedService" "service_1_N", Mapping (SRng {start = Pos {line = 12, col = 0}, end = Pos {line = 12, col = 26}}) "Provides" "provide_1_V2", Mapping (SRng {start = Pos {line = 13, col = 0}, end = Pos {line = 13, col = 44}}) "ConditionsSecondSchedule" "condition_3_V2", Mapping (SRng {start = Pos {line = 14, col = 0}, end = Pos {line = 14, col = 21}}) "App" "appoint_2_V2"]
-    []
-    []
-    [ Rule
-        "r1a"
-        [VarDecl "lpr" (ClassT (ClsNm "LegalPractitioner")), VarDecl "app" (ClassT (ClsNm "Appointment"))]
-        ( UnaOpE
-            (SRng {start = Pos {line = 18, col = 3}, end = Pos {line = 18, col = 53}})
-            ErrT
-            (UBool UBneg)
-            ( QuantifE
-                (SRng {start = Pos {line = 18, col = 8}, end = Pos {line = 18, col = 53}})
-                ErrT
-                Ex
-                "bsn"
-                (ClassT (ClsNm "Business"))
-                ( AppE
-                    (SRng {start = Pos {line = 18, col = 31}, end = Pos {line = 18, col = 53}})
-                    ErrT
-                    ( AppE
-                        (SRng {start = Pos {line = 18, col = 31}, end = Pos {line = 18, col = 49}})
-                        ErrT
-                        ( VarE
-                            ( SRng
-                                { start = Pos {line = 18, col = 31},
-                                  end = Pos {line = 18, col = 45}
-                                }
-                            )
-                            ErrT
-                            (GlobalVar "AssociatedWith")
-                        )
-                        -- x
-                        ( VarE
-                            (SRng {start = Pos {line = 18, col = 46}, end = Pos {line = 18, col = 49}})
-                            (ClassT (ClsNm "Business"))
-                            (LocalVar "bsn" 0)
-                        )
-                    )
-                    -- y
-                    ( VarE
-                        (SRng {start = Pos {line = 18, col = 50}, end = Pos {line = 18, col = 53}})
-                        (ClassT (ClsNm "Appointment"))
-                        (LocalVar "app" 1)
-                    )
-                )
-            )
-        )
-        ( UnaOpE
-            (SRng {start = Pos {line = 19, col = 5}, end = Pos {line = 19, col = 27}})
-            ErrT
-            (UBool UBneg)
-            ( AppE
-                (SRng {start = Pos {line = 19, col = 10}, end = Pos {line = 19, col = 27}})
-                ErrT
-                ( AppE
-                    (SRng {start = Pos {line = 19, col = 10}, end = Pos {line = 19, col = 23}})
-                    ErrT
-                    (VarE (SRng {start = Pos {line = 19, col = 10}, end = Pos {line = 19, col = 19}}) ErrT (GlobalVar "AcceptApp"))
-                    ( VarE
-                        (SRng {start = Pos {line = 19, col = 20}, end = Pos {line = 19, col = 23}})
-                        (ClassT (ClsNm "LegalPractitioner"))
-                        (LocalVar "lpr" 1)
-                    )
-                )
-                (VarE (SRng {start = Pos {line = 19, col = 24}, end = Pos {line = 19, col = 27}}) (ClassT (ClsNm "Appointment")) (LocalVar "app" 0))
-            )
-        )
-    ]
-    []

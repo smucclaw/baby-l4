@@ -2,31 +2,27 @@
 
 lexicon
 Business -> "business_1_N"
-BusinessEntity -> "business_1_N"
+BusinessEntity -> "CompoundN business_1_N entity_N"
 IncompatibleDignity -> "mkA2 incompatible_1_A with_Prep"
 LegalPractitioner -> "lawyer_N"
 LocumSolicitor -> "lawyer_N"
 AcceptApp -> "accept_4_V2"
-AssociatedWithApp -> "associate_1_V2"
-AssociatedWithAppB -> "associate_1_V2"
-AssociatedWith -> "associate_1_V2"
+AssociatedWithApp -> "mkA2 associated_A with_Prep"
+AssociatedWithAppB -> "mkA2 associated_A with_Prep"
+AssociatedWith -> "mkA2 associated_A with_Prep"
 Appointment -> "appointment_1_N"
 LawRelatedService -> "service_1_N"
 Provides -> "provide_1_V2"
 ConditionsSecondSchedule -> "condition_3_V2"
 App -> "appoint_2_V2"
+Illegal -> "illegal_A"
 
 rule <r1a>
 for lpr: LegalPractitioner, app: Appointment
 if not (exists bsn : Business. AssociatedWith bsn app)
 then not (AcceptApp lpr app)
 
-# first condition of IF: neg. of precond of rule 1a
-rule <r5>
-for lpr: LocumSolicitor, app: Appointment
-if not (exists bsn : Business. AssociatedWith app bsn && IncompatibleDignity bsn app) &&
-   (forall bse : BusinessEntity. AssociatedWithApp app bse -->
-                  not (exists srv : Business.  LawRelatedService srv && Provides bse srv) &&
-                  ConditionsSecondSchedule lpr bse)
-then 
-AcceptApp lpr app
+rule <r1b>
+for lpr: LegalPractitioner, app: Appointment
+if  (exists bsn : Business. Illegal bsn)
+then not (AcceptApp lpr app)

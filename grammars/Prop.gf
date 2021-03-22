@@ -13,7 +13,7 @@ cat
   Fun2 ;
   Conj ;
   -- For lexicon
-  -- fdjkjkv 
+
   Noun ; Noun2 ; Adj ; Adj2 ; Verb ; Verb2 ; PassVerb2 ;
 
 fun
