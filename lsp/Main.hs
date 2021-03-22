@@ -29,6 +29,8 @@ import Syntax
 import Control.Lens.Extras (template)
 import Data.Data (Data)
 import Data.Either.Combinators (rightToMaybe)
+import Control.Monad.Trans.Except (except, ExceptT)
+import Control.Monad.Except
 -- import Syntax (Pos(..),SRng(..))
 
 type Config = ()
@@ -40,7 +42,8 @@ handlers = mconcat
       pure ()
   , requestHandler STextDocumentHover $ \req responder -> do
       let RequestMessage _ _ _ (HoverParams doc pos _workDone) = req
-      rsp <- liftIO $ lookupTokenBare pos doc
+      let (TextDocumentIdentifier uri) = doc
+      rsp <- runExceptMy uri $ lookupTokenBare' pos uri
       responder (Right rsp)
   , notificationHandler J.STextDocumentDidOpen $ \msg -> do
     let doc  = msg ^. J.params . J.textDocument . J.uri
@@ -57,6 +60,27 @@ handlers = mconcat
       contents <- liftIO $ readFile fn
       parseAndSendErrors doc $ T.pack contents
   ]
+
+runExceptMy :: Uri -> ExceptT Err IO Hover -> LspT () IO (Maybe Hover)
+runExceptMy uri x = do
+  y <- liftIO $ runExceptT x
+  case y of
+    Left err -> do
+      let
+        diags = [J.Diagnostic
+                  (errorRange err)
+                  (Just J.DsError)  -- severity
+                  Nothing  -- code
+                  (Just "lexer") -- source
+                  (T.pack $ msg err)
+                  Nothing -- tags
+                  (Just (J.List []))
+                ]
+      publishDiagnostics 100 (toNormalizedUri uri) Nothing (partitionBySource diags)
+      return Nothing
+    Right h -> do
+      publishDiagnostics 100 (toNormalizedUri uri) Nothing (Map.singleton(Just "lexer") (Data.SortedList.toSortedList []))
+      return $ Just h
 
 -- | Analyze the file and send any diagnostics to the client in a
 -- "textDocument/publishDiagnostics" notification
@@ -163,11 +187,8 @@ lookupToken pos (TextDocumentIdentifier uri) = do
       _ <- sendNotification SWindowShowMessage $ ShowMessageParams MtError $ tshow err
       return Nothing
     Right tokens -> do
-      -- TODO: Clear diagnostics when they are no longer relevant
-      -- TODO: The line below does nothing! See #19
-      publishDiagnostics 100 nuri Nothing (partitionBySource [])
       publishDiagnostics 100 nuri Nothing (Map.singleton(Just "lexer")(Data.SortedList.toSortedList [])) --"lexer" in this case is the diagnosticsource
-      
+
       let toks = find (posInRange pos . tokenPos) tokens
       -- sendNotification SWindowShowMessage $ ShowMessageParams MtInfo $ tshow pos <> tshow toks
       elog pos
@@ -183,15 +204,23 @@ lookupToken pos (TextDocumentIdentifier uri) = do
 justReader :: FilePath -> IO (Maybe [Token])
 justReader f = fmap rightToMaybe (scanFile f)
 
-okayReader :: Maybe FilePath -> IO (Maybe [Token])
-okayReader = maybe (pure Nothing) justReader
+scanFile' :: FilePath -> ExceptT Err IO [Token]
+scanFile' = ExceptT . scanFile
 
-readAllTokens :: Uri -> IO (Maybe [Token])
-readAllTokens = okayReader . uriToFilePath
+uriToFilePath' :: Monad m => Uri -> ExceptT Err m FilePath
+uriToFilePath' uri = extract "Read token Error" $ uriToFilePath uri
+
+extract :: Monad m => String -> Maybe a -> ExceptT Err m a
+extract a = except . maybe ( Left (StringErr a)) Right
 
 tokensToHover :: Position -> [Token] -> Maybe Hover
 tokensToHover pos tokens = do
       tok <- find (posInRange pos . tokenPos) tokens
+      return $ tokenToHover tok
+
+tokensToHover' :: Position -> [Token] -> ExceptT Err IO Hover
+tokensToHover' pos tokens = do
+      tok <- extract "Couldn't find token" $ find (posInRange pos . tokenPos) tokens
       return $ tokenToHover tok
 
 tokenToHover :: Token -> Hover
@@ -200,10 +229,11 @@ tokenToHover tok = Hover contents range
     contents = HoverContents $ markedUpContent "haskell" $ tshow tok
     range = Just $ posToRange $ tokenPos tok
 
-lookupTokenBare :: Position -> TextDocumentIdentifier -> IO (Maybe Hover)
-lookupTokenBare pos (TextDocumentIdentifier uri) = do
-  allTokens <- readAllTokens uri
-  return (allTokens >>= tokensToHover pos)
+lookupTokenBare' :: Position -> Uri -> ExceptT Err IO Hover
+lookupTokenBare' pos uri = do
+  path <- uriToFilePath' uri
+  allTokens <- scanFile' path
+  tokensToHover' pos allTokens
 
 syncOptions :: J.TextDocumentSyncOptions
 syncOptions = J.TextDocumentSyncOptions

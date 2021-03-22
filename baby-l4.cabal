@@ -92,3 +92,4 @@ executable lsp-server-bl4
                      , containers
                      , sorted-list
                      , either
+                     , transformers

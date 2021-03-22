@@ -353,6 +353,7 @@ token t input__ len = return (t input__ len)
 ---------------------------------
 
 data Err = Err { epos :: SRng , msg :: String }
+  | StringErr {msg :: String}
   deriving (Show)
 
 -- To improve error messages, We keep the path of the file we are
