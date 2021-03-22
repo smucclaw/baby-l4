@@ -102,16 +102,17 @@ parseAndSendErrors :: J.Uri -> T.Text -> LspM Config ()
 parseAndSendErrors uri contents = do
   let Just loc = uriToFilePath uri
   let pres = parseProgram loc $ T.unpack contents
+      nuri = toNormalizedUri uri
   case pres of
-    Right err -> pure ()
+    Right err ->
+      publishDiagnostics 100 nuri Nothing (Map.singleton (Just "parser") (Data.SortedList.toSortedList []))
     Left err -> do
       let
-        nuri = toNormalizedUri uri
         diags = [J.Diagnostic
                   (errorRange err)
                   (Just J.DsError)  -- severity
                   Nothing  -- code
-                  (Just "lexer") -- source
+                  (Just "parser") -- source
                   (T.pack $ msg err)
                   Nothing -- tags
                   (Just (J.List []))
