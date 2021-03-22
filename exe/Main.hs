@@ -6,11 +6,13 @@ module Main where
 import Parser (parseProgram)
 import Syntax (Program, ClassName)
 import Typing (tpProgram)
-import System.Environment ( getArgs, getEnv )
+import System.Environment ( getEnv )
+import Options.Applicative
 import qualified ToGF as GF
 import System.IO ( stderr, hPutStr, hPutStrLn )
 import System.IO.Error (catchIOError)
 import Control.Exception (catch, SomeException (SomeException))
+import Control.Monad ( when )
 
 
 
@@ -26,28 +28,64 @@ readPrelude = do
       Left err -> do
         error "Parser Error in Prelude"
 
-process :: FilePath -> String -> IO ()
-process filepath input = do
-  let ast = parseProgram filepath input
+process :: InputOpts -> String -> IO ()
+process args input = do
+  let fpath = filepath args
+      ast = parseProgram fpath input
   case ast of
     Right ast -> do
-      -- print ast
       preludeAst <- readPrelude
-      -- print (preludeAst)
-      print (tpProgram preludeAst ast)
-      --GF.nlg ast
+
+      when (astHS args == True) $ do
+        hPutStrLn stderr $ show (tpProgram preludeAst ast)
+      when (astGF args == True) $ do
+        GF.nlgAST (getGFL $ format args) ast
+      when (astGF args == False) $ do
+        GF.nlg (getGFL $ format args) ast
     Left err -> do
       putStrLn "Parser Error:"
       print err
+  where
+    getGFL (Fall)    = GF.GFall
+    getGFL (Fgf gfl) = gfl
+
+
+data Format   = Fall | Fgf GF.GFlang deriving Show
+
+data InputOpts = InputOpts
+  { format   :: Format
+  , astHS    :: Bool
+  , astGF    :: Bool
+  , filepath :: FilePath
+  } deriving Show
+
+optsParse :: Parser InputOpts
+optsParse = InputOpts <$>
+              subparser
+                ( command "all" (info (pure Fall) (progDesc "Prints all available formats"))
+               <> command "gf" (info gfSubparser gfHelper))
+            <*> switch (long "astHS" <> help "Print Haskell AST to STDERR")
+            <*> switch (long "astGF" <> help "Print GF AST to STDERR")
+            <*> argument str (metavar "Filename")
+        where
+          gfSubparser = subparser ( command "all" (info (pure (Fgf GF.GFall)) (progDesc "tell GF to output all languages"))
+                                 <> command "en" (info (pure (Fgf GF.GFeng))   (progDesc "tell GF to output english"))
+                                 <> command "swe" (info (pure (Fgf GF.GFswe)) (progDesc "tell GF to output swedish"))
+                                  )
+                        <**> helper
+          gfHelper = fullDesc
+                  <> header "l4 gf - specialized for natLang output"
+                  <> progDesc "Prints natLang format (subcommands: en, my)"
+
 
 main :: IO ()
 main = do
-  args <- getArgs
-  case args of
-    []      -> putStrLn "Usage: core-language <input file>"
-    [fname] -> do
-      contents <- readFile fname
-      process fname contents
+  let optsParse' = info (optsParse <**> helper) ( fullDesc
+                                               <> header "mini-l4 - minimum l4? miniturised l4?")
+  opts <- customExecParser (prefs showHelpOnError) optsParse'
+
+  contents <- readFile $ filepath opts
+  process opts contents
 
 
 -- | to check if GF_LIB_PATH env variable is available
