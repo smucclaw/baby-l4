@@ -23,6 +23,7 @@ The file =Test.hs= is for testing only and can be discarded.
 - with lexicon :: =Business -> business_2=
 - wordnet annotations in classes :: e.g. =class Business (132) {=
 - classes :: e.g. =class Business...=
+- rule expressions :: 
 
 ** 0.3.4
 
@@ -30,12 +31,45 @@ future version! will have support for More Things!
 
 - wordnet annotations deleted from classes :: =class Business {=
 
+** 0.3.6
+
+more typechecking! more expressions!
+
+- roundtrip :: =newSave.l4= goes from IDE to parser & typechecker, which produces an error message, and IDE displays it. (error message in what format: markdown? or old-school fixed-width? decision: [[https://microsoft.github.io/language-server-protocol/specification#diagnostic][plain string]].)
+- s(CASP) English explanations come out of GF :: Inari has made a demo! So there is a fragment of s(CASP). Team Bencoolen will continue discussions about how to improve on s(CASP)'s =#rped= commands.
+
 * Toolchain Versions
 
-| l4 syntax | file    | parser status | nlg status                            | ide status             | reasoner status |
-|-----------+---------+---------------+---------------------------------------+------------------------+-----------------|
-|     0.3.2 | mini.l4 | ok            | ok                                    | syntax highlighting ok |                 |
-|     0.3.2 | cr.l4   | ok            | errors on typ2kind: not yet supported |                        |                 |
+| l4 version | file    | parser status | nlg status         | ide status             | type checking | reasoner status |
+|------------+---------+---------------+--------------------+------------------------+---------------+-----------------|
+|      0.3.2 | mini.l4 | ok            | ok                 | syntax highlighting ok |               |                 |
+|      0.3.2 | cr.l4   | ok            | errors on typ2kind |                        |               |                 |
+
+| version | language feature                           | handled by           | status | consumed by |
+|---------+--------------------------------------------+----------------------+--------+-------------|
+|   0.3.4 | class Business { ... }                     | parser               | ok     |             |
+|         | decl varname : type -> type                | parser               | ok     |             |
+|         | rule <1> for 2: 3,4 if (5) then 6          | parser               |        |             |
+|         | forall                                     |                      |        |             |
+|         |                                            |                      |        |             |
+|         | typechecking shows subexpressions          | parser - typechecker |        | ide         |
+|         | better typechecking errors                 | parser - typechecker |        | ide         |
+|         |                                            |                      |        |             |
+|   0.3.6 | negation? 2-valued? 3-valued logic? naf?   |                      |        | s(casp)     |
+|         |                                            |                      |        |             |
+|         |                                            |                      |        |             |
+|         | states changing over time                  |                      |        |             |
+|         | which logic/semantic? process algebra?     |                      |        |             |
+|         | pi calculus! CSP? Petri Nets?              |                      |        |             |
+|         |                                            |                      |        |             |
+|         | compositionality                           |                      |        |             |
+|         |                                            |                      |        |             |
+|         | adding broader ontology support to classes |                      |        |             |
+|         |                                            |                      |        |             |
+|         | functions! macros! metaprogramming!        |                      |        |             |
+|         |                                            |                      |        |             |
+|         | module system and importing/exporting      |                      |        |             |
+
 
 We should have a test suite that creates this dashboard. See issue #4.
 
@@ -44,6 +78,19 @@ l4: typ2kind: not yet supported: FunT (ClassT (ClsNm "LegalPractitioner")) (FunT
 CallStack (from HasCallStack):
   error, called at src/ToGF.hs:43:8 in baby-l4-0.1.0.0-7MSFL28Gv2uEWQACncPSnj:ToGF
 #+end_example
+
+* Checkin with different departments and backends
+
+** To DocAssemble
+
+
+** To s(CASP)
+
+** To GF via PGF
+
+on track
+
+** To Other Backends
 
 * Uppaal
 

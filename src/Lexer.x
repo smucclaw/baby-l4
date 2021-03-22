@@ -65,7 +65,7 @@ tokens :-
   extends                       { lex' TokenExtends }
   lexicon                       { lex' TokenLexicon }
   rule                          { lex' TokenRule }
-
+  derivable                     { lex' TokenDerivable }
   -- Types
   Bool                          { lex' TokenBool }
   Int                           { lex' TokenInt }
@@ -91,7 +91,9 @@ tokens :-
   "&&"                          { lex' TokenAnd }
   \=                            { lex' TokenEq }
   \<                            { lex' TokenLt }
+  \<=                           { lex' TokenLte }
   \>                            { lex' TokenGt }
+  \>=                           { lex' TokenGte }
   [\+]                          { lex' TokenAdd }
   [\-]                          { lex' TokenSub }
   [\*]                          { lex' TokenMul }
@@ -112,8 +114,9 @@ tokens :-
   $alpha [$alpha $digit \_ \']* { lex TokenSym }
   @string                       { lex (TokenStringLit . read) }
 
-  -- need to ask if there's a way to combine TokenSym and TokenStringLit into one regex 
-
+  -- TODO: this is not the ultimate definition of strings
+  -- (strings may not contain double quotes which cannot be escaped)
+  \" (.#[\"])+ \"               { lex TokenString }
 
 
 {
@@ -391,6 +394,7 @@ data TokenKind
   | TokenExtends
   | TokenLexicon
   | TokenRule
+  | TokenDerivable
 
   | TokenBool
   | TokenInt
@@ -414,7 +418,9 @@ data TokenKind
   | TokenAnd
   | TokenEq
   | TokenLt
+  | TokenLte
   | TokenGt
+  | TokenGte
   | TokenAdd
   | TokenSub
   | TokenMul
@@ -432,53 +438,58 @@ data TokenKind
 
   | TokenNum Integer
   | TokenSym String
+  | TokenString String
   deriving (Eq,Show)
 
 -- For nice parser error messages.
 unLex :: TokenKind -> String
-unLex TokenAssert  = "assert"
-unLex TokenClass   = "class"
-unLex TokenDecl    = "decl"
-unLex TokenDefn    = "defn"
-unLex TokenExtends = "extends"
-unLex TokenLexicon = "lexicon"
-unLex TokenRule    = "rule"
-unLex TokenBool    = "Bool"
-unLex TokenInt     = "Int"
-unLex TokenLet     = "let"
-unLex TokenIn      = "in"
-unLex TokenNot     = "not"
-unLex TokenForall  = "forall"
-unLex TokenExists  = "exists"
-unLex TokenIf      = "if"
-unLex TokenThen    = "then"
-unLex TokenElse    = "else"
-unLex TokenFor     = "for"
-unLex TokenTrue    = "True"
-unLex TokenFalse   = "False"
-unLex TokenArrow   = "->"
-unLex TokenLambda  = "\\"
-unLex TokenImpl    = "-->"
-unLex TokenOr      = "||"
-unLex TokenAnd     = "&&"
-unLex TokenEq      = "="
-unLex TokenLt      = "<"
-unLex TokenGt      = ">"
-unLex TokenAdd     = "+"
-unLex TokenSub     = "-"
-unLex TokenMul     = "*"
-unLex TokenDiv     = "/"
-unLex TokenMod     = "%"
-unLex TokenDot     = "."
-unLex TokenComma   = ","
-unLex TokenColon   = ":"
-unLex TokenLParen  = "("
-unLex TokenRParen  = ")"
-unLex TokenLBrace  = "{"
-unLex TokenRBrace  = "}"
-unLex TokenEOF     = "<EOF>"
-unLex (TokenNum i) = show i
-unLex (TokenSym s) = show s
+unLex TokenAssert    = "assert"
+unLex TokenClass     = "class"
+unLex TokenDecl      = "decl"
+unLex TokenDefn      = "defn"
+unLex TokenExtends   = "extends"
+unLex TokenLexicon   = "lexicon"
+unLex TokenRule      = "rule"
+unLex TokenDerivable = "derivable"
+unLex TokenBool      = "Bool"
+unLex TokenInt       = "Int"
+unLex TokenLet       = "let"
+unLex TokenIn        = "in"
+unLex TokenNot       = "not"
+unLex TokenForall    = "forall"
+unLex TokenExists    = "exists"
+unLex TokenIf        = "if"
+unLex TokenThen      = "then"
+unLex TokenElse      = "else"
+unLex TokenFor       = "for"
+unLex TokenTrue      = "True"
+unLex TokenFalse     = "False"
+unLex TokenArrow     = "->"
+unLex TokenLambda    = "\\"
+unLex TokenImpl      = "-->"
+unLex TokenOr        = "||"
+unLex TokenAnd       = "&&"
+unLex TokenEq        = "="
+unLex TokenLt        = "<"
+unLex TokenLte       = "<="
+unLex TokenGt        = ">"
+unLex TokenGte       = ">="
+unLex TokenAdd       = "+"
+unLex TokenSub       = "-"
+unLex TokenMul       = "*"
+unLex TokenDiv       = "/"
+unLex TokenMod       = "%"
+unLex TokenDot       = "."
+unLex TokenComma     = ","
+unLex TokenColon     = ":"
+unLex TokenLParen    = "("
+unLex TokenRParen    = ")"
+unLex TokenLBrace    = "{"
+unLex TokenRBrace    = "}"
+unLex TokenEOF       = "<EOF>"
+unLex (TokenNum i)   = show i
+unLex (TokenSym s)   = show s
+unLex (TokenString s)   = show s
 unLex (TokenStringLit s) = show s
 
 alexEOF :: Alex Token
