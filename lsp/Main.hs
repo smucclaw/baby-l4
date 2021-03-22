@@ -133,7 +133,8 @@ posToRange (SRng (Pos l1 c1) (Pos l2 c2)) = Range (Position l1 l2) (Position l2 
 
 -- | Extract the range from an alex/happy error
 errorRange :: Err -> Range
-errorRange = posToRange . epos
+errorRange (Err s _) = posToRange s
+errorRange (StringErr _) = Range (Position 0 0) (Position 999 0)
 
 -- TODO: Use findAllExpressions and findExprAt to extract types for hover
 
