@@ -4,6 +4,7 @@
 module Main where
 
 import Parser (parseProgram)
+import Annotation ( LocTypeAnnot )
 import Syntax (Program, ClassName)
 import Typing (tpProgram)
 import System.Environment ( getArgs, getEnv )
@@ -14,7 +15,7 @@ import Control.Exception (catch, SomeException (SomeException))
 
 
 
-readPrelude :: IO (Program (Maybe ClassName) ())
+readPrelude :: IO (Program (Maybe ClassName) (LocTypeAnnot ()))
 readPrelude = do
   let l4PreludeFilepath = "l4/Prelude.l4"
   do 
@@ -22,7 +23,8 @@ readPrelude = do
     case parseProgram l4PreludeFilepath contents of
       Right ast -> do
         -- print ast
-        return (() <$ ast)
+        --return (() <$ ast)
+        return ast
       Left err -> do
         error "Parser Error in Prelude"
 

@@ -6,10 +6,10 @@ module Syntax where
 
 
 -- Class for annotated expressions
-import qualified Language.LSP.Types as J
+import qualified Language.LSP.Types as J    -- TODO: is that used anywhere?
 import qualified Data.List as List
 import Data.Data (Data, Typeable)
-
+import Annotation
 
 ----------------------------------------------------------------------
 -- Definition of expressions
@@ -31,6 +31,9 @@ newtype FieldName = FldNm String
 newtype PartyName = PtNm String
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
+
+-- TODO: has been moved to Annotation.hs
+{-
 class HasLoc a where
   getLoc :: a -> SRng
 
@@ -48,6 +51,7 @@ data SRng = SRng
 
 instance HasLoc SRng where
   getLoc = id
+-}
 
 ----- Program
 
@@ -191,23 +195,25 @@ data Quantif = All | Ex
 
 -- Expr t is an expression of type t (to be determined during type checking / inference)
 data Expr t
-    = ValE        SRng t Val                          -- value
-    | VarE        SRng t Var                          -- variable
-    | UnaOpE      SRng t UnaOp (Expr t)               -- unary operator
-    | BinOpE      SRng t BinOp (Expr t) (Expr t)      -- binary operator
-    | IfThenElseE SRng t (Expr t) (Expr t) (Expr t)   -- conditional
-    | AppE        SRng t (Expr t) (Expr t)            -- function application
-    | FunE        SRng t Pattern Tp (Expr t)          -- function abstraction
-    | QuantifE    SRng t Quantif VarName Tp (Expr t)  -- quantifier
+    = ValE        t Val                          -- value
+    | VarE        t Var                          -- variable
+    | UnaOpE      t UnaOp (Expr t)               -- unary operator
+    | BinOpE      t BinOp (Expr t) (Expr t)      -- binary operator
+    | IfThenElseE t (Expr t) (Expr t) (Expr t)   -- conditional
+    | AppE        t (Expr t) (Expr t)            -- function application
+    | FunE        t Pattern Tp (Expr t)          -- function abstraction
+    | QuantifE    t Quantif VarName Tp (Expr t)  -- quantifier
     -- | ClosE       SRng t [(VarName, Expr t)] (Expr t) -- closure  (not externally visible)
-    | FldAccE     SRng t (Expr t) FieldName           -- field access
-    | TupleE      SRng t [Expr t]                     -- tuples
-    | CastE       SRng t Tp (Expr t)                  -- cast to type
-    | ListE       SRng t ListOp [Expr t]              -- list expression
-    | NotDeriv    SRng t Bool Var (Expr t)            -- Negation as failure "not". 
+    | FldAccE     t (Expr t) FieldName           -- field access
+    | TupleE      t [Expr t]                     -- tuples
+    | CastE       t Tp (Expr t)                  -- cast to type
+    | ListE       t ListOp [Expr t]              -- list expression
+    | NotDeriv    t Bool Var (Expr t)            -- Negation as failure "not". 
                                                       -- The Bool expresses whether "not" precedes a positive literal (True)
                                                       -- or is itself classically negated (False)
     deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
+    {-
 instance HasLoc (Expr t) where
   getLoc x = case x of
     ValE        loc _ _       -> loc
@@ -223,38 +229,42 @@ instance HasLoc (Expr t) where
     CastE       loc _ _ _     -> loc
     ListE       loc _ _ _     -> loc
     NotDeriv    loc _ _ _ _   -> loc 
+-}
 
 childExprs :: Expr t -> [Expr t]
 childExprs x = case x of
-    ValE        _ _ _       -> []
-    VarE        _ _ _       -> []
-    UnaOpE      _ _ _ a     -> [a]
-    BinOpE      _ _ _ a b   -> [a,b]
-    IfThenElseE _ _ i t e   -> [i,t,e]
-    AppE        _ _ f x     -> [f,x]
-    FunE        _ _ _ _ x   -> [x]
-    QuantifE    _ _ _ _ _ x -> [x]
-    FldAccE     _ _ x _     -> [x]
-    TupleE      _ _ xs      -> xs
-    CastE       _ _ _ x     -> [x]
-    ListE       _ _ _ xs     -> xs
-    NotDeriv    _ _ _ _ e    -> [e]
+    ValE        _ _       -> []
+    VarE        _ _       -> []
+    UnaOpE      _ _ a     -> [a]
+    BinOpE      _ _ a b   -> [a,b]
+    IfThenElseE _ i t e   -> [i,t,e]
+    AppE        _ f x     -> [f,x]
+    FunE        _ _ _ x   -> [x]
+    QuantifE    _ _ _ _ x -> [x]
+    FldAccE     _ x _     -> [x]
+    TupleE      _ xs      -> xs
+    CastE       _ _ x     -> [x]
+    ListE       _ _ xs    -> xs
+    NotDeriv    _ _ _ e   -> [e]
 
-tpOfExpr :: Expr t -> t
-tpOfExpr x = case x of
-  ValE        _ t _       -> t
-  VarE        _ t _       -> t
-  UnaOpE      _ t _ _     -> t
-  BinOpE      _ t _ _ _   -> t
-  IfThenElseE _ t _ _ _   -> t
-  AppE        _ t _ _     -> t
-  FunE        _ t _ _ _   -> t
-  QuantifE    _ t _ _ _ _ -> t
-  FldAccE     _ t _ _     -> t
-  TupleE      _ t _       -> t
-  CastE       _ t _ _     -> t
-  ListE       _ t _ _     -> t
-  NotDeriv    _ t _ _ _    -> t
+annotOfExpr :: Expr t -> t
+annotOfExpr x = case x of
+  ValE        t _       -> t
+  VarE        t _       -> t
+  UnaOpE      t _ _     -> t
+  BinOpE      t _ _ _   -> t
+  IfThenElseE t _ _ _   -> t
+  AppE        t _ _     -> t
+  FunE        t _ _ _   -> t
+  QuantifE    t _ _ _ _ -> t
+  FldAccE     t _ _     -> t
+  TupleE      t _       -> t
+  CastE       t _ _     -> t
+  ListE       t _ _     -> t
+  NotDeriv    t _ _ _   -> t
+
+instance HasLoc t => HasLoc (Expr t) where
+  getLoc e = getLoc (annotOfExpr e)
 
 -- Cmd t is a command of type t
 data Cmd t

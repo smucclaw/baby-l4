@@ -31,6 +31,7 @@ library
                   -- generated from GF grammar
                   Prop
                   -- from src
+                  Annotation
                   Syntax
                   ToGF
                   --ExampleInput

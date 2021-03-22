@@ -6,6 +6,8 @@ module Typing where
 
 import Data.List
 import Data.Maybe
+
+import Annotation
 import Syntax
 
 ----------------------------------------------------------------------
@@ -328,6 +330,103 @@ trans :: (f a -> g a) -> Fix f -> Fix g
 trans = _
 -}
 
+
+getTypeOfExpr :: TypeAnnot f => Expr (f a) -> a
+getTypeOfExpr = getType . annotOfExpr
+
+
+tpExpr :: TypeAnnot f => Environment [ClassName] -> Expr (f a) -> Expr (f Tp)
+tpExpr env x = case x of
+  ValE annot c -> ValE (updType annot (tpConstval env c)) c
+  VarE annot v -> VarE (updType annot (tpVar env v)) (varIdentityInEnv env v)
+  UnaOpE annot uop e ->
+    let te = tpExpr env e
+        t  = tpUnaop env (getTypeOfExpr te) uop
+    in  UnaOpE (updType annot t) uop te
+  BinOpE annot bop e1 e2 ->
+    let te1 = tpExpr env e1
+        te2 = tpExpr env e2
+        t   = tpBinop env (getTypeOfExpr te1) (getTypeOfExpr te2) bop
+    in  BinOpE (updType annot t) bop te1 te2
+  IfThenElseE annot c e1 e2 ->
+    let tc = tpExpr env c
+        te1 = tpExpr env e1
+        te2 = tpExpr env e2
+        t1 = getTypeOfExpr te1
+        t2 = getTypeOfExpr te2
+    in
+      if isBooleanTp (getTypeOfExpr tc)
+      then if compatibleType env t1 t2
+           then IfThenElseE (updType annot t2) tc te1 te2
+           else if compatibleType env t2 t1 
+                then IfThenElseE (updType annot t1) tc te1 te2
+                else IfThenElseE (updType annot ErrT) tc te1 te2
+      else  IfThenElseE (updType annot ErrT) tc te1 te2
+  AppE annot fe ae ->
+    let tfe = tpExpr env fe
+        tae = tpExpr env ae
+        tf  = getTypeOfExpr tfe
+        ta  = getTypeOfExpr tae
+    in 
+      case tf of
+      FunT tpar tbody ->
+        if compatibleType env ta tpar
+        then AppE (updType annot tbody) tfe tae
+        else AppE (updType annot ErrT) tfe tae
+      _ -> AppE (updType annot ErrT) tfe tae
+  FunE annot pt tparam e ->
+    let te = tpExpr (pushPatternEnv pt tparam env) e
+        t  = getTypeOfExpr te
+    in
+      -- the recursive call comes before the test should
+      -- because even in case of an error, a typed subexpression has to be computed
+      if compatiblePatternType pt tparam
+      then FunE (updType annot (FunT tparam t)) pt tparam te
+      else FunE (updType annot ErrT) pt tparam te
+  QuantifE annot q vn vt e ->
+    let te = tpExpr (pushLocalVarEnv [(vn, vt)] env) e
+    in
+      if isBooleanTp (getTypeOfExpr te)
+      then QuantifE (updType annot booleanT) q vn vt te
+      else QuantifE (updType annot ErrT) q vn vt te
+  FldAccE annot e fn ->
+    let te = tpExpr env e
+        t = getTypeOfExpr te
+    in case t of
+      ClassT cn ->
+        case lookup fn (map (\(FieldDecl fn tp) -> (fn, tp)) (fieldsOf env cn)) of
+          Nothing -> FldAccE (updType annot ErrT) te fn
+          Just ft -> FldAccE (updType annot ft) te fn
+      _ -> FldAccE (updType annot ErrT) te fn
+  TupleE annot es ->
+    let tes = map (tpExpr env) es
+        ts = map getTypeOfExpr tes
+    in 
+      if any isErrTp ts
+      then TupleE (updType annot ErrT) tes
+      else TupleE (updType annot (TupleT ts)) tes
+  CastE annot ctp e ->
+    let te = tpExpr env e
+    in if castCompatible (getTypeOfExpr te) ctp
+       then CastE (updType annot ctp) ctp te
+       else CastE (updType annot ErrT) ctp te
+  NotDeriv annot sign v e ->
+    let tv = tpVar env v
+        te = tpExpr env e
+        t = getTypeOfExpr te
+    in case tv of
+      FunT tpar tbody ->
+        if compatibleType env t tpar
+        then 
+          if isBooleanTp tbody
+          then NotDeriv (updType annot booleanT) sign v te
+          else NotDeriv (updType annot ErrT) sign v te
+        else NotDeriv (updType annot ErrT) sign v te
+      _ -> NotDeriv (updType annot ErrT) sign v te
+
+  _ -> error "typing of lists not implemented yet"
+
+{-
 -- TODO: ListE
 tpExpr :: Environment [ClassName] -> Expr () -> Expr Tp
 tpExpr env x = case x of
@@ -420,29 +519,31 @@ tpExpr env x = case x of
         else NotDeriv rng ErrT sign v te
       _ -> NotDeriv rng ErrT sign v te
   ListE rng () lop es -> error "typing of lists not implemented yet"
-  
+-}
+
 -- TODO:FAssign
-tpCmd :: Environment [ClassName] -> Cmd () -> Cmd Tp
+tpCmd :: TypeAnnot f => Environment [ClassName] -> Cmd (f a) -> Cmd (f Tp)
 tpCmd env Skip = Skip
 tpCmd env (VAssign v e) =
     let te = tpExpr env e
     in
-      if tpVar env v == tpOfExpr te
+      if tpVar env v == getTypeOfExpr te
       then VAssign v te
       else error "types do not correspond in assignment"
 tpCmd env (FAssign _ _ _) = error "typing of FAssign not implemented yet"
 
 -- TODO: still take local variables into account
-tpRule :: Environment [ClassName] -> Rule () -> Rule Tp
+tpRule :: TypeAnnot f => Environment [ClassName] -> Rule (f a) -> Rule (f Tp)
 tpRule env (Rule rn vds precond postcond) =
   let renv = pushLocalVarEnv (map (\(VarDecl vn vt) -> (vn, vt)) vds) env
   in Rule rn vds (tpExpr renv precond) (tpExpr renv postcond)
-tpAssertion :: Environment [ClassName] -> Assertion () -> Assertion Tp
+
+tpAssertion :: TypeAnnot f => Environment [ClassName] -> Assertion (f a) -> Assertion (f Tp)
 tpAssertion env (Assertion e) = Assertion (tpExpr env e)
 
 -- TODO: check types of global variable declarations
 -- Assumption: prelude only contains class declarations
-tpProgram :: Program (Maybe ClassName) () -> Program (Maybe ClassName) () -> Program [ClassName] Tp
+tpProgram :: TypeAnnot f => Program (Maybe ClassName) (f a) -> Program (Maybe ClassName) (f a) -> Program [ClassName] (f Tp)
 tpProgram prelude (Program lex cds gvars rls asrt) =
   let pcds = classDeclsOfProgram prelude
       initialClassDecls = (customCs ++ pcds ++ cds)
@@ -474,33 +575,33 @@ wellFormedAction ta_act_clss (Act cn _) = cn `elem` ta_act_clss
 
 
 -- TODO: still type-check expression e
-wellFormedTransitionCond :: [Clock] -> TransitionCond () -> Bool
+wellFormedTransitionCond :: TypeAnnot f => [Clock] -> TransitionCond (f a) -> Bool
 wellFormedTransitionCond ta_clks (TransCond ccs e) =
   listSubset (map clockOfConstraint ccs) ta_clks
 
 -- TODO: still type-check command c
-wellFormedTransitionAction :: [ClassName] -> [Clock] -> TransitionAction () -> Bool
+wellFormedTransitionAction :: TypeAnnot f => [ClassName] -> [Clock] -> TransitionAction (f a) -> Bool
 wellFormedTransitionAction ta_act_clss ta_clks (TransAction act clks c) =
   wellFormedAction ta_act_clss act &&
   listSubset clks ta_clks
 
-wellFormedTransition :: [Loc] -> [ClassName] -> [Clock] -> Transition () -> Bool
+wellFormedTransition :: TypeAnnot f => [Loc] -> [ClassName] -> [Clock] -> Transition (f a) -> Bool
 wellFormedTransition ta_locs ta_act_clss ta_clks (Trans l1 trcond tract l2) =
   elem l1 ta_locs && elem l2 ta_locs &&
   wellFormedTransitionCond ta_clks trcond &&
   wellFormedTransitionAction ta_act_clss ta_clks tract
 
-typeTransitionCond :: Environment [ClassName] -> TransitionCond () -> TransitionCond Tp
+typeTransitionCond :: TypeAnnot f => Environment [ClassName] -> TransitionCond (f a) -> TransitionCond (f Tp)
 typeTransitionCond env (TransCond ccs e) = TransCond ccs (tpExpr env e)
 
-typeTransitionAction :: Environment [ClassName] -> TransitionAction () -> TransitionAction Tp
+typeTransitionAction :: TypeAnnot f => Environment [ClassName] -> TransitionAction (f a) -> TransitionAction (f Tp)
 typeTransitionAction env (TransAction act clks c) = TransAction act clks (tpCmd env c)
 
-typeTransition :: Environment [ClassName] -> Transition () -> Transition Tp
+typeTransition :: TypeAnnot f => Environment [ClassName] -> Transition (f a) -> Transition (f Tp)
 typeTransition env (Trans l1 trcond tract l2) =
   Trans l1 (typeTransitionCond env trcond) (typeTransitionAction env tract) l2
 
-wellFormedTA :: Environment [ClassName] -> TA () -> TA Tp
+wellFormedTA :: TypeAnnot f => Environment [ClassName] -> TA (f a) -> TA (f Tp)
 wellFormedTA env (TmdAut nm ta_locs ta_act_clss ta_clks trans init_locs invs lbls) =
   if
     all (wellFormedTransition ta_locs ta_act_clss ta_clks) trans &&
@@ -511,12 +612,12 @@ wellFormedTA env (TmdAut nm ta_locs ta_act_clss ta_clks trans init_locs invs lbl
         tes = map (tpExpr env . snd) lbls
         ttrans = map (typeTransition env) trans
     in
-      if all (`elem` ta_locs) lbls_locs && all (\te -> tpOfExpr te == BoolT) tes
+      if all (`elem` ta_locs) lbls_locs && all (\te -> getTypeOfExpr te == BoolT) tes
       then TmdAut nm ta_locs ta_act_clss ta_clks ttrans init_locs invs (zip lbls_locs tes)
       else error "ill-formed timed automaton (labels)"
   else error "ill-formed timed automaton (transitions)"
 
-wellFormedTASys :: Environment [ClassName] -> TASys () ext -> TASys Tp ext
+wellFormedTASys :: TypeAnnot f => Environment [ClassName] -> TASys (f a) ext -> TASys (f Tp) ext
 wellFormedTASys env (TmdAutSys tas ext) =
   if distinct (map name_of_ta tas)
   then TmdAutSys (map (wellFormedTA env) tas) ext

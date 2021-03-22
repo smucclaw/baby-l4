@@ -31,7 +31,7 @@ import Data.Word (Word8)
 import Data.Char (ord)
 import qualified Data.Bits
 
-import Syntax (HasLoc(..), SRng(..), Pos(..))
+import Annotation (HasLoc(..), SRng(..), Pos(..))
 
 
 }

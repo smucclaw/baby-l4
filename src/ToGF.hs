@@ -67,7 +67,7 @@ typ2kind lexicon e = case e of
 
 expr2prop :: Syntax.Expr Tp -> GProp
 expr2prop e = case e of
-  ValE _ _ val -> GPAtom (val2atom val)
+  ValE _ val -> GPAtom (val2atom val)
   _ -> error $ "expr2prop: not yet supported: " ++ show e
 
 val2atom :: Val -> GAtom

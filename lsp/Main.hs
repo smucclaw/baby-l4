@@ -25,6 +25,7 @@ import Data.Functor.Const (Const(..))
 import Parser (parseProgram)
 import Data.Foldable (for_)
 import qualified Data.List as List
+import Annotation (HasLoc(..), SRng(..), Pos(..))
 import Syntax
 import Control.Lens.Extras (template)
 import Data.Data (Data)
@@ -123,7 +124,7 @@ findAllExpressions :: (Data ct, Data et) => Program ct et -> [Expr et]
 findAllExpressions = toListOf template
 
 -- | Find the smallest subexpression which contains the specified position
-findExprAt :: J.Position -> Expr t -> Expr t
+findExprAt :: HasLoc t => J.Position -> Expr t -> Expr t
 findExprAt pos expr =
   case List.find (posInRange pos . getLoc) (childExprs expr) of
     Nothing -> expr
