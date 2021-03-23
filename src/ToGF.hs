@@ -13,13 +13,25 @@ import PGF
 import Prop
 import Syntax
 import System.Environment (withArgs)
+import System.IO (stderr, hPutStrLn)
+import Control.Monad (forM_)
 import Text.Printf (printf)
 import TransProp
 
-createPGF :: (Show ct, Show et) => Program ct et -> IO PGF.PGF
-createPGF (Program lexicon _2 _3 _4 _5) = do
-  let langs = ["Eng"]
-  let (abstract, concretes) = createLexicon langs lexicon
+-- moved this here from exe/Main.hs, needed to tell optparse which languages to output
+data GFlang  = GFall | GFeng | GFswe deriving Show
+
+gfl2lang:: GFlang -> [Lang]
+gfl2lang gfLang =
+  case gfLang of
+    GFall -> ["Eng","Swe"]
+    GFeng -> ["Eng"]
+    GFswe -> ["Swe"]
+
+createPGF :: (Show ct, Show et) => GFlang -> Program ct et -> IO PGF.PGF
+createPGF gfl (Program lexicon _2 _3 _4 _5) = do
+  let langs = gfl2lang gfl
+  let (abstract,concretes) = createLexicon langs lexicon
   -- Generate lexicon
   writeFile "grammars/PropLexicon.gf" abstract
   forM_ (zip langs concretes) $
@@ -33,21 +45,31 @@ createPGF (Program lexicon _2 _3 _4 _5) = do
   withArgs (["-make", "--output-dir=generated", "--gfo-dir=/tmp", "-v=0"] ++ map (concrName "PropTop") langs) GF.main
   PGF.readPGF "generated/PropTop.pgf"
 
-nlg :: (Show ct) => Program ct Tp -> IO ()
-nlg prog = do
-  gr <- createPGF prog
-  sequence_
-    [ do
-        -- putStrLn $ PGF.showExpr [] pgfExpr
-        putStrLn ""
-        putStrLn "DIRECT TRANSLATION"
-        mapM_ putStrLn $ linearizeAll gr pgfExpr
-        putStrLn "MORE NATURAL"
-        mapM_ putStrLn $ linearizeAll gr optpgf
-      | prop <- program2prop prog,
-        let pgfExpr = gf prop,
-        let optpgf = transfer MOptimize pgfExpr
+nlgAST :: (Show ct) => GFlang -> Program ct Tp -> IO ()
+nlgAST gfl prog = do
+  gr <- createPGF gfl prog
+  sequence_ [ do
+    hPutStrLn stderr $ PGF.showExpr [] pgfExpr
+    mapM_ putStrLn $ linearizeAll gr pgfExpr
+    | prop <- program2prop prog
+    , let pgfExpr = gf prop
     ]
+
+nlg :: (Show ct) => GFlang -> Program ct Tp -> IO ()
+nlg gfl prog = do
+    gr <- createPGF gfl prog
+    sequence_
+      [ do
+          -- putStrLn $ PGF.showExpr [] pgfExpr
+          putStrLn ""
+          putStrLn "DIRECT TRANSLATION"
+          mapM_ putStrLn $ linearizeAll gr pgfExpr
+          putStrLn "MORE NATURAL"
+          mapM_ putStrLn $ linearizeAll gr optpgf
+        | prop <- program2prop prog,
+          let pgfExpr = gf prop,
+          let optpgf = transfer MOptimize pgfExpr  
+      ]
 
 -----------------------------------------------------------------------------
 
