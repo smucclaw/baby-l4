@@ -1,6 +1,5 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE ViewPatterns #-}
 
 module ToGF where
 
@@ -14,7 +13,6 @@ import Prop
 import Syntax
 import System.Environment (withArgs)
 import System.IO (stderr, hPutStrLn)
-import Control.Monad (forM_)
 import Text.Printf (printf)
 import TransProp
 
@@ -45,30 +43,25 @@ createPGF gfl (Program lexicon _2 _3 _4 _5) = do
   withArgs (["-make", "--output-dir=generated", "--gfo-dir=/tmp", "-v=0"] ++ map (concrName "PropTop") langs) GF.main
   PGF.readPGF "generated/PropTop.pgf"
 
-nlgAST :: (Show ct) => GFlang -> Program ct Tp -> IO ()
-nlgAST gfl prog = do
-  gr <- createPGF gfl prog
-  sequence_ [ do
-    hPutStrLn stderr $ PGF.showExpr [] pgfExpr
-    mapM_ putStrLn $ linearizeAll gr pgfExpr
-    | prop <- program2prop prog
-    , let pgfExpr = gf prop
-    ]
+nlg, nlgAST :: (Show ct) => GFlang -> Program ct Tp -> IO ()
+nlg = nlg' False
+nlgAST = nlg' True
 
-nlg :: (Show ct) => GFlang -> Program ct Tp -> IO ()
-nlg gfl prog = do
+nlg' :: (Show ct) => Bool -> GFlang -> Program ct Tp -> IO ()
+nlg' showAST gfl prog = do
     gr <- createPGF gfl prog
     sequence_
       [ do
-          -- putStrLn $ PGF.showExpr [] pgfExpr
-          putStrLn ""
+          if showAST
+            then hPutStrLn stderr $ "\nGF AST\n" ++ PGF.showExpr [] pgfExpr
+            else putStrLn ""
           putStrLn "DIRECT TRANSLATION"
           mapM_ putStrLn $ linearizeAll gr pgfExpr
           putStrLn "MORE NATURAL"
           mapM_ putStrLn $ linearizeAll gr optpgf
         | prop <- program2prop prog,
           let pgfExpr = gf prop,
-          let optpgf = transfer MOptimize pgfExpr  
+          let optpgf = transfer MOptimize pgfExpr
       ]
 
 -----------------------------------------------------------------------------
