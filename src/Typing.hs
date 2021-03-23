@@ -1,6 +1,7 @@
 -- Typing of expressions
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Typing where
 
@@ -331,6 +332,13 @@ trans = _
 -}
 
 
+{-
+-- 
+data family LocTypeAnnotFam a
+data instance LocTypeAnnotFam (Expr t) = LTAFExpr t
+data instance LocTypeAnnotFam (Assertion t) = LTAFAssertion t
+-}
+
 getTypeOfExpr :: TypeAnnot f => Expr (f a) -> a
 getTypeOfExpr = getType . annotOfExpr
 
@@ -426,100 +434,15 @@ tpExpr env x = case x of
 
   _ -> error "typing of lists not implemented yet"
 
-{-
--- TODO: ListE
-tpExpr :: Environment [ClassName] -> Expr () -> Expr Tp
-tpExpr env x = case x of
-  ValE rng () c -> ValE rng (tpConstval env c) c
-  VarE rng () v -> VarE rng (tpVar env v) (varIdentityInEnv env v)
-  UnaOpE rng () uop e ->
-    let te = tpExpr env e
-        t  = tpUnaop env (tpOfExpr te) uop
-    in  UnaOpE rng t uop te
-  BinOpE rng () bop e1 e2 ->
-    let te1 = tpExpr env e1
-        te2 = tpExpr env e2
-        t   = tpBinop env (tpOfExpr te1) (tpOfExpr te2) bop
-    in  BinOpE rng t bop te1 te2
-  IfThenElseE rng () c e1 e2 ->
-    let tc = tpExpr env c
-        te1 = tpExpr env e1
-        te2 = tpExpr env e2
-        t1 = tpOfExpr te1
-        t2 = tpOfExpr te2
-    in
-      if isBooleanTp (tpOfExpr tc)
-      then if compatibleType env t1 t2
-           then IfThenElseE rng t2 tc te1 te2
-           else if compatibleType env t2 t1 
-                then IfThenElseE rng t1 tc te1 te2
-                else IfThenElseE rng ErrT tc te1 te2
-      else  IfThenElseE rng ErrT tc te1 te2
-  AppE rng () fe ae ->
-    let tfe = tpExpr env fe
-        tae = tpExpr env ae
-        tf  = tpOfExpr tfe
-        ta  = tpOfExpr tae
-    in 
-      case tf of
-      FunT tpar tbody ->
-        if compatibleType env ta tpar
-        then AppE rng tbody tfe tae
-        else AppE rng ErrT tfe tae
-      _ -> AppE rng ErrT tfe tae
-  FunE rng () pt tparam e ->
-    let te = tpExpr (pushPatternEnv pt tparam env) e
-        t  = tpOfExpr te
-    in
-      -- the recursive call comes before the test should
-      -- because even in case of an error, a typed subexpression has to be computed
-      if compatiblePatternType pt tparam
-      then FunE rng (FunT tparam t) pt tparam te
-      else FunE rng ErrT pt tparam te
-  
-  -- ClosE: no explicit typing because not externally visible
-  QuantifE rng () q vn vt e ->
-    let te = tpExpr (pushLocalVarEnv [(vn, vt)] env) e
-    in
-      if isBooleanTp (tpOfExpr te)
-      then QuantifE rng booleanT q vn vt te
-      else QuantifE rng ErrT q vn vt te
-  FldAccE rng () e fn ->
-    let te = tpExpr env e
-        t = tpOfExpr te
-    in case t of
-      ClassT cn ->
-        case lookup fn (map (\(FieldDecl fn tp) -> (fn, tp)) (fieldsOf env cn)) of
-          Nothing -> FldAccE rng ErrT te fn
-          Just ft -> FldAccE rng ft te fn
-      _ -> FldAccE rng ErrT te fn
-  TupleE rng () es ->
-    let tes = map (tpExpr env) es
-        ts = map tpOfExpr tes
-    in 
-      if any isErrTp ts
-      then TupleE rng ErrT tes
-      else TupleE rng (TupleT ts) tes
-  CastE rng () ctp e ->
-    let te = tpExpr env e
-    in if castCompatible (tpOfExpr te) ctp
-       then CastE rng ctp ctp te
-       else CastE rng ErrT ctp te
-  NotDeriv rng () sign v e ->
-    let tv = tpVar env v
-        te = tpExpr env e
-        t = tpOfExpr te
-    in case tv of
-      FunT tpar tbody ->
-        if compatibleType env t tpar
-        then 
-          if isBooleanTp tbody
-          then NotDeriv rng booleanT sign v te
-          else NotDeriv rng ErrT sign v te
-        else NotDeriv rng ErrT sign v te
-      _ -> NotDeriv rng ErrT sign v te
-  ListE rng () lop es -> error "typing of lists not implemented yet"
--}
+
+data AnnotTypingPhase 
+  = PosAnnotTP SRng 
+  | PosTpAnnotTP (LocTypeAnnot Tp)
+  | PosClassHierAnnotTP (LocTypeAnnot [ClassName])
+  deriving (Eq, Ord, Show, Read)
+
+tpExprBasic :: Environment [ClassName] -> Expr SRng -> Expr AnnotTypingPhase
+tpExprBasic env e = fmap PosTpAnnotTP (tpExpr env (fmap (\r -> LocTypeAnnot r ()) e))
 
 -- TODO:FAssign
 tpCmd :: TypeAnnot f => Environment [ClassName] -> Cmd (f a) -> Cmd (f Tp)
@@ -533,17 +456,17 @@ tpCmd env (VAssign v e) =
 tpCmd env (FAssign _ _ _) = error "typing of FAssign not implemented yet"
 
 -- TODO: still take local variables into account
-tpRule :: TypeAnnot f => Environment [ClassName] -> Rule (f a) -> Rule (f Tp)
-tpRule env (Rule rn vds precond postcond) =
+tpRule :: Environment [ClassName] -> Rule SRng -> Rule AnnotTypingPhase
+tpRule env (Rule annot rn vds precond postcond) =
   let renv = pushLocalVarEnv (map (\(VarDecl vn vt) -> (vn, vt)) vds) env
-  in Rule rn vds (tpExpr renv precond) (tpExpr renv postcond)
+  in Rule (PosAnnotTP annot) rn vds (tpExprBasic renv precond) (tpExprBasic renv postcond)
 
-tpAssertion :: TypeAnnot f => Environment [ClassName] -> Assertion (f a) -> Assertion (f Tp)
-tpAssertion env (Assertion e) = Assertion (tpExpr env e)
+tpAssertion :: Environment [ClassName] -> Assertion SRng -> Assertion AnnotTypingPhase
+tpAssertion env (Assertion annot e) = Assertion (PosAnnotTP annot) (tpExprBasic env e)
 
 -- TODO: check types of global variable declarations
 -- Assumption: prelude only contains class declarations
-tpProgram :: TypeAnnot f => Program (Maybe ClassName) (f a) -> Program (Maybe ClassName) (f a) -> Program [ClassName] (f Tp)
+tpProgram :: Program (Maybe ClassName) SRng -> Program (Maybe ClassName) SRng -> Program [ClassName] AnnotTypingPhase
 tpProgram prelude (Program lex cds gvars rls asrt) =
   let pcds = classDeclsOfProgram prelude
       initialClassDecls = (customCs ++ pcds ++ cds)

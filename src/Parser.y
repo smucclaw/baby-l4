@@ -131,7 +131,7 @@ VarDecl : VAR ':' Tp                     { VarDecl (tokenSym $1) $3 }
 
 Assertions :                       { [] }
            | Assertions Assertion  { $2 : $1 }
-Assertion : assert Expr            { Assertion $2 }
+Assertion : assert Expr            { Assertion (tokenRange $1 $2) $2 }
 
 -- Atomic type
 ATp  : Bool                       { BoolT }
@@ -154,42 +154,42 @@ VarsCommaSep :                      { [] }
             | VAR                   { [tokenSym $1] }
             | VarsCommaSep ',' VAR  { tokenSym $3 : $1 }
 
-Expr : '\\' Pattern ':' ATp '->' Expr  { FunE (LocTypeAnnot (tokenRange $1 $6) ()) $2 $4 $6 }
-     | forall VAR ':' Tp '.' Expr      { QuantifE (LocTypeAnnot (tokenRange $1 $6) ()) All (tokenSym $2) $4 $6 }
-     | exists VAR ':' Tp '.' Expr      { QuantifE (LocTypeAnnot (tokenRange $1 $6) ()) Ex (tokenSym $2) $4 $6 }
-     | Expr '-->' Expr             { BinOpE (LocTypeAnnot (tokenRange $1 $3) ()) (BBool BBimpl) $1 $3 }
-     | Expr '||' Expr              { BinOpE (LocTypeAnnot (tokenRange $1 $3) ()) (BBool BBor) $1 $3 }
-     | Expr '&&' Expr              { BinOpE (LocTypeAnnot (tokenRange $1 $3) ()) (BBool BBand) $1 $3 }
-     | if Expr then Expr else Expr { IfThenElseE (LocTypeAnnot (tokenRange $1 $6) ()) $2 $4 $6 }
-     | not Expr                    { UnaOpE (LocTypeAnnot (tokenRange $1 $2) ()) (UBool UBneg) $2 }
-     | not derivable VAR Atom      { NotDeriv (LocTypeAnnot (tokenRange $1 $4) ()) True (GlobalVar $ tokenSym $3) $4 }
-     | not derivable not VAR Atom  { NotDeriv (LocTypeAnnot (tokenRange $1 $5) ()) False (GlobalVar $ tokenSym $4) $5 }
-     | Expr '<' Expr               { BinOpE (LocTypeAnnot (tokenRange $1 $3) ()) (BCompar BClt) $1 $3 }
-     | Expr '<=' Expr              { BinOpE (LocTypeAnnot (tokenRange $1 $3) ()) (BCompar BClte) $1 $3 }
-     | Expr '>' Expr               { BinOpE (LocTypeAnnot (tokenRange $1 $3) ()) (BCompar BCgt) $1 $3 }
-     | Expr '>=' Expr              { BinOpE (LocTypeAnnot (tokenRange $1 $3) ()) (BCompar BCgte) $1 $3 }
-     | Expr '=' Expr               { BinOpE (LocTypeAnnot (tokenRange $1 $3) ()) (BCompar BCeq) $1 $3 }
-     | Expr '+' Expr               { BinOpE (LocTypeAnnot (tokenRange $1 $3) ()) (BArith BAadd) $1 $3 }
-     | Expr '-' Expr               { BinOpE (LocTypeAnnot (tokenRange $1 $3) ()) (BArith BAsub) $1 $3 }
-     | '-' Expr %prec AMINUS       { UnaOpE (LocTypeAnnot (tokenRange $1 $2) ()) (UArith UAminus) $2 }
-     | Expr '*' Expr               { BinOpE (LocTypeAnnot (tokenRange $1 $3) ()) (BArith BAmul) $1 $3 }
-     | Expr '/' Expr               { BinOpE (LocTypeAnnot (tokenRange $1 $3) ()) (BArith BAdiv) $1 $3 }
-     | Expr '%' Expr               { BinOpE (LocTypeAnnot (tokenRange $1 $3) ()) (BArith BAmod) $1 $3 }
+Expr : '\\' Pattern ':' ATp '->' Expr  { FunE (tokenRange $1 $6) $2 $4 $6 }
+     | forall VAR ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) All (tokenSym $2) $4 $6 }
+     | exists VAR ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) Ex (tokenSym $2) $4 $6 }
+     | Expr '-->' Expr             { BinOpE (tokenRange $1 $3) (BBool BBimpl) $1 $3 }
+     | Expr '||' Expr              { BinOpE (tokenRange $1 $3) (BBool BBor) $1 $3 }
+     | Expr '&&' Expr              { BinOpE (tokenRange $1 $3) (BBool BBand) $1 $3 }
+     | if Expr then Expr else Expr { IfThenElseE (tokenRange $1 $6) $2 $4 $6 }
+     | not Expr                    { UnaOpE (tokenRange $1 $2) (UBool UBneg) $2 }
+     | not derivable VAR Atom      { NotDeriv (tokenRange $1 $4) True (GlobalVar $ tokenSym $3) $4 }
+     | not derivable not VAR Atom  { NotDeriv (tokenRange $1 $5) False (GlobalVar $ tokenSym $4) $5 }
+     | Expr '<' Expr               { BinOpE (tokenRange $1 $3) (BCompar BClt) $1 $3 }
+     | Expr '<=' Expr              { BinOpE (tokenRange $1 $3) (BCompar BClte) $1 $3 }
+     | Expr '>' Expr               { BinOpE (tokenRange $1 $3) (BCompar BCgt) $1 $3 }
+     | Expr '>=' Expr              { BinOpE (tokenRange $1 $3) (BCompar BCgte) $1 $3 }
+     | Expr '=' Expr               { BinOpE (tokenRange $1 $3) (BCompar BCeq) $1 $3 }
+     | Expr '+' Expr               { BinOpE (tokenRange $1 $3) (BArith BAadd) $1 $3 }
+     | Expr '-' Expr               { BinOpE (tokenRange $1 $3) (BArith BAsub) $1 $3 }
+     | '-' Expr %prec AMINUS       { UnaOpE (tokenRange $1 $2) (UArith UAminus) $2 }
+     | Expr '*' Expr               { BinOpE (tokenRange $1 $3) (BArith BAmul) $1 $3 }
+     | Expr '/' Expr               { BinOpE (tokenRange $1 $3) (BArith BAdiv) $1 $3 }
+     | Expr '%' Expr               { BinOpE (tokenRange $1 $3) (BArith BAmod) $1 $3 }
      | App                         { $1 }
 
-App : App Acc                     { AppE (LocTypeAnnot (tokenRange $1 $2) ()) $1 $2 }
+App : App Acc                     { AppE (tokenRange $1 $2) $1 $2 }
     | Acc                          { $1 }
 
 -- field access
-Acc : Acc '.' VAR                  { FldAccE (LocTypeAnnot (tokenRange $1 $3) ()) $1 (FldNm $ tokenSym $3) }
+Acc : Acc '.' VAR                  { FldAccE (tokenRange $1 $3) $1 (FldNm $ tokenSym $3) }
     | Atom                         { $1 }
 
-Atom : '(' ExprsCommaSep ')'       { let ecs = $2 in if length ecs == 1 then head ecs else TupleE (LocTypeAnnot (tokenRange $1 $3) ()) (reverse ecs) }
-     | NUM                         { ValE (LocTypeAnnot (pos) ()) (IntV $1) }
-     | STR                         { ValE (LocTypeAnnot (tokenPos $1) ()) (StringV (tokenString $1)) }
-     | VAR                         { VarE (LocTypeAnnot (tokenPos $1) ()) (GlobalVar $ tokenSym $1) }
-     | true                        { ValE (LocTypeAnnot (tokenPos $1) ()) (BoolV True) }
-     | false                       { ValE (LocTypeAnnot (tokenPos $1) ()) (BoolV False) }
+Atom : '(' ExprsCommaSep ')'       { let ecs = $2 in if length ecs == 1 then head ecs else TupleE (tokenRange $1 $3) (reverse ecs) }
+     | NUM                         { ValE (pos) (IntV $1) }
+     | STR                         { ValE (tokenPos $1) (StringV (tokenString $1)) }
+     | VAR                         { VarE (tokenPos $1) (GlobalVar $ tokenSym $1) }
+     | true                        { ValE (tokenPos $1) (BoolV True) }
+     | false                       { ValE (tokenPos $1) (BoolV False) }
 
 ExprsCommaSep :                      { [] }
             | Expr                   { [$1] }
@@ -198,9 +198,9 @@ ExprsCommaSep :                      { [] }
 
 Rules  :                       { [] }
        | Rules Rule            { $2 : $1}
-Rule:  RuleName RuleVarDecls RulePrecond RuleConcl { Rule $1 $2 $3 $4 }
+Rule: rule '<' VAR '>'  RuleVarDecls RulePrecond RuleConcl { Rule (tokenRange $1 $7) (tokenSym $3) $5 $6 $7 }
 
-RuleName: rule '<' VAR '>'     { tokenSym $3 }
+-- RuleName: rule '<' VAR '>'     { tokenSym $3 }
 
 RuleVarDecls :                       { [] }
              | for VarDeclsCommaSep  { reverse $2 }
@@ -224,7 +224,7 @@ parseError (Token p t) =
 -- parseError (l:ls) = throwError (show l)
 -- parseError [] = throwError "Unexpected end of Input"
 
-parseProgram :: FilePath -> String -> Either Err (Program (Maybe ClassName) (LocTypeAnnot ()))
+parseProgram :: FilePath -> String -> Either Err (Program (Maybe ClassName) SRng)
 parseProgram = runAlex' program
 
 -- parseProgram:: String -> Either String (Program (Maybe ClassName) ())

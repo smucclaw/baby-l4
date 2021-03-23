@@ -1,5 +1,6 @@
 
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Annotation where 
 
@@ -53,4 +54,5 @@ instance LocAnnot LocTypeAnnot where
 instance TypeAnnot LocTypeAnnot where
   getType = typeAnnot
   updType lta v = lta {typeAnnot = v} 
+
 

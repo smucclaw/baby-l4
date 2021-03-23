@@ -62,6 +62,7 @@ data Program ct et = Program{ lexiconOfProgram :: [Mapping]
                             , assertionsOfProgram :: [Assertion et] }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
+-- TODO: still needed?
 removeAnnotations :: Program ct et -> Program ct ()
 removeAnnotations = (()<$)
 
@@ -263,6 +264,7 @@ annotOfExpr x = case x of
   ListE       t _ _     -> t
   NotDeriv    t _ _ _   -> t
 
+
 instance HasLoc t => HasLoc (Expr t) where
   getLoc e = getLoc (annotOfExpr e)
 
@@ -274,11 +276,25 @@ data Cmd t
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 
-data Rule t = Rule RuleName [VarDecl] (Expr t) (Expr t)
+data Rule t = Rule t RuleName [VarDecl] (Expr t) (Expr t)
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
-data Assertion t = Assertion (Expr t)
+annotOfRule :: Rule t -> t  
+annotOfRule (Rule t _ _ _ _) = t
+
+instance HasLoc t => HasLoc (Rule t) where
+  getLoc e = getLoc (annotOfRule e)
+
+data Assertion t = Assertion t (Expr t)
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
+annotOfAssertion :: Assertion t -> t  
+annotOfAssertion (Assertion t _) = t
+
+instance HasLoc t => HasLoc (Assertion t) where
+  getLoc e = getLoc (annotOfAssertion e)
+
+
 
 ----------------------------------------------------------------------
 -- Definition of Timed Automata

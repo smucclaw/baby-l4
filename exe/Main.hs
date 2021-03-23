@@ -4,7 +4,7 @@
 module Main where
 
 import Parser (parseProgram)
-import Annotation ( LocTypeAnnot )
+import Annotation (SRng, LocTypeAnnot )
 import Syntax (Program, ClassName)
 import Typing (tpProgram)
 import System.Environment ( getArgs, getEnv )
@@ -15,7 +15,7 @@ import Control.Exception (catch, SomeException (SomeException))
 
 
 
-readPrelude :: IO (Program (Maybe ClassName) (LocTypeAnnot ()))
+readPrelude :: IO (Program (Maybe ClassName) SRng)
 readPrelude = do
   let l4PreludeFilepath = "l4/Prelude.l4"
   do 
