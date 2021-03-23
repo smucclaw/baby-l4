@@ -5,7 +5,9 @@ concrete PropSwe of Prop = PropI - [PUniv, AKind]  with
   (Symbolic = SymbolicSwe), 
   (Symbol = SymbolSwe),
   (Sentence = SentenceSwe),
-  (WordNet = WordNetSwe)
+  (Extend = ExtendSwe),
+  (WordNet = WordNetSwe),
+  (Verb = VerbSwe)
    ** open (P = ParadigmsSwe), Prelude in {
 
 flags coding = utf8 ;
@@ -15,11 +17,6 @@ flags coding = utf8 ;
 lin
   PUniv v p = {s = ExtAdvS (mkAdv for_Prep (mkNP everybody_NP (lin Adv v))) p.s ; c = False} ;
 
-  AKind k x = 
-    case k.isClass of {
-      True => mkCl x.s (mkAdv part_Prep (mkNP the_Det k.s)) ;
-      False => mkCl x.s k.s 
-      } ;
 -- instance of interface
 
 oper
@@ -36,10 +33,10 @@ oper
 -- test lexicon
 
 lin
-  Vertical = mkAP (P.mkA "vertikal") ;
-  Horizontal = mkAP (P.mkA "horisontal") ;
-  Parallel = P.mkA2 (P.mkA "parallell") to_Prep ;
-  Equal = P.mkA2 (P.mkA "lika") with_Prep ;
+  -- Vertical = mkAP (P.mkA "vertikal") ;
+  -- Horizontal = mkAP (P.mkA "horisontal") ;
+  -- Parallel = P.mkA2 (P.mkA "parallell") to_Prep ;
+  -- Equal = P.mkA2 (P.mkA "lika") with_Prep ;
   Centre = mkFun1 "centre" (P.mkN "mittpunkt" "mittpunkter") possess_Prep ;
   Intersection = mkFun2 "intersection" (P.mkN "snitt" "snitt") possess_Prep ;
 
@@ -47,8 +44,8 @@ lin
     s = mkCN set_N2 (mkNP a_Art plNum k.s)} ; 
   KFun = funType (P.mkN3 function_1_N from_Prep to_Prep) ;
 
-  Even = mkAP (P.mkA "jämn") ;
-  Odd = mkAP (P.mkA "udda") ;
+  -- Even = mkAP (P.mkA "jämn") ;
+  -- Odd = mkAP (P.mkA "udda") ;
   Square = mkFun1 "square" (P.mkN "kvadrat" "kvadrater") possess_Prep ;
   Sum = mkFun2 "sum" (P.mkN "summa") possess_Prep ;
   Product = mkFun2 "product" (P.mkN "produkt" "produkter") possess_Prep ;

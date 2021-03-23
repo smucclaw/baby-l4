@@ -6,8 +6,8 @@
 
 
 lexicon
-Business -> business_2 #from WordNet
-Value -> value_1 
+Business -> business_2_N #from WordNet
+Value -> value_1_N 
 
 # Business.value -> foo_42 from Sumo
 

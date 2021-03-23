@@ -13,13 +13,16 @@ cat
   Fun2 ;
   Conj ;
   -- For lexicon
-  Noun ; Adj ;
+
+  Noun ; Noun2 ; Adj ; Adj2 ; Verb ; Verb2 ; PassVerb2 ;
 
 fun
   PAtom  : Atom  -> Prop ;
   PNeg   : Prop  -> Prop ;
   PConj  : Conj  -> Prop -> Prop -> Prop ;
   PImpl  : Prop  -> Prop -> Prop ;
+
+  PIfThenElse : Prop -> Prop -> Prop -> Prop ;
 
   PUniv  : Var -> Prop -> Prop ;
   PExist : Var -> Prop -> Prop ;
@@ -51,6 +54,7 @@ fun
   PConjs  : Conj  -> [Prop] -> Prop ;
   PUnivs  : [Var] -> Kind -> Prop -> Prop ;
   PExists : [Var] -> Kind -> Prop -> Prop ;
+  PNotExists : [Var] -> Kind -> Prop -> Prop ;
 
   PNegAtom  : Atom -> Prop ;
 
@@ -89,17 +93,42 @@ fun
   Nat          : Kind ;
   Boolean      : Kind ;    
 
-  -- Overgenerating, but we're using this grammar only to linearise
-  KInd         : Ind -> Kind ;
-  KFun         : Kind -> Kind -> Kind ;
-
   Square       : Fun1 ;
   Sum, Product : Fun2 ;
   IInt         : Int -> Ind ;
   BTrue, BFalse : Ind ;
 
+  ----------------------------
+  -- Not part of the original
+
+  -- Overgenerating, but we're using this grammar only to linearise
+  KNoun        : Noun -> Kind ;
+  KInd         : Ind -> Kind ;
+  KFun         : Kind -> Kind -> Kind ;
+
+  INoun : Noun -> Ind ;
+
+  PAdj1 : Adj -> Pred1 ;
+  PAdj2 : Adj2 -> Pred2 ;
+  PAdj12 : Adj -> Pred2 ; -- force A to A2
+  PNoun1 : Noun -> Pred1 ;
+  PNoun2 : Noun2 -> Pred2 ;
+  PVerb1 : Verb -> Pred1 ;
+  PVerb2 : Verb2 -> Pred2 ;
+  PPassV2 : PassVerb2 -> Pred1 ;
+  Passive : Verb2 -> PassVerb2 ;
+
+  -- Fallback: if word not in lexicon, make it into var
+  PVar1 : Var -> Pred1 ;
+  PVar2 : Var -> Pred2 ;
+
+
 -- dummy instance of noun so that generated Prop.hs doesn't complain
   DummyN : Noun ;
+  DummyN2 : Noun2 ;
   DummyA : Adj ;
+  DummyA2 : Adj2 ;
+  DummyV : Verb ;
+  DummyV2 : Verb2 ;
 
 }

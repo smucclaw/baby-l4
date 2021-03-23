@@ -36,12 +36,14 @@ process args input = do
     Right ast -> do
       preludeAst <- readPrelude
 
+      let tpAst = tpProgram preludeAst ast
+
       when (astHS args == True) $ do
-        hPutStrLn stderr $ show (tpProgram preludeAst ast)
+        hPutStrLn stderr $ show tpAst
       when (astGF args == True) $ do
-        GF.nlgAST (getGFL $ format args) ast
+        GF.nlgAST (getGFL $ format args) tpAst
       when (astGF args == False) $ do
-        GF.nlg (getGFL $ format args) ast
+        GF.nlg (getGFL $ format args) tpAst
     Left err -> do
       putStrLn "Parser Error:"
       print err
