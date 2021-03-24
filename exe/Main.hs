@@ -37,6 +37,7 @@ process filepath input = do
       preludeAst <- readPrelude
       -- print (preludeAst)
       print (tpProgram preludeAst ast)
+      -- print ast
       --GF.nlg ast
     Left err -> do
       putStrLn "Parser Error:"

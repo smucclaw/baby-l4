@@ -2,6 +2,8 @@
 {-# LANGUAGE DeriveFunctor #-}
 -- {-# OPTIONS_GHC -Wpartial-fields #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE TypeFamilies #-}
+
 module Syntax where
 
 
@@ -200,6 +202,8 @@ data Pattern
 data Quantif = All | Ex
     deriving (Eq, Ord, Show, Read, Data, Typeable)
 
+type family Annot tpPhase
+type instance Annot SRng = SRng 
 
 -- Expr t is an expression of type t (to be determined during type checking / inference)
 data Expr t
