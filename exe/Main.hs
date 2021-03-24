@@ -9,17 +9,17 @@ import Typing (tpProgram)
 import System.Environment ( getEnv )
 import Options.Applicative
 import qualified ToGF as GF
-import System.IO ( stderr, hPutStr, hPutStrLn )
+import System.IO ( stderr, hPutStr, hPutStrLn, hPrint )
 import System.IO.Error (catchIOError)
 import Control.Exception (catch, SomeException (SomeException))
-import Control.Monad ( when )
+import Control.Monad ( when, unless )
 
 
 
 readPrelude :: IO (Program (Maybe ClassName) ())
 readPrelude = do
   let l4PreludeFilepath = "l4/Prelude.l4"
-  do 
+  do
     contents <- readFile l4PreludeFilepath
     case parseProgram l4PreludeFilepath contents of
       Right ast -> do
@@ -38,11 +38,11 @@ process args input = do
 
       let tpAst = tpProgram preludeAst ast
 
-      when (astHS args == True) $ do
-        hPutStrLn stderr $ show tpAst
-      when (astGF args == True) $ do
+      when (astHS args) $ do
+        hPrint stderr tpAst
+      when (astGF args) $ do
         GF.nlgAST (getGFL $ format args) tpAst
-      when (astGF args == False) $ do
+      unless (astGF args) $ do
         GF.nlg (getGFL $ format args) tpAst
     Left err -> do
       putStrLn "Parser Error:"

@@ -54,10 +54,10 @@ nlg' showAST gfl prog = do
       [ do
           if showAST
             then hPutStrLn stderr $ "\nGF AST\n" ++ PGF.showExpr [] pgfExpr
-            else putStrLn ""
-          putStrLn "DIRECT TRANSLATION"
-          mapM_ putStrLn $ linearizeAll gr pgfExpr
-          putStrLn "MORE NATURAL"
+            else putStrLn "\n"
+          -- putStrLn "DIRECT TRANSLATION"
+          -- mapM_ putStrLn $ linearizeAll gr pgfExpr
+          -- putStrLn "MORE NATURAL"
           mapM_ putStrLn $ linearizeAll gr optpgf
         | prop <- program2prop prog,
           let pgfExpr = gf prop,
