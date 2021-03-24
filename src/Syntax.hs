@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveFunctor #-}
 -- {-# OPTIONS_GHC -Wpartial-fields #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE PatternSynonyms #-}
 module Syntax where
 
 
@@ -208,6 +209,21 @@ data Expr t
                                                       -- The Bool expresses whether "not" precedes a positive literal (True)
                                                       -- or is itself classically negated (False)
     deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
+toList :: Expr t -> Expr t
+toList (Bin binop rng tp e1 e2) = ListE rng tp listop (go e1 ++ go e2)
+  where
+    go (Bin _ rng tp e1 e2) = go e1 ++ go e2
+    go e = [e]
+    listop = case binop of 
+      BBool BBand -> AndList
+      BBool BBor  -> OrList
+      _ -> CommaList
+toList e = e
+
+pattern Bin :: BinOp -> SRng -> t -> Syntax.Expr t -> Syntax.Expr t -> Syntax.Expr t
+pattern Bin binop rng tp e1 e2 = BinOpE rng tp binop e1 e2
+
 instance HasLoc (Expr t) where
   getLoc x = case x of
     ValE        loc _ _       -> loc
