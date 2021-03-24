@@ -5,6 +5,7 @@ Paper -> "paper_1_N"
 Scissors -> "scissors_1_N"
 Throw -> "throw_1_V2"
 Win -> "win_1_V2"
+Lose -> "lose_1_V2"
 Beat -> "beat_1_V2"
 Participate_in -> "mkV2 participate_2_V in_Prep"
 Player -> "player_5_N"
@@ -24,6 +25,7 @@ class Game {
 
 decl Participate_in : Player -> Game -> Bool
 decl Win : Player -> Game -> Bool
+decl Lose : Player -> Game -> Bool
 decl Beat : Sign -> Sign -> Bool
 decl Throw : Player -> Sign -> Bool
 
@@ -31,11 +33,28 @@ decl Rock : Sign
 decl Paper : Sign
 decl Scissors : Sign
 
-
+#rule <rockBeatsSc>
+#for r : Rock , p : Paper
+#if noop
+#then Bets p r
 
 rule <winner>
-for a : Player, g : Game,  r : Sign, s : Sign
+for a : Player, g : Game, r : Sign, s : Sign
 if (exists b : Player . Participate_in a g  && Participate_in b g  && 
                                            Throw a r  && Throw b s && Beat r s
                                            )
 then Win a g
+
+rule <loser>
+for a : Player, g : Game 
+if (exists b : Player .
+      (exists s : Sign . 
+        (exists r : Sign . Participate_in a g  && Participate_in b g  && 
+                                           Throw a r && Throw b s && Beat s r
+                                           )))
+then Lose a g
+
+# TODO: make these into facts
+assert Beats Rock Scissors
+assert Beats Scissors Paper
+assert Beats Paper Rock
