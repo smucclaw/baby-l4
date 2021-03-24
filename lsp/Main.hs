@@ -43,7 +43,9 @@ handlers = mconcat
   , requestHandler STextDocumentHover $ \req responder -> do
       let RequestMessage _ _ _ (HoverParams doc pos _workDone) = req
       let (TextDocumentIdentifier uri) = doc
-      rsp <- runExceptMy uri $ lookupTokenBare' pos uri
+      let exceptHover = lookupTokenBare' pos uri
+      runDiagnosticsOnHover uri exceptHover
+      rsp <- runHoverResponse uri exceptHover
       responder (Right rsp)
   , notificationHandler J.STextDocumentDidOpen $ \msg -> do
     let doc  = msg ^. J.params . J.textDocument . J.uri
@@ -61,13 +63,8 @@ handlers = mconcat
       parseAndSendErrors doc $ T.pack contents
   ]
 
-runExceptMy :: Uri -> ExceptT Err IO Hover -> LspT () IO (Maybe Hover)
-runExceptMy uri x = do
-  y <- liftIO $ runExceptT x
-  case y of
-    Left err -> do
-      let
-        diags = [J.Diagnostic
+makeDiagErr :: Err -> [Diagnostic]
+makeDiagErr err = [J.Diagnostic
                   (errorRange err)
                   (Just J.DsError)  -- severity
                   Nothing  -- code
@@ -76,11 +73,26 @@ runExceptMy uri x = do
                   Nothing -- tags
                   (Just (J.List []))
                 ]
-      publishDiagnostics 100 (toNormalizedUri uri) Nothing (partitionBySource diags)
-      return Nothing
-    Right h -> do
-      publishDiagnostics 100 (toNormalizedUri uri) Nothing (Map.singleton(Just "lexer") (Data.SortedList.toSortedList []))
-      return $ Just h
+
+publishError :: MonadLsp config m => Uri -> Err -> m ()
+publishError uri err = publishDiagnostics 100 (toNormalizedUri uri) Nothing (partitionBySource $ makeDiagErr err)
+
+clearError :: MonadLsp config m => Uri -> m ()
+clearError uri = publishDiagnostics 100 (toNormalizedUri uri) Nothing (Map.singleton(Just "lexer") (Data.SortedList.toSortedList []))
+
+runDiagnosticsOnHover :: MonadLsp config m => Uri -> ExceptT Err IO a -> m ()
+runDiagnosticsOnHover uri ioHover = do
+  eitherHover <- liftIO $ runExceptT ioHover
+  case eitherHover of
+    Left err -> do
+      publishError uri err
+    Right hover -> do
+      clearError uri
+
+runHoverResponse :: Uri -> ExceptT Err IO Hover -> LspT () IO (Maybe Hover)
+runHoverResponse uri ioHover = do
+  eitherHover <- liftIO $ runExceptT ioHover
+  return $ rightToMaybe eitherHover
 
 -- | Analyze the file and send any diagnostics to the client in a
 -- "textDocument/publishDiagnostics" notification
@@ -205,41 +217,38 @@ lookupToken pos (TextDocumentIdentifier uri) = do
         in
           Hover ms $ Just $ posToRange $ tokenPos tok
 
--- | scanFile gives IO (Either Err [Token]) but for Hover we don't need error processing
--- so this function flips Either to Maybe
-justReader :: FilePath -> IO (Maybe [Token])
-justReader f = fmap rightToMaybe (scanFile f)
-
 scanFile' :: FilePath -> ExceptT Err IO [Token]
 scanFile' = ExceptT . scanFile
 
 uriToFilePath' :: Monad m => Uri -> ExceptT Err m FilePath
 uriToFilePath' uri = extract "Read token Error" $ uriToFilePath uri
 
+-- | Convert Maybe to ExceptT using string as an error message in Maybe is Nothing
 extract :: Monad m => String -> Maybe a -> ExceptT Err m a
-extract a = except . maybeToRight (StringErr a)
+extract errMessage = except . maybeToRight (StringErr errMessage)
 
-tokensToHover :: Position -> [Token] -> Maybe Hover
+tokensToHover :: Position -> [Token] -> ExceptT Err IO Hover
 tokensToHover pos tokens = do
-      tok <- find (posInRange pos . tokenPos) tokens
-      return $ tokenToHover tok
-
-tokensToHover' :: Position -> [Token] -> ExceptT Err IO Hover
-tokensToHover' pos tokens = do
       tok <- extract "Couldn't find token" $ find (posInRange pos . tokenPos) tokens
       return $ tokenToHover tok
 
 tokenToHover :: Token -> Hover
 tokenToHover tok = Hover contents range
   where
-    contents = HoverContents $ markedUpContent "haskell" $ tshow tok
+    contents = HoverContents $ markedUpContent "haskell" $ tokenToText tok
     range = Just $ posToRange $ tokenPos tok
+
+tokenToText :: Token -> T.Text
+tokenToText token =
+  case tokenKind token of
+    TokenLexicon -> "This is a lexicon"
+    _            -> tshow token
 
 lookupTokenBare' :: Position -> Uri -> ExceptT Err IO Hover
 lookupTokenBare' pos uri = do
   path <- uriToFilePath' uri
   allTokens <- scanFile' path
-  tokensToHover' pos allTokens
+  tokensToHover pos allTokens
 
 syncOptions :: J.TextDocumentSyncOptions
 syncOptions = J.TextDocumentSyncOptions
