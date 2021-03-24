@@ -135,7 +135,8 @@ tp2ind e = case e of
   --FunT arg ret -> GKFun <$> tp2kind arg <*> tp2kind ret
   -- TupleT [Tp]
   -- ErrT
-  _ -> error $ "tp2kind: not yet supported: " ++ show e
+  _ -> pure $ GIVar (GVString (GString "<unsupported>"))
+  -- _ -> error $ "tp2kind: not yet supported: " ++ show e
 
 
 rule2prop :: Rule Tp -> CuteCats GProp
