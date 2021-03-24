@@ -37,7 +37,7 @@ class LocAnnot f where
 data LocTypeAnnot a = LocTypeAnnot { locAnnot :: SRng 
                                    , typeAnnot :: a
 }
-    deriving (Eq, Ord, Show, Read, Data, Typeable)
+  deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 
 instance HasLoc (LocTypeAnnot a) where

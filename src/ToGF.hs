@@ -9,7 +9,7 @@ import System.Environment (withArgs)
 import Control.Monad (forM_)
 import Text.Printf (printf)
 
-createPGF :: (Show ct, Show et) => Program ct et -> IO PGF.PGF
+createPGF :: (Show t) => Program t -> IO PGF.PGF
 createPGF (Program lexicon _2 _3 _4 _5) = do
   let langs = ["Eng","Swe"]
   let (abstract,concretes) = createLexicon langs lexicon
@@ -29,7 +29,7 @@ createPGF (Program lexicon _2 _3 _4 _5) = do
   withArgs (["-make", "--output-dir=generated", "-v=0"] ++ map (concrName "PropTop") langs) GF.main
   PGF.readPGF "generated/PropTop.pgf"
 
-nlg :: (Show ct, Show et) => Program ct et -> IO ()
+nlg :: (Show t) => Program t -> IO ()
 nlg prog = do
   gr <- createPGF prog
   sequence_ [ do
@@ -39,23 +39,23 @@ nlg prog = do
     , let pgfExpr = gf prop
     ]
 
-program2prop :: (Show ct, Show et) => Program ct et -> [GProp]
+program2prop :: (Show t) => Program t -> [GProp]
 program2prop e = case e of
   Program lexicon _cl vardecls _rs _as -> map (vardecl2prop lexicon) vardecls
  -- _ -> error $ "program2prop: not yet supported: " ++ show e
 
-vardecl2prop :: [Mapping] -> VarDecl -> GProp
-vardecl2prop lex (VarDecl vname vtyp) =
+vardecl2prop :: [Mapping t] -> VarDecl t -> GProp
+vardecl2prop lex (VarDecl _ vname vtyp) =
   GPAtom (GAKind (typ2kind lex vtyp) (var2ind lex vname))
 
-var2ind :: [Mapping] -> VarName -> GInd
+var2ind :: [Mapping t] -> VarName -> GInd
 var2ind lexicon name = case findMapping lexicon name of
     val:_ -> if gfType val == "Noun"
               then GIVarN (LexNoun name)
               else GIVar (GVString (GString name))
     _           -> GIVar (GVString (GString name)) -- Fall back to string literal
 
-typ2kind :: [Mapping] -> Tp -> GKind
+typ2kind :: [Mapping t] -> Tp -> GKind
 typ2kind lexicon e = case e of
   BoolT -> GBoolean
   IntT  -> GNat
@@ -78,7 +78,7 @@ val2atom e  = case e of
   _ -> error $ "val2atom: not yet supported: " ++ show e
 
 -- Generic helper functions
-findMapping :: [Mapping] -> String -> [String]
+findMapping :: [Mapping t] -> String -> [String]
 findMapping haystack needle =
   [ val
   | Mapping _ name val <- haystack
@@ -86,7 +86,7 @@ findMapping haystack needle =
 
 type Lang = String
 
-createLexicon :: [Lang] -> [Mapping] -> (String,[String])
+createLexicon :: [Lang] -> [Mapping t] -> (String,[String])
 createLexicon langs lexicon = (abstract,concretes)
   where
     abstract = unlines $

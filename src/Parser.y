@@ -104,29 +104,46 @@ Lexicon :                   { [] }
 Mappings :                   {[]}
           | Mappings Mapping {$2 : $1 }
 Mapping : VAR '->' VAR { Mapping (tokenRange $1 $3) (tokenSym $1) (tokenSym $3) }
+
 ClassDecls :                       { [] }
            | ClassDecls ClassDecl  { $2 : $1 }
-ClassDecl : class VAR ClassDef     { ClassDecl (ClsNm $ tokenSym $2) $3 }
 
-ClassDef :   Fields                { ClassDef (Just (ClsNm "Class")) (reverse $1) }
-         |   extends VAR Fields    { ClassDef (Just (ClsNm $ tokenSym $2)) (reverse $3) }
+ClassDecl : class VAR ClassDef     { case snd $3 of
+                                       -- ClassDef is empty, so take token range of 'class VAR'
+                                       Nothing ->  if tokenSym $2 == "Object"
+                                                   -- special treatment: create Object class without superclass
+                                                   then ClassDecl (tokenRange $1 $2) (ClsNm $ tokenSym $2) (ClassDef [] [])
+                                                   -- take default class created in first component of $3
+                                                   else ClassDecl (tokenRange $1 $2) (ClsNm $ tokenSym $2) (fst $3)
+                                       -- ClassDef is non-empty, but the data type ClassDef has no position annotation,
+                                       -- so retrieve position info from production ClassDef
+                                       Just rng -> ClassDecl (coordFromTo (getLoc $1) rng) (ClsNm $ tokenSym $2) (fst $3) }
 
-Fields  :                          { [] }
-        | '{' FieldDecls '}'       { $2 }
+ClassDef :   Fields                { (ClassDef [ClsNm "Class"] (reverse (fst $1)), (snd $1)) }
+         |   extends VAR Fields    { case snd $3 of
+                 Nothing -> (ClassDef [ClsNm $ tokenSym $2] (reverse (fst $3)), Just (tokenRange $1 $2))
+                 Just rng -> (ClassDef [ClsNm $ tokenSym $2] (reverse (fst $3)), Just (coordFromTo (getLoc $1) rng )) }
+
+Fields  :                          { ([], Nothing) }
+        | '{' FieldDecls '}'       { ($2, Just (tokenRange $1 $3)) }
+
 FieldDecls :                       { [] }
            | FieldDecls FieldDecl  { $2 : $1 }
 
-FieldDecl : VAR ':' Tp             { FieldDecl (FldNm $ tokenSym $1) $3 }
+-- TODO: tokenRange not correct (currently no range info available for types)
+FieldDecl : VAR ':' Tp             { FieldDecl (tokenRange $1 $2) (FldNm $ tokenSym $1) $3 }
 
 GlobalVarDecls :                         { [] }
          | GlobalVarDecls GlobalVarDecl  { $2 : $1 }
 
-GlobalVarDecl : decl VAR ':' Tp          { VarDecl (tokenSym $2) $4 }
+-- TODO: tokenRange not correct (currently no range info available for types)
+GlobalVarDecl : decl VAR ':' Tp          { VarDecl (tokenRange $1 $3) (tokenSym $2) $4 }
 
 VarDeclsCommaSep :  VarDecl              { [$1] }
          | VarDeclsCommaSep  ',' VarDecl { $3 : $1 }
 
-VarDecl : VAR ':' Tp                     { VarDecl (tokenSym $1) $3 }
+-- TODO: tokenRange not correct (currently no range info available for types)
+VarDecl : VAR ':' Tp                     { VarDecl (tokenRange $1 $2) (tokenSym $1) $3 }
 
 
 Assertions :                       { [] }
@@ -224,7 +241,7 @@ parseError (Token p t) =
 -- parseError (l:ls) = throwError (show l)
 -- parseError [] = throwError "Unexpected end of Input"
 
-parseProgram :: FilePath -> String -> Either Err (Program (Maybe ClassName) SRng)
+parseProgram :: FilePath -> String -> Either Err (Program SRng)
 parseProgram = runAlex' program
 
 -- parseProgram:: String -> Either String (Program (Maybe ClassName) ())

@@ -120,7 +120,7 @@ errorRange = posToRange . epos
 
 -- TODO: Show type errors as diagnostics
 
-findAllExpressions :: (Data ct, Data et) => Program ct et -> [Expr et]
+findAllExpressions :: (Data t) => Program t -> [Expr t]
 findAllExpressions = toListOf template
 
 -- | Find the smallest subexpression which contains the specified position

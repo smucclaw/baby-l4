@@ -15,7 +15,7 @@ import Control.Exception (catch, SomeException (SomeException))
 
 
 
-readPrelude :: IO (Program (Maybe ClassName) SRng)
+readPrelude :: IO (Program SRng)
 readPrelude = do
   let l4PreludeFilepath = "l4/Prelude.l4"
   do 
@@ -33,7 +33,7 @@ process filepath input = do
   let ast = parseProgram filepath input
   case ast of
     Right ast -> do
-      -- print ast
+      print ast
       preludeAst <- readPrelude
       -- print (preludeAst)
       print (tpProgram preludeAst ast)

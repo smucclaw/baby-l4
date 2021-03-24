@@ -11,6 +11,19 @@ import Data.Maybe
 import Annotation
 import Syntax
 
+
+----------------------------------------------------------------------
+-- Result of typing
+----------------------------------------------------------------------
+
+
+data AnnotTypingPhase
+  = PosAnnotTP SRng
+  | PosTpAnnotTP (LocTypeAnnot Tp)
+  | PosClassHierAnnotTP (LocTypeAnnot [ClassName])
+  deriving (Eq, Ord, Show, Read)
+
+
 ----------------------------------------------------------------------
 -- Environment
 ----------------------------------------------------------------------
@@ -25,9 +38,9 @@ data Environment t = Env { classDeclsOfEnv :: [ClassDecl t]
   deriving (Eq, Ord, Show, Read)
 
 -- prg is the current program to be typed
-initialEnvOfProgram :: [ClassDecl t] -> [VarDecl] -> Environment t
+initialEnvOfProgram :: [ClassDecl t] -> [VarDecl t] -> Environment t
 initialEnvOfProgram cds gvars =
-  let initialGvs = map (\(VarDecl vn t) -> (vn, t)) gvars
+  let initialGvs = map (\(VarDecl _ vn t) -> (vn, t)) gvars
   in Env cds initialGvs []
 
 
@@ -36,69 +49,77 @@ initialEnvOfProgram cds gvars =
 ----------------------------------------------------------------------
 
 classDefAssoc :: [ClassDecl t] -> [(ClassName, ClassDef t)]
-classDefAssoc = map (\(ClassDecl cn cdf) -> (cn, cdf))
+classDefAssoc = map (\(ClassDecl _ cn cdf) -> (cn, cdf))
 
-fieldAssoc ::  [ClassDecl t] -> [(ClassName, [FieldDecl])]
-fieldAssoc = map (\(ClassDecl cn cdf) -> (cn, fieldsOfClassDef cdf))
+fieldAssoc ::  [ClassDecl t] -> [(ClassName, [FieldDecl t])]
+fieldAssoc = map (\(ClassDecl _ cn cdf) -> (cn, fieldsOfClassDef cdf))
 
 
--- For a class name 'cn', returns the list of the names of the superclasses of 'cn'
+-- For a class name 'cn', returns the list of the names of the (non-strict) superclasses of 'cn'
 -- Here, 'cdf_assoc' is an association of class names and class defs as contained in a program.
 -- 'visited' is the list of class names already visited on the way up the class hierarchy
-superClasses :: [(ClassName, ClassDef (Maybe ClassName))] -> [ClassName] -> ClassName -> [ClassName]
+superClasses :: [(ClassName, ClassDef t)] -> [ClassName] -> ClassName -> [ClassName]
 superClasses cdf_assoc visited cn =
   case lookup cn cdf_assoc of
     -- the following should not happen if definedSuperclass is true in a module
     Nothing -> error "in superClasses: cn not in cdf_assoc (internal error)"
     -- reached the top of the hierarchy
-    Just (ClassDef Nothing _) -> reverse (cn : visited)
+    Just (ClassDef [] _) -> reverse (cn : visited)
     -- class has super-class with name scn
-    Just (ClassDef (Just scn) _) ->
+    Just (ClassDef [scn] _) ->
       if scn `elem` visited
       then error ("cyclic superclass hierarchy for class " ++ (case cn of (ClsNm n) -> n))
       else superClasses cdf_assoc (cn : visited) scn
+    Just (ClassDef _ _) -> error "in superClasses: superclass list should be empty or singleton (internal error)"
 
 -- For each of a list of class declarations, returns its list of superclass names
-superClassesDecls :: [ClassDecl (Maybe ClassName)] -> [[ClassName]]
+-- TODO: not used anywhere
+superClassesDecls :: [ClassDecl t] -> [[ClassName]]
 superClassesDecls cds =
   let cdf_assoc = classDefAssoc cds
   in map (superClasses cdf_assoc [] . fst) cdf_assoc
 
+-- TODO: not needed right now
+--checkFieldDecl :: FieldDecl SRng -> FieldDecl AnnotTypingPhase
+--checkFieldDecl (FieldDecl annot fn t) =  FieldDecl (PosAnnotTP annot) fn t
+
+elaborateSupersInClassDecl :: (ClassName -> [ClassName]) -> ClassDecl t -> ClassDecl t
+elaborateSupersInClassDecl supers (ClassDecl annot cn (ClassDef _ fds)) =
+  ClassDecl annot cn (ClassDef (supers cn) fds)
 
 -- in a class declaration, replace the reference to the immediate super-class 
 -- by the list of all super-classes (from more to less specific, excluding the current class from the list)
-elaborateSupersInClassDecls :: [ClassDecl (Maybe ClassName)] -> [ClassDecl [ClassName]]
+elaborateSupersInClassDecls :: [ClassDecl t] -> [ClassDecl t]
 elaborateSupersInClassDecls cds =
   let cdf_assoc = classDefAssoc cds
-  in map (\(ClassDecl cn (ClassDef mcn fds)) ->
-    ClassDecl cn (ClassDef (tail (superClasses cdf_assoc [] cn)) fds)) cds
+  in map (elaborateSupersInClassDecl (superClasses cdf_assoc [])) cds
 
 
-localFields :: [(ClassName, [FieldDecl])] -> ClassName -> [FieldDecl]
+localFields :: [(ClassName, [FieldDecl t])] -> ClassName -> [FieldDecl t]
 localFields fd_assoc cn =
   fromMaybe [] (lookup cn fd_assoc)
 
 -- in a class declaration, replace the list of local fields of the class by the list of all fields (local and inherited)
-elaborateFieldsInClassDecls :: [ClassDecl [ClassName]] -> [ClassDecl [ClassName]]
+elaborateFieldsInClassDecls :: [ClassDecl t] -> [ClassDecl t]
 elaborateFieldsInClassDecls cds =
   let fd_assoc = fieldAssoc cds
-  in map (\(ClassDecl cn (ClassDef scs locfds)) ->
-            ClassDecl cn (ClassDef scs (locfds ++ concatMap (localFields fd_assoc) scs))) cds
+  in map (\(ClassDecl annot cn (ClassDef scs locfds)) ->
+            ClassDecl annot cn (ClassDef scs (concatMap (localFields fd_assoc) scs))) cds
 
 
 -- the class decl does not reference an undefined superclass
-definedSuperclass :: [ClassName] -> ClassDecl (Maybe ClassName) -> Bool
+definedSuperclass :: [ClassName] -> ClassDecl t -> Bool
 definedSuperclass cns cdc =
   case cdc of
-    (ClassDecl cn (ClassDef Nothing _)) -> True
-    (ClassDecl cn (ClassDef (Just scn) _)) ->
+    (ClassDecl _ cn (ClassDef [] _)) -> True
+    (ClassDecl _ cn (ClassDef [scn] _)) ->
       elem scn cns || error ("undefined superclass for class " ++ (case cn of (ClsNm n) -> n))
-
+    (ClassDecl _ cn (ClassDef _ _)) -> error "in definedSuperclass: superclass list should be empty or singleton (internal error)"
 
 hasDuplicates :: (Ord a) => [a] -> Bool
 hasDuplicates xs = length (nub xs) /= length xs
 
-wellformedClassDecls :: [ClassDecl (Maybe ClassName)] -> Bool
+wellformedClassDecls :: [ClassDecl t] -> Bool
 wellformedClassDecls cds =
   let class_names = map nameOfClassDecl cds
   in all (definedSuperclass class_names) cds && not (hasDuplicates class_names)
@@ -106,14 +127,14 @@ wellformedClassDecls cds =
 -- TODO: still check that field decls only reference declared classes
 -- TODO: hasDuplicates should check that field names are unique 
 --       and not only that (field name, type) is unique
-wellFormedFieldDecls :: ClassDecl t -> Bool
-wellFormedFieldDecls (ClassDecl cn cdf) = not (hasDuplicates (fieldsOfClassDef cdf))
+wellFormedFieldDecls :: (Ord t) => ClassDecl t -> Bool
+wellFormedFieldDecls (ClassDecl _ cn cdf) = not (hasDuplicates (fieldsOfClassDef cdf))
 
 -- TODO: a bit of a hack. Error detection and treatment to be improved
 -- - no ref to undefined superclass
 -- - no cyclic graph hierarchy (implemented in superClasses above)
 -- - no duplicate field declarations (local and inherited)
-elaborateClsProgram :: [ClassDecl (Maybe ClassName)] -> [ClassDecl [ClassName]]
+elaborateClsProgram :: (Ord t, Show t) => [ClassDecl t] -> [ClassDecl t]
 elaborateClsProgram cds =
   if wellformedClassDecls cds
   then
@@ -121,28 +142,31 @@ elaborateClsProgram cds =
     in
       if all wellFormedFieldDecls ecdcs
       then ecdcs
-      else error "Problem in field declarations: duplicate field declarations"
+      else error ("Problem in field declarations: duplicate field declarations" ++ (show ecdcs))
   else error "Problem in class declarations"
 
-
-strictSuperclassesOf :: Environment [ClassName] -> ClassName -> [ClassName]
+-- TODO: currently INCORRECT, correct version in comment
+strictSuperclassesOf :: Environment t -> ClassName -> [ClassName]
 strictSuperclassesOf env cn = case lookup cn (classDefAssoc (classDeclsOfEnv env)) of
   Nothing -> error ("in strictSuperclassesOf: undefined class " ++ (case cn of (ClsNm n) -> n))
-  Just (ClassDef supcls _) -> supcls
+  -- Just (ClassDef supcls _) -> supcls
+  Just (ClassDef supcls _) -> [cn]
 
-superclassesOf :: Environment [ClassName] -> ClassName -> [ClassName]
+superclassesOf :: Environment t -> ClassName -> [ClassName]
 superclassesOf env cn = cn : strictSuperclassesOf env cn
 
-isStrictSubclassOf :: Environment [ClassName] -> ClassName -> ClassName -> Bool
+isStrictSubclassOf :: Environment t -> ClassName -> ClassName -> Bool
 isStrictSubclassOf env subcl supercl = supercl `elem` strictSuperclassesOf env subcl
 
-isSubclassOf :: Environment [ClassName] -> ClassName -> ClassName -> Bool
+isSubclassOf :: Environment t -> ClassName -> ClassName -> Bool
 isSubclassOf env subcl supercl = supercl `elem` superclassesOf env subcl
 
-fieldsOf :: Environment [ClassName] -> ClassName -> [FieldDecl]
+-- TODO: currently INCORRECT, correct version in comment
+fieldsOf :: Environment t -> ClassName -> [FieldDecl t]
 fieldsOf env cn = case lookup cn (classDefAssoc (classDeclsOfEnv env)) of
   Nothing -> error ("in fieldsOf: undefined class " ++ (case cn of (ClsNm n) -> n))
-  Just (ClassDef _ fds) -> fds
+  --Just (ClassDef _ fds) -> fds
+  Just (ClassDef _ fds) -> []
 
 longestCommonPrefix :: Eq a=> [a] -> [a] -> [a]
 longestCommonPrefix (x:xs) (y:ys) = if x == y then x:longestCommonPrefix xs ys else []
@@ -150,11 +174,11 @@ longestCommonPrefix _ _ = []
 
 -- least common superclass of two classes (given by their name) 
 -- that must at least have Object as common superclass
-leastCommonSuperClass :: Environment [ClassName] -> ClassName -> ClassName -> ClassName
+leastCommonSuperClass :: Environment t -> ClassName -> ClassName -> ClassName
 leastCommonSuperClass env cn1 cn2 =
   last (longestCommonPrefix (reverse (superclassesOf env cn1)) (reverse (superclassesOf env cn2)))
 
-leastCommonSuperType :: Environment [ClassName] -> Tp -> Tp -> Tp
+leastCommonSuperType :: Environment t -> Tp -> Tp -> Tp
 leastCommonSuperType env (ClassT cn1) (ClassT cn2) = ClassT (leastCommonSuperClass env cn1 cn2)
 leastCommonSuperType _ _ _ = error "internal errror: leastCommonSuperType should only be called on class types"
 
@@ -171,10 +195,10 @@ lookupClassDefInEnv env cn =
 -- Linking classes from the prelude to internal predicates
 ----------------------------------------------------------------------
 
-booleanT = (ClassT (ClsNm "Boolean"))
-integerT = (ClassT (ClsNm "Integer"))
+booleanT = ClassT (ClsNm "Boolean")
+integerT = ClassT (ClsNm "Integer")
 
-stringT = (ClassT (ClsNm "String"))
+stringT = ClassT (ClsNm "String")
 
 isBooleanTp :: Tp -> Bool
 isBooleanTp BoolT = True     -- TODO: BoolT currently still tolerated, but to be phased out
@@ -182,7 +206,7 @@ isBooleanTp (ClassT (ClsNm "Boolean")) = True
 isBooleanTp _ = False
 
 -- Note: IntT not taken as number type
-isNumberTp :: Environment [ClassName] -> Tp -> Bool
+isNumberTp :: Environment t -> Tp -> Bool
 isNumberTp env (ClassT t) = isSubclassOf env t (ClsNm "Number")
 isNumberTp _ _ = False
 
@@ -194,13 +218,13 @@ isScalarTp (FunT _ _) = False
 isScalarTp (TupleT ts) = all isScalarTp ts
 isScalarTp ErrT = True
 
-isErrTp :: Tp -> Bool 
-isErrTp ErrT = True 
-isErrTp _ = False 
+isErrTp :: Tp -> Bool
+isErrTp ErrT = True
+isErrTp _ = False
 
-isClassTp :: Tp -> Bool 
-isClassTp (ClassT _) = True 
-isClassTp _ = False 
+isClassTp :: Tp -> Bool
+isClassTp (ClassT _) = True
+isClassTp _ = False
 
 
 ----------------------------------------------------------------------
@@ -221,32 +245,32 @@ tpConstval env x = case x of
     in case lookupClassDefInEnv env cn of
        [] -> error ("class name " ++ (case cn of (ClsNm n) -> n) ++ " not defined")
        [cd] ->
-         if map (\(FieldDecl fn t) -> (fn, t)) (fieldsOfClassDef cd) == tfnvals
+         if map (\(FieldDecl _ fn t) -> (fn, t)) (fieldsOfClassDef cd) == tfnvals
          then ClassT cn
          else error ("record fields do not correspond to fields of class " ++ (case cn of (ClsNm n) -> n))
        _ -> error "internal error: duplicate class definition"
-  ErrV -> ErrT 
+  ErrV -> ErrT
 
-tpUarith :: Environment [ClassName] -> Tp -> UArithOp -> Tp
+tpUarith :: Environment t -> Tp -> UArithOp -> Tp
 tpUarith env t ua = if isNumberTp env t then t else ErrT
 
-tpUbool :: Environment [ClassName] -> Tp -> UBoolOp -> Tp
+tpUbool :: Environment t -> Tp -> UBoolOp -> Tp
 tpUbool env t ub = if isBooleanTp t then t else ErrT
 
-tpUnaop :: Environment [ClassName] -> Tp -> UnaOp -> Tp
+tpUnaop :: Environment t -> Tp -> UnaOp -> Tp
 tpUnaop env t uop = case uop of
   UArith ua  -> tpUarith env t ua
   UBool ub   -> tpUbool env t ub
 
 
-tpBarith :: Environment [ClassName] -> Tp -> Tp -> BArithOp -> Tp
+tpBarith :: Environment t -> Tp -> Tp -> BArithOp -> Tp
 tpBarith env t1 t2 ba =
   if isNumberTp env t1 && isNumberTp env t2
     then leastCommonSuperType env t1 t2
     else ErrT
 
 -- TODO: more liberal condition for comparison?
-tpBcompar :: Environment [ClassName] -> Tp -> Tp -> BComparOp -> Tp
+tpBcompar :: Environment t -> Tp -> Tp -> BComparOp -> Tp
 tpBcompar env t1 t2 bc =
   if isScalarTp t1 && isScalarTp t2
   then
@@ -255,11 +279,11 @@ tpBcompar env t1 t2 bc =
     else ErrT
   else ErrT
 
-tpBbool :: Environment [ClassName] -> Tp -> Tp -> BBoolOp -> Tp
+tpBbool :: Environment t -> Tp -> Tp -> BBoolOp -> Tp
 tpBbool env t1 t2 bc =
   if isBooleanTp t1 && isBooleanTp t2 then booleanT else ErrT
 
-tpBinop :: Environment [ClassName] -> Tp -> Tp -> BinOp -> Tp
+tpBinop :: Environment t -> Tp -> Tp -> BinOp -> Tp
 tpBinop env t1 t2 bop = case bop of
   BArith ba  -> tpBarith env t1 t2 ba
   BCompar bc -> tpBcompar env t1 t2 bc
@@ -303,7 +327,7 @@ compatiblePatternType _ _ = False
 
 -- compatibleType extends subclassing to all type constructors. 
 -- compatibleType env t1 t2 roughly means that t1 is a subtype of t2
-compatibleType :: Environment [ClassName] -> Tp -> Tp -> Bool
+compatibleType :: Environment t -> Tp -> Tp -> Bool
 compatibleType _ BoolT BoolT = True
 compatibleType _ IntT IntT = True
 compatibleType env (ClassT c1) (ClassT c2) = isSubclassOf env c1 c2
@@ -312,7 +336,7 @@ compatibleType env (FunT dom1 cod1) (FunT dom2 cod2) =
 compatibleType env (TupleT ts1) (TupleT ts2) =
   (length ts1 == length ts2) &&
   all (uncurry (compatibleType env)) (zip ts1 ts2)
-compatibleType _ _ _ = False 
+compatibleType _ _ _ = False
 
 
 {-
@@ -343,7 +367,7 @@ getTypeOfExpr :: TypeAnnot f => Expr (f a) -> a
 getTypeOfExpr = getType . annotOfExpr
 
 
-tpExpr :: TypeAnnot f => Environment [ClassName] -> Expr (f a) -> Expr (f Tp)
+tpExpr :: TypeAnnot f => Environment t -> Expr (f a) -> Expr (f Tp)
 tpExpr env x = case x of
   ValE annot c -> ValE (updType annot (tpConstval env c)) c
   VarE annot v -> VarE (updType annot (tpVar env v)) (varIdentityInEnv env v)
@@ -366,7 +390,7 @@ tpExpr env x = case x of
       if isBooleanTp (getTypeOfExpr tc)
       then if compatibleType env t1 t2
            then IfThenElseE (updType annot t2) tc te1 te2
-           else if compatibleType env t2 t1 
+           else if compatibleType env t2 t1
                 then IfThenElseE (updType annot t1) tc te1 te2
                 else IfThenElseE (updType annot ErrT) tc te1 te2
       else  IfThenElseE (updType annot ErrT) tc te1 te2
@@ -375,7 +399,7 @@ tpExpr env x = case x of
         tae = tpExpr env ae
         tf  = getTypeOfExpr tfe
         ta  = getTypeOfExpr tae
-    in 
+    in
       case tf of
       FunT tpar tbody ->
         if compatibleType env ta tpar
@@ -402,14 +426,14 @@ tpExpr env x = case x of
         t = getTypeOfExpr te
     in case t of
       ClassT cn ->
-        case lookup fn (map (\(FieldDecl fn tp) -> (fn, tp)) (fieldsOf env cn)) of
+        case lookup fn (map (\(FieldDecl _ fn tp) -> (fn, tp)) (fieldsOf env cn)) of
           Nothing -> FldAccE (updType annot ErrT) te fn
           Just ft -> FldAccE (updType annot ft) te fn
       _ -> FldAccE (updType annot ErrT) te fn
   TupleE annot es ->
     let tes = map (tpExpr env) es
         ts = map getTypeOfExpr tes
-    in 
+    in
       if any isErrTp ts
       then TupleE (updType annot ErrT) tes
       else TupleE (updType annot (TupleT ts)) tes
@@ -425,7 +449,7 @@ tpExpr env x = case x of
     in case tv of
       FunT tpar tbody ->
         if compatibleType env t tpar
-        then 
+        then
           if isBooleanTp tbody
           then NotDeriv (updType annot booleanT) sign v te
           else NotDeriv (updType annot ErrT) sign v te
@@ -435,13 +459,7 @@ tpExpr env x = case x of
   _ -> error "typing of lists not implemented yet"
 
 
-data AnnotTypingPhase 
-  = PosAnnotTP SRng 
-  | PosTpAnnotTP (LocTypeAnnot Tp)
-  | PosClassHierAnnotTP (LocTypeAnnot [ClassName])
-  deriving (Eq, Ord, Show, Read)
-
-tpExprBasic :: Environment [ClassName] -> Expr SRng -> Expr AnnotTypingPhase
+tpExprBasic :: Environment t -> Expr SRng -> Expr AnnotTypingPhase
 tpExprBasic env e = fmap PosTpAnnotTP (tpExpr env (fmap (\r -> LocTypeAnnot r ()) e))
 
 -- TODO:FAssign
@@ -455,24 +473,30 @@ tpCmd env (VAssign v e) =
       else error "types do not correspond in assignment"
 tpCmd env (FAssign _ _ _) = error "typing of FAssign not implemented yet"
 
--- TODO: still take local variables into account
-tpRule :: Environment [ClassName] -> Rule SRng -> Rule AnnotTypingPhase
-tpRule env (Rule annot rn vds precond postcond) =
-  let renv = pushLocalVarEnv (map (\(VarDecl vn vt) -> (vn, vt)) vds) env
-  in Rule (PosAnnotTP annot) rn vds (tpExprBasic renv precond) (tpExprBasic renv postcond)
 
-tpAssertion :: Environment [ClassName] -> Assertion SRng -> Assertion AnnotTypingPhase
+-- TODO: hack, see later
+tpRuleVarDecls :: [VarDecl SRng] -> [VarDecl AnnotTypingPhase]
+tpRuleVarDecls = map (\(VarDecl annot vn t) -> VarDecl (PosAnnotTP annot) vn t)
+
+-- TODO: still take local variables into account
+tpRule :: Environment t -> Rule SRng -> Rule AnnotTypingPhase
+tpRule env (Rule annot rn vds precond postcond) =
+  let renv = pushLocalVarEnv (map (\(VarDecl _ vn vt) -> (vn, vt)) vds) env
+      tpdVds = tpRuleVarDecls vds 
+  in Rule (PosAnnotTP annot) rn tpdVds (tpExprBasic renv precond) (tpExprBasic renv postcond)
+
+tpAssertion :: Environment t -> Assertion SRng -> Assertion AnnotTypingPhase
 tpAssertion env (Assertion annot e) = Assertion (PosAnnotTP annot) (tpExprBasic env e)
 
 -- TODO: check types of global variable declarations
 -- Assumption: prelude only contains class declarations
-tpProgram :: Program (Maybe ClassName) SRng -> Program (Maybe ClassName) SRng -> Program [ClassName] AnnotTypingPhase
+tpProgram :: Program SRng -> Program SRng -> Program AnnotTypingPhase
 tpProgram prelude (Program lex cds gvars rls asrt) =
   let pcds = classDeclsOfProgram prelude
-      initialClassDecls = (customCs ++ pcds ++ cds)
+      initialClassDecls = (pcds ++ cds)
       elabClassDecls = elaborateClsProgram initialClassDecls
       env = initialEnvOfProgram elabClassDecls gvars
-  in Program lex elabClassDecls gvars (map (tpRule env) rls) (map (tpAssertion env) asrt)
+  in Program (map (fmap PosAnnotTP) lex) (map (fmap PosAnnotTP) elabClassDecls) (map (fmap PosAnnotTP) gvars) (map (tpRule env) rls) (map (tpAssertion env) asrt)
 
 
 ----------------------------------------------------------------------

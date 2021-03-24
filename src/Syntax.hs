@@ -55,18 +55,20 @@ instance HasLoc SRng where
 
 ----- Program
 
-data Program ct et = Program{ lexiconOfProgram :: [Mapping]
-                            , classDeclsOfProgram ::  [ClassDecl ct] 
-                            , globalsOfProgram :: [VarDecl] 
-                            , rulesOfProgram :: [Rule et]
-                            , assertionsOfProgram :: [Assertion et] }
+data Program t = Program{ lexiconOfProgram :: [Mapping t]
+                            , classDeclsOfProgram ::  [ClassDecl t] 
+                            , globalsOfProgram :: [VarDecl t] 
+                            , rulesOfProgram :: [Rule t]
+                            , assertionsOfProgram :: [Assertion t] }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 -- TODO: still needed?
-removeAnnotations :: Program ct et -> Program ct ()
-removeAnnotations = (()<$)
+--removeAnnotations :: Program ct et -> Program ct ()
+--removeAnnotations = (()<$)
 
 ----- Types
+-- TODO: also types have to be annotated with position information 
+-- for the parser to do the right job
 data Tp
   = BoolT
   | IntT
@@ -76,23 +78,26 @@ data Tp
   | ErrT
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-data VarDecl = VarDecl VarName Tp
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
-data Mapping = Mapping SRng VarName VarName
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+data VarDecl t = VarDecl t VarName Tp
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+data Mapping t = Mapping t VarName VarName
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 -- Field attributes: for example cardinality restrictions
 -- data FieldAttribs = FldAtt
-data FieldDecl = FieldDecl FieldName Tp -- FieldAttribs
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+data FieldDecl t = FieldDecl t FieldName Tp -- FieldAttribs
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 -- superclass, list of field declarations
-data ClassDef t = ClassDef { supersOfClassDef :: t
-                           , fieldsOfClassDef :: [FieldDecl] }
+-- TODO: ClassDef currently without annotation as ClassDef may be empty
+--       and it is unclear how to define position information of empty elements
+data ClassDef t = ClassDef { supersOfClassDef :: [ClassName]
+                           , fieldsOfClassDef :: [FieldDecl t] }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 -- declares class with ClassName and definition as of ClassDef
-data ClassDecl t = ClassDecl { nameOfClassDecl :: ClassName
+data ClassDecl t = ClassDecl { annotOfClassDecl :: t
+                             , nameOfClassDecl :: ClassName
                              , defOfClassDecl :: ClassDef t }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
@@ -100,7 +105,8 @@ data ClassDecl t = ClassDecl { nameOfClassDecl :: ClassName
 
 -- Custom Classes and Preable Module
 -- some custom classes - should eventually go into a prelude and not be hard-wired
-objectC = ClassDecl (ClsNm "Object") (ClassDef Nothing [])
+-- TODO: now special treatment in Prelude.l4
+-- objectC = ClassDecl (ClsNm "Object") (ClassDef Nothing [])
 
 {-
 TODO: the following should be defined in concrete syntax in a preamble.
@@ -131,7 +137,8 @@ eventC  = ClassDecl (ClsNm "Event")
 customCs = [objectC, qualifNumC, currencyC] ++ currencyCs ++ [timeC] ++ timeCs ++ [eventC]
 -}
 
-customCs = [objectC]
+-- TODO: now special treatment in Prelude.l4
+--customCs = [objectC]
 
 ----- Expressions
 data Val
@@ -276,7 +283,7 @@ data Cmd t
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 
-data Rule t = Rule t RuleName [VarDecl] (Expr t) (Expr t)
+data Rule t = Rule t RuleName [VarDecl t] (Expr t) (Expr t)
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 annotOfRule :: Rule t -> t  
