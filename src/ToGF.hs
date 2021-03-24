@@ -271,7 +271,7 @@ createLexicon langs lexicon = (abstract, concretes)
           ++ ["}"]
     concretes =
       [ unlines $
-          [printf "concrete PropLexicon%s of PropLexicon = Prop%s ** open WordNet%s, Paradigms%s, Extend%s in {" lang lang lang lang lang]
+          [printf "concrete PropLexicon%s of PropLexicon = Prop%s ** open WordNet%s, Paradigms%s, Syntax%s, Extend%s in {" lang lang lang lang lang lang]
             ++ ["lin"]
             ++ [ printf "%s = %s ;" name val
                  | Mapping _ name val <- lexicon
