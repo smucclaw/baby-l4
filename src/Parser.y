@@ -96,7 +96,7 @@ import Control.Monad.Except
 %%
 
 Program : Lexicon  ClassDecls GlobalVarDecls Rules Assertions
-                                   { Program (reverse $1) (reverse $2)  (reverse $3) (reverse $4) (reverse $5) }
+                                   { Program (tokenRangeList [getLoc $1, getLoc $2, getLoc $3, getLoc $4, getLoc $5]) (reverse $1) (reverse $2)  (reverse $3) (reverse $4) (reverse $5) }
 
 Lexicon :                   { [] }
         |  lexicon Mappings { $2 }

@@ -491,12 +491,12 @@ tpAssertion env (Assertion annot e) = Assertion (PosAnnotTP annot) (tpExprBasic 
 -- TODO: check types of global variable declarations
 -- Assumption: prelude only contains class declarations
 tpProgram :: Program SRng -> Program SRng -> Program AnnotTypingPhase
-tpProgram prelude (Program lex cds gvars rls asrt) =
+tpProgram prelude (Program annot lex cds gvars rls asrt) =
   let pcds = classDeclsOfProgram prelude
       initialClassDecls = (pcds ++ cds)
       elabClassDecls = elaborateClsProgram initialClassDecls
       env = initialEnvOfProgram elabClassDecls gvars
-  in Program (map (fmap PosAnnotTP) lex) (map (fmap PosAnnotTP) elabClassDecls) (map (fmap PosAnnotTP) gvars) (map (tpRule env) rls) (map (tpAssertion env) asrt)
+  in Program (PosAnnotTP annot) (map (fmap PosAnnotTP) lex) (map (fmap PosAnnotTP) elabClassDecls) (map (fmap PosAnnotTP) gvars) (map (tpRule env) rls) (map (tpAssertion env) asrt)
 
 
 ----------------------------------------------------------------------

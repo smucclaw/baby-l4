@@ -57,7 +57,8 @@ instance HasLoc SRng where
 
 ----- Program
 
-data Program t = Program{ lexiconOfProgram :: [Mapping t]
+data Program t = Program{ annotOfProgram :: t
+                            , lexiconOfProgram :: [Mapping t]
                             , classDeclsOfProgram ::  [ClassDecl t] 
                             , globalsOfProgram :: [VarDecl t] 
                             , rulesOfProgram :: [Rule t]
@@ -82,8 +83,13 @@ data Tp
 
 data VarDecl t = VarDecl t VarName Tp
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+instance HasLoc t => HasLoc (VarDecl t) where
+  getLoc (VarDecl t _ _) = getLoc t
+
 data Mapping t = Mapping t VarName VarName
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+instance HasLoc t => HasLoc (Mapping t) where
+  getLoc (Mapping t _ _) = getLoc t
 
 -- Field attributes: for example cardinality restrictions
 -- data FieldAttribs = FldAtt
@@ -102,7 +108,8 @@ data ClassDecl t = ClassDecl { annotOfClassDecl :: t
                              , nameOfClassDecl :: ClassName
                              , defOfClassDecl :: ClassDef t }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
-
+instance HasLoc t => HasLoc (ClassDecl t) where
+  getLoc = getLoc . annotOfClassDecl
 
 
 -- Custom Classes and Preable Module

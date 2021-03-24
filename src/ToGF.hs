@@ -10,7 +10,7 @@ import Control.Monad (forM_)
 import Text.Printf (printf)
 
 createPGF :: (Show t) => Program t -> IO PGF.PGF
-createPGF (Program lexicon _2 _3 _4 _5) = do
+createPGF (Program _ lexicon _2 _3 _4 _5) = do
   let langs = ["Eng","Swe"]
   let (abstract,concretes) = createLexicon langs lexicon
   -- Generate lexicon
@@ -41,7 +41,7 @@ nlg prog = do
 
 program2prop :: (Show t) => Program t -> [GProp]
 program2prop e = case e of
-  Program lexicon _cl vardecls _rs _as -> map (vardecl2prop lexicon) vardecls
+  Program _ lexicon _cl vardecls _rs _as -> map (vardecl2prop lexicon) vardecls
  -- _ -> error $ "program2prop: not yet supported: " ++ show e
 
 vardecl2prop :: [Mapping t] -> VarDecl t -> GProp
