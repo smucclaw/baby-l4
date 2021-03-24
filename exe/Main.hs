@@ -13,6 +13,7 @@ import System.IO ( stderr, hPutStr, hPutStrLn, hPrint )
 import System.IO.Error (catchIOError)
 import Control.Exception (catch, SomeException (SomeException))
 import Control.Monad ( when, unless )
+import ToSCASP (createSCasp)
 
 
 
@@ -44,6 +45,7 @@ process args input = do
         GF.nlgAST (getGFL $ format args) tpAst
       unless (astGF args) $ do
         GF.nlg (getGFL $ format args) tpAst
+      createSCasp tpAst
     Left err -> do
       putStrLn "Parser Error:"
       print err

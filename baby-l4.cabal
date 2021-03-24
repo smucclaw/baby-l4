@@ -33,6 +33,7 @@ library
                   -- from src
                   Syntax
                   ToGF
+                  ToSCASP
                   --ExampleInput
                   --Exec
                   InterfaceNunchaku
@@ -53,6 +54,7 @@ library
   build-depends:       base >= 4.7 && < 5
                      , array
                      , pretty-simple
+                     , prettyprinter
                      , split
                      , text
                      -- required for lexer and parser
