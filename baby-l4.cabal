@@ -32,6 +32,7 @@ library
                   Prop
                   -- from src
                   Annotation
+                  Error
                   Syntax
                   ToGF
                   --ExampleInput

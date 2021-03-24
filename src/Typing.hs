@@ -9,6 +9,7 @@ import Data.List
 import Data.Maybe
 
 import Annotation
+import Error
 import Syntax
 
 
@@ -18,7 +19,8 @@ import Syntax
 
 
 data AnnotTypingPhase
-  = PosAnnotTP SRng
+  = PosAnnotTP SRng                                             -- initial state of typing phase, all constructors in syntax tree
+  | PosClassDeclsTP SRng ClassDeclsError                        -- 
   | PosTpAnnotTP (LocTypeAnnot Tp)
   | PosClassHierAnnotTP (LocTypeAnnot [ClassName])
   deriving (Eq, Ord, Show, Read)
@@ -498,6 +500,29 @@ tpProgram prelude (Program annot lex cds gvars rls asrt) =
       env = initialEnvOfProgram elabClassDecls gvars
   in Program (PosAnnotTP annot) (map (fmap PosAnnotTP) lex) (map (fmap PosAnnotTP) elabClassDecls) (map (fmap PosAnnotTP) gvars) (map (tpRule env) rls) (map (tpAssertion env) asrt)
 
+
+liftProgram :: Program SRng -> Program AnnotTypingPhase
+liftProgram = fmap PosAnnotTP
+
+checkClassesForError :: [ClassDecl t] -> ClassDeclsError
+checkClassesForError cds =
+  let class_names = map nameOfClassDecl cds
+  in 
+    if all (definedSuperclass class_names) cds
+    then 
+      if not (hasDuplicates class_names)
+      then OkCDE
+      else DuplicateClassNamesCDE
+    else UndefinedSuperclassCDE
+
+checkProgramClassDeclsError :: Program SRng -> Program AnnotTypingPhase -> Program AnnotTypingPhase
+checkProgramClassDeclsError prelude (Program (PosAnnotTP annot) lex cds gvars rls asrt) =
+  let pcds = classDeclsOfProgram (liftProgram prelude)
+      initialClassDecls = (pcds ++ cds)
+      cdErr = checkClassesForError initialClassDecls
+  in Program (PosClassDeclsTP annot cdErr) lex cds gvars rls asrt
+checkProgramClassDeclsError prelude _ =
+  error "internal error in function checkProgramClassDeclsError: program should be PosAnnotTP in this step"
 
 ----------------------------------------------------------------------
 -- Typing Timed Automata
