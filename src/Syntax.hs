@@ -1,4 +1,4 @@
-
+{-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 {-# LANGUAGE DeriveFunctor #-}
 -- {-# OPTIONS_GHC -Wpartial-fields #-}
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -82,21 +82,15 @@ data FieldDecl = FieldDecl FieldName Tp -- FieldAttribs
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 -- superclass, list of field declarations
-data ClassDef t = ClassDef t [FieldDecl]
+data ClassDef t = ClassDef { supersOfClassDef :: t
+                           , fieldsOfClassDef :: [FieldDecl] }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 -- declares class with ClassName and definition as of ClassDef
-data ClassDecl t = ClassDecl ClassName (ClassDef t)
+data ClassDecl t = ClassDecl { nameOfClassDecl :: ClassName
+                             , defOfClassDecl :: ClassDef t }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
-name_of_class_decl :: ClassDecl t -> ClassName
-name_of_class_decl (ClassDecl cn _) = cn
-
-def_of_class_decl :: ClassDecl t -> ClassDef t
-def_of_class_decl (ClassDecl _ cd) = cd
-
-fields_of_class_def :: ClassDef t -> [FieldDecl]
-fields_of_class_def (ClassDef scn fds) = fds
 
 
 -- Custom Classes and Preable Module
@@ -138,6 +132,7 @@ customCs = [objectC]
 data Val
     = BoolV Bool
     | IntV Integer
+    | StringV String
     -- TODO: instead of RecordV, introduce RecordE in type Expr
     | RecordV ClassName [(FieldName, Val)]
     | ErrV
@@ -204,11 +199,14 @@ data Expr t
     | AppE        SRng t (Expr t) (Expr t)            -- function application
     | FunE        SRng t Pattern Tp (Expr t)          -- function abstraction
     | QuantifE    SRng t Quantif VarName Tp (Expr t)  -- quantifier
-    | ClosE       SRng t [(VarName, Expr t)] (Expr t) -- closure  (not externally visible)
+    -- | ClosE       SRng t [(VarName, Expr t)] (Expr t) -- closure  (not externally visible)
     | FldAccE     SRng t (Expr t) FieldName           -- field access
     | TupleE      SRng t [Expr t]                     -- tuples
     | CastE       SRng t Tp (Expr t)                  -- cast to type
     | ListE       SRng t ListOp [Expr t]              -- list expression
+    | NotDeriv    SRng t Bool Var (Expr t)            -- Negation as failure "not". 
+                                                      -- The Bool expresses whether "not" precedes a positive literal (True)
+                                                      -- or is itself classically negated (False)
     deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 instance HasLoc (Expr t) where
   getLoc x = case x of
@@ -224,6 +222,7 @@ instance HasLoc (Expr t) where
     TupleE      loc _ _       -> loc
     CastE       loc _ _ _     -> loc
     ListE       loc _ _ _     -> loc
+    NotDeriv    loc _ _ _ _   -> loc 
 
 childExprs :: Expr t -> [Expr t]
 childExprs x = case x of
@@ -239,7 +238,7 @@ childExprs x = case x of
     TupleE      _ _ xs      -> xs
     CastE       _ _ _ x     -> [x]
     ListE       _ _ _ xs     -> xs
-
+    NotDeriv    _ _ _ _ e    -> [e]
 
 tpOfExpr :: Expr t -> t
 tpOfExpr x = case x of
@@ -255,7 +254,7 @@ tpOfExpr x = case x of
   TupleE      _ t _       -> t
   CastE       _ t _ _     -> t
   ListE       _ t _ _     -> t
-
+  NotDeriv    _ t _ _ _    -> t
 
 -- Cmd t is a command of type t
 data Cmd t

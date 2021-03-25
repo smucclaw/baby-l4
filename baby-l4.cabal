@@ -39,6 +39,7 @@ library
                   --RuleToTa
                   --TaToUppaal
                   Typing
+                  TransProp
   other-modules: Paths_baby_l4
   hs-source-dirs:
     src
@@ -75,6 +76,7 @@ executable l4
                      , haskeline  >= 0.7
                      , mtl        >= 2.2 && <2.4
 
+                     , optparse-applicative
 executable lsp-server-bl4
   hs-source-dirs:      lsp
   main-is:             Main.hs

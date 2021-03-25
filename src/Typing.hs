@@ -1,5 +1,5 @@
 -- Typing of expressions
-
+{-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 {-# LANGUAGE PatternSynonyms #-}
 
 module Typing where
@@ -36,7 +36,7 @@ classDefAssoc :: [ClassDecl t] -> [(ClassName, ClassDef t)]
 classDefAssoc = map (\(ClassDecl cn cdf) -> (cn, cdf))
 
 fieldAssoc ::  [ClassDecl t] -> [(ClassName, [FieldDecl])]
-fieldAssoc = map (\(ClassDecl cn cdf) -> (cn, fields_of_class_def cdf))
+fieldAssoc = map (\(ClassDecl cn cdf) -> (cn, fieldsOfClassDef cdf))
 
 
 -- For a class name 'cn', returns the list of the names of the superclasses of 'cn'
@@ -97,12 +97,14 @@ hasDuplicates xs = length (nub xs) /= length xs
 
 wellformedClassDecls :: [ClassDecl (Maybe ClassName)] -> Bool
 wellformedClassDecls cds =
-  let class_names = map name_of_class_decl cds
+  let class_names = map nameOfClassDecl cds
   in all (definedSuperclass class_names) cds && not (hasDuplicates class_names)
 
 -- TODO: still check that field decls only reference declared classes
+-- TODO: hasDuplicates should check that field names are unique 
+--       and not only that (field name, type) is unique
 wellFormedFieldDecls :: ClassDecl t -> Bool
-wellFormedFieldDecls (ClassDecl cn cdf) = not (hasDuplicates (fields_of_class_def cdf))
+wellFormedFieldDecls (ClassDecl cn cdf) = not (hasDuplicates (fieldsOfClassDef cdf))
 
 -- TODO: a bit of a hack. Error detection and treatment to be improved
 -- - no ref to undefined superclass
@@ -134,6 +136,11 @@ isStrictSubclassOf env subcl supercl = supercl `elem` strictSuperclassesOf env s
 isSubclassOf :: Environment [ClassName] -> ClassName -> ClassName -> Bool
 isSubclassOf env subcl supercl = supercl `elem` superclassesOf env subcl
 
+fieldsOf :: Environment [ClassName] -> ClassName -> [FieldDecl]
+fieldsOf env cn = case lookup cn (classDefAssoc (classDeclsOfEnv env)) of
+  Nothing -> error ("in fieldsOf: undefined class " ++ (case cn of (ClsNm n) -> n))
+  Just (ClassDef _ fds) -> fds
+
 longestCommonPrefix :: Eq a=> [a] -> [a] -> [a]
 longestCommonPrefix (x:xs) (y:ys) = if x == y then x:longestCommonPrefix xs ys else []
 longestCommonPrefix _ _ = []
@@ -154,7 +161,7 @@ leastCommonSuperType _ _ _ = error "internal errror: leastCommonSuperType should
 -- Remove after error processing of classes and expressions is clearer
 lookupClassDefInEnv :: Environment t -> ClassName -> [ClassDef t]
 lookupClassDefInEnv env cn =
-  map def_of_class_decl (filter (\cd -> name_of_class_decl cd == cn) (classDeclsOfEnv env))
+  map defOfClassDecl (filter (\cd -> nameOfClassDecl cd == cn) (classDeclsOfEnv env))
 
 
 ----------------------------------------------------------------------
@@ -163,6 +170,8 @@ lookupClassDefInEnv env cn =
 
 booleanT = (ClassT (ClsNm "Boolean"))
 integerT = (ClassT (ClsNm "Integer"))
+
+stringT = (ClassT (ClsNm "String"))
 
 isBooleanTp :: Tp -> Bool
 isBooleanTp BoolT = True     -- TODO: BoolT currently still tolerated, but to be phased out
@@ -174,13 +183,22 @@ isNumberTp :: Environment [ClassName] -> Tp -> Bool
 isNumberTp env (ClassT t) = isSubclassOf env t (ClsNm "Number")
 isNumberTp _ _ = False
 
-isScalarType :: Tp -> Bool
-isScalarType BoolT = True
-isScalarType IntT = True
-isScalarType (ClassT _) = True
-isScalarType (FunT _ _) = False
-isScalarType (TupleT ts) = all isScalarType ts
-isScalarType ErrT = True
+isScalarTp :: Tp -> Bool
+isScalarTp BoolT = True
+isScalarTp IntT = True
+isScalarTp (ClassT _) = True
+isScalarTp (FunT _ _) = False
+isScalarTp (TupleT ts) = all isScalarTp ts
+isScalarTp ErrT = True
+
+isErrTp :: Tp -> Bool 
+isErrTp ErrT = True 
+isErrTp _ = False 
+
+isClassTp :: Tp -> Bool 
+isClassTp (ClassT _) = True 
+isClassTp _ = False 
+
 
 ----------------------------------------------------------------------
 -- Typing functions
@@ -191,6 +209,7 @@ tpConstval :: Environment t -> Val -> Tp
 tpConstval env x = case x of
   BoolV _ -> booleanT
   IntV _ -> integerT
+  StringV _ -> stringT
   -- for record values to be well-typed, the fields have to correspond exactly (incl. order of fields) to the class fields.
   -- TODO: maybe relax some of these conditions.
   RecordV cn fnvals ->
@@ -199,11 +218,11 @@ tpConstval env x = case x of
     in case lookupClassDefInEnv env cn of
        [] -> error ("class name " ++ (case cn of (ClsNm n) -> n) ++ " not defined")
        [cd] ->
-         if map (\(FieldDecl fn t) -> (fn, t)) (fields_of_class_def cd) == tfnvals
+         if map (\(FieldDecl fn t) -> (fn, t)) (fieldsOfClassDef cd) == tfnvals
          then ClassT cn
          else error ("record fields do not correspond to fields of class " ++ (case cn of (ClsNm n) -> n))
        _ -> error "internal error: duplicate class definition"
-
+  ErrV -> ErrT 
 
 tpUarith :: Environment [ClassName] -> Tp -> UArithOp -> Tp
 tpUarith env t ua = if isNumberTp env t then t else ErrT
@@ -226,7 +245,7 @@ tpBarith env t1 t2 ba =
 -- TODO: more liberal condition for comparison?
 tpBcompar :: Environment [ClassName] -> Tp -> Tp -> BComparOp -> Tp
 tpBcompar env t1 t2 bc =
-  if isScalarType t1 && isScalarType t2
+  if isScalarTp t1 && isScalarTp t2
   then
     if (compatibleType env t1 t2 || compatibleType env t2 t1)
     then booleanT
@@ -309,7 +328,7 @@ trans :: (f a -> g a) -> Fix f -> Fix g
 trans = _
 -}
 
--- TODO: FldAccE, ListE
+-- TODO: ListE
 tpExpr :: Environment [ClassName] -> Expr () -> Expr Tp
 tpExpr env x = case x of
   ValE rng () c -> ValE rng (tpConstval env c) c
@@ -342,7 +361,8 @@ tpExpr env x = case x of
         tae = tpExpr env ae
         tf  = tpOfExpr tfe
         ta  = tpOfExpr tae
-    in case tf of
+    in 
+      case tf of
       FunT tpar tbody ->
         if compatibleType env ta tpar
         then AppE rng tbody tfe tae
@@ -365,14 +385,43 @@ tpExpr env x = case x of
       if isBooleanTp (tpOfExpr te)
       then QuantifE rng booleanT q vn vt te
       else QuantifE rng ErrT q vn vt te
+  FldAccE rng () e fn ->
+    let te = tpExpr env e
+        t = tpOfExpr te
+    in case t of
+      ClassT cn ->
+        case lookup fn (map (\(FieldDecl fn tp) -> (fn, tp)) (fieldsOf env cn)) of
+          Nothing -> FldAccE rng ErrT te fn
+          Just ft -> FldAccE rng ft te fn
+      _ -> FldAccE rng ErrT te fn
+  TupleE rng () es ->
+    let tes = map (tpExpr env) es
+        ts = map tpOfExpr tes
+    in 
+      if any isErrTp ts
+      then TupleE rng ErrT tes
+      else TupleE rng (TupleT ts) tes
   CastE rng () ctp e ->
     let te = tpExpr env e
     in if castCompatible (tpOfExpr te) ctp
        then CastE rng ctp ctp te
        else CastE rng ErrT ctp te
-
-
-
+  NotDeriv rng () sign v e ->
+    let tv = tpVar env v
+        te = tpExpr env e
+        t = tpOfExpr te
+    in case tv of
+      FunT tpar tbody ->
+        if compatibleType env t tpar
+        then 
+          if isBooleanTp tbody
+          then NotDeriv rng booleanT sign v te
+          else NotDeriv rng ErrT sign v te
+        else NotDeriv rng ErrT sign v te
+      _ -> NotDeriv rng ErrT sign v te
+  ListE rng () lop es -> error "typing of lists not implemented yet"
+  
+-- TODO:FAssign
 tpCmd :: Environment [ClassName] -> Cmd () -> Cmd Tp
 tpCmd env Skip = Skip
 tpCmd env (VAssign v e) =
@@ -381,7 +430,7 @@ tpCmd env (VAssign v e) =
       if tpVar env v == tpOfExpr te
       then VAssign v te
       else error "types do not correspond in assignment"
-
+tpCmd env (FAssign _ _ _) = error "typing of FAssign not implemented yet"
 
 -- TODO: still take local variables into account
 tpRule :: Environment [ClassName] -> Rule () -> Rule Tp

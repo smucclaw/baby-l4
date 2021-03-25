@@ -1,13 +1,28 @@
 # l4version 0.3.4
 
 lexicon
-#myNumber -> number_2_N
-is_legal -> legal_1_A
-Business -> business_1_N
+Business -> "business_1_N"
+BusinessEntity -> "CompoundN business_1_N entity_N"
+IncompatibleDignity -> "mkA2 incompatible_1_A with_Prep"
+LegalPractitioner -> "lawyer_N"
+LocumSolicitor -> "lawyer_N"
+AcceptApp -> "accept_4_V2"
+AssociatedWithApp -> "mkA2 associated_A with_Prep"
+AssociatedWithAppB -> "mkA2 associated_A with_Prep"
+AssociatedWith -> "mkA2 associated_A with_Prep"
+Appointment -> "appointment_1_N"
+LawRelatedService -> "service_1_N"
+Provides -> "provide_1_V2"
+ConditionsSecondSchedule -> "condition_3_V2"
+App -> "appoint_2_V2"
+Illegal -> "illegal_A"
 
-decl myNumber : Int
+rule <r1a>
+for lpr: LegalPractitioner, app: Appointment
+if not (exists bsn : Business. AssociatedWith bsn app)
+then not (AcceptApp lpr app)
 
-decl myBusiness : Business
-
-decl is_legal : Business -> Bool
-
+rule <r1b>
+for lpr: LegalPractitioner, app: Appointment
+if  (exists bsn : Business. Illegal bsn)
+then not (AcceptApp lpr app)

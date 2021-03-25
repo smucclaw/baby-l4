@@ -46,9 +46,11 @@ gfPP bi lbi clbi = PreProcessor {
         let args =
                 [ "-make"
                 , "-f", "haskell"
+                , "--haskell=gadt"
                 , "--haskell=lexical"
-                , "--lexical=Noun"
-                , "-output-dir=" ++ outDir
+                , "--lexical=Noun,Noun2,Adj,Adj2,Verb,Verb2"
+                , "--output-dir=" ++ outDir
+                , "--gfo-dir=/tmp"
                 , inDir </> inFile
                 ]
         print args
