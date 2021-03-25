@@ -93,3 +93,5 @@ executable lsp-server-bl4
                      , hslogger
                      , containers
                      , sorted-list
+                     , either
+                     , transformers
