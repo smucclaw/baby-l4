@@ -43,10 +43,10 @@ handlers = mconcat
   , requestHandler STextDocumentHover $ \req responder -> do
       let RequestMessage _ _ _ (HoverParams doc pos _workDone) = req
       let (TextDocumentIdentifier uri) = doc
-      let exceptHover = lookupTokenBare' pos uri
-      runDiagnosticsOnHover uri exceptHover
-      rsp <- runHoverResponse uri exceptHover
-      responder (Right rsp)
+      let ioHover = lookupTokenBare' pos uri
+      exceptHover <- liftIO $ runExceptT ioHover
+      runDiagnosticsOnHover' uri exceptHover
+      responder (Right $ rightToMaybe exceptHover)
   , notificationHandler J.STextDocumentDidOpen $ \msg -> do
     let doc  = msg ^. J.params . J.textDocument . J.uri
         fileName =  J.uriToFilePath doc
@@ -80,19 +80,13 @@ publishError uri err = publishDiagnostics 100 (toNormalizedUri uri) Nothing (par
 clearError :: MonadLsp config m => Uri -> m ()
 clearError uri = publishDiagnostics 100 (toNormalizedUri uri) Nothing (Map.singleton(Just "lexer") (Data.SortedList.toSortedList []))
 
-runDiagnosticsOnHover :: MonadLsp config m => Uri -> ExceptT Err IO a -> m ()
-runDiagnosticsOnHover uri ioHover = do
-  eitherHover <- liftIO $ runExceptT ioHover
-  case eitherHover of
+runDiagnosticsOnHover' :: MonadLsp config m => Uri -> Either Err b -> m ()
+runDiagnosticsOnHover' uri ioHover = do
+  case ioHover of
     Left err -> do
       publishError uri err
     Right hover -> do
       clearError uri
-
-runHoverResponse :: Uri -> ExceptT Err IO Hover -> LspT () IO (Maybe Hover)
-runHoverResponse uri ioHover = do
-  eitherHover <- liftIO $ runExceptT ioHover
-  return $ rightToMaybe eitherHover
 
 -- | Analyze the file and send any diagnostics to the client in a
 -- "textDocument/publishDiagnostics" notification
