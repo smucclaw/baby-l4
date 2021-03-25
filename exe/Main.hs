@@ -12,13 +12,14 @@ import qualified ToGF as GF
 import System.IO ( stderr, hPutStr, hPutStrLn )
 import System.IO.Error (catchIOError)
 import Control.Exception (catch, SomeException (SomeException))
+import Text.Pretty.Simple (pPrint)
 
 
 
 readPrelude :: IO (Program SRng)
 readPrelude = do
   let l4PreludeFilepath = "l4/Prelude.l4"
-  do 
+  do
     contents <- readFile l4PreludeFilepath
     case parseProgram l4PreludeFilepath contents of
       Right ast -> do
@@ -37,7 +38,7 @@ process filepath input = do
       preludeAst <- readPrelude
       -- print (preludeAst)
       --print (tpProgram preludeAst ast)
-      print(checkProgramClassDeclsError preludeAst (liftProgram ast))
+      pPrint(checkProgramClassDeclsError preludeAst (liftProgram ast))
       -- print ast
       --GF.nlg ast
     Left err -> do
