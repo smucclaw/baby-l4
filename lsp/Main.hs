@@ -74,13 +74,13 @@ makeDiagErr err = [J.Diagnostic
                   (Just (J.List []))
                 ]
 
-publishError :: MonadLsp config m => Uri -> Err -> m ()
+publishError :: Uri -> Err -> LspM Config ()
 publishError uri err = publishDiagnostics 100 (toNormalizedUri uri) Nothing (partitionBySource $ makeDiagErr err)
 
-clearError :: MonadLsp config m => Uri -> m ()
+clearError :: Uri -> LspM Config ()
 clearError uri = publishDiagnostics 100 (toNormalizedUri uri) Nothing (Map.singleton(Just "lexer") (Data.SortedList.toSortedList []))
 
-runDiagnosticsOnHover' :: MonadLsp config m => Uri -> Either Err b -> m ()
+runDiagnosticsOnHover' ::  Uri -> Either Err b -> LspM Config ()
 runDiagnosticsOnHover' uri ioHover = do
   case ioHover of
     Left err -> do
