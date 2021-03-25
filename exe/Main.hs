@@ -6,7 +6,7 @@ module Main where
 import Parser (parseProgram)
 import Annotation (SRng, LocTypeAnnot )
 import Syntax (Program, ClassName)
-import Typing (tpProgram)
+import Typing (tpProgram,checkProgramClassDeclsError,liftProgram)
 import System.Environment ( getArgs, getEnv )
 import qualified ToGF as GF
 import System.IO ( stderr, hPutStr, hPutStrLn )
@@ -33,10 +33,11 @@ process filepath input = do
   let ast = parseProgram filepath input
   case ast of
     Right ast -> do
-      print ast
+      -- print ast
       preludeAst <- readPrelude
       -- print (preludeAst)
-      print (tpProgram preludeAst ast)
+      --print (tpProgram preludeAst ast)
+      print(checkProgramClassDeclsError preludeAst (liftProgram ast))
       -- print ast
       --GF.nlg ast
     Left err -> do
