@@ -11,7 +11,6 @@ import Lexer
 import Data.List (find)
 import Data.Text.IO (hPutStrLn)
 import qualified Data.Map as Map
-import Data.SortedList
 import System.IO (stderr)
 
 import           Control.Lens hiding (Iso)
@@ -43,9 +42,8 @@ handlers = mconcat
   , requestHandler STextDocumentHover $ \req responder -> do
       let RequestMessage _ _ _ (HoverParams doc pos _workDone) = req
       let (TextDocumentIdentifier uri) = doc
-      let ioHover = lookupTokenBare' pos uri
-      exceptHover <- liftIO $ runExceptT ioHover
-      runDiagnosticsOnHover' uri exceptHover
+      exceptHover <- liftIO $ runExceptT $ lookupTokenBare' pos uri
+      sendDiagnosticsOnLeft uri exceptHover
       responder (Right $ rightToMaybe exceptHover)
   , notificationHandler J.STextDocumentDidOpen $ \msg -> do
     let doc  = msg ^. J.params . J.textDocument . J.uri
@@ -78,15 +76,10 @@ publishError :: Uri -> Err -> LspM Config ()
 publishError uri err = publishDiagnostics 100 (toNormalizedUri uri) Nothing (partitionBySource $ makeDiagErr err)
 
 clearError :: Uri -> LspM Config ()
-clearError uri = publishDiagnostics 100 (toNormalizedUri uri) Nothing (Map.singleton(Just "lexer") (Data.SortedList.toSortedList []))
+clearError uri = publishDiagnostics 100 (toNormalizedUri uri) Nothing (Map.singleton(Just "lexer") mempty)
 
-runDiagnosticsOnHover' ::  Uri -> Either Err b -> LspM Config ()
-runDiagnosticsOnHover' uri ioHover = do
-  case ioHover of
-    Left err -> do
-      publishError uri err
-    Right hover -> do
-      clearError uri
+sendDiagnosticsOnLeft :: Uri -> Either Err b -> LspM Config ()
+sendDiagnosticsOnLeft uri = either (publishError uri) (const $ clearError uri)
 
 -- | Analyze the file and send any diagnostics to the client in a
 -- "textDocument/publishDiagnostics" notification
@@ -111,7 +104,7 @@ parseAndSendErrors uri contents = do
       nuri = toNormalizedUri uri
   case pres of
     Right err ->
-      publishDiagnostics 100 nuri Nothing (Map.singleton (Just "parser") (Data.SortedList.toSortedList []))
+      publishDiagnostics 100 nuri Nothing (Map.singleton (Just "parser") mempty)
     Left err -> do
       let
         diags = [J.Diagnostic
@@ -165,51 +158,6 @@ findAnyExprAt pos = List.find (posInRange pos . getLoc) . findAllExpressions
 -- Use @debugM@ instead
 elog :: (MonadIO m, Show a) => a -> m ()
 elog = liftIO . hPutStrLn stderr . tshow
-
-lookupToken :: Position -> TextDocumentIdentifier -> LspT () IO (Maybe Hover)
-lookupToken pos (TextDocumentIdentifier uri) = do
-  -- print doc
-  let nuri = toNormalizedUri uri
-  sendDiagnostics nuri Nothing
-  let Just loc = uriToFilePath uri
-  allTokens <- liftIO $ scanFile loc
-  -- print allTokens
-
-  -- sendNotification SWindowShowMessage (ShowMessageParams MtInfo (tshow allTokens))
-  -- _ <- sendNotification SWindowLogMessage $ LogMessageParams MtInfo $ tshow allTokens
-
-  liftIO $ hPutStrLn stderr "foobar"
-  elog allTokens
-  -- _ <- sendNotification SWindowLogMessage $ LogMessageParams MtInfo $ tshow pos
-  elog pos
-  case allTokens of
-    Left err -> do
-      let
-        diags = [J.Diagnostic
-                  (errorRange err)
-                  (Just J.DsError)  -- severity
-                  Nothing  -- code
-                  (Just "lexer") -- source
-                  (T.pack $ msg err)
-                  Nothing -- tags
-                  (Just (J.List []))
-                ]
-      publishDiagnostics 100 nuri Nothing (partitionBySource diags)
-
-      _ <- sendNotification SWindowShowMessage $ ShowMessageParams MtError $ tshow err
-      return Nothing
-    Right tokens -> do
-      publishDiagnostics 100 nuri Nothing (Map.singleton(Just "lexer")(Data.SortedList.toSortedList [])) --"lexer" in this case is the diagnosticsource
-
-      let toks = find (posInRange pos . tokenPos) tokens
-      -- sendNotification SWindowShowMessage $ ShowMessageParams MtInfo $ tshow pos <> tshow toks
-      elog pos
-      elog toks
-      pure $ toks <&> \tok@Token {tokenKind} ->
-        let
-          ms = HoverContents $ markedUpContent "haskell" $ tshow tok --tokenKind
-        in
-          Hover ms $ Just $ posToRange $ tokenPos tok
 
 scanFile' :: FilePath -> ExceptT Err IO [Token]
 scanFile' = ExceptT . scanFile
