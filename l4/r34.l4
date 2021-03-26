@@ -1,0 +1,300 @@
+# l4 encoding of Rule 34
+
+# TODO Figure out how to approach the LPDAT defeasibility in this syntax.
+
+# Thoughts on Syntax:
+# 1. The way predicates are used in the rules is visually unrelated to both of the
+#    methods of declaring them. That creates cognitive load.
+# 2. Conjunction happens all the time, it should be implicit with newlines.
+# 3. "OR" is clearer than "||", and the same length.
+# 4. We should use indentation instead of brackets.
+# 5. There should be a way to say in the class definition that
+#    certain predicates are true, or have known values, for certain classes.
+#    For example, if LegalPractitioner extends Person, then we should
+#    be able to say that by default, for LegalPractitioner, AuthorizedToPracticeLaw
+#    is true.
+# 6. Using a period to separate the variables and the contents of the quantifiers
+#    is really unintuitive. Again, indentation would be better.
+# 7. Declarating the variables for conditions and quantifications is redundant if the
+#    predicates have been defined with types. You know from DescribedInSection1 b,
+#    that b is a business, because the type of DescribedInSection1 is Business -> Boolean.
+#    Something else could be done to distinguish variables from atoms, I think.
+# 8. I think existential quantification should be implicit if the user doesn't specify.
+# 9. It not clear whether adding -> Boolean to the end of a class attribute declaration does anything.
+# 10. It's not clear whether nesting exists statements is mandatory or optional, or what it means semantically.
+# 11. It's not clear how to test for class membership. is it a unary predicate, or a `:`
+# 12. Are you required to use a type declaration when defining variables for an exists or forall statement? Why?
+#     I'm worried that might force people to fiddle with their object hierarchies, or that it might require
+#     making it possible to extend from multiple classes, or adopt interfaces, or whatever.
+
+
+
+# TODO: Fill out lexicon
+lexicon
+Business -> "business_1_N"
+AssociatedWith -> "mkA2 associated_A with_Prep"
+ExecutiveAppointment -> "appointment_1_N"
+LegalPractitioner -> "lawyer_N"
+
+# Class definitions
+class Business {
+    DescribedInSection1: Boolean
+    DetractsFromDignityOfLegalProfession: Boolean
+    IncompatibleWithDignityOfLegalProfession: Boolean
+    DerogatesFromDignityOfLegalProfession: Boolean
+    Unfair: Boolean
+    DescribedInFirstSchedule: Boolean
+    Prohibited: Boolean
+    InvolvesSharingFeesForLegalWorkByUnauthoirzedPersonsPerformedByTheLegalPractitioner: Boolean
+    InvolvesPaymentOfCommissionsForLegalWorkByUnauthorizedPersonsPerformedByTheLegalPractioner: Boolean
+}
+
+class ExecutiveAppointment extends Position {
+    AssociatedWith: Business
+    MateriallyInterferesWithAvailability: LegalPractitioner
+    MateriallyInterferesWithPracticingAsLawyer: LegalPractitioner
+    MateriallyInterferesWithRepresentation: LegalPractitioner
+}
+
+class Organization {
+    Position: Position
+}
+
+class Position {
+    HeldAsRepresentativeOf: Organization
+}
+
+class LegalPractitioner extends Person {
+    MustNotAccept: Appointment
+    PrimaryOccupationIsPracticingAsLawyer: Boolean
+}
+
+class Person {
+    AuthorizedToPracticeLaw: Boolean
+    Awesome: Boolean
+    Cool: Boolean
+}
+
+class LawPractice extends Organization {
+    Owner: Person
+    LegalOwner: Person
+    BeneficialOwner: Person
+    Partner: Person
+    SoleProprietor: Person
+    Director: Person
+    JurisdictionIsSingapore: Boolean
+    Member: LegalPractitioner
+}
+
+class BusinessEntity extends Organization 
+
+# Rules
+
+# RULE 34
+# 34. Executive appointments
+
+# RULE 34(1)
+# 34.—(1)  A legal practitioner must not accept any executive appointment associated with 
+# any of the following businesses:
+
+rule <r34_1>
+for lp: LegalPractitioner, ea: ExecutiveAppointment
+if (
+    exists b : Business.
+        AssociatedWith ea b &&
+        DescribedInSection1 b
+)
+then MustNotAccept lp ea
+
+# (a)	any business which detracts from, is incompatible with, or derogates from the dignity of,
+# the legal profession;
+
+rule <r34_1_a>
+for b: Business
+if (
+    DetractsFromDignityOfLegalProfession b ||
+    IncompatibleWithDignityOfLegalProfession b ||
+    DerogatesFromDignityOfLegalProfession b
+)
+then DescribedInSection1 b
+
+# section 34(1)(b) is repealed in this version
+
+# (c)	any business which is likely to unfairly attract business in the practice of law;
+
+rule <r34_1_c>
+for b: Business
+if (
+    Unfair b
+)
+then DescribedInSection1 b
+
+# (d)	any business which involves the sharing of the legal practitioner’s fees with, 
+# or the payment of a commission to, any unauthorised person for legal work performed 
+# by the legal practitioner;
+
+rule <r34_1_d>
+for b: Business
+if (
+    # TODO Increase the fidelity of this provision, and see if it needs to be moved
+    # out of r34_1 because it refers to "the legal practitioner"
+    InvolvesSharingFeesForLegalWorkByUnauthoirzedPersonsPerformedByTheLegalPractitioner b ||
+    InvolvesPaymentOfCommissionsForLegalWorkByUnauthorizedPersonsPerformedByTheLegalPractioner b
+)
+then DescribedInSection1 b
+
+# (e)	any business set out in the First Schedule;
+
+rule <r34_1_e>
+for b: Business
+if (
+    DescribedInFirstSchedule b
+)
+then DescribedInSection1 b
+
+# (f)	any business which is prohibited by —
+# (i)	the Act;
+# (ii)	these Rules or any other subsidiary legislation made under the Act;
+# (iii)	any practice directions, guidance notes and rulings issued under section 71(6) of the Act; or
+# (iv)	any practice directions, guidance notes and rulings (relating to professional practice,
+# etiquette, conduct and discipline) issued by the Council or the Society.
+
+rule <r34_1_e>
+for b: Business
+if (
+    Prohibited b
+)
+then DescribedInSection1 b
+
+rule <r34_1A>
+for lp: LegalPractitioner, ea: ExecutiveAppointment
+if (
+    (
+        MateriallyInterferesWithPracticingAsLawyer ea lp &&
+        PrimaryOccupationIsPracticingAsLawyer lp 
+    ) ||
+    MateriallyInterferesWithAvaliability ea lp ||
+    MateriallyInterferesWithRepresentation ea lp
+)
+then MustNotAccept lp ea
+
+# RULE 34(2)(a)
+# (2)  Subject to paragraph (1), a legal practitioner in a Singapore law practice 
+# (called in this paragraph the main practice) may accept an executive appointment 
+# in another Singapore law practice (called in this paragraph the related practice), 
+# if the related practice is connected to the main practice in either of the following ways:
+# (a)	every legal or beneficial owner of the related practice is the sole proprietor, 
+# or a partner or director, of the main practice;
+
+rule <r34_2_a>
+for lp: LegalPractitioner, ea: ExecutiveAppointment
+if (
+    exists own_practice: LawPractice . (
+        Member own_practice lp &&
+        JurisdictionIsSingapore own_practice &&
+        exists other_practice: LawPractice . (
+            not Member other_practice lp &&
+            Position other_practice ea &&
+            JurisdictionIsSingapore other_practice &&
+            not exists o: Person . (
+                (
+                    LegalOwner other_practice o ||
+                    BeneficialOwner other_practice o
+                ) &&
+                not (
+                    SoleProprietor own_practice o ||
+                    Partner own_practice o ||
+                    Director own_practice o
+                )
+            )
+        )
+    )
+)
+then MayAccept lp ea
+
+# RULE 34(2)(b)
+# (b)	the legal practitioner accepts the executive appointment as a representative 
+# of the main practice in the related practice, and the involvement of the main practice 
+# in the related practice is not prohibited by any of the following:
+# (i)	the Act;
+# (ii)	these Rules or any other subsidiary legislation made under the Act;
+# (iii)	any practice directions, guidance notes and rulings issued under section 71(6) of the Act;
+# (iv)	any practice directions, guidance notes and rulings (relating to professional practice,
+# etiquette, conduct and discipline) issued by the Council or the Society.
+
+rule <r34_2_b>
+for lp: LegalPractitioner, ea: ExecutiveAppointment
+if (
+    exists own_practice: LawPractice . (
+        exists other_practice: LawPractice . (
+            Member own_practice lp &&
+            JurisdictionIsSingapore own_practice &&
+            not Member other_practice lp &&
+            Position other_practice ea &&
+            JurisdictionIsSingapore other_practice &&
+            not ParticipationProhibited own_practice other_practice &&
+            HeldAsRepresentativeOf ea own_practice
+        )
+    )
+)
+then MayAccept lp ea
+
+# Example of alternative syntax for above rule.
+# RULE <r34_2_b>
+# IF
+#     LawPractice own_practice
+#         LawPractice other_practice
+#             LegalPractitioner lp
+#             ExecutiveAppointment ea
+#             JurisdictionIsSingapore own_practice
+#             JurisdictionIsSingapore other_practice
+#             not Member other_practice lp
+#             Position ea lp
+#             not ParticipationProhibited own_practice other_practice
+#             HeldAsRepresentativeOf ea own_practice
+# THEN
+#     MayAccept lp ea
+
+# RULE 34(3)
+# (3)  Subject to paragraph (1), a legal practitioner may accept an executive appointment 
+# in a business entity which provides law-related services.
+
+# RULE 34(4)
+# (4)  Subject to paragraph (1), a legal practitioner (not being a locum solicitor) may 
+# accept an executive appointment in a business entity which does not provide any 
+# legal services or law-related services, if all of the conditions set out in the 
+# Second Schedule are satisfied.
+
+# RULE 34(5)
+# (5)  Despite paragraph (1)(b), but subject to paragraph (1)(a) and (c) to (f), 
+# a locum solicitor may accept an executive appointment in a business entity which 
+# does not provide any legal services or law-related services, if all of the 
+# conditions set out in the Second Schedule are satisfied.
+
+# RULE 34(6)
+# (6)  Except as provided in paragraphs (2) to (5) —
+# (a)	a legal practitioner in a Singapore law practice must not accept any executive 
+# appointment in another Singapore law practice; and
+
+# (b)	a legal practitioner must not accept any executive appointment in a business entity.
+
+# RULE 34(7)
+# (7)  To avoid doubt, nothing in this rule prohibits a legal practitioner 
+# from accepting any appointment in any institution set out in the Third Schedule.
+
+# DEFINITIONS
+# (9)  In this rule and the First to Fourth Schedules —
+# “business” includes any business, trade or calling in Singapore or elsewhere, 
+# whether or not for the purpose of profit, but excludes the practice of law;
+
+# “business entity”  —
+# (a)	includes any company, corporation, partnership, limited liability partnership, 
+# sole proprietorship, business trust or other entity that carries on any business; but
+# (b)	excludes any Singapore law practice, any Joint Law Venture, any Formal Law Alliance, 
+# any foreign law practice and any institution set out in the Third Schedule;
+
+# “executive appointment” means a position associated with a business, or in a business 
+# entity or Singapore law practice, which entitles the holder of the position to perform 
+# executive functions in relation to the business, business entity or Singapore law practice 
+# (as the case may be), but excludes any non‑executive director or independent director 
+# associated with the business or in the business entity;
