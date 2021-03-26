@@ -22,11 +22,22 @@
 # 8. I think existential quantification should be implicit if the user doesn't specify.
 # 9. It not clear whether adding -> Boolean to the end of a class attribute declaration does anything.
 # 10. It's not clear whether nesting exists statements is mandatory or optional, or what it means semantically.
-# 11. It's not clear how to test for class membership. is it a unary predicate, or a `:`
+# 11. It seems inconsistent whether I'm supposed to us a unary predicate Trade o or the `:` notation.
 # 12. Are you required to use a type declaration when defining variables for an exists or forall statement? Why?
 #     I'm worried that might force people to fiddle with their object hierarchies, or that it might require
 #     making it possible to extend from multiple classes, or adopt interfaces, or whatever.
-
+# 13. I worry that using the word "class" and "extends" will cause incorrect presumptions about the semantics
+#     of those declarations.
+# 14. I don't have any way to specify boolean propositions that don't have a type. I have to use a Global type and use
+#     the `:` notation.
+# 15. I don't have equality and inequality operators?
+# 16. Things like "Beneficial Owner" are legal terms of art that are not likely to be accurately translated across langauges.
+# 17. The lexicon very quickly gets very long. Needing to re-type all the names is tedious and error prone. The wordnet
+#     references should be integrated with the class defintions.
+# 18. The lower a level of detail you choose to model, the easier it is to write the rules, and the harder it is to write
+#     the lexicon.
+# 19. It would be useful if we could also replace the default translation that GF provides on a case-by-case basis, using
+#     something like s(CASP)'s predicate statements, if generating a WordNet phrase is going to be complicated.
 
 
 # TODO: Fill out lexicon
@@ -35,6 +46,59 @@ Business -> "business_1_N"
 AssociatedWith -> "mkA2 associated_A with_Prep"
 ExecutiveAppointment -> "appointment_1_N"
 LegalPractitioner -> "lawyer_N"
+# DescribedInSection1 -> 
+# DetractsFromDignityOfLegalProfession
+# IncompatibleWithDignityOfLegalProfession
+# DerogatesFromDignityOfLegalProfession
+# Unfair
+# DescribedInFirstSchedule
+Prohibited -> "prohibit_V2"
+# InvolvesSharingFeesForLegalWorkByUnauthoirzedPersonsPerformedByTheLegalPractitioner
+# InvolvesPaymentOfCommissionsForLegalWorkByUnauthorizedPersonsPerformedByTheLegalPractioner
+Trade -> "trade_2_N"
+Calling -> "calling_N"
+# MateriallyInterferesWithAvailability
+# MateriallyInterferesWithPracticingAsLawyer
+# MateriallyInterferesWithRepresentation
+Organization -> "organization_1_N"
+Position -> "position_6_N"
+Provides -> "provide_1_V2"
+Institution -> "institution_1_N"
+# ListedInThirdSchedule
+Service -> "service_1_N"
+Legal -> "legal_4_A"
+# HeldAsRepresentativeOf
+# EntitlesHolder
+# NonExecutiveDirector
+# IndependentDirector
+# MustNotAccept
+# MayAccept
+# PrimaryOccupationIsPracticingAsLawyer
+# LocumSolicitor -> "mkN locum_N solicitorMasc_2_N"
+Person -> "person_1_N"
+# AuthorizedToPracticeLaw
+# LawPractice -> "legal_4_A practice_3_V2"
+Owner -> "owner_1_N"
+# LegalOwner
+# BeneficialOwner
+Partner -> "partner_3_N"
+SoleProprietor -> "proprietor_N"
+Director -> "director_2_N"
+# JurisdictionIsSingapore
+Member -> "member_1_N"
+# BusinessEntity 
+# ThePracticeOfLaw
+# Global
+Company -> "company_1_N"
+Corporation -> "corporation_1_N"
+Partnership -> "partnership_3_N"
+# LLP -> 
+SoleProp -> "proprietorship_N"
+# BusinessTrust -> 
+# JointLawVenture
+# FormalLawAlliance
+# ForeignLawPractice
+# ConditionsOfSecondScheduleAreSatisfied
 
 # Class definitions
 class Business {
@@ -49,6 +113,10 @@ class Business {
     InvolvesPaymentOfCommissionsForLegalWorkByUnauthorizedPersonsPerformedByTheLegalPractioner: Boolean
 }
 
+class Trade
+
+class Calling
+
 class ExecutiveAppointment extends Position {
     AssociatedWith: Business
     MateriallyInterferesWithAvailability: LegalPractitioner
@@ -58,15 +126,29 @@ class ExecutiveAppointment extends Position {
 
 class Organization {
     Position: Position
+    Provides: Service
+}
+
+class Institution extends Organization {
+    ListedInThirdSchedule: Boolean
+}
+
+class Service {
+    Legal: Boolean
 }
 
 class Position {
     HeldAsRepresentativeOf: Organization
+    EntitlesHolder: Boolean
+    NonExecutiveDirector: Boolean
+    IndependentDirector: Boolean
 }
 
 class LegalPractitioner extends Person {
     MustNotAccept: Appointment
+    MayAccept: Appointment
     PrimaryOccupationIsPracticingAsLawyer: Boolean
+    LocumSolicitor: Boolean
 }
 
 class Person {
@@ -87,6 +169,32 @@ class LawPractice extends Organization {
 }
 
 class BusinessEntity extends Organization 
+
+# This should be an atom, I think, not a predicate.
+class ThePracticeOfLaw
+
+class Global
+
+class Company
+
+class Corporation
+
+class Partnership
+
+class LLP
+
+class SoleProp
+
+class BusinessTrust
+
+class JointLawVenture
+
+class FormalLawAlliance
+
+class ForeignLawPractice
+
+
+decl ConditionsOfSecondScheduleAreSatisfied: Global
 
 # Rules
 
@@ -243,15 +351,15 @@ then MayAccept lp ea
 # RULE <r34_2_b>
 # IF
 #     LawPractice own_practice
-#         LawPractice other_practice
-#             LegalPractitioner lp
-#             ExecutiveAppointment ea
-#             JurisdictionIsSingapore own_practice
-#             JurisdictionIsSingapore other_practice
-#             not Member other_practice lp
-#             Position ea lp
-#             not ParticipationProhibited own_practice other_practice
-#             HeldAsRepresentativeOf ea own_practice
+#     LawPractice other_practice
+#     LegalPractitioner lp
+#     ExecutiveAppointment ea
+#     JurisdictionIsSingapore own_practice
+#     JurisdictionIsSingapore other_practice
+#     not Member other_practice lp
+#     Position ea lp
+#     not ParticipationProhibited own_practice other_practice
+#     HeldAsRepresentativeOf ea own_practice
 # THEN
 #     MayAccept lp ea
 
@@ -259,11 +367,38 @@ then MayAccept lp ea
 # (3)  Subject to paragraph (1), a legal practitioner may accept an executive appointment 
 # in a business entity which provides law-related services.
 
+rule <r34_3>
+for lp: LegalPractitioner, ea: ExecutiveAppointment
+if (
+    exists be: BusinessEntity . (
+        Position ea be &&
+        exists s: Service . (
+            Provides be s &&
+            Legal s
+        )
+    )
+)
+then MayAccept lp ea
+
 # RULE 34(4)
 # (4)  Subject to paragraph (1), a legal practitioner (not being a locum solicitor) may 
 # accept an executive appointment in a business entity which does not provide any 
 # legal services or law-related services, if all of the conditions set out in the 
 # Second Schedule are satisfied.
+
+rule <r34_4>
+for lp: LegalPractitioner, ea: ExecutiveAppointment
+if (
+    not LocumSolicitor lp &&
+    exists be: BusinessEntity. (
+        Position be ea &&
+        not exists s: Service. (
+            Provides be s &&
+            Legal s
+        )
+    )
+)
+then MayAccept lp ea
 
 # RULE 34(5)
 # (5)  Despite paragraph (1)(b), but subject to paragraph (1)(a) and (c) to (f), 
@@ -271,21 +406,76 @@ then MayAccept lp ea
 # does not provide any legal services or law-related services, if all of the 
 # conditions set out in the Second Schedule are satisfied.
 
+rule <r34_5>
+for lp: LegalPractitioner, ea: ExecutiveAppointment
+if (
+    LocumSolicitor lp &&
+    Global ConditionsOfSecondScheduleAreSatisfied && 
+    exists be: BusinessEntity. (
+        Position be ea &&
+        not exists s: Service. (
+            Provides be s &&
+            (
+                Legal s ||
+                LawRelated s
+            )
+        ) 
+    )
+)
+then MayAccept lp ea
+
 # RULE 34(6)
 # (6)  Except as provided in paragraphs (2) to (5) —
 # (a)	a legal practitioner in a Singapore law practice must not accept any executive 
 # appointment in another Singapore law practice; and
 
+rule <r34_6_a>
+for lp: LegalPractitioner, ea: ExecutiveAppointment
+if (
+    exists practice: LawPractice . (
+        Member practice lp &&
+        JurisdictionIsSingapore practice &&
+        exists other_practice: LawPractice . (
+            JurisdictionIsSingapore other_practice &&
+            Position other_practice ea
+        )
+    )
+)
+then MustNotAccept lp ea
+
 # (b)	a legal practitioner must not accept any executive appointment in a business entity.
+
+rule <r34_6_b>
+for lp: LegalPractitioner, ea: ExecutiveAppointment
+if (
+    exists be: BusinessEntity . (
+        Position be ea
+    )
+)
+then MustNotAccept lp ea
 
 # RULE 34(7)
 # (7)  To avoid doubt, nothing in this rule prohibits a legal practitioner 
 # from accepting any appointment in any institution set out in the Third Schedule.
 
+# assert forall lp: LegalPractitioner. (
+#     forall i: Institution. (
+#         not ListedInThirdSchedule i ||
+#         forall ea: ExecutiveAppointment. (
+#             MayAccept lp ea
+#         )
+#     )
+# )
+
 # DEFINITIONS
 # (9)  In this rule and the First to Fourth Schedules —
 # “business” includes any business, trade or calling in Singapore or elsewhere, 
 # whether or not for the purpose of profit, but excludes the practice of law;
+
+rule <def_business>
+for o: Object
+if ((Trade o || Calling o) && not ThePracticeOfLaw o)
+then Business o
 
 # “business entity”  —
 # (a)	includes any company, corporation, partnership, limited liability partnership, 
@@ -293,8 +483,53 @@ then MayAccept lp ea
 # (b)	excludes any Singapore law practice, any Joint Law Venture, any Formal Law Alliance, 
 # any foreign law practice and any institution set out in the Third Schedule;
 
+rule <def_business_entity>
+for o: Object
+if (
+    (
+        Company o ||
+        Corporation o ||
+        Partnership o ||
+        LLP o ||
+        SoleProp o ||
+        BusinessTrust o ||
+        Object o
+    ) &&
+    exists bus: Business. (
+        CarriesOn o bus
+    ) &&
+    not ( LawPractice o && JurisdictionIsSingapore o ) &&
+    not JointLawVenture o &&
+    not FormalLawAlliance o &&
+    not ForeignLawPractice o &&
+    not ( Institution o && ListedInThirdSchedule o)
+    )
+then BusinessEntity o
+
 # “executive appointment” means a position associated with a business, or in a business 
 # entity or Singapore law practice, which entitles the holder of the position to perform 
 # executive functions in relation to the business, business entity or Singapore law practice 
 # (as the case may be), but excludes any non‑executive director or independent director 
 # associated with the business or in the business entity;
+
+rule <def_executive_appointment>
+for pos: Position
+if (
+    (
+        exists practice: LawPractice. (
+            Position practice pos &&
+            not NonExecutiveDirector pos &&
+            not IndependentDirector pos
+        ) ||
+        exists business: Business. (
+            AssociatedWith pos business
+        ) ||
+        exists be: BusinessEntity. (
+            Position be pos &&
+            not NonExecutiveDirector pos &&
+            not IndependentDirector pos
+        )
+    ) &&
+    EntitlesHolder pos
+)
+then ExecutiveAppointment pos
