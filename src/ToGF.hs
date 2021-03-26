@@ -15,6 +15,7 @@ import System.Environment (withArgs)
 import System.IO (stderr, hPutStrLn)
 import Text.Printf (printf)
 import TransProp
+import Typing (AnnotTypingPhase)
 
 -- moved this here from exe/Main.hs, needed to tell optparse which languages to output
 data GFlang  = GFall | GFeng | GFswe deriving Show
@@ -26,8 +27,8 @@ gfl2lang gfLang =
     GFeng -> ["Eng"]
     GFswe -> ["Swe"]
 
-createPGF :: (Show ct, Show et) => GFlang -> Program ct et -> IO PGF.PGF
-createPGF gfl (Program lexicon _2 _3 _4 _5) = do
+createPGF :: (Show et) => GFlang -> Program et -> IO PGF.PGF
+createPGF gfl (Program _ lexicon _2 _3 _4 _5) = do
   let langs = gfl2lang gfl
   let (abstract,concretes) = createLexicon langs lexicon
   -- Generate lexicon
@@ -43,11 +44,11 @@ createPGF gfl (Program lexicon _2 _3 _4 _5) = do
   withArgs (["-make", "--output-dir=generated", "--gfo-dir=/tmp", "-v=0"] ++ map (concrName "PropTop") langs) GF.main
   PGF.readPGF "generated/PropTop.pgf"
 
-nlg, nlgAST :: (Show ct) => GFlang -> Program ct Tp -> IO ()
+nlg, nlgAST :: GFlang -> Program Tp -> IO ()
 nlg = nlg' False
 nlgAST = nlg' True
 
-nlg' :: (Show ct) => Bool -> GFlang -> Program ct Tp -> IO ()
+nlg' :: Bool -> GFlang -> Program Tp -> IO ()
 nlg' showAST gfl prog = do
     gr <- createPGF gfl prog
     sequence_
@@ -70,20 +71,20 @@ type CuteCats = Reader Env
 
 data Env
   = Env
-      { lexicon :: [Mapping],
-        vardecls :: [[VarDecl]]
+      { lexicon :: [Mapping Tp],
+        vardecls :: [[VarDecl Tp]]
       }
 
-program2prop :: (Show ct) => Program ct Tp -> [GProp]
+program2prop :: Program Tp -> [GProp]
 program2prop e = case e of
-  Program lex _cl vars rules _as ->
+  Program _ lex _cl vars rules _as ->
     let env0 = Env {lexicon = lex, vardecls = [vars]}
      in runReader
           (mapM rule2prop rules)
           env0
 
-vardecl2prop :: VarDecl -> CuteCats GProp
-vardecl2prop (VarDecl vname vtyp) = do
+vardecl2prop :: VarDecl t -> CuteCats GProp
+vardecl2prop (VarDecl _ vname vtyp) = do
   typ <- tp2kind vtyp
   name <- var2ind (GlobalVar vname)
   pure $ GPAtom (GAKind typ name)
@@ -139,7 +140,7 @@ tp2ind e = case e of
 
 
 rule2prop :: Rule Tp -> CuteCats GProp
-rule2prop (Rule nm vars ifE thenE) = local (updateVars vars) $
+rule2prop (Rule _ nm vars ifE thenE) = local (updateVars vars) $
   do
     ifProp <- expr2prop ifE
     thenProp <- expr2prop thenE
@@ -147,7 +148,7 @@ rule2prop (Rule nm vars ifE thenE) = local (updateVars vars) $
 
 expr2prop :: Syntax.Expr Tp -> CuteCats GProp
 expr2prop e = case e of
-  ValE _ _ val -> pure $ GPAtom (val2atom val)
+  ValE _ val -> pure $ GPAtom (val2atom val)
   FunApp1 f x xTp -> do
     f' <- var2pred f
 --    x' <- tp2ind xTp
@@ -179,7 +180,7 @@ expr2prop e = case e of
     exp2 <- expr2prop e2
     pure $ GPImpl exp1 exp2
   Not e -> GPNeg <$> expr2prop e
-  TupleE _ _ es -> do
+  TupleE _ es -> do
     props <- mapM expr2prop es
     pure $ GPConjs GCAnd (GListProp props)
   IfThenElse e1 e2 e3 -> do
@@ -201,10 +202,10 @@ val2atom e = case e of
 -- Patterns
 
 pattern AppU :: Syntax.Expr Tp -> Syntax.Expr Tp -> Syntax.Expr Tp
-pattern AppU x y <- AppE _ _ x y
+pattern AppU x y <- AppE _ x y
 
 pattern VarU :: Var -> Tp -> Syntax.Expr Tp
-pattern VarU var tp <- VarE _ tp var
+pattern VarU var tp <- VarE tp var
 
 pattern FunApp1 :: Var -> Var -> Tp -> Syntax.Expr Tp
 pattern FunApp1 f x xTp <- AppU (VarU f _) (VarU x xTp)
@@ -217,27 +218,27 @@ pattern FunApp2 f x xTp y yTp <- AppU (FunApp1 f x xTp) (VarU y yTp)
 -- Quantification
 
 pattern Exist :: VarName -> Tp -> Syntax.Expr Tp -> Syntax.Expr Tp
-pattern Exist x typ exp <- QuantifE _ _ Ex x typ exp
+pattern Exist x typ exp <- QuantifE _ Ex x typ exp
 
 pattern Forall :: VarName -> Tp -> Syntax.Expr Tp -> Syntax.Expr Tp
-pattern Forall x typ exp <- QuantifE _ _ All x typ exp
+pattern Forall x typ exp <- QuantifE _ All x typ exp
 
 -- Binary operations
 
 pattern And :: Syntax.Expr Tp -> Syntax.Expr Tp -> Syntax.Expr Tp
-pattern And e1 e2 <- BinOpE _ _ (BBool BBand) e1 e2
+pattern And e1 e2 <- BinOpE _ (BBool BBand) e1 e2
 
 pattern Or :: Syntax.Expr Tp -> Syntax.Expr Tp -> Syntax.Expr Tp
-pattern Or e1 e2 <- BinOpE _ _ (BBool BBor) e1 e2
+pattern Or e1 e2 <- BinOpE _ (BBool BBor) e1 e2
 
 pattern Not :: Syntax.Expr Tp -> Syntax.Expr Tp
-pattern Not e <- UnaOpE _ _ (UBool UBneg) e
+pattern Not e <- UnaOpE _ (UBool UBneg) e
 
 pattern Impl :: Syntax.Expr Tp -> Syntax.Expr Tp -> Syntax.Expr Tp
-pattern Impl e1 e2 <- BinOpE _ _ (BBool BBimpl) e1 e2
+pattern Impl e1 e2 <- BinOpE _ (BBool BBimpl) e1 e2
 
 pattern IfThenElse :: Syntax.Expr Tp -> Syntax.Expr Tp -> Syntax.Expr Tp -> Syntax.Expr Tp
-pattern IfThenElse e1 e2 e3 <- IfThenElseE _ _ e1 e2 e3
+pattern IfThenElse e1 e2 e3 <- IfThenElseE _ e1 e2 e3
 
 ----------------------------------------
 -- Generic helper functions
@@ -246,10 +247,10 @@ varName :: Var -> VarName
 varName (GlobalVar n) = n
 varName (LocalVar n _) = n
 
-updateVars :: [VarDecl] -> Env -> Env
+updateVars :: [VarDecl Tp] -> Env -> Env
 updateVars vs env = env {vardecls = vs : vardecls env}
 
-findMapping :: [Mapping] -> String -> [String]
+findMapping :: [Mapping t] -> String -> [String]
 findMapping haystack needle =
   [ val
     | Mapping _ name val <- haystack,
@@ -258,7 +259,7 @@ findMapping haystack needle =
 
 type Lang = String
 
-createLexicon :: [Lang] -> [Mapping] -> (String, [String])
+createLexicon :: [Lang] -> [Mapping t] -> (String, [String])
 createLexicon langs lexicon = (abstract, concretes)
   where
     abstract =

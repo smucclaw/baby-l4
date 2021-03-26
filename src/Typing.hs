@@ -35,6 +35,11 @@ instance HasLoc AnnotTypingPhase where
   getLoc (PosTpAnnotTP lt) = getLoc lt
   getLoc (PosClassHierAnnotTP ll_c) = getLoc ll_c
 
+-- | Get type or give an error
+extractType :: AnnotTypingPhase -> Tp
+extractType (PosTpAnnotTP (LocTypeAnnot s t)) = t
+extractType _ = ErrT
+
 ----------------------------------------------------------------------
 -- Environment
 ----------------------------------------------------------------------
@@ -109,7 +114,7 @@ elaborateSupersInClassDecl :: (ClassName -> [ClassName]) -> ClassDecl t -> Class
 elaborateSupersInClassDecl supers (ClassDecl annot cn (ClassDef _ fds)) =
   ClassDecl annot cn (ClassDef (supers cn) fds)
 
--- in a class declaration, replace the reference to the immediate super-class 
+-- in a class declaration, replace the reference to the immediate super-class
 -- by the list of all super-classes (from more to less specific, excluding the current class from the list)
 elaborateSupersInClassDecls :: [ClassDecl t] -> [ClassDecl t]
 elaborateSupersInClassDecls cds =
@@ -148,7 +153,7 @@ wellformedClassDecls cds =
   in all (definedSuperclass class_names) cds && not (hasDuplicates class_names)
 
 -- TODO: still check that field decls only reference declared classes
--- TODO: hasDuplicates should check that field names are unique 
+-- TODO: hasDuplicates should check that field names are unique
 --       and not only that (field name, type) is unique
 wellFormedFieldDecls :: (Ord t) => ClassDecl t -> Bool
 wellFormedFieldDecls (ClassDecl _ cn cdf) = not (hasDuplicates (fieldsOfClassDef cdf))
@@ -195,7 +200,7 @@ longestCommonPrefix :: Eq a=> [a] -> [a] -> [a]
 longestCommonPrefix (x:xs) (y:ys) = if x == y then x:longestCommonPrefix xs ys else []
 longestCommonPrefix _ _ = []
 
--- least common superclass of two classes (given by their name) 
+-- least common superclass of two classes (given by their name)
 -- that must at least have Object as common superclass
 leastCommonSuperClass :: Environment t -> ClassName -> ClassName -> ClassName
 leastCommonSuperClass env cn1 cn2 =
@@ -335,7 +340,7 @@ varIdentityInEnv env (LocalVar _ _) = error "internal error: for type checking, 
 pushLocalVarEnv :: [(VarName, Tp)] -> Environment t -> Environment t
 pushLocalVarEnv nvds (Env cls gv vds) = Env cls gv (reverse nvds ++ vds)
 
--- the function returns the environment unchanged if a pattern and its type 
+-- the function returns the environment unchanged if a pattern and its type
 -- are not compatible in the sense of the following function
 pushPatternEnv :: Pattern -> Tp -> Environment t -> Environment t
 pushPatternEnv (VarP vn) t (Env cls gv vds) = Env cls gv  ((vn, t):vds)
@@ -348,7 +353,7 @@ compatiblePatternType (VarP vn) t = True
 compatiblePatternType (VarListP vns) (TupleT ts) = length vns == length ts
 compatiblePatternType _ _ = False
 
--- compatibleType extends subclassing to all type constructors. 
+-- compatibleType extends subclassing to all type constructors.
 -- compatibleType env t1 t2 roughly means that t1 is a subtype of t2
 compatibleType :: Environment t -> Tp -> Tp -> Bool
 compatibleType _ BoolT BoolT = True
@@ -371,7 +376,7 @@ pattern BinX a b = Fixa (Bin a b)
 
 type ExpR = Fix ExpF
 
-cata :: (f a -> b) -> Fix f -> b 
+cata :: (f a -> b) -> Fix f -> b
 cata = _
 
 trans :: (f a -> g a) -> Fix f -> Fix g
@@ -380,7 +385,7 @@ trans = _
 
 
 {-
--- 
+--
 data family LocTypeAnnotFam a
 data instance LocTypeAnnotFam (Expr t) = LTAFExpr t
 data instance LocTypeAnnotFam (Assertion t) = LTAFAssertion t
