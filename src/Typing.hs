@@ -8,9 +8,11 @@ module Typing where
 import Data.List
 import Data.Maybe
 import Data.Either (isLeft)
+import Data.List.Utils
 
 
 import Annotation
+    ( LocTypeAnnot(LocTypeAnnot), SRng, TypeAnnot(..), HasLoc(..) )
 import Error
 import Syntax
 
@@ -27,6 +29,11 @@ data AnnotTypingPhase
   | PosClassHierAnnotTP (LocTypeAnnot [ClassName])
   deriving (Eq, Ord, Show, Read)
 
+instance HasLoc AnnotTypingPhase where
+  getLoc (PosAnnotTP s) = s
+  getLoc (PosClassDeclsTP s l_c) = s
+  getLoc (PosTpAnnotTP lt) = getLoc lt
+  getLoc (PosClassHierAnnotTP ll_c) = getLoc ll_c
 
 ----------------------------------------------------------------------
 -- Environment
@@ -64,7 +71,7 @@ fieldAssoc = map (\(ClassDecl _ cn cdf) -> (cn, fieldsOfClassDef cdf))
 --   - or (one of) the class names involved in a cyclic hierarchy (Left: corresponding to an error situation)
 -- Here, 'cdf_assoc' is an association of class names and class defs as contained in a program.
 -- 'visited' is the list of class names already visited on the way up the class hierarchy
-superClassesConstr :: [(ClassName, ClassDef t)] -> [ClassName] -> ClassName -> Either ClassName [ClassName] 
+superClassesConstr :: [(ClassName, ClassDef t)] -> [ClassName] -> ClassName -> Either ClassName [ClassName]
 superClassesConstr cdf_assoc visited cn =
   case lookup cn cdf_assoc of
     -- the following should not happen if definedSuperclass is true in a module
@@ -80,10 +87,10 @@ superClassesConstr cdf_assoc visited cn =
 
 
 superClasses :: [(ClassName, ClassDef t)] -> ClassName -> [ClassName]
-superClasses cdf_assoc cn = 
+superClasses cdf_assoc cn =
   case superClassesConstr cdf_assoc [] cn of
-    Right cns -> cns 
-    Left cnc  ->  error (("cyclic superclass hierarchy for class " ++ (case cnc of (ClsNm n) -> n)) ++ 
+    Right cns -> cns
+    Left cnc  ->  error (("cyclic superclass hierarchy for class " ++ (case cnc of (ClsNm n) -> n)) ++
                           "Internal error: superClasses should not be called on cyclic hierarchy")
 
 
@@ -121,15 +128,16 @@ elaborateFieldsInClassDecls cds =
   in map (\(ClassDecl annot cn (ClassDef scs locfds)) ->
             ClassDecl annot cn (ClassDef scs (concatMap (localFields fd_assoc) scs))) cds
 
-
--- the class decl does not reference an undefined superclass
+-- the class decl cdc does not reference a superclass undefined in the list of defined class names cns
 definedSuperclass :: [ClassName] -> ClassDecl t -> Bool
-definedSuperclass cns cdc =
+definedSuperclass cns cdc = all (`elem` cns) (supersOfClassDef (defOfClassDecl cdc))
+{-
   case cdc of
     (ClassDecl _ cn (ClassDef [] _)) -> True
     (ClassDecl _ cn (ClassDef [scn] _)) ->
       elem scn cns || error ("undefined superclass for class " ++ (case cn of (ClsNm n) -> n))
     (ClassDecl _ cn (ClassDef _ _)) -> error "in definedSuperclass: superclass list should be empty or singleton (internal error)"
+-}
 
 hasDuplicates :: (Ord a) => [a] -> Bool
 hasDuplicates xs = length (nub xs) /= length xs
@@ -497,7 +505,7 @@ tpRuleVarDecls = map (\(VarDecl annot vn t) -> VarDecl (PosAnnotTP annot) vn t)
 tpRule :: Environment t -> Rule SRng -> Rule AnnotTypingPhase
 tpRule env (Rule annot rn vds precond postcond) =
   let renv = pushLocalVarEnv (map (\(VarDecl _ vn vt) -> (vn, vt)) vds) env
-      tpdVds = tpRuleVarDecls vds 
+      tpdVds = tpRuleVarDecls vds
   in Rule (PosAnnotTP annot) rn tpdVds (tpExprBasic renv precond) (tpExprBasic renv postcond)
 
 tpAssertion :: Environment t -> Assertion SRng -> Assertion AnnotTypingPhase
@@ -521,9 +529,9 @@ liftProgram = fmap PosAnnotTP
 checkClassesForWfError :: [ClassDecl t] -> Maybe ClassDeclsError
 checkClassesForWfError cds =
   let class_names = map nameOfClassDecl cds
-  in 
+  in
     if all (definedSuperclass class_names) cds
-    then 
+    then
       if not (hasDuplicates class_names)
       then Nothing
       else Just DuplicateClassNamesCDE
@@ -535,12 +543,12 @@ fromLeft (Left a) = a
 fromLeft (Right _) = error "in fromLeft"
 
 checkClassesForCyclicError :: [ClassDecl t] -> Maybe ClassDeclsError
-checkClassesForCyclicError cds = 
+checkClassesForCyclicError cds =
   let cdf_assoc = classDefAssoc cds
-      res = map (superClassesConstr cdf_assoc []) (map nameOfClassDecl cds)  
-      left_elems = [fromLeft x | x <- res , isLeft x ] 
-  in case left_elems of 
-     [] -> Nothing 
+      res = map ((superClassesConstr cdf_assoc []) . nameOfClassDecl) cds
+      left_elems = [fromLeft x | x <- res , isLeft x ]
+  in case left_elems of
+     [] -> Nothing
      xs -> Just (CyclicClassHierarchy xs)
 
 
@@ -548,11 +556,15 @@ checkProgramClassDeclsError :: Program SRng -> Program AnnotTypingPhase -> Progr
 checkProgramClassDeclsError prelude (Program (PosAnnotTP annot) lex cds gvars rls asrt) =
   let pcds = classDeclsOfProgram (liftProgram prelude)
       initialClassDecls = (pcds ++ cds)
-      maybeCDErrClassNotWellformed = checkClassesForWfError initialClassDecls
-      maybeCDErrClassHierCyclic = checkClassesForCyclicError initialClassDecls
-  in Program (PosClassDeclsTP annot (maybeToList maybeCDErrClassNotWellformed ++ maybeToList maybeCDErrClassHierCyclic)) lex cds gvars rls asrt
+  in
+    case checkClassesForWfError initialClassDecls of
+      Just err -> Program (PosClassDeclsTP annot [err]) lex cds gvars rls asrt
+      Nothing -> case checkClassesForCyclicError initialClassDecls of
+        Just err -> Program (PosClassDeclsTP annot [err]) lex cds gvars rls asrt
+        Nothing -> Program (PosClassDeclsTP annot []) lex cds gvars rls asrt
 checkProgramClassDeclsError prelude _ =
   error "internal error in function checkProgramClassDeclsError: program should be PosAnnotTP in this step"
+
 
 ----------------------------------------------------------------------
 -- Typing Timed Automata

@@ -37,7 +37,8 @@ process filepath input = do
       -- print ast
       preludeAst <- readPrelude
       -- print (preludeAst)
-      --print (tpProgram preludeAst ast)
+      --pPrint (tpProgram preludeAst ast)
+      putStrLn "Print empty list"
       pPrint(checkProgramClassDeclsError preludeAst (liftProgram ast))
       -- print ast
       --GF.nlg ast
