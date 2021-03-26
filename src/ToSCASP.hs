@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 module ToSCASP where
 
@@ -24,7 +25,13 @@ class SCasp x where
   showSClist :: [x] -> Doc ann
   showSClist = vsep . map showSC
 instance SCasp (Program ct Tp) where
-  showSC = showSClist . rulesOfProgram
+  showSC Program { lexiconOfProgram,classDeclsOfProgram,globalsOfProgram,rulesOfProgram,assertionsOfProgram} =
+    vsep 
+      [
+        showSClist assertionsOfProgram,
+        showSClist  rulesOfProgram
+      ]
+
 
 instance SCasp (Rule Tp) where
   showSC (Rule rulename vardecls ifExp thenExp) =
@@ -33,6 +40,10 @@ instance SCasp (Rule Tp) where
         showSClist vardecls,
         showSC ifExp
       ]
+
+instance SCasp (Assertion Tp) where 
+  showSC (Assertion assertExpr) =
+    vsep [ showSC assertExpr ]
 
 instance SCasp VarDecl where
   showSC (VarDecl v tp) = indent' $ mkAtom tp <> parens (mkVar (v, tp))
