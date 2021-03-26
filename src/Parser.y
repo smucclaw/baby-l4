@@ -79,6 +79,7 @@ import Control.Monad.Except
 
     NUM   { Token pos (TokenNum $$) }
     VAR   { Token _ (TokenSym _) }
+    STRLIT { Token _ (TokenStringLit _)}
     STR   { Token _ (TokenString _) }
 
 -- Operators
@@ -103,7 +104,7 @@ Lexicon :                   { [] }
 
 Mappings :                   {[]}
           | Mappings Mapping {$2 : $1 }
-Mapping : VAR '->' VAR { Mapping (tokenRange $1 $3) (tokenSym $1) (tokenSym $3) }
+Mapping : VAR '->' STRLIT { Mapping (tokenRange $1 $3) (tokenSym $1) (tokenStringLit $3) }
 
 ClassDecls :                       { [] }
            | ClassDecls ClassDecl  { $2 : $1 }
@@ -229,10 +230,10 @@ RuleConcl   : then Expr    { $2 }
 
 tokenSym    (Token _ (TokenSym sym)) = sym
 tokenString (Token _ (TokenString str)) = str
+tokenStringLit (Token _ (TokenStringLit str)) = str
 
 lexwrap :: (Token -> Alex a) -> Alex a
 lexwrap = (alexMonadScan' >>=)
-
 parseError :: Token -> Alex a
 parseError (Token p t) =
   alexError' p ("parse error at token '" ++ unLex t ++ "'")

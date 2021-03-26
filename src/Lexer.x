@@ -30,6 +30,7 @@ import Data.Word (Word8)
 
 import Data.Char (ord)
 import qualified Data.Bits
+import qualified Language.LSP.Types            as J
 
 import Annotation (HasLoc(..), SRng(..), Pos(..), coordFromTo, tokenRange)
 
@@ -41,6 +42,9 @@ import Annotation (HasLoc(..), SRng(..), Pos(..), coordFromTo, tokenRange)
 $digit = 0-9
 $alpha = [a-zA-Z]
 $eol   = [\n]
+$graphic    = $printable # $white # $eol #\n #\" 
+$inString   = [$graphic $white]
+@string     = \" ($inString)* \"
 
 tokens :-
 
@@ -103,9 +107,13 @@ tokens :-
   \{                            { lex' TokenLBrace }
   \}                            { lex' TokenRBrace }
 
+
   -- Numbers and identifiers
+
   $digit+                       { lex (TokenNum . read) }
   $alpha [$alpha $digit \_ \']* { lex TokenSym }
+  @string                       { lex (TokenStringLit . read) }
+
   -- TODO: this is not the ultimate definition of strings
   -- (strings may not contain double quotes which cannot be escaped)
   \" (.#[\"])+ \"               { lex TokenString }
@@ -358,6 +366,7 @@ token t input__ len = return (t input__ len)
 ---------------------------------
 
 data Err = Err { epos :: SRng , msg :: String }
+  | StringErr {msg :: String}
   deriving (Show)
 
 -- To improve error messages, We keep the path of the file we are
@@ -426,6 +435,7 @@ data TokenKind
   | TokenLParen
   | TokenRParen
   | TokenEOF
+  | TokenStringLit String
 
   | TokenNum Integer
   | TokenSym String
@@ -481,6 +491,7 @@ unLex TokenEOF       = "<EOF>"
 unLex (TokenNum i)   = show i
 unLex (TokenSym s)   = show s
 unLex (TokenString s)   = show s
+unLex (TokenStringLit s) = show s
 
 alexEOF :: Alex Token
 alexEOF = do

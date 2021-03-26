@@ -1,10 +1,12 @@
 --# -path=.:present
 
-concrete PropEng of Prop = PropI - [PNeg, PNegAtom] with 
+concrete PropEng of Prop = PropI - [PNeg] with 
   (Syntax = SyntaxEng), 
   (Symbolic = SymbolicEng),
   (Sentence = SentenceEng),
-  (WordNet = WordNetEng)
+  (Extend = ExtendEng),
+  (WordNet = WordNetEng),
+  (Verb = VerbEng)
    ** open (P = ParadigmsEng), ExtraEng, Prelude in {
 
 -- exceptions
@@ -14,10 +16,6 @@ lin
     s = mkS ExtraEng.UncNeg (mkCl 
           (mkVP (mkNP the_Quant (mkCN case_N (mkAdv that_Subj p.s))))) ; 
     c = False ---- ?
-    } ;
-  PNegAtom a = {
-    s = mkS ExtraEng.UncNeg a ;
-    c = False
     } ;
 
 -- instance of interface
@@ -35,18 +33,18 @@ oper
 -- test lexicon
 
 lin
-  Vertical = mkAP (P.mkA "vertical") ;
-  Horizontal = mkAP (P.mkA "horizontal") ;
-  Parallel = P.mkA2 (P.mkA "parallel") to_Prep ;
-  Equal = P.mkA2 (P.mkA "equal") to_Prep ;
+  -- Vertical = mkAP (P.mkA "vertical") ;
+  -- Horizontal = mkAP (P.mkA "horizontal") ;
+  -- Parallel = P.mkA2 (P.mkA "parallel") to_Prep ;
+  -- Equal = P.mkA2 (P.mkA "equal") to_Prep ;
   Centre = mkFun1 "centre" ;
   Intersection = mkFun2 "intersection" ;
 
   Set k = k ** {s = mkCN set_N2 (mkNP a_Art plNum k.s)} ; 
   KFun = funType (P.mkN3 function_1_N from_Prep to_Prep) ;
 
-  Even = mkAP (P.mkA "even") ;
-  Odd = mkAP (P.mkA "odd") ;
+  -- Even = mkAP (P.mkA "even") ;
+  -- Odd = mkAP (P.mkA "odd") ;
   Square = mkFun1 "square" ;
   Sum = mkFun2 "sum" ;
   Product = mkFun2 "product" ;

@@ -5,23 +5,33 @@ incomplete concrete PropI of Prop = open
   Symbolic, 
   Sentence, ---- ExtAdvS
   WordNet,
+  Extend,
+  Verb,
   Prelude in {
 
 lincat
   Prop = {s : S ; c : Bool} ; -- c = True for connectives
-  Atom = Cl ;
-  Pred1 = AP ;
-  Pred2 = A2 ;
+  Atom = {s : NP ; vp : MyPol => VPS} ;
+  Pred1 = MyPol => VPS ;
+  Pred2 = MyPol => VPS2 ;
   Var = Symb ;
   Conj = {s : Syntax.Conj ; c : S} ;  -- s = and ; c = all these hold
   Ind  = {s : NP ; isSymbolic : Bool} ;
   Fun1 = {s : Symb ; v : N2} ;
   Fun2 = {s : Symb ; v : N2} ;
   Noun = N ;
+  Noun2 = N2 ;
   Adj = A ;
+  Adj2 = A2 ;
+  Verb = V ;
+  Verb2 = V2 ;
+  PassVerb2 = VP ;
+
+param
+  MyPol = MyPos | MyNeg ;
 
 lin
-  PAtom a = {s = mkS a ; c = False} ;
+  PAtom a = {s = PredVPS a.s (a.vp ! MyPos) ; c = False} ;
   PNeg p = { 
     s = mkS negativePol (mkCl 
           (mkVP (mkNP the_Quant (mkCN case_N (mkAdv that_Subj p.s))))) ; 
@@ -38,8 +48,8 @@ lin
             (mkAP (mkAP such_A) p.s)))) ;
     c = False
     } ;
-  APred1 f x = mkCl x.s f ;
-  APred2 f x y = mkCl x.s f y.s ;
+  APred1 f x = {s = x.s ; vp = f} ;
+  APred2 f x y = {s = x.s ; vp = \\pol => ComplVPS2 (f ! pol) y.s} ;
 
   IVar x = {s = (symb x) ; isSymbolic = True} ;
   IVarN n = {s = mkNP n ; isSymbolic = False} ;
@@ -73,16 +83,27 @@ lin
 lincat
   Kind = {s : CN ; isClass : Bool} ;
   [Prop] = {s : [S] ; c : Bool} ; -- c = True if any of props is complex
-  [Pred1] = [AP] ;
+  [Pred1] = MyPol => [VPS] ;
   [Ind] = [NP] ;
   [Var] = NP ;
 
+oper
+  myVPS : VP -> MyPol => Extend.VPS = \vp ->
+    let vps : Pol -> VPS = \pol -> Extend.MkVPS (mkTemp presentTense simultaneousAnt) pol vp ;
+     in table { MyPos => vps positivePol ;
+                MyNeg => vps negativePol } ;   
+  myVPS2 : VPSlash -> MyPol => Extend.VPS2 = \vp -> 
+    let vps2 : Pol -> VPS2 = \pol -> Extend.MkVPS2 (mkTemp presentTense simultaneousAnt) pol vp ;
+     in table { MyPos => vps2 positivePol ;
+                MyNeg => vps2 negativePol } ;  
+
 lin
   AKind k x = 
-    case k.isClass of {
-      True => mkCl x.s (mkVP have_V2 (mkNP k.s)) ;
-      False => mkCl x.s k.s 
-      } ;
+    {s = x.s ;
+     vp = case k.isClass of {
+            True => myVPS (mkVP have_V2 (mkNP k.s)) ;
+            False => myVPS (mkVP k.s)}
+    } ;
 
   PConjs c ps = case ps.c of {
     True  => {s = mkS <colonConj : Conj> c.c (mkS <bulletConj : Conj> ps.s) ; c = False} ; ----
@@ -96,8 +117,12 @@ lin
     s = mkS (mkCl (mkNP a_Quant (mkCN (mkCN k.s vs) (mkAP (mkAP such_A) p.s)))) ;
     c = False
     } ;
+  PNotExists vs k p = {
+    s = mkS negativePol (ExistCN (mkCN (mkCN k.s vs) (mkAP (mkAP such_A) p.s))) ;
+    c = False
+    } ;
   PNegAtom a = {
-    s = mkS negativePol a ;
+    s = PredVPS a.s (a.vp ! MyNeg) ;
     c = False
     } ;
 
@@ -110,32 +135,47 @@ lin
   BaseInd x y = mkListNP x.s y.s ;
   ConsInd x xs = mkListNP x.s xs ;
 
-  BasePred1 = mkListAP ;
-  ConsPred1 = mkListAP ;
+  BasePred1 p q = \\pol => BaseVPS (p ! pol) (q ! pol) ;
+  ConsPred1 p ps = \\pol => ConsVPS (p ! pol) (ps ! pol) ;
+
+  PAdj1 a = myVPS (mkVP a) ;
+  PAdj2 a = myVPS2 (A2VPSlash a) ;
+--  PAdj12 a = myVPS2 (mkVP a) ;
+  PNoun1 n = myVPS (mkVP n) ;
+  PNoun2 n = myVPS2 (N2VPSlash n) ;
+  PVerb1 v = myVPS (mkVP v) ;
+  PVerb2 v = myVPS2 (mkVPSlash v) ;
+  Passive = passiveVP ;
+  PPassV2 vp = myVPS vp ;
+
+  PVar1 var = myVPS (mkVP (symb var)) ;
+  PVar2 var = myVPS2 (VPSlashPrep (mkVP (symb var)) to_Prep) ; ----
+
+  INoun n = {s = mkNP the_Det n ; isSymbolic = False} ;
 
 lin
-  ConjPred1 c = mkAP c.s ;
+  ConjPred1 c ps = \\pol => ConjVPS c.s (ps ! pol) ;
 
-  APredColl f ps = mkCl (mkNP and_Conj ps) (mkAP f) ;
-  APredRefl f x = mkCl x.s (reflAP f) ;
+  APredColl f ps = {s = mkNP and_Conj ps ; vp = \\pol => ComplVPS2 (f ! pol) it_NP} ; -- TODO empty NP
+  APredRefl f x = {s = <x.s : NP> ; vp = \\pol => ReflVPS2 (f ! pol) ReflPron} ;
 
   IFunC f xs = {s = app f.v (mkNP and_Conj xs) ; isSymbolic = False} ;
 
   IUniv k = {s = mkNP every_Det k.s ; isSymbolic = False} ;
-  IExist k = {s = mkNP someSg_Det k.s ; isSymbolic = False} ;
+  IExist k = {s = mkNP aSg_Det k.s ; isSymbolic = False} ;
 
   ConjInd co xs = {s = mkNP co.s xs ; isSymbolic = False} ;
 
-  ModKind k m = k ** {s = mkCN m k.s} ;
+  -- ModKind k m = k ** {s = mkCN m k.s} ;
 
-  PartPred f x = mkAP f x.s ; 
+  PartPred f x = \\pol => ComplVPS2 (f ! pol) x.s ; 
 
   IInt i = {s = symb i.s ; isSymbolic = True} ;
 
   BTrue = {s = symb "true" ; isSymbolic = True} ;
   BFalse = {s = symb "false" ; isSymbolic = True} ;
   KInd ind = {s = mkCN type_5_N ind.s ; isClass = True} ;
--- symbolic applications by LaTeX macros
+  KNoun noun = {s = mkCN noun ; isClass = False} ;
 
 oper
   funType : N3 -> LinKind -> LinKind -> LinKind = \f,arg,ret ->

@@ -3,15 +3,20 @@
 # pending: sub-conditions
 # pending: define grammars for 'subject to', 'condition', 'date' & 'time'(?)
 
-
-
 lexicon
-Business -> business_2 #from WordNet
-Value -> value_1 
-
-# Business.value -> foo_42 from Sumo
-
-# BusinessEntity.value -> foo_43 from WordNet
+Business -> "business_1_N"
+BusinessEntity -> "CompoundN business_1_N entity_N"
+IncompatibleDignity -> "mkA2 incompatible_1_A with_Prep"
+LegalPractitioner -> "lawyer_N"
+LocumSolicitor -> "lawyer_N"
+AcceptApp -> "accept_4_V2"
+AssociatedWithApp -> "mkA2 associated_A with_Prep"
+AssociatedWithAppB -> "mkA2 associated_A with_Prep"
+AssociatedWith -> "mkA2 associated_A with_Prep"
+Appointment -> "appointment_1_N"
+LawRelatedService -> "service_1_N"
+Provides -> "provide_1_V2"
+App -> "accept_2_V2"
 
 
 class Business {
@@ -93,7 +98,7 @@ if not (exists bsn : Business. AssociatedWith app bsn && IncompatibleDignity bsn
                   not (exists srv : Business.  LawRelatedService srv && Provides bse srv) &&
                   ConditionsSecondSchedule lpr bse)
 then 
-App lpr app
+AcceptApp lpr app
 
 assert exists lpr: LegalPractitioner. exists app: Appointment. MayAcceptApp lpr app
 
