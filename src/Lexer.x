@@ -32,7 +32,7 @@ import Data.Char (ord)
 import qualified Data.Bits
 import qualified Language.LSP.Types            as J
 
-import Syntax (HasLoc(..), SRng(..), Pos(..))
+import Annotation (HasLoc(..), SRng(..), Pos(..), coordFromTo, tokenRange)
 
 
 }
@@ -568,11 +568,11 @@ aposToPos (AlexPn _ l c) = Pos (l - 1) (c - 1)
 offset :: Int -> Pos -> Pos
 offset n (Pos l c) = Pos l (c + n)
 
-coordFromTo :: SRng -> SRng -> SRng
-coordFromTo (SRng f1 t1) (SRng f2 t2) = SRng f1 t2
+--coordFromTo :: SRng -> SRng -> SRng
+--coordFromTo (SRng f1 t1) (SRng f2 t2) = SRng f1 t2
 
-tokenRange :: (HasLoc f, HasLoc g) => f -> g -> SRng
-tokenRange a b = coordFromTo (getLoc a) (getLoc b)
+--tokenRange :: (HasLoc f, HasLoc g) => f -> g -> SRng
+--tokenRange a b = coordFromTo (getLoc a) (getLoc b)
 
 startOf :: SRng -> Pos
 startOf (SRng s _) = s

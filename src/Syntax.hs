@@ -2,14 +2,16 @@
 {-# LANGUAGE DeriveFunctor #-}
 -- {-# OPTIONS_GHC -Wpartial-fields #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE TypeFamilies #-}
+
 module Syntax where
 
 
 -- Class for annotated expressions
-import qualified Language.LSP.Types as J
+import qualified Language.LSP.Types as J    -- TODO: is that used anywhere?
 import qualified Data.List as List
 import Data.Data (Data, Typeable)
-
+import Annotation
 
 ----------------------------------------------------------------------
 -- Definition of expressions
@@ -31,6 +33,9 @@ newtype FieldName = FldNm String
 newtype PartyName = PtNm String
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
+
+-- TODO: has been moved to Annotation.hs
+{-
 class HasLoc a where
   getLoc :: a -> SRng
 
@@ -48,20 +53,25 @@ data SRng = SRng
 
 instance HasLoc SRng where
   getLoc = id
+-}
 
 ----- Program
 
-data Program ct et = Program{ lexiconOfProgram :: [Mapping]
-                            , classDeclsOfProgram ::  [ClassDecl ct] 
-                            , globalsOfProgram :: [VarDecl] 
-                            , rulesOfProgram :: [Rule et]
-                            , assertionsOfProgram :: [Assertion et] }
+data Program t = Program{ annotOfProgram :: t
+                            , lexiconOfProgram :: [Mapping t]
+                            , classDeclsOfProgram ::  [ClassDecl t] 
+                            , globalsOfProgram :: [VarDecl t] 
+                            , rulesOfProgram :: [Rule t]
+                            , assertionsOfProgram :: [Assertion t] }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
-removeAnnotations :: Program ct et -> Program ct ()
-removeAnnotations = (()<$)
+-- TODO: still needed?
+--removeAnnotations :: Program ct et -> Program ct ()
+--removeAnnotations = (()<$)
 
 ----- Types
+-- TODO: also types have to be annotated with position information 
+-- for the parser to do the right job
 data Tp
   = BoolT
   | IntT
@@ -71,31 +81,41 @@ data Tp
   | ErrT
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-data VarDecl = VarDecl VarName Tp
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
-data Mapping = Mapping SRng VarName VarName
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+data VarDecl t = VarDecl t VarName Tp
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+instance HasLoc t => HasLoc (VarDecl t) where
+  getLoc (VarDecl t _ _) = getLoc t
+
+data Mapping t = Mapping t VarName VarName
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+instance HasLoc t => HasLoc (Mapping t) where
+  getLoc (Mapping t _ _) = getLoc t
 
 -- Field attributes: for example cardinality restrictions
 -- data FieldAttribs = FldAtt
-data FieldDecl = FieldDecl FieldName Tp -- FieldAttribs
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+data FieldDecl t = FieldDecl t FieldName Tp -- FieldAttribs
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 -- superclass, list of field declarations
-data ClassDef t = ClassDef { supersOfClassDef :: t
-                           , fieldsOfClassDef :: [FieldDecl] }
+-- TODO: ClassDef currently without annotation as ClassDef may be empty
+--       and it is unclear how to define position information of empty elements
+data ClassDef t = ClassDef { supersOfClassDef :: [ClassName]
+                           , fieldsOfClassDef :: [FieldDecl t] }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 -- declares class with ClassName and definition as of ClassDef
-data ClassDecl t = ClassDecl { nameOfClassDecl :: ClassName
+data ClassDecl t = ClassDecl { annotOfClassDecl :: t
+                             , nameOfClassDecl :: ClassName
                              , defOfClassDecl :: ClassDef t }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
-
+instance HasLoc t => HasLoc (ClassDecl t) where
+  getLoc = getLoc . annotOfClassDecl
 
 
 -- Custom Classes and Preable Module
 -- some custom classes - should eventually go into a prelude and not be hard-wired
-objectC = ClassDecl (ClsNm "Object") (ClassDef Nothing [])
+-- TODO: now special treatment in Prelude.l4
+-- objectC = ClassDecl (ClsNm "Object") (ClassDef Nothing [])
 
 {-
 TODO: the following should be defined in concrete syntax in a preamble.
@@ -126,7 +146,8 @@ eventC  = ClassDecl (ClsNm "Event")
 customCs = [objectC, qualifNumC, currencyC] ++ currencyCs ++ [timeC] ++ timeCs ++ [eventC]
 -}
 
-customCs = [objectC]
+-- TODO: now special treatment in Prelude.l4
+--customCs = [objectC]
 
 ----- Expressions
 data Val
@@ -188,26 +209,30 @@ data Pattern
 data Quantif = All | Ex
     deriving (Eq, Ord, Show, Read, Data, Typeable)
 
+type family Annot tpPhase
+type instance Annot SRng = SRng 
 
 -- Expr t is an expression of type t (to be determined during type checking / inference)
 data Expr t
-    = ValE        SRng t Val                          -- value
-    | VarE        SRng t Var                          -- variable
-    | UnaOpE      SRng t UnaOp (Expr t)               -- unary operator
-    | BinOpE      SRng t BinOp (Expr t) (Expr t)      -- binary operator
-    | IfThenElseE SRng t (Expr t) (Expr t) (Expr t)   -- conditional
-    | AppE        SRng t (Expr t) (Expr t)            -- function application
-    | FunE        SRng t Pattern Tp (Expr t)          -- function abstraction
-    | QuantifE    SRng t Quantif VarName Tp (Expr t)  -- quantifier
+    = ValE        t Val                          -- value
+    | VarE        t Var                          -- variable
+    | UnaOpE      t UnaOp (Expr t)               -- unary operator
+    | BinOpE      t BinOp (Expr t) (Expr t)      -- binary operator
+    | IfThenElseE t (Expr t) (Expr t) (Expr t)   -- conditional
+    | AppE        t (Expr t) (Expr t)            -- function application
+    | FunE        t Pattern Tp (Expr t)          -- function abstraction
+    | QuantifE    t Quantif VarName Tp (Expr t)  -- quantifier
     -- | ClosE       SRng t [(VarName, Expr t)] (Expr t) -- closure  (not externally visible)
-    | FldAccE     SRng t (Expr t) FieldName           -- field access
-    | TupleE      SRng t [Expr t]                     -- tuples
-    | CastE       SRng t Tp (Expr t)                  -- cast to type
-    | ListE       SRng t ListOp [Expr t]              -- list expression
-    | NotDeriv    SRng t Bool Var (Expr t)            -- Negation as failure "not". 
+    | FldAccE     t (Expr t) FieldName           -- field access
+    | TupleE      t [Expr t]                     -- tuples
+    | CastE       t Tp (Expr t)                  -- cast to type
+    | ListE       t ListOp [Expr t]              -- list expression
+    | NotDeriv    t Bool Var (Expr t)            -- Negation as failure "not". 
                                                       -- The Bool expresses whether "not" precedes a positive literal (True)
                                                       -- or is itself classically negated (False)
     deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
+    {-
 instance HasLoc (Expr t) where
   getLoc x = case x of
     ValE        loc _ _       -> loc
@@ -223,38 +248,43 @@ instance HasLoc (Expr t) where
     CastE       loc _ _ _     -> loc
     ListE       loc _ _ _     -> loc
     NotDeriv    loc _ _ _ _   -> loc 
+-}
 
 childExprs :: Expr t -> [Expr t]
 childExprs x = case x of
-    ValE        _ _ _       -> []
-    VarE        _ _ _       -> []
-    UnaOpE      _ _ _ a     -> [a]
-    BinOpE      _ _ _ a b   -> [a,b]
-    IfThenElseE _ _ i t e   -> [i,t,e]
-    AppE        _ _ f x     -> [f,x]
-    FunE        _ _ _ _ x   -> [x]
-    QuantifE    _ _ _ _ _ x -> [x]
-    FldAccE     _ _ x _     -> [x]
-    TupleE      _ _ xs      -> xs
-    CastE       _ _ _ x     -> [x]
-    ListE       _ _ _ xs     -> xs
-    NotDeriv    _ _ _ _ e    -> [e]
+    ValE        _ _       -> []
+    VarE        _ _       -> []
+    UnaOpE      _ _ a     -> [a]
+    BinOpE      _ _ a b   -> [a,b]
+    IfThenElseE _ i t e   -> [i,t,e]
+    AppE        _ f x     -> [f,x]
+    FunE        _ _ _ x   -> [x]
+    QuantifE    _ _ _ _ x -> [x]
+    FldAccE     _ x _     -> [x]
+    TupleE      _ xs      -> xs
+    CastE       _ _ x     -> [x]
+    ListE       _ _ xs    -> xs
+    NotDeriv    _ _ _ e   -> [e]
 
-tpOfExpr :: Expr t -> t
-tpOfExpr x = case x of
-  ValE        _ t _       -> t
-  VarE        _ t _       -> t
-  UnaOpE      _ t _ _     -> t
-  BinOpE      _ t _ _ _   -> t
-  IfThenElseE _ t _ _ _   -> t
-  AppE        _ t _ _     -> t
-  FunE        _ t _ _ _   -> t
-  QuantifE    _ t _ _ _ _ -> t
-  FldAccE     _ t _ _     -> t
-  TupleE      _ t _       -> t
-  CastE       _ t _ _     -> t
-  ListE       _ t _ _     -> t
-  NotDeriv    _ t _ _ _    -> t
+annotOfExpr :: Expr t -> t
+annotOfExpr x = case x of
+  ValE        t _       -> t
+  VarE        t _       -> t
+  UnaOpE      t _ _     -> t
+  BinOpE      t _ _ _   -> t
+  IfThenElseE t _ _ _   -> t
+  AppE        t _ _     -> t
+  FunE        t _ _ _   -> t
+  QuantifE    t _ _ _ _ -> t
+  FldAccE     t _ _     -> t
+  TupleE      t _       -> t
+  CastE       t _ _     -> t
+  ListE       t _ _     -> t
+  NotDeriv    t _ _ _   -> t
+
+
+instance HasLoc t => HasLoc (Expr t) where
+  getLoc e = getLoc (annotOfExpr e)
 
 -- Cmd t is a command of type t
 data Cmd t
@@ -264,11 +294,25 @@ data Cmd t
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 
-data Rule t = Rule RuleName [VarDecl] (Expr t) (Expr t)
+data Rule t = Rule t RuleName [VarDecl t] (Expr t) (Expr t)
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
-data Assertion t = Assertion (Expr t)
+annotOfRule :: Rule t -> t  
+annotOfRule (Rule t _ _ _ _) = t
+
+instance HasLoc t => HasLoc (Rule t) where
+  getLoc e = getLoc (annotOfRule e)
+
+data Assertion t = Assertion t (Expr t)
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
+annotOfAssertion :: Assertion t -> t  
+annotOfAssertion (Assertion t _) = t
+
+instance HasLoc t => HasLoc (Assertion t) where
+  getLoc e = getLoc (annotOfAssertion e)
+
+
 
 ----------------------------------------------------------------------
 -- Definition of Timed Automata

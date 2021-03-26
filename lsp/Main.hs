@@ -32,6 +32,8 @@ import Control.Monad.Trans.Except (except, ExceptT)
 import Control.Monad.Except
 -- import Syntax (Pos(..),SRng(..))
 
+import Annotation
+
 type Config = ()
 
 handlers :: Handlers (LspM ())
@@ -140,18 +142,18 @@ errorRange (StringErr _) = Range (Position 0 0) (Position 999 0)
 -- TODO: Show type errors as diagnostics
 
 -- | Use magic to find all Expressions in a program
-findAllExpressions :: (Data ct, Data et) => Program ct et -> [Expr et]
+findAllExpressions :: (Data t) => Program t -> [Expr t]
 findAllExpressions = toListOf template
 
 -- | Find the smallest subexpression which contains the specified position
-findExprAt :: J.Position -> Expr t -> Expr t
+findExprAt :: HasLoc t => J.Position -> Expr t -> Expr t
 findExprAt pos expr =
   case List.find (posInRange pos . getLoc) (childExprs expr) of
     Nothing -> expr
     Just sub -> findExprAt pos sub
 
 -- | Given a position and a parsed program, try to find if there is any expression at that location
-findAnyExprAt :: (Data ct, Data et) => J.Position -> Program ct et -> Maybe (Expr et)
+findAnyExprAt :: (HasLoc t, Data t) => J.Position -> Program t -> Maybe (Expr t)
 findAnyExprAt pos = List.find (posInRange pos . getLoc) . findAllExpressions
 
 -- | Temporary bad debugging function.

@@ -1,5 +1,7 @@
 # l4version 0.3.4
 
+
+class Object 
 class Boolean extends Object
 
 class Number extends Object

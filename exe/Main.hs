@@ -4,8 +4,8 @@
 module Main where
 
 import Parser (parseProgram)
-import Syntax (Program, ClassName)
-import Typing (tpProgram)
+import Syntax (Program, ClassName, Tp (ErrT))
+import Typing ( tpProgram, extractType )
 import System.Environment ( getEnv )
 import Options.Applicative
 import qualified ToGF as GF
@@ -13,10 +13,10 @@ import System.IO ( stderr, hPutStr, hPutStrLn, hPrint )
 import System.IO.Error (catchIOError)
 import Control.Exception (catch, SomeException (SomeException))
 import Control.Monad ( when, unless )
+import Annotation ( SRng )
 
 
-
-readPrelude :: IO (Program (Maybe ClassName) ())
+readPrelude :: IO (Program SRng)
 readPrelude = do
   let l4PreludeFilepath = "l4/Prelude.l4"
   do
@@ -24,7 +24,7 @@ readPrelude = do
     case parseProgram l4PreludeFilepath contents of
       Right ast -> do
         -- print ast
-        return (() <$ ast)
+        return ast
       Left err -> do
         error "Parser Error in Prelude"
 
@@ -37,20 +37,20 @@ process args input = do
       preludeAst <- readPrelude
 
       let tpAst = tpProgram preludeAst ast
+      let tpAstNoSrc = fmap extractType tpAst
 
       when (astHS args) $ do
         hPrint stderr tpAst
       when (astGF args) $ do
-        GF.nlgAST (getGFL $ format args) tpAst
+        GF.nlgAST (getGFL $ format args) tpAstNoSrc
       unless (astGF args) $ do
-        GF.nlg (getGFL $ format args) tpAst
+        GF.nlg (getGFL $ format args) tpAstNoSrc
     Left err -> do
       putStrLn "Parser Error:"
       print err
   where
     getGFL (Fall)    = GF.GFall
     getGFL (Fgf gfl) = gfl
-
 
 data Format   = Fall | Fgf GF.GFlang deriving Show
 
