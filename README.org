@@ -40,10 +40,10 @@ more typechecking! more expressions!
 
 * Toolchain Versions
 
-| l4 version | file    | parser status | nlg status         | ide status             | type checking | reasoner status |
-|------------+---------+---------------+--------------------+------------------------+---------------+-----------------|
-|      0.3.2 | mini.l4 | ok            | ok                 | syntax highlighting ok |               |                 |
-|      0.3.2 | cr.l4   | ok            | errors on typ2kind |                        |               |                 |
+| l4 version | file    | parser status | nlg status    | ide status             | type checking | reasoner status |
+|------------+---------+---------------+---------------+------------------------+---------------+-----------------|
+|      0.3.2 | mini.l4 | ok            | ok            | syntax highlighting ok |               |                 |
+|      0.3.2 | cr.l4   | ok            | ok            |                        |               |                 |
 
 | version | language feature                           | handled by           | status | consumed by |
 |---------+--------------------------------------------+----------------------+--------+-------------|
@@ -73,18 +73,14 @@ more typechecking! more expressions!
 
 We should have a test suite that creates this dashboard. See issue #4.
 
-#+begin_example
-l4: typ2kind: not yet supported: FunT (ClassT (ClsNm "LegalPractitioner")) (FunT (ClassT (ClsNm "Appointment")) BoolT)
-CallStack (from HasCallStack):
-  error, called at src/ToGF.hs:43:8 in baby-l4-0.1.0.0-7MSFL28Gv2uEWQACncPSnj:ToGF
-#+end_example
-
 * Checkin with different departments and backends
 
 ** To DocAssemble
 
 
 ** To s(CASP)
+
+Work started in branch toSCASP
 
 ** To GF via PGF
 
@@ -134,23 +130,15 @@ A textual trace is then written to standard output.
 The goal is for this to work:
 
 #+begin_example
-stack run l4 l4/mini.l4
+stack run l4 gf en l4/mini.l4
 #+end_example
 
 and you should (eventually) get this output:
 
 #+begin_example
-Program [Mapping "is_legal" "legal_1_A",Mapping "Business" "business_1_N"] [] [VarDecl "myNumber" IntT,VarDecl "myBusiness" (ClassT (ClsNm "Business")),VarDecl "is_legal" (FunT (ClassT (ClsNm "Business")) BoolT)] [] []
+if there is no business bsn such that the business is associated with the appointment , then the lawyer doesn't accept the appointment
 
-PAtom (AKind Nat (IVar (VString "myNumber")))
-myNumber is a number
-myNumber är ett tal
-PAtom (AKind (KInd (IVarN Business)) (IVar (VString "myBusiness")))
-myBusiness has type business
-myBusiness är av typen affär
-PAtom (AKind (KFun (KInd (IVarN Business)) Boolean) (IVar (VString "is_legal")))
-is_legal is a function from the type business to a Boolean value
-is_legal är en funktion från typen affär till en boolesk variabel
+if a business is illegal , then the lawyer doesn't accept the appointment
 #+end_example
 
 So try running the command above; it does a =stack build= along the way, and you can expect the first run to take a little while.
@@ -258,7 +246,7 @@ $mygf --gfo-dir=$GF_LIB_PATH WordNetEng.gf WordNetSwe.gf
 ** Did it work?
 
 #+begin_example
-stack run l4 l4/mini.l4
+stack run l4 gf en l4/mini.l4
 #+end_example
 
 should produce a whole bunch of errors you can ignore:
@@ -270,15 +258,10 @@ Warning: Unable to find a known candidate for the Cabal entry Prop, but did find
          * PropLexiconEng.gf
          * PropLexicon.gf
          * PropTopEng.gf
-         * PropLatex.gf
          * Prop.gf
          * PropTopSwe.gf
-         * PropLexiconPor.gf
-         * Prop.gfo
-         * PropPor.gf
          * PropSwe.gf
          * PropTop.gf
-         * PropTopPor.gf
          * PropLexiconSwe.gf If you are using a custom preprocessor for this module with its own file extension, consider adding the file(s)
          to your .cabal under extra-source-files.
 baby-l4-0.1.0.0: unregistering (local file changes: README.org)
@@ -296,15 +279,10 @@ Warning: Unable to find a known candidate for the Cabal entry Prop, but did find
          * PropLexiconEng.gf
          * PropLexicon.gf
          * PropTopEng.gf
-         * PropLatex.gf
          * Prop.gf
          * PropTopSwe.gf
-         * PropLexiconPor.gf
-         * Prop.gfo
-         * PropPor.gf
          * PropSwe.gf
          * PropTop.gf
-         * PropTopPor.gf
          * PropLexiconSwe.gf If you are using a custom preprocessor for this module with its own file extension, consider adding the file(s)
          to your .cabal under extra-source-files.
 baby-l4> copy/register
@@ -317,17 +295,9 @@ Registering library for baby-l4-0.1.0.0..
 ... and eventually produce the desired output:
 
 #+begin_example
-Program [Mapping "is_legal" "legal_1_A",Mapping "Business" "business_1_N"] [] [VarDecl "myNumber" IntT,VarDecl "myBusiness" (ClassT (ClsNm "Business")),VarDecl "is_legal" (FunT (ClassT (ClsNm "Business")) BoolT)] [] []
+if there is no business bsn such that the business is associated with the appointment , then the lawyer doesn't accept the appointment
 
-PAtom (AKind Nat (IVar (VString "myNumber")))
-myNumber is a number
-myNumber är ett tal
-PAtom (AKind (KInd (IVarN Business)) (IVar (VString "myBusiness")))
-myBusiness has type business
-myBusiness är av typen affär
-PAtom (AKind (KFun (KInd (IVarN Business)) Boolean) (IVar (VString "is_legal")))
-is_legal is a function from the type business to a Boolean value
-is_legal är en funktion från typen affär till en boolesk variabel
+if a business is illegal , then the lawyer doesn't accept the appointment
 #+end_example
 
 ** Help
@@ -347,7 +317,7 @@ Yes! You can do that!
 All you need to do is run =nix-shell= in the baby-l4 directory or =direnv enable= if you have direnv installed.
 This will automatically install gf-rgl and gf-wordnet set the =$GF_LIB_PATH= variable to point to them.
 
-If you want to use this installation elsewhere, you can run
+If you want to use this installation more than once, you can run
 
 #+begin_example
 echo "export GF_LIB_PATH=$GF_LIB_PATH" >> ~/.zshenv
