@@ -37,8 +37,7 @@
 # 18. The lower a level of detail you choose to model, the easier it is to write the rules, and the harder it is to write
 #     the lexicon.
 # 19. It would be useful if we could also replace the default translation that GF provides on a case-by-case basis, using
-#     something like s(CASP)'s predicate statements, if generating a WordNet phrase is going to be complicated.
-
+#     something like s(CASP)'s predicate statements, as a stop-gap measure.
 
 # TODO: Fill out lexicon
 lexicon
