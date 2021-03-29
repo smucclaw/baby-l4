@@ -14,11 +14,12 @@ import System.IO.Error (catchIOError)
 import Control.Exception (catch, SomeException (SomeException))
 import Control.Monad ( when, unless )
 import Annotation ( SRng )
+import Paths_baby_l4 (getDataFileName)
 
 
 readPrelude :: IO (Program SRng)
 readPrelude = do
-  let l4PreludeFilepath = "l4/Prelude.l4"
+  l4PreludeFilepath <- getDataFileName "l4/Prelude.l4"
   do
     contents <- readFile l4PreludeFilepath
     case parseProgram l4PreludeFilepath contents of
