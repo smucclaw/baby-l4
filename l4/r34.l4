@@ -38,6 +38,9 @@
 #     the lexicon.
 # 19. It would be useful if we could also replace the default translation that GF provides on a case-by-case basis, using
 #     something like s(CASP)'s predicate statements, as a stop-gap measure.
+# 20. The method of defeasibility I'm using below is painful, and inadequate.
+#     Half the code implements defeasibility, when it could be done in a matter of
+#     a dozen lines, or so.
 
 # TODO: Fill out lexicon
 lexicon
@@ -67,9 +70,9 @@ Institution -> "institution_1_N"
 Service -> "service_1_N"
 Legal -> "legal_4_A"
 # HeldAsRepresentativeOf
-# EntitlesHolder
+# EntitlesHolder -> 
 # NonExecutiveDirector
-# IndependentDirector
+# IndependentDirector -> "AdjCN independent_1_A director_2_N"
 # MustNotAccept
 # MayAccept
 # PrimaryOccupationIsPracticingAsLawyer
@@ -78,12 +81,12 @@ Person -> "person_1_N"
 # AuthorizedToPracticeLaw
 # LawPractice -> "legal_4_A practice_3_V2"
 Owner -> "owner_1_N"
-# LegalOwner
-# BeneficialOwner
+# LegalOwner -> "AdjCN legal_4_A owner_1_N"
+# BeneficialOwner -> "mkN beneficial owner_1_N"
 Partner -> "partner_3_N"
 SoleProprietor -> "proprietor_N"
 Director -> "director_2_N"
-# JurisdictionIsSingapore
+# JurisdictionIsSingapore -> "mkN2 in_Prep singapore_2_PN"
 Member -> "member_1_N"
 # BusinessEntity 
 # ThePracticeOfLaw
@@ -93,7 +96,7 @@ Corporation -> "corporation_1_N"
 Partnership -> "partnership_3_N"
 # LLP -> 
 SoleProp -> "proprietorship_N"
-# BusinessTrust -> 
+BusinessTrust -> "CompoundN business_1_N trust_1_N"
 # JointLawVenture
 # FormalLawAlliance
 # ForeignLawPractice
@@ -192,8 +195,164 @@ class FormalLawAlliance
 
 class ForeignLawPractice
 
-
 decl ConditionsOfSecondScheduleAreSatisfied: Global
+
+decl r34_1_applies: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_1_a_applies: Business -> Boolean
+decl r34_1_c_applies: Business -> Boolean
+decl r34_1_d_applies: Business -> Boolean
+decl r34_1_e_applies: Business -> Boolean
+decl r34_1_f_applies: Business -> Boolean
+decl r34_1A_applies: LegalPractitioner -> ExecutiveAppointment  -> Boolean
+decl r34_2_a_applies: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_2_b_applies: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_3_applies: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_4_applies: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_5_applies: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_6_a_applies: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_6_b_applies: LegalPractitioner -> ExecutiveAppointment -> Boolean
+
+decl r34_1_defeated: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_1_a_defeated: Business -> Boolean
+decl r34_1_c_defeated: Business -> Boolean
+decl r34_1_d_defeated: Business -> Boolean
+decl r34_1_e_defeated: Business -> Boolean
+decl r34_1_f_defeated: Business -> Boolean
+decl r34_1A_defeated: LegalPractitioner -> ExecutiveAppointment  -> Boolean
+decl r34_2_a_defeated: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_2_b_defeated: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_3_defeated: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_4_defeated: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_5_defeated: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_6_a_defeated: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_6_b_defeated: LegalPractitioner -> ExecutiveAppointment -> Boolean
+
+decl r34_1_holds: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_1_a_holds: Business -> Boolean
+decl r34_1_c_holds: Business -> Boolean
+decl r34_1_d_holds: Business -> Boolean
+decl r34_1_e_holds: Business -> Boolean
+decl r34_1_f_holds: Business -> Boolean
+decl r34_1A_holds: LegalPractitioner -> ExecutiveAppointment  -> Boolean
+decl r34_2_a_holds: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_2_b_holds: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_3_holds: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_4_holds: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_5_holds: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_6_a_holds: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_6_b_holds: LegalPractitioner -> ExecutiveAppointment -> Boolean
+
+rule <r34_1_holds>
+for lp: LegalPractitioner, ea: ExecutiveAppointment
+if (
+    r34_1_applies lp ea &&
+    not r34_1_defeated lp ea
+)
+then r34_1_holds lp ea
+
+rule <r34_1_a_holds>
+for lp: LegalPractitioner, ea: ExecutiveAppointment
+if (
+    r34_1_a_applies lp ea &&
+    not r34_1_a_defeated lp ea
+)
+then r34_1_a_holds lp ea
+
+rule <r34_1_c_holds>
+for lp: LegalPractitioner, ea: ExecutiveAppointment
+if (
+    r34_1_c_applies lp ea &&
+    not r34_1_c_defeated lp ea
+)
+then r34_1_c_holds lp ea
+
+rule <r34_1_d_holds>
+for lp: LegalPractitioner, ea: ExecutiveAppointment
+if (
+    r34_1_d_applies lp ea &&
+    not r34_1_d_defeated lp ea
+)
+then r34_1_d_holds lp ea
+
+rule <r34_1_e_holds>
+for lp: LegalPractitioner, ea: ExecutiveAppointment
+if (
+    r34_1_e_applies lp ea &&
+    not r34_1_e_defeated lp ea
+)
+then r34_1_e_holds lp ea
+
+rule <r34_1_f_holds>
+for lp: LegalPractitioner, ea: ExecutiveAppointment
+if (
+    r34_1_f_applies lp ea &&
+    not r34_1_f_defeated lp ea
+)
+then r34_1_f_holds lp ea
+
+rule <r34_1A_holds>
+for lp: LegalPractitioner, ea: ExecutiveAppointment
+if (
+    r34_1A_applies lp ea &&
+    not r34_1A_defeated lp ea
+)
+then r34_1A_holds lp ea
+
+rule <r34_2_a_holds>
+for lp: LegalPractitioner, ea: ExecutiveAppointment
+if (
+    r34_2_a_applies lp ea &&
+    not r34_2_a_defeated lp ea
+)
+then r34_2_a_holds lp ea
+
+rule <r34_2_b_holds>
+for lp: LegalPractitioner, ea: ExecutiveAppointment
+if (
+    r34_2_b_applies lp ea &&
+    not r34_2_b_defeated lp ea
+)
+then r34_2_b_holds lp ea
+
+rule <r34_3_holds>
+for lp: LegalPractitioner, ea: ExecutiveAppointment
+if (
+    r34_3_applies lp ea &&
+    not r34_3_defeated lp ea
+)
+then r34_3_holds lp ea
+
+rule <r34_4_holds>
+for lp: LegalPractitioner, ea: ExecutiveAppointment
+if (
+    r34_4_applies lp ea &&
+    not r34_4_defeated lp ea
+)
+then r34_4_holds lp ea
+
+rule <r34_5_holds>
+for lp: LegalPractitioner, ea: ExecutiveAppointment
+if (
+    r34_5_applies lp ea &&
+    not r34_5_defeated lp ea
+)
+then r34_5holds lp ea
+
+rule <r34_6_a_holds>
+for lp: LegalPractitioner, ea: ExecutiveAppointment
+if (
+    r34_6_a_applies lp ea &&
+    not r34_6_a_defeated lp ea
+)
+then r34_6_a_holds lp ea
+
+rule <r34_6_b_holds>
+for lp: LegalPractitioner, ea: ExecutiveAppointment
+if (
+    r34_6_b_applies lp ea &&
+    not r34_6_b_defeated lp ea
+)
+then r34_6_b_holds lp ea
 
 # Rules
 
@@ -211,7 +370,11 @@ if (
         AssociatedWith ea b &&
         DescribedInSection1 b
 )
-then MustNotAccept lp ea
+then MustNotAccept lp ea && r34_1_applies lp ea && r34_5_defeated lp ea &&
+     r34_2_a_defeated lp ea &&
+     r34_2_b_defeated lp ea &&
+     r34_3_defeated lp ea &&
+     r34_4_defeated lp ea
 
 # (a)	any business which detracts from, is incompatible with, or derogates from the dignity of,
 # the legal profession;
@@ -223,7 +386,7 @@ if (
     IncompatibleWithDignityOfLegalProfession b ||
     DerogatesFromDignityOfLegalProfession b
 )
-then DescribedInSection1 b
+then DescribedInSection1 b && r34_1_a_applies b
 
 # section 34(1)(b) is repealed in this version
 
@@ -234,7 +397,7 @@ for b: Business
 if (
     Unfair b
 )
-then DescribedInSection1 b
+then DescribedInSection1 b && r34_1_c_applies b
 
 # (d)	any business which involves the sharing of the legal practitioner’s fees with, 
 # or the payment of a commission to, any unauthorised person for legal work performed 
@@ -248,7 +411,7 @@ if (
     InvolvesSharingFeesForLegalWorkByUnauthoirzedPersonsPerformedByTheLegalPractitioner b ||
     InvolvesPaymentOfCommissionsForLegalWorkByUnauthorizedPersonsPerformedByTheLegalPractioner b
 )
-then DescribedInSection1 b
+then DescribedInSection1 b && r34_1_d_applies b
 
 # (e)	any business set out in the First Schedule;
 
@@ -257,7 +420,7 @@ for b: Business
 if (
     DescribedInFirstSchedule b
 )
-then DescribedInSection1 b
+then DescribedInSection1 b && r34_1_e_applies b
 
 # (f)	any business which is prohibited by —
 # (i)	the Act;
@@ -266,12 +429,12 @@ then DescribedInSection1 b
 # (iv)	any practice directions, guidance notes and rulings (relating to professional practice,
 # etiquette, conduct and discipline) issued by the Council or the Society.
 
-rule <r34_1_e>
+rule <r34_1_f>
 for b: Business
 if (
     Prohibited b
 )
-then DescribedInSection1 b
+then DescribedInSection1 b && r34_1_f_applies b
 
 rule <r34_1A>
 for lp: LegalPractitioner, ea: ExecutiveAppointment
@@ -283,7 +446,7 @@ if (
     MateriallyInterferesWithAvaliability ea lp ||
     MateriallyInterferesWithRepresentation ea lp
 )
-then MustNotAccept lp ea
+then MustNotAccept lp ea && r34_1A_applies lp ea
 
 # RULE 34(2)(a)
 # (2)  Subject to paragraph (1), a legal practitioner in a Singapore law practice 
@@ -317,7 +480,9 @@ if (
         )
     )
 )
-then MayAccept lp ea
+then MayAccept lp ea && r34_2_a_applies lp ea &&
+     r34_6_a_defeated lp ea &&
+     r34_6_b_defeated lp ea
 
 # RULE 34(2)(b)
 # (b)	the legal practitioner accepts the executive appointment as a representative 
@@ -344,7 +509,9 @@ if (
         )
     )
 )
-then MayAccept lp ea
+then MayAccept lp ea && r34_2_b_applies lp ea &&
+     r34_6_a_defeated lp ea &&
+     r34_6_b_defeated lp ea
 
 # Example of alternative syntax for above rule.
 # RULE <r34_2_b>
@@ -377,7 +544,9 @@ if (
         )
     )
 )
-then MayAccept lp ea
+then MayAccept lp ea && r34_3_applies lp ea &&
+     r34_6_a_defeated lp ea &&
+     r34_6_b_defeated lp ea
 
 # RULE 34(4)
 # (4)  Subject to paragraph (1), a legal practitioner (not being a locum solicitor) may 
@@ -397,7 +566,9 @@ if (
         )
     )
 )
-then MayAccept lp ea
+then MayAccept lp ea && r34_4_applies lp ea &&
+     r34_6_a_defeated lp ea &&
+     r34_6_b_defeated lp ea
 
 # RULE 34(5)
 # (5)  Despite paragraph (1)(b), but subject to paragraph (1)(a) and (c) to (f), 
@@ -421,7 +592,10 @@ if (
         ) 
     )
 )
-then MayAccept lp ea
+then MayAccept lp ea && r34_5_applies lp ea &&
+     r34_6_a_defeated lp ea &&
+     r34_6_b_defeated lp ea &&
+     r34_1A_defeated lp ea
 
 # RULE 34(6)
 # (6)  Except as provided in paragraphs (2) to (5) —
@@ -440,7 +614,7 @@ if (
         )
     )
 )
-then MustNotAccept lp ea
+then MustNotAccept lp ea && r34_6_a_applies lp ea
 
 # (b)	a legal practitioner must not accept any executive appointment in a business entity.
 
@@ -451,7 +625,9 @@ if (
         Position be ea
     )
 )
-then MustNotAccept lp ea
+then MustNotAccept lp ea &&
+     r34_6_b_applies lp ea
+
 
 # RULE 34(7)
 # (7)  To avoid doubt, nothing in this rule prohibits a legal practitioner 
