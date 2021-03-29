@@ -28,8 +28,8 @@ instance SCasp (Program ct Tp) where
   showSC Program { lexiconOfProgram,classDeclsOfProgram,globalsOfProgram,rulesOfProgram,assertionsOfProgram} =
     vsep 
       [
-        showSClist assertionsOfProgram,
-        showSClist  rulesOfProgram
+        showSClist  assertionsOfProgram,
+        showSClist  $ map normalizeQuantif rulesOfProgram
       ]
 
 
@@ -43,22 +43,25 @@ instance SCasp (Rule Tp) where
 
 instance SCasp (Assertion Tp) where 
   showSC (Assertion assertExpr) =
-    vsep [ showSC assertExpr ]
+    vsep [ indent' $ showSC assertExpr ]
 
 instance SCasp VarDecl where
   showSC (VarDecl v tp) = indent' $ mkAtom tp <> parens (mkVar (v, tp))
 
 instance SCasp (Expr Tp) where
-  showSC (ValE s t v) = showSC v
-  showSC (FunApp1 f x xTp) = mkAtom f <> parens (mkVar (x, xTp))
-  showSC (FunApp2 f x xTp y yTp) = mkAtom f <> encloseSep lparen rparen comma (mkVar <$> [(x, xTp), (y, yTp)])
   showSC (Exist x typ exp) = indent' $ vsep $ existX : suchThat
     where
       existX = mkAtom typ <> parens (mkVar (x, typ))
       suchThat = showSC <$> case toList exp of
         ListE _ _ _ es -> es
         _ -> [exp]
-  showSC x = error $ "not handled yet: " ++ show x
+  showSC x = case toList x of
+    ValE s t v -> showSC v
+    FunApp1 f x xTp -> mkAtom f <> parens (mkVar (x, xTp))
+    FunApp2 f x xTp y yTp -> mkAtom f <> encloseSep lparen rparen comma (mkVar <$> [(x, xTp), (y, yTp)])
+    ListE _ _ _ es -> indent' $ showSClist es
+    x -> error $ "not handled yet: " ++ show x-- if there's a QuantifE, move it into VarDecls
+
 
 --   showSC (BinOpE s t b et et5) = _
 --   showSC (VarE s t v) = _
