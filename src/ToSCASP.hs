@@ -28,8 +28,10 @@ instance SCasp (Program ct Tp) where
   showSC Program { lexiconOfProgram,classDeclsOfProgram,globalsOfProgram,rulesOfProgram,assertionsOfProgram} =
     vsep 
       [
-        showSClist  assertionsOfProgram,
-        showSClist  $ map normalizeQuantif rulesOfProgram
+        pretty "% Facts",
+        showSClist assertionsOfProgram,
+        pretty "\n% Rules",
+        showSClist $ map normalizeQuantif rulesOfProgram
       ]
 
 
@@ -42,8 +44,7 @@ instance SCasp (Rule Tp) where
       ]
 
 instance SCasp (Assertion Tp) where 
-  showSC (Assertion assertExpr) =
-    vsep [ indent' $ showSC assertExpr ]
+  showSC (Assertion assertExpr) = showSC assertExpr
 
 instance SCasp VarDecl where
   showSC (VarDecl v tp) = indent' $ mkAtom tp <> parens (mkVar (v, tp))

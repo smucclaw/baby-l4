@@ -284,19 +284,15 @@ data Rule t = Rule RuleName [VarDecl] (Expr t) (Expr t)
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 normalizeQuantif :: Rule t -> Rule t
-normalizeQuantif e@(Rule nm decls ifE thenE) = case ifE of
-  QuantifE _ _ _ varnm tp expr -> newRule newDecls newIfE
-  _ -> e
+normalizeQuantif (Rule nm decls ifE thenE) = 
+  Rule nm (decls ++ newDecls) newIfE thenE
   where
     (newDecls,newIfE) = go ifE -- result of the recursion
-    -- allNewDecls = VarDecl varnm tp:newDecls -- add on the first vardecl that wasn't in expr
-    newRule ds e = Rule nm (decls ++ ds) e thenE -- smart constructor
-    go (QuantifE _ _ _ varnm tp innerExpr) =
-      let (newDs, newE) = go innerExpr
-      in (VarDecl varnm tp:newDs, newE)
-    go e = ([], e)
-
-
+    go e = case e of
+      QuantifE _ _ _ varnm tp expr ->
+        let (newDs, newE) = go expr
+        in (VarDecl varnm tp:newDs, newE)
+      _ -> ([], e)
 
 data Assertion t = Assertion (Expr t)
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
