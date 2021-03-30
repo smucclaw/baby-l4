@@ -167,9 +167,26 @@ scanFile' = ExceptT . scanFile
 uriToFilePath' :: Monad m => Uri -> ExceptT Err m FilePath
 uriToFilePath' uri = extract "Read token Error" $ uriToFilePath uri
 
+readFile' :: MonadIO m => FilePath -> ExceptT Err m String
+readFile' path =
+  do
+    liftIO $ readFile path
+
+parseProgram' :: FilePath -> String -> ExceptT Err IO (Program SRng)
+parseProgram' path content = except $ parseProgram path content
+
 -- | Convert Maybe to ExceptT using string as an error message in Maybe is Nothing
 extract :: Monad m => String -> Maybe a -> ExceptT Err m a
 extract errMessage = except . maybeToRight (StringErr errMessage)
+
+convertPosition :: Position -> SRng
+convertPosition = undefined
+
+tokensToHover' :: Position -> [Token] -> ExceptT Err IO Hover
+tokensToHover' pos tokens = do
+--extract ("Couldn't find token at position")
+      tok <-  except . maybeToRight (Err (convertPosition pos) "Couldn't find token at position") $ find (posInRange pos . tokenPos) tokens
+      return $ tokenToHover tok
 
 tokensToHover :: Position -> [Token] -> ExceptT Err IO Hover
 tokensToHover pos tokens = do
@@ -188,11 +205,19 @@ tokenToText token =
     TokenLexicon -> "This is a lexicon"
     _            -> tshow token
 
+-- Just copy and paste of tokensToHover. needs to use program information
+progToHover :: Position -> [Token] -> Program SRng -> ExceptT Err IO Hover
+progToHover pos tokens ast = do
+      tok <- extract "Couldn't find token" $ find (posInRange pos . tokenPos) tokens
+      return $ tokenToHover tok
+
 lookupTokenBare' :: Position -> Uri -> ExceptT Err IO Hover
 lookupTokenBare' pos uri = do
   path <- uriToFilePath' uri
   allTokens <- scanFile' path
-  tokensToHover pos allTokens
+  contents <- readFile' path
+  ast <- parseProgram' path contents
+  progToHover pos allTokens ast
 
 syncOptions :: J.TextDocumentSyncOptions
 syncOptions = J.TextDocumentSyncOptions
