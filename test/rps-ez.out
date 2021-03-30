@@ -1,0 +1,7 @@
+---
+data:
+  - name: game
+    attributes:
+      - name: participants
+        attributes:
+          - name: throws

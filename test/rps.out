@@ -7,15 +7,17 @@ data:
     encodings:
       - game(X)
     attributes:
-    - name: Player
+    - name: participants
       type: String
+      origType: Player
       exactly: 2
       encodings:
         - player(X)
         - participant(X,Y)
       attributes:
-      - name: throw
+      - name: throws
         type: Enum
+        origType: Sign
         options:
           rock: Rock
           paper: Paper
