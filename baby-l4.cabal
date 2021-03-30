@@ -14,6 +14,7 @@ Build-Type:          Custom
 cabal-version:       >=1.10
 extra-source-files:  README.org
                    , grammars/Prop.gf
+                   , grammars/Answer.gf
 
 -- data-files: LICENSE
 -- data-files: Prop.pgf
@@ -28,13 +29,18 @@ library
                   -- generated
                   Lexer
                   Parser
-                  -- generated from GF grammar
+                  -- generated from GF grammars
                   Prop
+                  Answer
                   -- from src
                   Syntax
-                  ToYaml
+                  --ToYaml
                   ToGF.FromL4.ToProp
                   ToGF.FromL4.TransProp
+                  ToGF.GenerateLexicon
+                  ToGF.TreeTransform
+                  ToGF.FromSCasp.SCasp
+                  ToGF.FromSCasp.AnswerToGF
                   ToSCASP
                   --ExampleInput
                   --Exec
@@ -54,15 +60,19 @@ library
     --src-l4
   build-depends:       base >= 4.7 && < 5
                      , array
+                     , containers
                      , pretty-simple
                      , prettyprinter
                      , split
                      , text
+                     , extra
                      -- required for lexer and parser
                      , haskeline  >= 0.7
                      , mtl        >= 2.2 && <2.4
                      -- required for GF
                      , gf
+                     -- required for SCasp abs.syn.
+                     , megaparsec
                      -- Required for lexer/lsp interop
                      , lsp-types
   build-tools:         alex, happy, gf
