@@ -3,8 +3,6 @@
 
 module ToSCASP where
 
---( FunApp1, FunApp2, varName )
---( FunApp1, FunApp2, varName )
 import Data.Char (toLower, toUpper)
 import Prettyprinter as PP
 import Prettyprinter.Render.Text (putDoc)
@@ -24,11 +22,21 @@ class SCasp x where
   showSC :: x -> Doc ann
   showSClist :: [x] -> Doc ann
   showSClist = vsep . map showSC
+
+showSCcommalist :: (SCasp a) => [a] -> Doc ann
+showSCcommalist = commaList . map showSC
+
+commaList :: [Doc ann] -> Doc ann
+commaList = vsep . punctuate comma
+
+endDot :: Doc ann -> Doc ann
+endDot x = x <> dot
+
 instance SCasp (Program ct Tp) where
   showSC Program { lexiconOfProgram,classDeclsOfProgram,globalsOfProgram,rulesOfProgram,assertionsOfProgram} =
     vsep 
       [
-        pretty "% Facts",
+        pretty "\n% Facts",
         showSClist assertionsOfProgram,
         pretty "\n% Rules",
         showSClist $ map normalizeQuantif rulesOfProgram
@@ -39,18 +47,18 @@ instance SCasp (Rule Tp) where
   showSC (Rule rulename vardecls ifExp thenExp) =
     vsep
       [ showSC thenExp <+> pretty ":-",
-        showSClist vardecls,
-        showSC ifExp
+        endDot $ indent' $ vsep $ punctuate comma $ (map showSC vardecls ++ [showSC ifExp]),
+        PP.line
       ]
 
 instance SCasp (Assertion Tp) where 
-  showSC (Assertion assertExpr) = showSC assertExpr
+  showSC (Assertion assertExpr) = endDot $ showSC assertExpr
 
 instance SCasp VarDecl where
-  showSC (VarDecl v tp) = indent' $ mkAtom tp <> parens (mkVar (v, tp))
+  showSC (VarDecl v tp) = mkAtom tp <> parens (mkVar (v, tp))
 
 instance SCasp (Expr Tp) where
-  showSC (Exist x typ exp) = indent' $ vsep $ existX : suchThat
+  showSC (Exist x typ exp) = vsep $ existX : suchThat
     where
       existX = mkAtom typ <> parens (mkVar (x, typ))
       suchThat = showSC <$> case toList exp of
@@ -60,9 +68,8 @@ instance SCasp (Expr Tp) where
     ValE s t v -> showSC v
     FunApp1 f x xTp -> mkAtom f <> parens (mkVar (x, xTp))
     FunApp2 f x xTp y yTp -> mkAtom f <> encloseSep lparen rparen comma (mkVar <$> [(x, xTp), (y, yTp)])
-    ListE _ _ _ es -> indent' $ showSClist es
+    ListE _ _ _ es -> showSCcommalist es
     x -> error $ "not handled yet: " ++ show x-- if there's a QuantifE, move it into VarDecls
-
 
 --   showSC (BinOpE s t b et et5) = _
 --   showSC (VarE s t v) = _
@@ -79,6 +86,7 @@ instance SCasp (Expr Tp) where
 
 instance Arg (Var, Tp) where
   mkAtom (var, tp) = mkAtom tp <> pretty "_" <> mkAtom var
+  mkVar (var@(GlobalVar _), tp) = mkVar var
   mkVar (var, tp) = mkVar tp <> mkVar var
 
 instance Arg (VarName, Tp) where
@@ -86,14 +94,16 @@ instance Arg (VarName, Tp) where
   mkVar (var, tp) = mkVar tp <> mkVar var
 
 instance Arg VarName where
-  mkAtom varname = mkAtom (GlobalVar varname)
-  mkVar varname = mkVar (GlobalVar varname)
+  mkAtom varname = mkAtom (LocalVar varname 0)
+  mkVar varname = mkVar (LocalVar varname 0)
 
 instance Arg Var where
   mkAtom var = pretty $ toLower f : irst
     where
       f : irst = varName var
-  mkVar var = pretty $ toUpper f : irst
+  mkVar var@(GlobalVar _) = mkAtom var -- to handle decl Rock : Sign, should become sign(rock)
+  mkVar var =
+    pretty $ toUpper f : irst
     where
       f : irst = varName var
 
