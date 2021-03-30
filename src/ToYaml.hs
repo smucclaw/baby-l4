@@ -75,7 +75,7 @@ showExpr e@(BinOpE s t b et et8) = showExpr $ toList e
 showExpr (IfThenElseE s t et et7 et8) = "if_" ++ showExpr et ++ "_then_" ++ showExpr et7 ++ "_else_" ++ showExpr et8
 showExpr (FunApp1 f x xTp) = mkName f ++ "_" ++ mkName x ++ "_" ++ mkName xTp
 showExpr (FunApp2 f x xTp y yTp) = mkName f ++ "_" ++ mkName x ++ "_" ++ mkName xTp ++ "_" ++ mkName y ++ "_" ++ mkName yTp
-showExpr (QuantifE s t q l_c t8 et) = mkName (toBool q) ++ "_" ++ mkName t8 ++ mkName l_c ++ showExpr et
+--showExpr (QuantifE s t q l_c t8 et) = mkName (toBool q) ++ "_" ++ mkName t8 ++ mkName l_c ++ showExpr et
 --forall_player1
 showExpr (FldAccE s t et f) = mkName t ++ showExpr et ++ "_" ++ mkName f
 --player1_field
