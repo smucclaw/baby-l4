@@ -11,26 +11,28 @@ class Datablob x where
 
 data Pythontype = PString | PEnum
 
-lowerString :: [Char] -> [Char]
+lowerString :: String -> String
 lowerString = map toLower
 
-tupToList :: (x,x) -> [x]
-tupToList (x,y) = [x,y]
+listToName (t, l_et) = intercalate "_" $ map ((mkName t++) . showExpr) l_et
+
+toBool :: Bool -> String
+toBool = map toLower . show
 
 instance Datablob Tp where
   mkName tp = case tp of
-    ClassT (ClsNm (str)) -> str
+    ClassT (ClsNm str) -> str
     BoolT -> "bool"
     IntT -> "int"
     _ -> "unsupportedtype"
   mkAsk tp = case tp of
-    ClassT (ClsNm (str)) -> str
+    ClassT (ClsNm str) -> str
     BoolT -> "bool"
     IntT -> "int"
     _ -> "unsupportedtype"
   mkType tp = PString
   mkEncode tp = case tp of
-    ClassT (ClsNm (str)) -> str
+    ClassT (ClsNm str) -> str
     BoolT -> "bool"
     IntT -> "int"
     _ -> "unsupportedtype"
@@ -41,7 +43,7 @@ instance Datablob Val where
   mkType x = PString
   mkEncode = showVal
 
-showVal :: Val -> String 
+showVal :: Val -> String
 showVal (BoolV False) = "false"
 showVal (BoolV True) = "true"
 showVal (IntV i) = show i
@@ -60,10 +62,10 @@ showVar (GlobalVar l_c) = l_c
 showVar (LocalVar l_c _) = l_c
 
 instance Datablob (Expr t) where
-  mkName = _
-  mkAsk = _
-  mkType = _
-  mkEncode = _
+  mkName = showExpr
+  mkAsk = showExpr
+  mkType x = PString
+  mkEncode = showExpr
 
 showExpr :: (Datablob t) => Expr t -> String
 showExpr (ValE s t v) = lowerString $ mkName t ++ mkName v -- player1
@@ -73,14 +75,14 @@ showExpr e@(BinOpE s t b et et8) = showExpr $ toList e
 showExpr (IfThenElseE s t et et7 et8) = "if_" ++ showExpr et ++ "_then_" ++ showExpr et7 ++ "_else_" ++ showExpr et8
 showExpr (FunApp1 f x xTp) = mkName f ++ "_" ++ mkName x ++ "_" ++ mkName xTp
 showExpr (FunApp2 f x xTp y yTp) = mkName f ++ "_" ++ mkName x ++ "_" ++ mkName xTp ++ "_" ++ mkName y ++ "_" ++ mkName yTp
-showExpr (QuantifE s t q l_c t8 et) = q ++ "_" ++ mkName t8 ++ mkName l_c ++ showExpr et 
+showExpr (QuantifE s t q l_c t8 et) = mkName (toBool q) ++ "_" ++ mkName t8 ++ mkName l_c ++ showExpr et
 --forall_player1
 showExpr (FldAccE s t et f) = mkName t ++ showExpr et ++ "_" ++ mkName f
 --player1_field
-showExpr (TupleE s t l_et) = intercalate "_" (map (mkName t ++) (tupToList l_et))
---player (1,2) -> [player1,player2] -> player1_player2
+showExpr (TupleE s t l_et) = listToName (t, l_et)
 showExpr (CastE s t t6 et) = mkName t6 ++ showExpr et
 -- if cat is new type t6, catplayer1
-showExpr (ListE s t l l_et) = intercalate "_" (map showExpr l_et) -- playera_playerb_playerc
-showExpr (NotDeriv s t b v et) = b ++ "_" v "_" ++ showExpr et
+showExpr (ListE s t l l_et) = listToName (t, l_et)
+-- playera_playerb_playerc
+showExpr (NotDeriv s t b v et) = mkName (toBool b) ++ "_" ++ mkName v ++ "_" ++ showExpr et
 -- not_true_player1
