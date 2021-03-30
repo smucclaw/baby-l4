@@ -1,7 +1,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module ToGF where
+module ToGF.FromL4.ToProp where
 
 -- the generated Haskell abstract syntax from the GF
 
@@ -14,7 +14,7 @@ import Syntax
 import System.Environment (withArgs)
 import System.IO (stderr, hPutStrLn)
 import Text.Printf (printf)
-import TransProp
+import ToGF.FromL4.TransProp
 
 -- moved this here from exe/Main.hs, needed to tell optparse which languages to output
 data GFlang  = GFall | GFeng | GFswe deriving Show

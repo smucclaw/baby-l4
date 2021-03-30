@@ -1,7 +1,7 @@
 {-# LANGUAGE PackageImports #-}
 {-# LANGUAGE GADTs, FlexibleInstances, KindSignatures, RankNTypes #-}
 
-module TransProp where
+module ToGF.FromL4.TransProp where
 
 import qualified "gf" PGF (Tree, showExpr)
 import Prop   -- generated from GF

@@ -7,7 +7,7 @@ import Data.Char (toLower, toUpper)
 import Prettyprinter as PP
 import Prettyprinter.Render.Text (putDoc)
 import Syntax
-import ToGF
+import ToGF.FromL4.ToProp
 
 createSCasp :: (Show ct) => Program ct Tp -> IO ()
 createSCasp p = putDoc (showSC p <> PP.line)

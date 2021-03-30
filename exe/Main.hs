@@ -8,14 +8,12 @@ import Syntax (Program, ClassName)
 import Typing (tpProgram)
 import System.Environment ( getEnv )
 import Options.Applicative
-import qualified ToGF as GF
+import qualified ToGF.FromL4.ToProp as GF
 import System.IO ( stderr, hPutStr, hPutStrLn, hPrint )
 import System.IO.Error (catchIOError)
 import Control.Exception (catch, SomeException (SomeException))
 import Control.Monad ( when, unless )
 import ToSCASP (createSCasp)
-
-
 
 readPrelude :: IO (Program (Maybe ClassName) ())
 readPrelude = do

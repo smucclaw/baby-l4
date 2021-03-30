@@ -29,6 +29,7 @@ decl Lose : Player -> Game -> Bool
 decl Beat : Sign -> Sign -> Bool
 decl Throw : Player -> Sign -> Bool
 
+# Make these too into facts!
 decl Rock : Sign
 decl Paper : Sign
 decl Scissors : Sign
@@ -54,7 +55,6 @@ if (exists b : Player .
                                            )))
 then Lose a g
 
-# TODO: make these into facts
 assert Beats Rock Scissors
 assert Beats Scissors Paper
 assert Beats Paper Rock

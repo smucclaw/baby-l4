@@ -2,7 +2,7 @@ module ToYaml where
 
 import Data.Char (toLower, toUpper)
 import Syntax
-import ToGF
+import ToGF.FromL4.ToProp
 import Data.List
 
 class Datablob x where
@@ -14,7 +14,7 @@ data Pythontype = PString | PEnum
 lowerString :: [Char] -> [Char]
 lowerString = map toLower
 
-tupToList :: (x,y) -> [x,y]
+tupToList :: (x,x) -> [x]
 tupToList (x,y) = [x,y]
 
 instance Datablob Tp where
