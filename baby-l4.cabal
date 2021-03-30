@@ -39,6 +39,7 @@ library
                   Annotation
                   Error
                   Syntax
+
                   --ToYaml
                   ToGF.FromL4.ToProp
                   ToGF.FromL4.TransProp
@@ -49,6 +50,9 @@ library
                   ToGF.FromSCasp.AnswerToGF
                   ToGF.FromL4.ToQuestions
                   ToSCASP
+                  ToGF
+                  ToDA2
+
                   --ExampleInput
                   --Exec
                   InterfaceNunchaku
@@ -98,7 +102,6 @@ executable l4
                      , haskeline  >= 0.7
                      , mtl        >= 2.2 && <2.4
                      , pretty-simple
-
                      , optparse-applicative
 executable lsp-server-bl4
   hs-source-dirs:      lsp

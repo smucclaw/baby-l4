@@ -26,6 +26,7 @@ import Data.Either (rights)
 
 
 
+import ToDA2 (createDSyaml)
 
 readPrelude :: IO (Program SRng)
 readPrelude = do
@@ -71,6 +72,13 @@ process args input = do
             let models = rights $ map parseModel tests
             nlgModels models
 
+      when (astHS args) $ do
+        hPrint stderr tpAst
+      when (astGF args) $ do
+        GF.nlgAST (getGFL $ format args) tpAstNoSrc
+      unless (astGF args) $ do
+        GF.nlg (getGFL $ format args) tpAstNoSrc
+      createDSyaml tpAst
     Left err -> do
       putStrLn "Parser Error:"
       print err
