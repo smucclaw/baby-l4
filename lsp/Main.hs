@@ -180,12 +180,19 @@ extract :: Monad m => String -> Maybe a -> ExceptT Err m a
 extract errMessage = except . maybeToRight (StringErr errMessage)
 
 convertPosition :: Position -> SRng
-convertPosition = undefined
+convertPosition  (Position line col) = SRng (Pos line col) (Pos line col)
+
+getValidatedToken :: Foldable t => Position -> t Token -> Maybe Token
+getValidatedToken pos = find (posInRange pos . tokenPos)
+
+convertMaybeToken :: Foldable t => Position -> t Token -> Either Err Token
+convertMaybeToken p t = maybeToRight (Err (convertPosition p) "Couldn't find token at position") $ getValidatedToken p t
 
 tokensToHover' :: Position -> [Token] -> ExceptT Err IO Hover
 tokensToHover' pos tokens = do
 --extract ("Couldn't find token at position")
-      tok <-  except . maybeToRight (Err (convertPosition pos) "Couldn't find token at position") $ find (posInRange pos . tokenPos) tokens
+      -- tok <-  except . maybeToRight (Err (convertPosition pos) "Couldn't find token at position") $ find (posInRange pos . tokenPos) tokens
+      tok <-  except $ convertMaybeToken pos tokens
       return $ tokenToHover tok
 
 tokensToHover :: Position -> [Token] -> ExceptT Err IO Hover
