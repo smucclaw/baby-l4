@@ -33,6 +33,7 @@ library
                   -- from src
                   Syntax
                   ToGF
+                  ToYaml
                   ToSCASP
                   --ExampleInput
                   --Exec
