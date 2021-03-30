@@ -73,7 +73,7 @@ library
                      , array
                      , containers
                      , pretty-simple
-                     , prettyprinter
+                     , prettyprinter >= 1.7.0
                      , split
                      , text
                      , extra
@@ -103,6 +103,7 @@ executable l4
                      , mtl        >= 2.2 && <2.4
                      , pretty-simple
                      , optparse-applicative
+                     , prettyprinter
 executable lsp-server-bl4
   hs-source-dirs:      lsp
   main-is:             Main.hs
