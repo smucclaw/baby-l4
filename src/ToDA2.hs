@@ -1,40 +1,47 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module ToDA2 where
 
 import Prettyprinter as PP
 import Prettyprinter.Render.Text (putDoc)
 import Syntax
-import Data.Maybe (fromJust, catMaybes)
+import Data.List (find)
+import Data.Maybe (fromMaybe, listToMaybe, catMaybes)
 import Control.Monad (unless)
+import Control.Monad.Reader
 
-createDSyaml :: (Show ct) => Program ct Tp -> IO ()
-createDSyaml p = putDoc $ PP.line <> showDS p
+createDSyaml :: Program Tp -> IO ()
+createDSyaml p = putDoc $ PP.line <> runReader (showDS p) p
 
+type WithProgram = Reader (Program Tp)
 
 -- "printing" structure
 class DSYaml x where
-  showDS :: x -> Doc ann
-  showDSlist :: [x] -> Doc ann
-  showDSlist = vsep . map showDS
+  showDS :: x -> WithProgram (Doc ann)
+  showDSlist :: [x] -> WithProgram (Doc ann)
+  showDSlist = fmap vsep . mapM showDS
 
-instance DSYaml (Program ct Tp) where
-  showDS Program { lexiconOfProgram,classDeclsOfProgram,globalsOfProgram,rulesOfProgram,assertionsOfProgram} =
-    vsep [ pretty "rules: "
-         , pretty "query: "
-         , pretty "data: "      , showDSlist classDeclsOfProgram
-         , pretty "terms: "
-         ]
+instance DSYaml (Program Tp) where
+  showDS Program { lexiconOfProgram,classDeclsOfProgram,globalsOfProgram,rulesOfProgram,assertionsOfProgram} = do
+    something <- showDS $ last classDeclsOfProgram
+    pure $ vsep 
+      [ "rules: "
+      , "query: "
+      , "data:"      , hang 2 something
+      , "terms: "
+      ]
 
-instance DSYaml (ClassDecl ct) where
-  showDS ClassDecl { nameOfClassDecl, defOfClassDecl } = indent' $ pretty "-" <+> showDS nameOfClassDecl
-  showDSlist cls =
-    let getCL' ClassDecl { nameOfClassDecl, defOfClassDecl} = (\(ClsNm x) -> x) nameOfClassDecl
-        getCL x = if getCL' x `elem` ["Object", "Boolean", "Number", "Float", "Integer", "String", "Class"] then Nothing else Just x
-        cls' = catMaybes (getCL <$> cls)
-    in
-    vsep . map showDS $ cls'
+instance (Show ct) => DSYaml (ClassDecl ct) where
+  showDS ClassDecl { nameOfClassDecl, defOfClassDecl } = do
+    something <- showDS nameOfClassDecl
+    somethingElse <- showDS defOfClassDecl
+    pure $ hang 2 $ "-" <+> vsep
+      [ "name:" <+> something
+      , "attributes:"
+      , indent 2 $ somethingElse ]
+
 
 -- ClassDecl {
 --              nameOfClassDecl = ClsNm "Player",
@@ -47,21 +54,46 @@ instance DSYaml (ClassDecl ct) where
 --              defOfClassDecl = ClassDef {
 --                                              supersOfClassDef = [ClsNm "Class",ClsNm "Object"],
 --                                              fieldsOfClassDef = [
---                                                                      FieldDecl (FldNm "participants") (TupleT [ClassT (ClsNm "Player"),
---                                                                      ClassT (ClsNm "Player")]),
+--                                                                      FieldDecl (FldNm "participants") (TupleT [ClassT (ClsNm "Player"), ClassT (ClsNm "Player")]),
 --                                                                      FieldDecl (FldNm "winner") (ClassT (ClsNm "Player"))
 --                                                                 ]}}],
 
+instance (Show t) => DSYaml (ClassDef t) where
+  showDS (ClassDef { supersOfClassDef, fieldsOfClassDef }) = 
+    showDSlist fieldsOfClassDef
+
+instance DSYaml (FieldDecl t) where
+  showDS (FieldDecl _ (FldNm fldnm) fieldtype) = do
+    something <- showDS fieldtype
+    pure $ hang 2 $ "-" <+> vsep
+      [ "name:" <+> pretty fldnm
+      , "type:" <+> "String"
+      , "origType:" <+> pretty (showFTname fieldtype)
+      , "attributes:" 
+      , something ]
+
+showFTname (ClassT (ClsNm name)) = name
+showFTname (TupleT (x:xs)) = showFTname x
+
 
 instance DSYaml ClassName where
-  showDS (ClsNm x) = pretty x
+  showDS (ClsNm x) = pure $ pretty x
 
 instance DSYaml Tp where
-  showDS tp = pretty $ case tp of
-    BoolT       -> "Boolean"
-    IntT        -> "Number"
-    _           -> "Unsupported Type"
+  showDS tp = case tp of
+    BoolT         -> pure "Boolean"
+    IntT          -> pure "Number"
+    ClassT (ClsNm x)      -> do
+      program <- ask
+      someCDs <- showDS $ fromMaybe (error "message") $ getClassDeclByName program x
+      pure ("Class" <+> pretty x <+> "whose contents are something like" <> PP.line <> indent 2 someCDs)
+    TupleT (x:xs) -> do
+      someDS <- showDS x
+      pure ("Tuple whose first element is" <+> someDS)
+    _             -> pure "Unsupported Type"
 
+getClassDeclByName :: Program Tp -> String -> Maybe (ClassDecl Tp)
+getClassDeclByName program wantedClassname = find (\cdecl -> (ClsNm wantedClassname) == nameOfClassDecl cdecl) $ classDeclsOfProgram program
 
 -- Rule "winner" [ VarDecl "a" (ClassT (ClsNm "Player")),
 --                 VarDecl "g" (ClassT (ClsNm "Game")),
