@@ -1,0 +1,29 @@
+rules: rps.pl
+query: winner(X,Y)
+data:
+  - name: game
+    type: String
+    minimum: 0
+    encodings:
+      - game(X)
+    attributes:
+    - name: Player
+      type: String
+      exactly: 2
+      encodings:
+        - player(X)
+        - participant(X,Y)
+      attributes:
+      - name: throw
+        type: Enum
+        options:
+          rock: Rock
+          paper: Paper
+          scissors: Scissors
+        encodings:
+          - throw(Y,X)
+terms:
+  - winner: |
+      According to rule 4 of Rock Paper Scissors, the winner
+      is the player in the game whose throw beats the other player
+      in the game.

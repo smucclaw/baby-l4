@@ -1,0 +1,64 @@
+Program {
+  lexiconOfProgram = [
+    Mapping  "Rock" "rock_1_N",
+    Mapping  "Paper" "paper_1_N",
+    Mapping  "Scissors" "scissors_1_N",
+    Mapping  "Throw" "throw_1_V2",
+    Mapping  "Win" "win_1_V2",
+    Mapping  "Lose" "lose_1_V2",
+    Mapping  "Beat" "beat_1_V2",
+    Mapping  "Participate_in" "mkV2 participate_2_V in_Prep",
+    Mapping  "Player" "player_5_N",
+    Mapping  "Sign" "sign_2_N",
+    Mapping  "Game" "game_1_N"], 
+  classDeclsOfProgram = [
+    ClassDecl {nameOfClassDecl = ClsNm "Object", defOfClassDecl = ClassDef {supersOfClassDef = [], fieldsOfClassDef = []}},
+    ClassDecl {nameOfClassDecl = ClsNm "Boolean", defOfClassDecl = ClassDef {supersOfClassDef = [ClsNm "Object"], fieldsOfClassDef = []}},
+    ClassDecl {nameOfClassDecl = ClsNm "Number", defOfClassDecl = ClassDef {supersOfClassDef = [ClsNm "Object"], fieldsOfClassDef = []}},
+    ClassDecl {nameOfClassDecl = ClsNm "Float", defOfClassDecl = ClassDef {supersOfClassDef = [ClsNm "Number",ClsNm "Object"], fieldsOfClassDef = []}},
+    ClassDecl {nameOfClassDecl = ClsNm "Integer", defOfClassDecl = ClassDef {supersOfClassDef = [ClsNm "Number",ClsNm "Object"], fieldsOfClassDef = []}},
+    ClassDecl {nameOfClassDecl = ClsNm "String", defOfClassDecl = ClassDef {supersOfClassDef = [ClsNm "Object"], fieldsOfClassDef = []}},
+    ClassDecl {nameOfClassDecl = ClsNm "Class", defOfClassDecl = ClassDef {supersOfClassDef = [ClsNm "Object"], fieldsOfClassDef = []}},
+    ClassDecl {nameOfClassDecl = ClsNm "Sign", defOfClassDecl = ClassDef {supersOfClassDef = [ClsNm "Class",ClsNm "Object"], fieldsOfClassDef = []}},
+    ClassDecl {nameOfClassDecl = ClsNm "Player", defOfClassDecl = ClassDef {supersOfClassDef = [ClsNm "Class",ClsNm "Object"], fieldsOfClassDef = [FieldDecl (FldNm "throws") (ClassT (ClsNm "Sign"))]}},
+    ClassDecl {nameOfClassDecl = ClsNm "Game", defOfClassDecl = ClassDef {supersOfClassDef = [ClsNm "Class",ClsNm "Object"], fieldsOfClassDef = [FieldDecl (FldNm "participants") (TupleT [ClassT (ClsNm "Player"),ClassT (ClsNm "Player")]),FieldDecl (FldNm "winner") (ClassT (ClsNm "Player"))]}}], 
+  globalsOfProgram = [
+    VarDecl "Participate_in" (FunT (ClassT (ClsNm "Player")) (FunT (ClassT (ClsNm "Game")) BoolT)),
+    VarDecl "Win" (FunT (ClassT (ClsNm "Player")) (FunT (ClassT (ClsNm "Game")) BoolT)),
+    VarDecl "Lose" (FunT (ClassT (ClsNm "Player")) (FunT (ClassT (ClsNm "Game")) BoolT)),
+    VarDecl "Beat" (FunT (ClassT (ClsNm "Sign")) (FunT (ClassT (ClsNm "Sign")) BoolT)),
+    VarDecl "Throw" (FunT (ClassT (ClsNm "Player")) (FunT (ClassT (ClsNm "Sign")) BoolT)),
+    VarDecl "Rock" (ClassT (ClsNm "Sign")),
+    VarDecl "Paper" (ClassT (ClsNm "Sign")),
+    VarDecl "Scissors" (ClassT (ClsNm "Sign"))], 
+  rulesOfProgram = [
+    Rule "winner" [ VarDecl "a" (ClassT (ClsNm "Player")),
+                    VarDecl "g" (ClassT (ClsNm "Game")),
+                    VarDecl "r" (ClassT (ClsNm "Sign")),
+                    VarDecl "s" (ClassT (ClsNm "Sign"))
+                  ] 
+                (QuantifE  (ClassT (ClsNm "Boolean")) Ex "b" (ClassT (ClsNm "Player")) 
+                  (BinOpE (ClassT (ClsNm "Boolean")) (BBool BBand) 
+                      (AppE BoolT (AppE (FunT (ClassT (ClsNm "Game")) BoolT) (VarE (FunT (ClassT (ClsNm "Player")) (FunT (ClassT (ClsNm "Game")) BoolT)) (GlobalVar "Participate_in")) (VarE (ClassT (ClsNm "Player")) (LocalVar "a" 4))) (VarE (ClassT (ClsNm "Game")) (LocalVar "g" 3))) 
+                    (BinOpE  (ClassT (ClsNm "Boolean")) (BBool BBand) (AppE  BoolT (AppE  (FunT (ClassT (ClsNm "Game")) BoolT) (VarE  (FunT (ClassT (ClsNm "Player")) (FunT (ClassT (ClsNm "Game")) BoolT)) (GlobalVar "Participate_in")) (VarE  (ClassT (ClsNm "Player")) (LocalVar "b" 0))) (VarE  (ClassT (ClsNm "Game")) (LocalVar "g" 3))) 
+                    (BinOpE  (ClassT (ClsNm "Boolean")) (BBool BBand) (AppE  BoolT (AppE  (FunT (ClassT (ClsNm "Sign")) BoolT) (VarE  (FunT (ClassT (ClsNm "Player")) (FunT (ClassT (ClsNm "Sign")) BoolT)) (GlobalVar "Throw")) (VarE  (ClassT (ClsNm "Player")) (LocalVar "a" 4))) (VarE  (ClassT (ClsNm "Sign")) (LocalVar "r" 2))) 
+                    (BinOpE  (ClassT (ClsNm "Boolean")) (BBool BBand) (AppE  BoolT (AppE  (FunT (ClassT (ClsNm "Sign")) BoolT) (VarE  (FunT (ClassT (ClsNm "Player")) (FunT (ClassT (ClsNm "Sign")) BoolT)) (GlobalVar "Throw")) (VarE  (ClassT (ClsNm "Player")) (LocalVar "b" 0))) (VarE  (ClassT (ClsNm "Sign")) (LocalVar "s" 1))) 
+                    (AppE  BoolT (AppE  (FunT (ClassT (ClsNm "Sign")) BoolT) (VarE  (FunT (ClassT (ClsNm "Sign")) (FunT (ClassT (ClsNm "Sign")) BoolT)) (GlobalVar "Beat")) (VarE  (ClassT (ClsNm "Sign")) (LocalVar "r" 2))) 
+                    (VarE  (ClassT (ClsNm "Sign")) (LocalVar "s" 1)))))))) 
+                  (AppE  (ClassT (ClsNm "Player")) (LocalVar "a" 3))) (VarE  (ClassT (ClsNm "Game")) (LocalVar "g" 2))),
+    Rule "loser" [ VarDecl "a" (ClassT (ClsNm "Player")),
+                   VarDecl "g" (ClassT (ClsNm "Game")) ] 
+
+                   (QuantifE  (ClassT (ClsNm "Boolean")) Ex "b" (ClassT (ClsNm "Player")) 
+                   (QuantifE  (ClassT (ClsNm "Boolean")) Ex "s" (ClassT (ClsNm "Sign")) 
+                   (QuantifE  (ClassT (ClsNm "Boolean")) Ex "r" (ClassT (ClsNm "Sign")) 
+                   (BinOpE  (ClassT (ClsNm "Boolean")) (BBool BBand) (AppE  BoolT (AppE  (FunT (ClassT (ClsNm "Game")) BoolT) (VarE  (FunT (ClassT (ClsNm "Player")) (FunT (ClassT (ClsNm "Game")) BoolT)) (GlobalVar "Participate_in")) (VarE  (ClassT (ClsNm "Player")) (LocalVar "a" 4))) (VarE  (ClassT (ClsNm "Game")) (LocalVar "g" 3))) 
+                   (BinOpE  (ClassT (ClsNm "Boolean")) (BBool BBand) (AppE  BoolT (AppE  (FunT (ClassT (ClsNm "Game")) BoolT) (VarE  (FunT (ClassT (ClsNm "Player")) (FunT (ClassT (ClsNm "Game")) BoolT)) (GlobalVar "Participate_in")) (VarE  (ClassT (ClsNm "Player")) (LocalVar "b" 2))) (VarE  (ClassT (ClsNm "Game")) (LocalVar "g" 3))) 
+                   (BinOpE  (ClassT (ClsNm "Boolean")) (BBool BBand) (AppE  BoolT (AppE  (FunT (ClassT (ClsNm "Sign")) BoolT) (VarE  (FunT (ClassT (ClsNm "Player")) (FunT (ClassT (ClsNm "Sign")) BoolT)) (GlobalVar "Throw")) (VarE  (ClassT (ClsNm "Player")) (LocalVar "a" 4))) (VarE  (ClassT (ClsNm "Sign")) (LocalVar "r" 0))) 
+                   (BinOpE  (ClassT (ClsNm "Boolean")) (BBool BBand) (AppE  BoolT (AppE  (FunT (ClassT (ClsNm "Sign")) BoolT) (VarE  (FunT (ClassT (ClsNm "Player")) (FunT (ClassT (ClsNm "Sign")) BoolT)) (GlobalVar "Throw")) (VarE  (ClassT (ClsNm "Player")) (LocalVar "b" 2))) (VarE  (ClassT (ClsNm "Sign")) (LocalVar "s" 1))) 
+                   (AppE  BoolT (AppE  (FunT (ClassT (ClsNm "Sign")) BoolT) (VarE  (FunT (ClassT (ClsNm "Sign")) (FunT (ClassT (ClsNm "Sign")) BoolT)) (GlobalVar "Beat")) (VarE  (ClassT (ClsNm "Sign")) (LocalVar "s" 1))) 
+                   (VarE  (ClassT (ClsNm "Sign")) (LocalVar "r" 0)))))))))) 
+
+                   (AppE  (FunT (ClassT (ClsNm "Player")) (FunT (ClassT (ClsNm "Game")) BoolT)) (GlobalVar "Lose")) (VarE  (ClassT (ClsNm "Player")) (LocalVar "a" 1))) (VarE  (ClassT (ClsNm "Game")) (LocalVar "g" 0)))
+                   ], 
+  assertionsOfProgram = [Assertion (AppE  ErrT (GlobalVar "Beats")) (VarE  (ClassT (ClsNm "Sign")) (GlobalVar "Paper"))) (VarE  (ClassT (ClsNm "Sign")) (GlobalVar "Rock")))]}
