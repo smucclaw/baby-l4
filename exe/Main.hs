@@ -5,7 +5,7 @@ module Main where
 
 import Parser (parseProgram)
 import Syntax (Program, ClassName, Tp (ErrT))
-import Typing ( tpProgram, extractType )
+import Typing ( tpProgram, extractType, checkError, liftProgram )
 import System.Environment ( getEnv )
 import Options.Applicative
 import qualified ToGF as GF
@@ -15,7 +15,7 @@ import Control.Exception (catch, SomeException (SomeException))
 import Control.Monad ( when, unless )
 import Annotation ( SRng )
 import Paths_baby_l4 (getDataFileName)
-
+import Text.Pretty.Simple (pPrint)
 
 readPrelude :: IO (Program SRng)
 readPrelude = do
@@ -38,14 +38,17 @@ process args input = do
       preludeAst <- readPrelude
 
       let tpAst = tpProgram preludeAst ast
+      --let tpAst = checkError preludeAst ast
       let tpAstNoSrc = fmap extractType tpAst
 
       when (astHS args) $ do
         hPrint stderr tpAst
+        -- pPrint tpAst
       when (astGF args) $ do
         GF.nlgAST (getGFL $ format args) tpAstNoSrc
       unless (astGF args) $ do
         GF.nlg (getGFL $ format args) tpAstNoSrc
+
     Left err -> do
       putStrLn "Parser Error:"
       print err

@@ -81,7 +81,9 @@ data Tp
   | ErrT
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-data VarDecl t = VarDecl t VarName Tp
+data VarDecl t = VarDecl {annotOfVarDecl ::t 
+                         , nameOfVarDecl :: VarName
+                         , tpOfVarDecl :: Tp }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 instance HasLoc t => HasLoc (VarDecl t) where
   getLoc (VarDecl t _ _) = getLoc t
@@ -93,7 +95,10 @@ instance HasLoc t => HasLoc (Mapping t) where
 
 -- Field attributes: for example cardinality restrictions
 -- data FieldAttribs = FldAtt
-data FieldDecl t = FieldDecl t FieldName Tp -- FieldAttribs
+data FieldDecl t = FieldDecl {annotOfFieldDecl ::t
+                             , nameOfFieldDecl :: FieldName
+                             , tpOfFieldDecl ::  Tp }
+                            -- FieldAttribs
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 -- superclass, list of field declarations
@@ -303,11 +308,10 @@ annotOfRule (Rule t _ _ _ _) = t
 instance HasLoc t => HasLoc (Rule t) where
   getLoc e = getLoc (annotOfRule e)
 
-data Assertion t = Assertion t (Expr t)
-  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+data Assertion t = Assertion { annotOfAssertion :: t
+                             , exprOfAssertion :: Expr t}
 
-annotOfAssertion :: Assertion t -> t  
-annotOfAssertion (Assertion t _) = t
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 instance HasLoc t => HasLoc (Assertion t) where
   getLoc e = getLoc (annotOfAssertion e)
