@@ -12,10 +12,12 @@ Player -> "player_5_N"
 Sign -> "sign_2_N"
 Game -> "game_1_N"
 
-class Sign
+class Sign 
+
+class Object
 
 class Player {
-    throws : Sign
+    throws : Sign 
 }
 
 class Game {
@@ -23,9 +25,11 @@ class Game {
     winner : Player
 }
 
+decl isGame : Object -> Bool
+decl isPlayer : Object -> Bool
 decl Participate_in : Player -> Game -> Bool
 decl Win : Player -> Game -> Bool
-decl Lose : Player -> Game -> Bool
+# decl Lose : Player -> Game -> Bool
 decl Beat : Sign -> Sign -> Bool
 decl Throw : Player -> Sign -> Bool
 

@@ -35,6 +35,7 @@ gfPP bi lbi clbi = PreProcessor {
         let lexical = case inFile of 
                         "Answer.gf" -> "Atom"
                         "Prop.gf" -> "Noun,Noun2,Adj,Adj2,Verb,Verb2"
+                        "Questions.gf" -> "Atom,Name"
         let args =
                 [ "-make"
                 , "-f", "haskell"

@@ -14,6 +14,8 @@ import System.IO.Error (catchIOError)
 import Control.Exception (catch, SomeException (SomeException))
 import Control.Monad ( when, unless )
 import ToSCASP (createSCasp)
+import ToGF.FromL4.ToQuestions
+
 
 readPrelude :: IO (Program (Maybe ClassName) ())
 readPrelude = do
@@ -44,6 +46,7 @@ process args input = do
       unless (astGF args) $ do
         GF.nlg (getGFL $ format args) tpAst
       createSCasp tpAst
+      hello tpAst
     Left err -> do
       putStrLn "Parser Error:"
       print err

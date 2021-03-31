@@ -5,3 +5,8 @@
 generated
 grammars/PropTop*
 grammars/PropLexicon*
+.vscode/
+src/Questions.hs
+src/Answer.hs
+src/Prop.hs
+.DS_Store
