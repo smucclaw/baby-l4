@@ -26,19 +26,25 @@ class SCasp x where
 showSCcommalist :: (SCasp a) => [a] -> Doc ann
 showSCcommalist = commaList . map showSC
 
+showSCdotlist :: (SCasp a) => [a] -> Doc ann
+showSCdotlist = dotList . map showSC
+
 commaList :: [Doc ann] -> Doc ann
 commaList = vsep . punctuate comma
+
+dotList :: [Doc ann] -> Doc ann
+dotList = vsep . punctuate dot
 
 endDot :: Doc ann -> Doc ann
 endDot x = x <> dot
 
 instance SCasp (Program ct Tp) where
   showSC Program { lexiconOfProgram,classDeclsOfProgram,globalsOfProgram,rulesOfProgram,assertionsOfProgram} =
-    vsep 
+    vsep
       [
         pretty "\n% Facts",
         showSClist assertionsOfProgram,
-        showSClist globalsOfProgram <> dot ,
+        showSClist globalsOfProgram,
         pretty "\n% Rules",
         showSClist $ map normalizeQuantif rulesOfProgram
       ]
@@ -48,48 +54,17 @@ instance SCasp (Rule Tp) where
   showSC (Rule rulename vardecls ifExp thenExp) =
     vsep
       [ showSC thenExp <+> pretty ":-",
-        endDot $ indent' $ vsep $ punctuate comma $ (map showSC vardecls ++ [showSC ifExp]),
+        endDot $ indent' $ vsep $ punctuate comma (map showSC vardecls ++ [showSC ifExp]),
         PP.line
       ]
 
-instance SCasp (Assertion Tp) where 
+instance SCasp (Assertion Tp) where
   showSC (Assertion assertExpr) = endDot $ showSC assertExpr
 
 instance SCasp VarDecl where
-  -- showSC (VarDecl v tp) = mkVar tp <> parens (mkAtom (v))
-  showSC (VarDecl v tp) = mkAtom tp <> parens (mkAtom (v))
+  showSC (VarDecl v tp) = mkAtom tp <> parens (mkVar (v,tp))
+  showSClist = endDot . dotList . map (\(VarDecl v tp) -> mkAtom tp <> parens (mkAtom v))
 
-{-
-lowercase: atom
-upercase: variable
-% Facts
-beats(rock,scissors).
-beats(scissors,paper).
-beats(paper,rock).
-% Rules
-win(PlayerA,GameG) :-
-    player(PlayerA),
-    game(GameG),
-    sign(SignR),
-    sign(SignS),
-    player(PlayerB),
-    participate_in(PlayerA,GameG),
-    participate_in(PlayerB,GameG),
-    throw(PlayerA,SignR),
-    throw(PlayerB,SignS),
-    beat(SignR,SignS).
-lose(PlayerA,GameG) :-
-    player(PlayerA),
-    game(GameG),
-    player(PlayerB),
-    sign(SignS),
-    sign(SignR),
-    participate_in(PlayerA,GameG),
-    participate_in(PlayerB,GameG),
-    throw(PlayerA,SignR),
-    throw(PlayerB,SignS),
-    beat(SignS,SignR).
-    -}
 
 instance SCasp (Expr Tp) where
   showSC (Exist x typ exp) = vsep $ existX : suchThat
