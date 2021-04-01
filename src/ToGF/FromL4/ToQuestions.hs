@@ -14,18 +14,18 @@ hello prog =
 class Questionable x where
     toQuestions :: x -> [GQuestion]
 
-instance Questionable VarDecl where
+instance Questionable (VarDecl t) where
   toQuestions v = [GAreThereAny, GAreThereMore,  GProperties] <*>  [toPred v]
 
-instance Questionable (Program a b) where
+instance Questionable (Program a) where
   toQuestions = concatMap toQuestions . filter isPred.globalsOfProgram
 
-toPred :: VarDecl -> GPred
+toPred :: VarDecl t -> GPred
 toPred (Pred1 name arg1)      = GMkPred1 (LexName name) (LexAtom arg1)
 toPred (Pred2 name arg1 arg2) = GMkPred2 (LexName name) (LexAtom arg1) (LexAtom arg2)
 
-isPred :: VarDecl -> Bool
-isPred (VarDecl l_c t) = isPred' t
+isPred :: VarDecl t -> Bool
+isPred = isPred' . tpOfVarDecl
 
 isPred' :: Tp -> Bool
 isPred' (FunT t BoolT) = True
@@ -36,11 +36,11 @@ isPred' _ = False
 --------------------
 -- patterns
 
-pattern Pred1 :: VarName -> String           -> VarDecl
-pattern Pred1 name arg1 <- VarDecl name (Arg1 arg1)  -- to create VarDecl String Tp
+pattern Pred1 :: VarName -> String           -> VarDecl t
+pattern Pred1 name arg1 <- VarDecl _ name (Arg1 arg1)  -- to create VarDecl String Tp
 
-pattern Pred2 :: VarName -> String -> String -> VarDecl
-pattern Pred2 name arg1 arg2 <- VarDecl name (Arg2 arg1 arg2)
+pattern Pred2 :: VarName -> String -> String -> VarDecl t
+pattern Pred2 name arg1 arg2 <- VarDecl _ name (Arg2 arg1 arg2)
 
 pattern Arg1 :: String -> Tp
 pattern Arg1 x <- FunT (ClassT (ClsNm  x) ) _

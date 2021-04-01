@@ -9,7 +9,7 @@ import Prettyprinter.Render.Text (putDoc)
 import Syntax
 import ToGF.FromL4.ToProp
 
-createSCasp :: (Show ct) => Program ct Tp -> IO ()
+createSCasp :: Program Tp -> IO ()
 createSCasp p = putDoc (showSC p <> PP.line)
 
 indent' :: Doc ann -> Doc ann
@@ -38,7 +38,7 @@ dotList = vsep . punctuate dot
 endDot :: Doc ann -> Doc ann
 endDot x = x <> dot
 
-instance SCasp (Program ct Tp) where
+instance SCasp (Program Tp) where
   showSC Program { lexiconOfProgram,classDeclsOfProgram,globalsOfProgram,rulesOfProgram,assertionsOfProgram} =
     vsep
       [
@@ -51,7 +51,7 @@ instance SCasp (Program ct Tp) where
 
 
 instance SCasp (Rule Tp) where
-  showSC (Rule rulename vardecls ifExp thenExp) =
+  showSC (Rule _ rulename vardecls ifExp thenExp) =
     vsep
       [ showSC thenExp <+> pretty ":-",
         endDot $ indent' $ vsep $ punctuate comma (map showSC vardecls ++ [showSC ifExp]),
@@ -59,11 +59,11 @@ instance SCasp (Rule Tp) where
       ]
 
 instance SCasp (Assertion Tp) where
-  showSC (Assertion assertExpr) = endDot $ showSC assertExpr
+  showSC (Assertion _ assertExpr) = endDot $ showSC assertExpr
 
-instance SCasp VarDecl where
-  showSC (VarDecl v tp) = mkAtom tp <> parens (mkVar (v,tp))
-  showSClist = endDot . dotList . map (\(VarDecl v tp) -> mkAtom tp <> parens (mkAtom v))
+instance SCasp (VarDecl t) where
+  showSC (VarDecl _ v tp) = mkAtom tp <> parens (mkVar (v,tp))
+  showSClist = endDot . dotList . map (\(VarDecl _ v tp) -> mkAtom tp <> parens (mkAtom v))
 
 
 instance SCasp (Expr Tp) where
@@ -71,13 +71,13 @@ instance SCasp (Expr Tp) where
     where
       existX = mkAtom typ <> parens (mkVar (x, typ))
       suchThat = showSC <$> case toList exp of
-        ListE _ _ _ es -> es
+        ListE _ _ es -> es
         _ -> [exp]
   showSC x = case toList x of
-    ValE s t v -> showSC v
+    ValE _ v -> showSC v
     FunApp1 f x xTp -> mkAtom f <> parens (mkVar (x, xTp))
     FunApp2 f x xTp y yTp -> mkAtom f <> encloseSep lparen rparen comma (mkVar <$> [(x, xTp), (y, yTp)])
-    ListE _ _ _ es -> showSCcommalist es
+    ListE _ _ es -> showSCcommalist es
     x -> error $ "not handled yet: " ++ show x-- if there's a QuantifE, move it into VarDecls
 
 --   showSC (BinOpE s t b et et5) = _

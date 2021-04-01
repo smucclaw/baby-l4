@@ -11,7 +11,6 @@ import Lexer
 import Data.List (find)
 import Data.Text.IO (hPutStrLn)
 import qualified Data.Map as Map
-import Data.SortedList
 import System.IO (stderr)
 
 import           Control.Lens hiding (Iso)
@@ -28,7 +27,12 @@ import qualified Data.List as List
 import Syntax
 import Control.Lens.Extras (template)
 import Data.Data (Data)
+import Data.Either.Combinators (rightToMaybe, maybeToRight)
+import Control.Monad.Trans.Except (except, ExceptT)
+import Control.Monad.Except
 -- import Syntax (Pos(..),SRng(..))
+
+import Annotation
 
 type Config = ()
 
@@ -39,28 +43,45 @@ handlers = mconcat
       pure ()
   , requestHandler STextDocumentHover $ \req responder -> do
       let RequestMessage _ _ _ (HoverParams doc pos _workDone) = req
-          Position _l _c' = pos
-          rsp = Hover ms (Just range)
-          ms = HoverContents $ markedUpContent "lsp-demo-simple-server" "Hello world"
-          range = Range pos pos
-      rsp <- lookupToken pos doc
-      -- responder (Right $ Just rsp)
-      responder (Right rsp)
+      let (TextDocumentIdentifier uri) = doc
+      exceptHover <- liftIO $ runExceptT $ lookupTokenBare' pos uri
+      sendDiagnosticsOnLeft uri exceptHover
+      responder (Right $ rightToMaybe exceptHover)
   , notificationHandler J.STextDocumentDidOpen $ \msg -> do
     let doc  = msg ^. J.params . J.textDocument . J.uri
         fileName =  J.uriToFilePath doc
     liftIO $ debugM "reactor.handle" $ "Processing DidOpenTextDocument for: " ++ show fileName
     for_ fileName $ \fn -> do
-      contents <- liftIO $ readFile fn
+      contents <- liftIO $ readFile fn
       parseAndSendErrors doc $ T.pack contents
   , notificationHandler J.STextDocumentDidSave $ \msg -> do
     let doc  = msg ^. J.params . J.textDocument . J.uri
         fileName =  J.uriToFilePath doc
     liftIO $ debugM "reactor.handle" $ "Processing DidSaveTextDocument for: " ++ show fileName
     for_ fileName $ \fn -> do
-      contents <- liftIO $ readFile fn
+      contents <- liftIO $ readFile fn
       parseAndSendErrors doc $ T.pack contents
   ]
+
+makeDiagErr :: Err -> [Diagnostic]
+makeDiagErr err = [J.Diagnostic
+                  (errorRange err)
+                  (Just J.DsError)  -- severity
+                  Nothing  -- code
+                  (Just "lexer") -- source
+                  (T.pack $ msg err)
+                  Nothing -- tags
+                  (Just (J.List []))
+                ]
+
+publishError :: Uri -> Err -> LspM Config ()
+publishError uri err = publishDiagnostics 100 (toNormalizedUri uri) Nothing (partitionBySource $ makeDiagErr err)
+
+clearError :: Uri -> LspM Config ()
+clearError uri = publishDiagnostics 100 (toNormalizedUri uri) Nothing (Map.singleton(Just "lexer") mempty)
+
+sendDiagnosticsOnLeft :: Uri -> Either Err b -> LspM Config ()
+sendDiagnosticsOnLeft uri = either (publishError uri) (const $ clearError uri)
 
 -- | Analyze the file and send any diagnostics to the client in a
 -- "textDocument/publishDiagnostics" notification
@@ -82,16 +103,17 @@ parseAndSendErrors :: J.Uri -> T.Text -> LspM Config ()
 parseAndSendErrors uri contents = do
   let Just loc = uriToFilePath uri
   let pres = parseProgram loc $ T.unpack contents
+      nuri = toNormalizedUri uri
   case pres of
-    Right err -> pure ()
+    Right err ->
+      publishDiagnostics 100 nuri Nothing (Map.singleton (Just "parser") mempty)
     Left err -> do
       let
-        nuri = toNormalizedUri uri
         diags = [J.Diagnostic
                   (errorRange err)
                   (Just J.DsError)  -- severity
                   Nothing  -- code
-                  (Just "lexer") -- source
+                  (Just "parser") -- source
                   (T.pack $ msg err)
                   Nothing -- tags
                   (Just (J.List []))
@@ -104,8 +126,8 @@ tshow = T.pack . show
 
 posInRange :: Position -> SRng -> Bool
 posInRange (Position line col) (SRng (Pos top left) (Pos bottom right)) =
-  (line == top && col >= left || line > top)
-  && (line == bottom && col <= right || line < bottom)
+  (line == top && col >= left || line > top)
+  && (line == bottom && col <= right || line < bottom)
 
 -- | Convert l4 source ranges to lsp source ranges
 posToRange :: SRng -> Range
@@ -113,74 +135,64 @@ posToRange (SRng (Pos l1 c1) (Pos l2 c2)) = Range (Position l1 l2) (Position l2 
 
 -- | Extract the range from an alex/happy error
 errorRange :: Err -> Range
-errorRange = posToRange . epos
+errorRange (Err s _) = posToRange s
+errorRange (StringErr _) = Range (Position 0 0) (Position 999 0)
 
 -- TODO: Use findAllExpressions and findExprAt to extract types for hover
-
 -- TODO: Show type errors as diagnostics
 
-findAllExpressions :: (Data ct, Data et) => Program ct et -> [Expr et]
+-- | Use magic to find all Expressions in a program
+findAllExpressions :: (Data t) => Program t -> [Expr t]
 findAllExpressions = toListOf template
 
 -- | Find the smallest subexpression which contains the specified position
-findExprAt :: J.Position -> Expr t -> Expr t
+findExprAt :: HasLoc t => J.Position -> Expr t -> Expr t
 findExprAt pos expr =
   case List.find (posInRange pos . getLoc) (childExprs expr) of
     Nothing -> expr
     Just sub -> findExprAt pos sub
+
+-- | Given a position and a parsed program, try to find if there is any expression at that location
+findAnyExprAt :: (HasLoc t, Data t) => J.Position -> Program t -> Maybe (Expr t)
+findAnyExprAt pos = List.find (posInRange pos . getLoc) . findAllExpressions
 
 -- | Temporary bad debugging function.
 -- Use @debugM@ instead
 elog :: (MonadIO m, Show a) => a -> m ()
 elog = liftIO . hPutStrLn stderr . tshow
 
-lookupToken :: Position -> TextDocumentIdentifier -> LspT () IO (Maybe Hover)
-lookupToken pos (TextDocumentIdentifier uri) = do
-  -- print doc
-  let nuri = toNormalizedUri uri
-  sendDiagnostics nuri Nothing
-  let Just loc = uriToFilePath uri
-  allTokens <- liftIO $ scanFile loc
-  -- print allTokens
+scanFile' :: FilePath -> ExceptT Err IO [Token]
+scanFile' = ExceptT . scanFile
 
-  -- sendNotification SWindowShowMessage (ShowMessageParams MtInfo (tshow allTokens))
-  -- _ <- sendNotification SWindowLogMessage $ LogMessageParams MtInfo $ tshow allTokens
+uriToFilePath' :: Monad m => Uri -> ExceptT Err m FilePath
+uriToFilePath' uri = extract "Read token Error" $ uriToFilePath uri
 
-  liftIO $ hPutStrLn stderr "foobar"
-  elog allTokens
-  -- _ <- sendNotification SWindowLogMessage $ LogMessageParams MtInfo $ tshow pos
-  elog pos
-  case allTokens of
-    Left err -> do
-      let
-        diags = [J.Diagnostic
-                  (errorRange err)
-                  (Just J.DsError)  -- severity
-                  Nothing  -- code
-                  (Just "lexer") -- source
-                  (T.pack $ msg err)
-                  Nothing -- tags
-                  (Just (J.List []))
-                ]
-      publishDiagnostics 100 nuri Nothing (partitionBySource diags)
+-- | Convert Maybe to ExceptT using string as an error message in Maybe is Nothing
+extract :: Monad m => String -> Maybe a -> ExceptT Err m a
+extract errMessage = except . maybeToRight (StringErr errMessage)
 
-      _ <- sendNotification SWindowShowMessage $ ShowMessageParams MtError $ tshow err
-      return Nothing
-    Right tokens -> do
-      -- TODO: Clear diagnostics when they are no longer relevant
-      -- TODO: The line below does nothing! See #19
-      publishDiagnostics 100 nuri Nothing (partitionBySource [])
-      publishDiagnostics 100 nuri Nothing (Map.singleton(Just "lexer")(Data.SortedList.toSortedList [])) --"lexer" in this case is the diagnosticsource
-      
-      let toks = find (posInRange pos . tokenPos) tokens
-      -- sendNotification SWindowShowMessage $ ShowMessageParams MtInfo $ tshow pos <> tshow toks
-      elog pos
-      elog toks
-      pure $ toks <&> \tok@Token {tokenKind} ->
-        let
-          ms = HoverContents $ markedUpContent "haskell" $ tshow tok --tokenKind
-        in
-          Hover ms $ Just $ posToRange $ tokenPos tok
+tokensToHover :: Position -> [Token] -> ExceptT Err IO Hover
+tokensToHover pos tokens = do
+      tok <- extract "Couldn't find token" $ find (posInRange pos . tokenPos) tokens
+      return $ tokenToHover tok
+
+tokenToHover :: Token -> Hover
+tokenToHover tok = Hover contents range
+  where
+    contents = HoverContents $ markedUpContent "haskell" $ tokenToText tok
+    range = Just $ posToRange $ tokenPos tok
+
+tokenToText :: Token -> T.Text
+tokenToText token =
+  case tokenKind token of
+    TokenLexicon -> "This is a lexicon"
+    _            -> tshow token
+
+lookupTokenBare' :: Position -> Uri -> ExceptT Err IO Hover
+lookupTokenBare' pos uri = do
+  path <- uriToFilePath' uri
+  allTokens <- scanFile' path
+  tokensToHover pos allTokens
 
 syncOptions :: J.TextDocumentSyncOptions
 syncOptions = J.TextDocumentSyncOptions

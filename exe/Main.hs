@@ -4,8 +4,8 @@
 module Main where
 
 import Parser (parseProgram)
-import Syntax (Program, ClassName)
-import Typing (tpProgram)
+import Syntax (Program, ClassName, Tp (ErrT))
+import Typing ( tpProgram, extractType, checkError, liftProgram )
 import System.Environment ( getEnv )
 import Options.Applicative
 import qualified ToGF.FromL4.ToProp as GF
@@ -15,17 +15,20 @@ import Control.Exception (catch, SomeException (SomeException))
 import Control.Monad ( when, unless )
 import ToSCASP (createSCasp)
 import ToGF.FromL4.ToQuestions
+import Annotation ( SRng )
+import Paths_baby_l4 (getDataFileName)
+import Text.Pretty.Simple (pPrint)
 
 
-readPrelude :: IO (Program (Maybe ClassName) ())
+readPrelude :: IO (Program SRng)
 readPrelude = do
-  let l4PreludeFilepath = "l4/Prelude.l4"
+  l4PreludeFilepath <- getDataFileName "l4/Prelude.l4"
   do
     contents <- readFile l4PreludeFilepath
     case parseProgram l4PreludeFilepath contents of
       Right ast -> do
         -- print ast
-        return (() <$ ast)
+        return ast
       Left err -> do
         error "Parser Error in Prelude"
 
@@ -38,22 +41,25 @@ process args input = do
       preludeAst <- readPrelude
 
       let tpAst = tpProgram preludeAst ast
+      --let tpAst = checkError preludeAst ast
+      let tpAstNoSrc = fmap extractType tpAst
 
       when (astHS args) $ do
         hPrint stderr tpAst
+        -- pPrint tpAst
       when (astGF args) $ do
-        GF.nlgAST (getGFL $ format args) tpAst
+        GF.nlgAST (getGFL $ format args) tpAstNoSrc
       unless (astGF args) $ do
-        GF.nlg (getGFL $ format args) tpAst
-      createSCasp tpAst
-      hello tpAst
+        GF.nlg (getGFL $ format args) tpAstNoSrc
+      createSCasp tpAstNoSrc
+      hello tpAstNoSrc
+
     Left err -> do
       putStrLn "Parser Error:"
       print err
   where
     getGFL (Fall)    = GF.GFall
     getGFL (Fgf gfl) = gfl
-
 
 data Format   = Fall | Fgf GF.GFlang deriving Show
 
