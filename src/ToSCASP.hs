@@ -39,13 +39,8 @@ showSCcommalist = commaList . map showSC
 showSCdotlist :: (SCasp a) => [a] -> Doc ann
 showSCdotlist = dotList . map showSC
 
-onlyPred :: SCasp (VarDecl t) => Program t -> [VarDecl t]
+onlyPred :: Program t -> [VarDecl t]
 onlyPred = filter isPred . globalsOfProgram
-
---fromPredToDoc :: SCasp (VarDecl t) => [VarDecl t] -> Doc ann
---fromPredToDoc = dotList . map (\onlyPred(Program{globalsOfProgram})  -> mkAtom )
---onlyPred' :: [VarDecl t] -> Doc ann
---onlyPred' (Program {globalsOfProgram}) = prettyList $ onlyPred globalsOfProgram
 
 commaList :: [Doc ann] -> Doc ann
 commaList = vsep . punctuate comma
@@ -57,13 +52,13 @@ endDot :: Doc ann -> Doc ann
 endDot x = x <> dot
 
 instance SCasp (Program Tp) where
-  showSC Program {lexiconOfProgram, classDeclsOfProgram, globalsOfProgram, rulesOfProgram, assertionsOfProgram} =
+  showSC p =
     vsep
       [ pretty "\n% Facts",
-        showSClist assertionsOfProgram,
-        showSClist $ onlyPred $ Program{globalsOfProgram},
+        showSClist $ assertionsOfProgram p,
+        showSClist $ onlyPred p,
         pretty "\n% Rules",
-        showSClist $ map normalizeQuantif rulesOfProgram
+        showSClist $ map normalizeQuantif $ rulesOfProgram p
       ]
 
 instance SCasp (Rule Tp) where
@@ -157,108 +152,3 @@ instance SCasp Val where
   showSC (StringV l_c) = pretty l_c
   showSC (RecordV c l_p_fv) = pretty "unsupported, sorry"
   showSC ErrV = pretty "Error"
-
-{-
-foo =
-        [ Rule
-            "winner" -- RuleName
-            [VarDecl "a" (ClassT (ClsNm "Player")), -- for a : Player, g : Game , ... : [VarDecl]
-            VarDecl "g" (ClassT (ClsNm "Game")),
-            VarDecl "r" (ClassT (ClsNm "Sign")),
-            VarDecl "s" (ClassT (ClsNm "Sign"))]
-            (QuantifE (ClassT (ClsNm "Boolean"))    -- if exists b : Player .... : Expr t
-                      Ex "b" (ClassT (ClsNm "Player"))
-                          (BinOpE (ClassT (ClsNm "Boolean"))
-                            (BBool BBand)
-                          (AppE BoolT (AppE (FunT (ClassT (ClsNm "Game")) BoolT) (VarE (FunT (ClassT (ClsNm "Player")) (FunT (ClassT (ClsNm "Game")) BoolT)) (GlobalVar "Participate_in")) (VarE (ClassT (ClsNm "Player")) (LocalVar "a" 4))) (VarE (ClassT (ClsNm "Game")) (LocalVar "g" 3))) (BinOpE (ClassT (ClsNm "Boolean"))
-                            (BBool BBand)
-                          (AppE BoolT (AppE (FunT (ClassT (ClsNm "Game")) BoolT) (VarE (FunT (ClassT (ClsNm "Player")) (FunT (ClassT (ClsNm "Game")) BoolT)) (GlobalVar "Participate_in")) (VarE (ClassT (ClsNm "Player")) (LocalVar "b" 0))) (VarE (ClassT (ClsNm "Game")) (LocalVar "g" 3))) (BinOpE  (ClassT (ClsNm "Boolean"))
-                            (BBool BBand)
-                          (AppE  BoolT (AppE  (FunT (ClassT (ClsNm "Sign")) BoolT) (VarE  (FunT (ClassT (ClsNm "Player")) (FunT (ClassT (ClsNm "Sign")) BoolT)) (GlobalVar "Throw")) (VarE  (ClassT (ClsNm "Player")) (LocalVar "a" 4))) (VarE  (ClassT (ClsNm "Sign")) (LocalVar "r" 2))) (BinOpE  (ClassT (ClsNm "Boolean"))
-                            (BBool BBand)
-                          (AppE  BoolT (AppE  (FunT (ClassT (ClsNm "Sign")) BoolT) (VarE  (FunT (ClassT (ClsNm "Player")) (FunT (ClassT (ClsNm "Sign")) BoolT)) (GlobalVar "Throw")) (VarE  (ClassT (ClsNm "Player")) (LocalVar "b" 0))) (VarE  (ClassT (ClsNm "Sign")) (LocalVar "s" 1))) (AppE  BoolT (AppE  (FunT (ClassT (ClsNm "Sign")) BoolT) (VarE  (FunT (ClassT (ClsNm "Sign")) (FunT (ClassT (ClsNm "Sign")) BoolT)) (GlobalVar "Beat")) (VarE  (ClassT (ClsNm "Sign")) (LocalVar "r" 2))) (VarE  (ClassT (ClsNm "Sign")) (LocalVar "s" 1))))))))
-            ( AppE  -- then Win a g : Expr t
-                BoolT
-                (AppE (FunT (ClassT (ClsNm "Game")) BoolT)
-                (VarE (FunT (ClassT (ClsNm "Player")) (FunT (ClassT (ClsNm "Game")) BoolT)) (GlobalVar "Win"))
-                (VarE (ClassT (ClsNm "Player")) (LocalVar "a" 3)))
-                ( VarE
-                    (ClassT (ClsNm "Game"))
-                    (LocalVar "g" 2)
-                )
-            )
-        ]
--}
-
-{-
-foo =
-  [ UnaOpE
-      ErrT
-      (UBool UBneg)
-      ( QuantifE
-          ErrT
-          Ex
-          "bsn"
-          (ClassT (ClsNm "Business"))
-          ( BinOpE
-              ErrT
-              (BBool BBand)
-              ( AppE
-                  ErrT
-                  ( AppE
-                      ErrT
-                      ( VarE
-                          ( FunT
-                              (ClassT (ClsNm "LegalPractitioner"))
-                              (FunT (ClassT (ClsNm "Appointment")) (ClassT (ClsNm "Boolean")))
-                          )
-                          (GlobalVar "AssociatedWith")
-                      )
-                      (VarE (ClassT (ClsNm "Appointment")) (LocalVar "app" 1))
-                  )
-                  (VarE (ClassT (ClsNm "Business")) (LocalVar "bsn" 0))
-              )
-              (AppE (ClassT (ClsNm "Boolean")) (VarE (FunT (ClassT (ClsNm "Business")) (ClassT (ClsNm "Boolean"))) (GlobalVar "IncompatibleDignity")) (VarE (ClassT (ClsNm "Business")) (LocalVar "bsn" 0)))
-          )
-      )
-  ]
--}
-{-
-foo =
-  [ QuantifE
-      ErrT
-      All
-      "bse"
-      (ClassT (ClsNm "BusinessEntity"))
-      ( BinOpE
-          ErrT
-          (BBool BBimpl)
-          ( AppE
-              ErrT
-              (AppE ErrT (VarE ErrT (GlobalVar "AssociatedWithApp")) (VarE (ClassT (ClsNm "Appointment")) (LocalVar "app" 1)))
-              (VarE (ClassT (ClsNm "BusinessEntity")) (LocalVar "bse" 0))
-          )
-          ( BinOpE
-              ErrT
-              (BBool BBand)
-              ( UnaOpE
-                  ErrT
-                  (UBool UBneg)
-                  ( QuantifE
-                      ErrT
-                      Ex
-                      "srv"
-                      (ClassT (ClsNm "Business"))
-                      ( BinOpE
-                          ErrT
-                          (BBool BBand)
-                          (AppE ErrT (VarE ErrT (GlobalVar "LawRelatedService")) (VarE (ClassT (ClsNm "Business")) (LocalVar "srv" 0)))
-                          (AppE ErrT (AppE ErrT (VarE ErrT (GlobalVar "Provides")) (VarE (ClassT (ClsNm "BusinessEntity")) (LocalVar "bse" 1))) (VarE (ClassT (ClsNm "Business")) (LocalVar "srv" 0)))
-                      )
-                  )
-              )
-              (AppE ErrT (AppE ErrT (VarE ErrT (GlobalVar "ConditionsSecondSchedule")) (VarE (ClassT (ClsNm "LocumSolicitor")) (LocalVar "lpr" 2))) (VarE (ClassT (ClsNm "BusinessEntity")) (LocalVar "bse" 0)))
-          )
-      )
-  ]
--}
