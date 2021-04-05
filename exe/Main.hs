@@ -42,12 +42,11 @@ process args input = do
 
       case checkError preludeAst ast of 
         Left err -> putStrLn (printError err)
-      --let tpAst = tpProgram preludeAst ast
         Right tpAst -> do
           let tpAstNoSrc = fmap typeAnnot tpAst
           when (astHS args) $ do
-            -- pPrint prog
-            hPrint stderr tpAst
+            pPrint tpAst
+            -- hPrint stderr tpAst
           when (astGF args) $ do
             GF.nlgAST (getGFL $ format args) tpAstNoSrc
           unless (astGF args) $ do

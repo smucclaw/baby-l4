@@ -19,29 +19,7 @@ import Error
 import Syntax
 
 
-----------------------------------------------------------------------
--- Result of typing
-----------------------------------------------------------------------
 
-
--- TODO: AnnotTypingPhase possbily obsolete?
-data AnnotTypingPhase
-  = PosAnnotTP SRng                                             -- initial state of typing phase, all constructors in syntax tree
---  | PosClassDeclsTP SRng [ClassDeclsError]                      -- list of class declarations, empty if there are no errors in this phase
-  | PosTpAnnotTP (LocTypeAnnot Tp)
-  | PosClassHierAnnotTP (LocTypeAnnot [ClassName])
-  deriving (Eq, Ord, Show, Read)
-
-instance HasLoc AnnotTypingPhase where
-  getLoc (PosAnnotTP s) = s
---  getLoc (PosClassDeclsTP s l_c) = s
-  getLoc (PosTpAnnotTP lt) = getLoc lt
-  getLoc (PosClassHierAnnotTP ll_c) = getLoc ll_c
-
--- | Get type or give an error
-extractType :: AnnotTypingPhase -> Tp
-extractType (PosTpAnnotTP (LocTypeAnnot s t)) = t
-extractType _ = ErrT Unspecified
 
 ----------------------------------------------------------------------
 -- Environment
@@ -373,12 +351,13 @@ castCompatible te ctp = True
 
 
 -- typing of a variable that is initially (after parsing) only known by its name
-tpVar :: Environment t -> Var -> Tp
-tpVar env (GlobalVar vn) =
+tpVar :: Environment t -> SRng -> Var -> Tp
+tpVar env loc (GlobalVar vn) =
   case lookup vn (globalsOfEnv env) of
-    Nothing -> Data.Maybe.fromMaybe (ErrT Unspecified) (lookup vn (localsOfEnv env))
+    Nothing -> 
+      Data.Maybe.fromMaybe (ErrT (UndeclaredVariable loc vn)) (lookup vn (localsOfEnv env))
     Just t -> t
-tpVar env (LocalVar _ _) = error "internal error: for type checking, variable should be GlobalVar"
+tpVar env _ (LocalVar _ _) = error "internal error: for type checking, variable should be GlobalVar"
 
 varIdentityInEnv :: Environment t -> Var -> Var
 varIdentityInEnv (Env _ _ vds) (GlobalVar vn) =
@@ -422,7 +401,7 @@ getTypeOfExpr = getType . annotOfExpr
 tpExpr :: (TypeAnnot f, HasLoc (f a)) => Environment t -> Expr (f a) -> Expr (f Tp)
 tpExpr env x = case x of
   ValE annot c -> ValE (updType annot (tpConstval env c)) c
-  VarE annot v -> VarE (updType annot (tpVar env v)) (varIdentityInEnv env v)
+  VarE annot v -> VarE (updType annot (tpVar env (getLoc annot) v)) (varIdentityInEnv env v)
   UnaOpE annot uop e ->
     let te = tpExpr env e
         t  = tpUnaop env [getLoc annot, getLoc e] (getTypeOfExpr te) uop
@@ -517,9 +496,10 @@ tpExpr env x = case x of
 tpExprBasic :: Environment t -> Expr SRng -> Expr AnnotTypingPhase
 tpExprBasic env e = fmap PosTpAnnotTP (tpExpr env (fmap (`LocTypeAnnot` ()) e))
 
--- TODO:FAssign
+-- TODO: to do type checking, Cmd also has to be annotated with type info
 tpCmd :: (TypeAnnot f, HasLoc (f a)) => Environment [ClassName] -> Cmd (f a) -> Cmd (f Tp)
 tpCmd env Skip = Skip
+{-
 tpCmd env (VAssign v e) =
     let te = tpExpr env e
     in
@@ -527,21 +507,7 @@ tpCmd env (VAssign v e) =
       then VAssign v te
       else error "types do not correspond in assignment"
 tpCmd env FAssign {} = error "typing of FAssign not implemented yet"
-
-
--- TODO: hack, see later
-tpRuleVarDecls :: [VarDecl SRng] -> [VarDecl AnnotTypingPhase]
-tpRuleVarDecls = map (\(VarDecl annot vn t) -> VarDecl (PosAnnotTP annot) vn t)
-
--- TODO: still take local variables into account
-tpRule :: Environment t -> Rule SRng -> Rule AnnotTypingPhase
-tpRule env (Rule annot rn vds precond postcond) =
-  let renv = pushLocalVarEnv (map (\(VarDecl _ vn vt) -> (vn, vt)) vds) env
-      tpdVds = tpRuleVarDecls vds
-  in Rule (PosAnnotTP annot) rn tpdVds (tpExprBasic renv precond) (tpExprBasic renv postcond)
-
-tpAssertion :: Environment t -> Assertion SRng -> Assertion AnnotTypingPhase
-tpAssertion env (Assertion annot e) = Assertion (PosAnnotTP annot) (tpExprBasic env e)
+-}
 
 tpVarDecl :: TypeAnnot f => [ClassName] -> VarDecl (f a) -> VarDecl (f Tp)
 tpVarDecl kenv vd =
@@ -578,20 +544,6 @@ tpAssertion2 env (Assertion annot e) =
     if isBooleanTp t
     then Assertion (updType annot t) te
     else Assertion (updType annot (ErrT Unspecified)) te
-
--- TODO: check types of global variable declarations
--- Assumption: prelude only contains class declarations
-tpProgram :: Program SRng -> Program SRng -> Program AnnotTypingPhase
-tpProgram prelude (Program annot lex cds gvars rls asrt) =
-  let pcds = classDeclsOfProgram prelude
-      initialClassDecls = (pcds ++ cds)
-      elabClassDecls = elaborateClsProgram initialClassDecls
-      env = initialEnvOfProgram elabClassDecls gvars
-  in Program (PosAnnotTP annot) (map (fmap PosAnnotTP) lex) (map (fmap PosAnnotTP) elabClassDecls) (map (fmap PosAnnotTP) gvars) (map (tpRule env) rls) (map (tpAssertion env) asrt)
-
-
-liftProgram :: Program SRng -> Program AnnotTypingPhase
-liftProgram = fmap PosAnnotTP
 
 
 ----------------------------------------------------------------------
@@ -739,7 +691,7 @@ checkErrorGen prelude prg =
     liftLeft AssertionErr (checkAssertionError prgCheckRule)
 
 liftLoc :: SRng -> LocTypeAnnot Tp
-liftLoc rng  = LocTypeAnnot rng (ErrT Unspecified)
+liftLoc rng  = LocTypeAnnot rng OkT
 
 checkError :: Program SRng -> Program SRng -> Either (Error (LocTypeAnnot Tp)) (Program (LocTypeAnnot Tp))
 checkError prelude prg = checkErrorGen (fmap liftLoc prelude) (fmap liftLoc prg)

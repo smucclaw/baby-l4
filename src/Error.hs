@@ -73,8 +73,8 @@ printAssertionErr :: AssertionError t -> String
 printAssertionErr (AssertionErrAE nonBoolExprs illTyped) =
   unlines (map printErrorCause illTyped)
 
-printError :: Error t -> String 
+printError :: Show t => Error t -> String 
 printError e = case e of
   AssertionErr ae -> printAssertionErr ae
-  _ -> "not implemented"
+  unknownErr -> show unknownErr
   

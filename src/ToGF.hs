@@ -15,7 +15,6 @@ import System.Environment (withArgs)
 import System.IO (stderr, hPutStrLn)
 import Text.Printf (printf)
 import TransProp
-import Typing (AnnotTypingPhase)
 
 -- moved this here from exe/Main.hs, needed to tell optparse which languages to output
 data GFlang  = GFall | GFeng | GFswe deriving Show

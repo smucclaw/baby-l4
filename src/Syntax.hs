@@ -34,27 +34,6 @@ newtype PartyName = PtNm String
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 
--- TODO: has been moved to Annotation.hs
-{-
-class HasLoc a where
-  getLoc :: a -> SRng
-
-
-data Pos = Pos
-  { line :: !Int
-  , col  :: !Int
-  }
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
-data SRng = SRng
-  { start :: Pos
-  , end   :: Pos
-  }
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
-
-instance HasLoc SRng where
-  getLoc = id
--}
-
 ----- Program
 
 data Program t = Program{ annotOfProgram :: t
@@ -77,6 +56,7 @@ data ExpectedType
   
 data ErrorCause 
   = Inherited 
+  | UndeclaredVariable SRng VarName
   | IllTypedSubExpr { exprRangesITSE :: [SRng]
                     , receivedITSE :: [Tp]
                     , expectedITSE :: [ExpectedType] }
@@ -105,6 +85,7 @@ data Tp
   | FunT Tp Tp
   | TupleT [Tp]
   | ErrT ErrorCause
+  | OkT                    -- fake type appearing in constructs (classes, rules etc.) that do not have a genuine type
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 data VarDecl t = VarDecl {annotOfVarDecl ::t 
