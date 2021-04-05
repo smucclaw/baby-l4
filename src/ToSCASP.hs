@@ -43,10 +43,12 @@ onlyPred :: Program t -> [VarDecl t]
 onlyPred = filter isPred . globalsOfProgram
 
 commaList :: [Doc ann] -> Doc ann
-commaList = vsep . punctuate comma
+commaList = vsep . punctuate comma            -- separator: a, b, c
 
+-- Don't add a dot after an empty list
 dotList :: [Doc ann] -> Doc ann
-dotList = vsep . punctuate dot
+dotList [] = mempty
+dotList xs = endDot $ vsep $ punctuate dot xs -- terminator: a. b. c.
 
 endDot :: Doc ann -> Doc ann
 endDot x = x <> dot
