@@ -69,8 +69,14 @@ instance SCasp (Rule Tp) where
         PP.line
       ]
 
+-- We don't want to state as a fact anything that is quantified: 
+--   `assert exists foo. Legal foo`
+-- doesn't mean the same as s(CASP) expression `legal(foo)`.
+-- Only assertions like `assert Beats Rock Scissors` become facts.
 instance SCasp (Assertion Tp) where
-  showSC (Assertion _ assertExpr) = endDot $ showSC assertExpr
+  showSC (Assertion _ assertExpr) = case assertExpr of
+    QuantifE {} -> mempty
+    _           -> endDot $ showSC assertExpr
 
 instance SCasp (VarDecl t) where
   showSC (VarDecl _ v tp) = mkAtom tp <> parens (mkVar (v, tp))
