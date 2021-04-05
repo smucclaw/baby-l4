@@ -1,15 +1,100 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# OPTIONS_GHC -Wall -Wno-unticked-promoted-constructors #-}
 
 module ToGF.FromL4.ToQuestions where
 
+import Prettyprinter
+import Prettyprinter.Render.Text (hPutDoc)
+import Data.Set (Set)
+import qualified Data.Set as S
+
 import Questions
 import Syntax
-import Control.Applicative
 import PGF
+import ToGF.GenerateLexicon
+import ToGF.FromSCasp.SCasp
+
+-- to lexicon
+
+grName :: Doc () --String
+grName = "Question"
+
+getPred :: [VarDecl t] -> [GPred]
+getPred (x:xs)
+  | isPred x = toPred x : getPred xs
+  | not (isPred x) = getPred xs
+  | otherwise = []
+
+printGF :: Gf a => PGF -> a -> IO ()
+printGF gr expr = do
+  --putStrLn $ showExpr [] $ gf expr
+  mapM_ putStrLn (linearizeAll gr (gf expr))
+
+-- grab atoms and names 
+getName :: GPred -> GName
+getName (GMkPred1 x _)  = x
+
+getArg :: GPred -> GAtom
+getArg (GMkPred1 _ x)  = x
+
+getName2 :: GPred -> GName
+getName2 (GMkPred2 x _ _)  = x
+
+getArg1 :: GPred -> GAtom
+getArg1 (GMkPred2 _ x _)  = x
+
+getArg2 :: GPred -> GAtom
+getArg2 (GMkPred2 _ _ x)  = x
+
+-- apply list of functions to get atoms
+grabNames :: [GPred] -> [GName]
+grabNames x = [getName,getName2] <*> x
+
+grabArgs :: [GPred] -> [GAtom]
+grabArgs x = [getArg, getArg1, getArg2] <*> x
+
+--data POS = POS {origName :: String, pos :: InnerPOS}
+
+--data InnerPOS = PN2 String Prep | PN String | PV2 String Prep | PV String
+
+
+setPOS :: GAtom -> POS 
+setPOS (LexAtom str) = POS str $ case str of
+  [noun] -> PN noun
+
+
+mkQLexicon :: GPred -> (Doc (), Doc ())
+mkQLexicon x = (abstractLexicon lexicon, concreteLexicon lexicon)
+  where
+    lexicon = setPOS <$> S.toList (grabArgs x)
+
+createGF :: GPred -> IO ()
+createGF x  = do
+  let (absS, cncS) = mkQLexicon x
+  writeDoc (mkAbsName lexName) absS
+  writeDoc (mkCncName lexName) cncS
+  writeDoc (mkAbsName topName) $ "abstract " <> topName <+> "=" <+> ToGF.FromL4.ToQuestions.grName <> "," <+> lexName <+> "** {flags startcat = Statement ;}"
+  writeDoc (mkCncName topName) $ "concrete " <> topName <> "Eng of " <> topName <+> "=" <+> ToGF.FromL4.ToQuestions.grName <> "Eng," <+> lexName <> "Eng ;"
+
+nlg :: GPred -> IO ()
+nlg x = do
+  ToGF.FromL4.ToQuestions.createGF x
+
+--dumpModels :: [Model] -> Model
+--dumpModels = MExps . foldMap getModel
+--  where
+--    getModel :: Model -> [Exp]
+--    getModel (MExps es) = es
+
+--
 
 hello prog =
 
-    mapM_ (putStrLn . (showExpr [] . gf)) (toQuestions prog)
+    mapM_ (putStrLn . showExpr [] . gf) (toQuestions prog)
 
 class Questionable x where
     toQuestions :: x -> [GQuestion]
