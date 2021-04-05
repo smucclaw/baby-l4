@@ -41,7 +41,7 @@ createPGF gfl (Program _ lexicon _2 _3 _4 _5) = do
   writeFile "grammars/PropTop.gf" topAbs
   forM_ langs $
     \lang -> writeFile (concrName "PropTop" lang) (topCnc lang)
-  withArgs (["-make", "--output-dir=generated", "--gfo-dir=/tmp", "-v=0"] ++ map (concrName "PropTop") langs) GF.main
+  withArgs (["-make", "--output-dir=generated", "-v=0"] ++ map (concrName "PropTop") langs) GF.main
   PGF.readPGF "generated/PropTop.pgf"
 
 nlg, nlgAST :: GFlang -> Program Tp -> IO ()
