@@ -10,6 +10,7 @@ import Data.Char (toLower, toUpper)
 import Prettyprinter as PP
 import Prettyprinter.Render.Text (putDoc)
 import Syntax
+import ToGF.NormalizeSyntax
 import ToGF.FromL4.ToProp
 
 data Stash ann = Stash
@@ -130,6 +131,7 @@ instance SCasp (Rule Tp) where
 instance SCasp (Assertion Tp) where
   showSC (Assertion _ assertExpr) = case assertExpr of
     QuantifE {} -> mempty
+    _ -> mempty
     -- _ -> endDot $ showSC assertExpr
 
 --showSC (Assertion _ assertExpr) = endDot $ showSC assertExpr
@@ -143,13 +145,13 @@ instance SCasp (Expr Tp) where
     where
       existX = mkAtom typ <> parens (mkVar (x, typ))
       suchThat =
-        showRule <$> case toList exp of
+        showRule <$> case normalizeAnd exp of
           ListE _ _ es -> es
           _ -> [exp]
   -- showRule e@(Forall x typ exp) = vsep []
   --   where
   --     (newRule, newPred) = forallRule e
-  showRule x = case toList x of
+  showRule x = case normalizeAnd x of
     ValE _ v -> showRule v
     FunApp1 f x xTp -> mkAtom f <> parens (mkVar (x, xTp))
     FunApp2 f x xTp y yTp -> mkAtom f <> encloseSep lparen rparen comma (mkVar <$> [(x, xTp), (y, yTp)])

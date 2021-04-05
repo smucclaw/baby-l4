@@ -238,17 +238,6 @@ data Expr t
                                                       -- or is itself classically negated (False)
     deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
-toList :: Expr t -> Expr t
-toList e@(BinOpE ann binop e1 e2) = ListE ann listop (go e)
-  where
-    go (BinOpE _ _ e1 e2) = go e1 ++ go e2
-    go e = [e]
-    listop = case binop of 
-      BBool BBand -> AndList
-      BBool BBor  -> OrList
-      _ -> CommaList
-toList e = e
-
 {-
 instance HasLoc (Expr t) where
   getLoc x = case x of
@@ -313,17 +302,6 @@ data Cmd t
 
 data Rule t = Rule t RuleName [VarDecl t] (Expr t) (Expr t)
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
-
-normalizeQuantif :: Rule t -> Rule t
-normalizeQuantif (Rule ann nm decls ifE thenE) = 
-  Rule ann nm (decls ++ newDecls) newIfE thenE
-  where
-    (newDecls,newIfE) = go ifE -- result of the recursion
-    go e = case e of
-      QuantifE ann _ varnm tp expr ->
-        let (newDs, newE) = go expr
-        in (VarDecl ann varnm tp:newDs, newE)
-      _ -> ([], e)
 
 annotOfRule :: Rule t -> t  
 annotOfRule (Rule t _ _ _ _) = t
