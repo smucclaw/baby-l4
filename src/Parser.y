@@ -180,8 +180,10 @@ Expr : '\\' Pattern ':' ATp '->' Expr  { FunE (tokenRange $1 $6) $2 $4 $6 }
      | Expr '&&' Expr              { BinOpE (tokenRange $1 $3) (BBool BBand) $1 $3 }
      | if Expr then Expr else Expr { IfThenElseE (tokenRange $1 $6) $2 $4 $6 }
      | not Expr                    { UnaOpE (tokenRange $1 $2) (UBool UBneg) $2 }
-     | not derivable VAR Atom      { NotDeriv (tokenRange $1 $4) True (GlobalVar $ tokenSym $3) $4 }
-     | not derivable not VAR Atom  { NotDeriv (tokenRange $1 $5) False (GlobalVar $ tokenSym $4) $5 }
+     | not derivable VAR           { NotDeriv (tokenRange $1 $3) True (VarE (tokenPos $3) (GlobalVar $ tokenSym $3)) }
+     | not derivable not VAR       { NotDeriv (tokenRange $1 $4) False (VarE (tokenPos $4) (GlobalVar $ tokenSym $4)) }
+     | not derivable VAR Atom      { NotDeriv (tokenRange $1 $4) True (AppE (tokenRange $3 $4)  (VarE (tokenPos $3) (GlobalVar $ tokenSym $3)) $4) }
+     | not derivable not VAR Atom  { NotDeriv (tokenRange $1 $5) False (AppE (tokenRange $4 $5) (VarE (tokenPos $4) (GlobalVar $ tokenSym $4)) $5) }
      | Expr '<' Expr               { BinOpE (tokenRange $1 $3) (BCompar BClt) $1 $3 }
      | Expr '<=' Expr              { BinOpE (tokenRange $1 $3) (BCompar BClte) $1 $3 }
      | Expr '>' Expr               { BinOpE (tokenRange $1 $3) (BCompar BCgt) $1 $3 }
@@ -202,7 +204,11 @@ App : App Acc                     { AppE (tokenRange $1 $2) $1 $2 }
 Acc : Acc '.' VAR                  { FldAccE (tokenRange $1 $3) $1 (FldNm $ tokenSym $3) }
     | Atom                         { $1 }
 
-Atom : '(' ExprsCommaSep ')'       { let ecs = $2 in if length ecs == 1 then head ecs else TupleE (tokenRange $1 $3) (reverse ecs) }
+Atom : '(' ExprsCommaSep ')'       { let ecs = $2
+                                     in
+                                        if length ecs == 1 
+                                        then updAnnotOfExpr (const (tokenRange $1 $3)) (head ecs)
+                                        else TupleE (tokenRange $1 $3) (reverse ecs) }
      | NUM                         { ValE (pos) (IntV $1) }
      | STR                         { ValE (tokenPos $1) (StringV (tokenString $1)) }
      | VAR                         { VarE (tokenPos $1) (GlobalVar $ tokenSym $1) }
