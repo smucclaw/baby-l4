@@ -50,7 +50,6 @@ gfPP bi lbi clbi = PreProcessor {
                 , "--haskell=lexical"
                 , "--lexical=Noun,Noun2,Adj,Adj2,Verb,Verb2"
                 , "--output-dir=" ++ outDir
-                , "--gfo-dir=/tmp"
                 , inDir </> inFile
                 ]
         print args
