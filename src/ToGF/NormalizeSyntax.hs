@@ -12,6 +12,9 @@ normalizeQuantif (Rule ann nm decls ifE thenE) =
        where (newDs, newE) = go expr
     go e = ([], e)
 
+varName :: Var -> VarName
+varName (GlobalVar n) = n
+varName (LocalVar n _) = n
 
 normalizeAnd :: Expr t -> Expr t
 normalizeAnd e@(BinOpE ann (BBool BBand) e1 e2) = ListE ann AndList (go e)

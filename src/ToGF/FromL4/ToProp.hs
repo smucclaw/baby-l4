@@ -15,6 +15,7 @@ import System.Environment (withArgs)
 import System.IO (stderr, hPutStrLn)
 import Text.Printf (printf)
 import ToGF.FromL4.TransProp
+import ToGF.NormalizeSyntax ( varName )
 import Typing (AnnotTypingPhase)
 
 -- moved this here from exe/Main.hs, needed to tell optparse which languages to output
@@ -243,10 +244,6 @@ pattern IfThenElse e1 e2 e3 <- IfThenElseE _ e1 e2 e3
 
 ----------------------------------------
 -- Generic helper functions
-
-varName :: Var -> VarName
-varName (GlobalVar n) = n
-varName (LocalVar n _) = n
 
 updateVars :: [VarDecl Tp] -> Env -> Env
 updateVars vs env = env {vardecls = vs : vardecls env}
