@@ -20,10 +20,10 @@ data Stash ann = Stash
   }
 
 unstash :: Stash ann -> Doc ann
-unstash (Stash r f q) = 
+unstash (Stash r f q) =
   pretty "% facts" <> f <> line <>
   pretty "% rules" <> r <> line <>
-  pretty "% queries" <> q
+  pretty "% queries " <> line <> q 
 
 rule, fact, query :: Doc ann -> Stash ann
 rule rl = Stash rl mempty mempty
@@ -49,7 +49,7 @@ isPred' (FunT t t2) = isPred' t2
 isPred' _ = False
 
 createSCasp :: Program Tp -> IO ()
-createSCasp = putDoc . unstash . showSC 
+createSCasp = putDoc . unstash . showSC
 
 indent' :: Doc ann -> Doc ann
 indent' = indent 4
@@ -100,7 +100,13 @@ instance SCasp (Rule Tp) where
 -- Only assertions like `assert Beats Rock Scissors` become facts.
 -- Other assertions become rules.
 instance SCasp (Assertion Tp) where
-  showSingle (Assertion foo bar) = line <> pretty "TODO: these become queries" <> line
+  showSingle (Assertion ann query) =
+    vsep
+        [ pretty "?-",
+          endDot $ indent' $ commaList [showSingle query],
+          PP.line
+        ]
+    --line <> showSingle bar <> line
   showSC = query . showSingle
 
 instance SCasp (VarDecl t) where
