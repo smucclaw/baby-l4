@@ -133,7 +133,7 @@ instance SCasp (Expr Tp) where
     ListE _ _ es -> commaList $ map showSingle es
     QuantifE _ _ _ _ es -> showSingle es
     UnaOpE _ unaop exp -> showSingle unaop <+> showSingle exp
-    NotDeriv ann _ _ e  -> showSingle $ UnaOpE ann (UBool UBneg) e
+    NotDeriv ann _ e  -> showSingle $ UnaOpE ann (UBool UBneg) e
     --IfThenElseE _ ifE thenE elseE -> vsep [
     --                                  showSC ifE <> comma,
     --                                showSC thenE,

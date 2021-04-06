@@ -45,7 +45,7 @@ extractName (FldAccE t et f) = extractName et
 extractName (TupleE t l_et) = intercalate "_" (map extractName l_et)
 extractName (CastE t t2 et) = extractName et
 extractName (ListE t l l_et) = intercalate "_" (map extractName l_et)
-extractName (NotDeriv t b v et) = extractName et
+extractName (NotDeriv _ _ et) = extractName et
 
 varName :: Var -> VarName
 varName (GlobalVar n) = n
@@ -58,6 +58,20 @@ normalizeAnd e@(BinOpE ann (BBool BBand) e1 e2) = ListE ann AndList (go e)
     go e = [e]
 normalizeAnd e = e
 {- TODO:
+
+* A function Rule t -> [Rule t], which work on rules like
+
+  if Legal foo
+  then Good foo && MayBeEaten foo
+
+and returns 2 new rules:
+
+  if Legal foo
+  then Good foo 
+  
+  if Legal foo
+  then MayBeEaten foo
+
 * A function Rule t -> [Rule t], which work on rules like
   if (Rich foo || Pretty foo || Smart foo)
   then Legal foo
