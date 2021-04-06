@@ -11,6 +11,7 @@ import Prettyprinter
 import Prettyprinter.Render.Text (hPutDoc)
 import Data.Set (Set)
 import qualified Data.Set as S
+import Data.Char
 
 import Questions
 import Syntax
@@ -51,26 +52,40 @@ getArg2 :: GPred -> GAtom
 getArg2 (GMkPred2 _ _ x)  = x
 
 -- apply list of functions to get atoms
-grabNames :: [GPred] -> [GName]
-grabNames x = [getName,getName2] <*> x
+grabNames :: GPred -> [GName]
+grabNames x = map ($ x) [getName,getName2]
 
-grabArgs :: [GPred] -> [GAtom]
-grabArgs x = [getArg, getArg1, getArg2] <*> x
+grabArgs :: GPred -> [GAtom]
+grabArgs x = map ($ x) [getArg, getArg1, getArg2]
 
 --data POS = POS {origName :: String, pos :: InnerPOS}
 
 --data InnerPOS = PN2 String Prep | PN String | PV2 String Prep | PV String
 
+--Not found in lexicon: create the N/V/A/N2/V2/A2 using GF smart paradigms
+--mkName (rock_1_N)
+--mkAtom (mkV2 throw_2_V)
+--mkName (mkV2 (mkV "foo"))
+--mkAtom (mkN "bar")
 
-setPOS :: GAtom -> POS 
-setPOS (LexAtom str) = POS str $ case str of
-  [noun] -> PN noun
+makeArgPOS :: GAtom -> POS
+makeArgPOS (LexAtom x) = POS x $ PN getStr
+  where getNum
+         | isDigit (last x) = digitToInt (last x) 
+         | otherwise = 0
+        getStr = init x
 
+--getPOS :: [GAtom] -> POS
+--getPOS (x:xs)
+-- | getLength == 2 =  
+-- | getLength == 1 = singlePOS x 
+-- where
+--   getLength = length (x:xs)
 
 mkQLexicon :: GPred -> (Doc (), Doc ())
 mkQLexicon x = (abstractLexicon lexicon, concreteLexicon lexicon)
   where
-    lexicon = setPOS <$> S.toList (grabArgs x)
+    lexicon = map makeArgPOS (grabArgs x)
 
 createGF :: GPred -> IO ()
 createGF x  = do
