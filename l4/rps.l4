@@ -29,10 +29,29 @@ decl Lose : Player -> Game -> Bool
 decl Beat : Sign -> Sign -> Bool
 decl Throw : Player -> Sign -> Bool
 
-# Make these too into facts!
 decl Rock : Sign
 decl Paper : Sign
 decl Scissors : Sign
+
+rule <beats_rock_scissors>
+if True
+then Beats Rock Scissors
+
+
+rule <beats_scissors_paper>
+if True
+then Beats Scissors Paper
+
+
+rule <beats_paper_rock>
+if True
+then Beats Paper Rock
+
+
+rule <beats_paper_rock>
+if False
+then Beats Rock Paper
+
 
 rule <winner>
 for a : Player, g : Game, r : Sign, s : Sign
@@ -41,14 +60,12 @@ if (exists b : Player . Participate_in a g  && Participate_in b g  &&
                                            )
 then Win a g
 
-rule <loser>
-for a : Player, g : Game 
-if (exists b : Player .
-      (exists s : Sign . 
-        (exists r : Sign . Participate_in a g  && Participate_in b g  && 
-                                           Throw a r && Throw b s && Beat s r
-                                           )))
-then Lose a g
+
+rule <test>
+for b : Player
+if (forall a : Player . Throw a Rock)
+then Throw b Paper
+
 
 assert Beats Rock Scissors
 assert Beats Scissors Paper
