@@ -35,22 +35,22 @@ decl Scissors : Sign
 
 rule <beats_rock_scissors>
 if True
-then Beats Rock Scissors
+then Beat Rock Scissors
 
 
 rule <beats_scissors_paper>
 if True
-then Beats Scissors Paper
+then Beat Scissors Paper
 
 
 rule <beats_paper_rock>
 if True
-then Beats Paper Rock
+then Beat Paper Rock
 
 
 rule <beats_paper_rock>
 if False
-then Beats Rock Paper
+then Beat Rock Paper
 
 
 rule <winner>
@@ -67,6 +67,6 @@ if (forall a : Player . Throw a Rock)
 then Throw b Paper
 
 
-assert Beats Rock Scissors
-assert Beats Scissors Paper
-assert Beats Paper Rock
+assert Beat Rock Scissors
+assert Beat Scissors Paper
+assert Beat Paper Rock
