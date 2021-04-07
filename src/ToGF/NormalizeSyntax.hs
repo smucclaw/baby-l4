@@ -18,6 +18,7 @@ normalizeQuantif (Rule ann nm decls ifE thenE) =
       where
         (newDs, newE) = go expr
     go e = ([], e)
+    
     forallRule :: Expr Tp -> ([Rule Tp], Maybe (Expr Tp))
     forallRule (QuantifE ann All name tp ifExp) = ([Rule ann "foo" vardecls ifExp thenExp], Just negThenExp)
       where
@@ -59,32 +60,49 @@ normalizeAnd e@(BinOpE ann (BBool BBand) e1 e2) = ListE ann AndList (go e)
 normalizeAnd e = e
 {- TODO:
 
-* A function Rule t -> [Rule t], which work on rules like
-
+1. A function Rule t -> [Rule t], which work on L4 rules like
+  
+  rule <blah>
+  for foo : Foo
   if Legal foo
   then Good foo && MayBeEaten foo
 
-and returns 2 new rules:
-
+and returns 2 new L4 rules:
+  
+  rule <blah>
+  for foo : Foo
   if Legal foo
   then Good foo 
   
+  rule <blah>
+  for foo : Foo  
   if Legal foo
   then MayBeEaten foo
 
-* A function Rule t -> [Rule t], which work on rules like
+2. A function Rule t -> [Rule t], which work on rules like
+
+  rule <blah>
+  for foo : Foo
   if (Rich foo || Pretty foo || Smart foo)
   then Legal foo
+
 and returns 3 new rules:
+
+  rule <blah>
+  for foo : Foo
   if Rich foo
   then Legal foo
 
+  rule <blah>
+  for foo : Foo
   if Pretty foo
   then Legal foo
 
+  rule <blah>
+  for foo : Foo
   if Smart foo
   then Legal foo
 
-* A function Program -> Program, which makes predicates out of class declarations
+3. A function Program -> Program, which makes predicates out of class declarations
 
 -}
