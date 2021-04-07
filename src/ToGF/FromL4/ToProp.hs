@@ -16,7 +16,6 @@ import System.IO (stderr, hPutStrLn)
 import Text.Printf (printf)
 import ToGF.FromL4.TransProp
 import ToGF.NormalizeSyntax ( varName )
-import Typing (AnnotTypingPhase)
 
 -- moved this here from exe/Main.hs, needed to tell optparse which languages to output
 data GFlang  = GFall | GFeng | GFswe deriving Show
@@ -42,7 +41,7 @@ createPGF gfl (Program _ lexicon _2 _3 _4 _5) = do
   writeFile "grammars/PropTop.gf" topAbs
   forM_ langs $
     \lang -> writeFile (concrName "PropTop" lang) (topCnc lang)
-  withArgs (["-make", "--output-dir=generated", "--gfo-dir=/tmp", "-v=0"] ++ map (concrName "PropTop") langs) GF.main
+  withArgs (["-make", "--output-dir=generated", "-v=0"] ++ map (concrName "PropTop") langs) GF.main
   PGF.readPGF "generated/PropTop.pgf"
 
 nlg, nlgAST :: GFlang -> Program Tp -> IO ()

@@ -51,8 +51,9 @@ decl ShareLPRFees : Business -> Boolean
 decl BusinessFirstSchedule : Business -> Boolean
 decl ProhibitedBusiness : Business -> Boolean
 
-# use the following declarations instead of the commented 'extends' classes ??
-# decl LawRelatedService: Business -> Boolean
+decl LawRelatedService: Business -> Boolean
+decl Provides: BusinessEntity -> Business -> Boolean
+decl ConditionsSecondSchedule: LegalPractitioner -> BusinessEntity -> Boolean
 # decl LocumSolicitor: LegalPractitioner -> Boolean
 
 
@@ -93,12 +94,12 @@ rule <r5>
 # for lpr: LegalPractitioner, app: Appointment
 # Integrated the fact LocumSolicitor lpr in the declaration
 for lpr: LocumSolicitor, app: Appointment
-if not (exists bsn : Business. AssociatedWith app bsn && IncompatibleDignity bsn) &&
-   (forall bse : BusinessEntity. AssociatedWithApp app bse -->
+if not (exists bsn : Business. AssociatedWithAppB app bsn && IncompatibleDignity bsn) &&
+   (forall bse : BusinessEntity. AssociatedWithAppBE app bse -->
                   not (exists srv : Business.  LawRelatedService srv && Provides bse srv) &&
                   ConditionsSecondSchedule lpr bse)
 then 
-AcceptApp lpr app
+MayAcceptApp lpr app
 
 assert exists lpr: LegalPractitioner. exists app: Appointment. MayAcceptApp lpr app
 

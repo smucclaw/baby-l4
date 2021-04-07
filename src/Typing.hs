@@ -3,7 +3,6 @@
 
 {-# LANGUAGE TypeFamilies #-}
 
-
 module Typing where
 
 import Data.List
@@ -19,29 +18,7 @@ import Error
 import Syntax
 
 
-----------------------------------------------------------------------
--- Result of typing
-----------------------------------------------------------------------
 
-
--- TODO: AnnotTypingPhase possbily obsolete?
-data AnnotTypingPhase
-  = PosAnnotTP SRng                                             -- initial state of typing phase, all constructors in syntax tree
---  | PosClassDeclsTP SRng [ClassDeclsError]                      -- list of class declarations, empty if there are no errors in this phase
-  | PosTpAnnotTP (LocTypeAnnot Tp)
-  | PosClassHierAnnotTP (LocTypeAnnot [ClassName])
-  deriving (Eq, Ord, Show, Read)
-
-instance HasLoc AnnotTypingPhase where
-  getLoc (PosAnnotTP s) = s
---  getLoc (PosClassDeclsTP s l_c) = s
-  getLoc (PosTpAnnotTP lt) = getLoc lt
-  getLoc (PosClassHierAnnotTP ll_c) = getLoc ll_c
-
--- | Get type or give an error
-extractType :: AnnotTypingPhase -> Tp
-extractType (PosTpAnnotTP (LocTypeAnnot s t)) = t
-extractType _ = ErrT Unspecified
 
 ----------------------------------------------------------------------
 -- Environment
@@ -199,12 +176,12 @@ isStrictSubclassOf env subcl supercl = supercl `elem` strictSuperClassesOf env s
 isSubclassOf :: Environment t -> ClassName -> ClassName -> Bool
 isSubclassOf env subcl supercl = supercl `elem` superClassesOf env subcl
 
--- TODO: currently INCORRECT, correct version in comment
+-- Get all the fields (direct and inherited) associated with a class name in an environment
+-- function should only be called with a class name known in the environment 
 fieldsOf :: Environment t -> ClassName -> [FieldDecl t]
 fieldsOf env cn = case lookup cn (classDefAssoc (classDeclsOfEnv env)) of
-  Nothing -> error ("in fieldsOf: undefined class " ++ (case cn of (ClsNm n) -> n))
-  --Just (ClassDef _ fds) -> fds
-  Just (ClassDef _ fds) -> []
+  Nothing -> error ("internal error in fieldsOf: undefined class " ++ (case cn of (ClsNm n) -> n))
+  Just (ClassDef _ fds) -> fds
 
 longestCommonPrefix :: Eq a=> [a] -> [a] -> [a]
 longestCommonPrefix (x:xs) (y:ys) = if x == y then x:longestCommonPrefix xs ys else []
@@ -272,6 +249,7 @@ isScalarTp (ClassT _) = True
 isScalarTp (FunT _ _) = False
 isScalarTp (TupleT ts) = all isScalarTp ts
 isScalarTp (ErrT _) = True
+isScalarTp OkT = True
 
 isErrTp :: Tp -> Bool
 isErrTp (ErrT _) = True
@@ -373,12 +351,13 @@ castCompatible te ctp = True
 
 
 -- typing of a variable that is initially (after parsing) only known by its name
-tpVar :: Environment t -> Var -> Tp
-tpVar env (GlobalVar vn) =
+tpVar :: Environment t -> SRng -> Var -> Tp
+tpVar env loc (GlobalVar vn) =
   case lookup vn (globalsOfEnv env) of
-    Nothing -> Data.Maybe.fromMaybe (ErrT Unspecified) (lookup vn (localsOfEnv env))
+    Nothing ->
+      Data.Maybe.fromMaybe (ErrT (UndeclaredVariable loc vn)) (lookup vn (localsOfEnv env))
     Just t -> t
-tpVar env (LocalVar _ _) = error "internal error: for type checking, variable should be GlobalVar"
+tpVar env _ (LocalVar _ _) = error "internal error: for type checking, variable should be GlobalVar"
 
 varIdentityInEnv :: Environment t -> Var -> Var
 varIdentityInEnv (Env _ _ vds) (GlobalVar vn) =
@@ -422,7 +401,7 @@ getTypeOfExpr = getType . annotOfExpr
 tpExpr :: (TypeAnnot f, HasLoc (f a)) => Environment t -> Expr (f a) -> Expr (f Tp)
 tpExpr env x = case x of
   ValE annot c -> ValE (updType annot (tpConstval env c)) c
-  VarE annot v -> VarE (updType annot (tpVar env v)) (varIdentityInEnv env v)
+  VarE annot v -> VarE (updType annot (tpVar env (getLoc annot) v)) (varIdentityInEnv env v)
   UnaOpE annot uop e ->
     let te = tpExpr env e
         t  = tpUnaop env [getLoc annot, getLoc e] (getTypeOfExpr te) uop
@@ -441,7 +420,7 @@ tpExpr env x = case x of
         tc = getTypeOfExpr tec
         t1 = getTypeOfExpr te1
         t2 = getTypeOfExpr te2
-        restp = propagateError [tc, t1, t2] 
+        restp = propagateError [tc, t1, t2]
                (if isBooleanTp tc
                 then if compatibleType env t1 t2
                      then t2
@@ -455,18 +434,18 @@ tpExpr env x = case x of
         tae = tpExpr env ae
         tf  = getTypeOfExpr tfe
         ta  = getTypeOfExpr tae
-        restp = propagateError [tf, ta] 
+        restp = propagateError [tf, ta]
                 (case tf of
                   FunT tpar tbody ->
                     if compatibleType env ta tpar
                     then tbody
                     else ErrT (IllTypedSubExpr [getLoc annot, getLoc ae] [ta] [ExpectedSubTpOf tpar])
-                  _ -> ErrT (NonFunctionTp [getLoc annot, getLoc fe] [tf]))
+                  _ -> ErrT (NonFunctionTp [getLoc annot, getLoc fe] tf))
     in AppE (updType annot restp) tfe tae
   FunE annot pt tparam e ->
     let te = tpExpr (pushPatternEnv pt tparam env) e
         t  = getTypeOfExpr te
-        restp = propagateError [t] 
+        restp = propagateError [t]
                  (if compatiblePatternType pt tparam
                   then FunT tparam t
                   else ErrT (IncompatiblePattern (getLoc annot)))
@@ -474,7 +453,7 @@ tpExpr env x = case x of
   QuantifE annot q vn vt e ->
     let te = tpExpr (pushLocalVarEnv [(vn, vt)] env) e
         t  = getTypeOfExpr te
-        restp = propagateError [t] 
+        restp = propagateError [t]
                 (if isBooleanTp t
                  then booleanT
                  else ErrT (IllTypedSubExpr [getLoc annot, getLoc e] [t] [ExpectedExactTp (ClassT (ClsNm "Boolean"))] ))
@@ -498,15 +477,15 @@ tpExpr env x = case x of
   CastE annot ctp e ->
     let te = tpExpr env e
         t = getTypeOfExpr te
-        restp = propagateError [t] 
+        restp = propagateError [t]
                 (if castCompatible t ctp
                  then ctp
-                 else ErrT (CastIncompatible [getLoc annot, getLoc e] [t]))
+                 else ErrT (CastIncompatible [getLoc annot, getLoc e] t ctp))
     in CastE (updType annot restp) ctp te
   NotDeriv annot sign e ->
     let te = tpExpr env e
         t = getTypeOfExpr te
-        restp = propagateError [t] 
+        restp = propagateError [t]
                 (if isBooleanTp t
                  then booleanT
                  else ErrT (IllTypedSubExpr [getLoc annot, getLoc e] [t] [ExpectedExactTp (ClassT (ClsNm "Boolean"))] ))
@@ -514,12 +493,10 @@ tpExpr env x = case x of
   _ -> error "typing of lists not implemented yet"
 
 
-tpExprBasic :: Environment t -> Expr SRng -> Expr AnnotTypingPhase
-tpExprBasic env e = fmap PosTpAnnotTP (tpExpr env (fmap (`LocTypeAnnot` ()) e))
-
--- TODO:FAssign
+-- TODO: to do type checking, Cmd also has to be annotated with type info
 tpCmd :: (TypeAnnot f, HasLoc (f a)) => Environment [ClassName] -> Cmd (f a) -> Cmd (f Tp)
 tpCmd env Skip = Skip
+{-
 tpCmd env (VAssign v e) =
     let te = tpExpr env e
     in
@@ -527,21 +504,7 @@ tpCmd env (VAssign v e) =
       then VAssign v te
       else error "types do not correspond in assignment"
 tpCmd env FAssign {} = error "typing of FAssign not implemented yet"
-
-
--- TODO: hack, see later
-tpRuleVarDecls :: [VarDecl SRng] -> [VarDecl AnnotTypingPhase]
-tpRuleVarDecls = map (\(VarDecl annot vn t) -> VarDecl (PosAnnotTP annot) vn t)
-
--- TODO: still take local variables into account
-tpRule :: Environment t -> Rule SRng -> Rule AnnotTypingPhase
-tpRule env (Rule annot rn vds precond postcond) =
-  let renv = pushLocalVarEnv (map (\(VarDecl _ vn vt) -> (vn, vt)) vds) env
-      tpdVds = tpRuleVarDecls vds
-  in Rule (PosAnnotTP annot) rn tpdVds (tpExprBasic renv precond) (tpExprBasic renv postcond)
-
-tpAssertion :: Environment t -> Assertion SRng -> Assertion AnnotTypingPhase
-tpAssertion env (Assertion annot e) = Assertion (PosAnnotTP annot) (tpExprBasic env e)
+-}
 
 tpVarDecl :: TypeAnnot f => [ClassName] -> VarDecl (f a) -> VarDecl (f Tp)
 tpVarDecl kenv vd =
@@ -549,15 +512,8 @@ tpVarDecl kenv vd =
     Right t -> vd {annotOfVarDecl = updType (annotOfVarDecl vd) t}
     Left cns -> vd {annotOfVarDecl = updType (annotOfVarDecl vd) (ErrT Unspecified)}
 
-{-
-tpRuleVarDecls2 :: (f a -> f Tp) -> [ClassName] -> [VarDecl (f a)] -> [VarDecl (f Tp)]
-tpRuleVarDecls2 lft kenv vds  =
-  let varDeclsWithUndefTp = [vd | vd <- vds, isLeft (kndType kenv (tpOfVarDecl vd))]
-  in map (\(VarDecl annot vn t) -> VarDecl (lft annot) vn t)
--}
-
-tpRule2 :: (TypeAnnot f, HasLoc (f a)) => Environment t -> Rule (f a) -> Rule (f Tp)
-tpRule2 env (Rule annot rn vds precond postcond) =
+tpRule :: (TypeAnnot f, HasLoc (f a)) => Environment t -> Rule (f a) -> Rule (f Tp)
+tpRule env (Rule annot rn vds precond postcond) =
   let renv = pushLocalVarEnv (map (\(VarDecl _ vn vt) -> (vn, vt)) vds) env
       teprecond  = tpExpr renv precond
       tepostcond = tpExpr renv postcond
@@ -565,58 +521,51 @@ tpRule2 env (Rule annot rn vds precond postcond) =
       tpostcond = getTypeOfExpr tepostcond
       kenv = map nameOfClassDecl (classDeclsOfEnv env)
       tpdVds = map (tpVarDecl kenv) vds
-  in
-    if isBooleanTp tprecond && isBooleanTp tpostcond && not (any (isErrTp . getType . annotOfVarDecl) tpdVds)
-    then Rule (updType annot booleanT) rn tpdVds teprecond tepostcond
-    else Rule (updType annot (ErrT Unspecified)) rn tpdVds teprecond tepostcond
+      restp = propagateError ([tprecond, tpostcond] ++ [getType (annotOfVarDecl tv) | tv <- tpdVds, isSpecificError (getType (annotOfVarDecl tv)) ])
+              (if isBooleanTp tprecond
+               then if isBooleanTp tpostcond
+                    then tpostcond
+                    else ErrT (IllTypedSubExpr [getLoc annot, getLoc postcond] [tpostcond] [ExpectedExactTp (ClassT (ClsNm "Boolean"))])
+                else ErrT (IllTypedSubExpr [getLoc annot, getLoc precond] [tprecond] [ExpectedExactTp (ClassT (ClsNm "Boolean"))])
+              )
+  in Rule (updType annot restp) rn tpdVds teprecond tepostcond
 
-tpAssertion2 :: (TypeAnnot f, HasLoc (f a)) => Environment t -> Assertion (f a) -> Assertion (f Tp)
-tpAssertion2 env (Assertion annot e) =
+tpAssertion :: (TypeAnnot f, HasLoc (f a)) => Environment t -> Assertion (f a) -> Assertion (f Tp)
+tpAssertion env (Assertion annot e) =
   let te = tpExpr env e
       t  = getTypeOfExpr te
-  in
-    if isBooleanTp t
-    then Assertion (updType annot t) te
-    else Assertion (updType annot (ErrT Unspecified)) te
-
--- TODO: check types of global variable declarations
--- Assumption: prelude only contains class declarations
-tpProgram :: Program SRng -> Program SRng -> Program AnnotTypingPhase
-tpProgram prelude (Program annot lex cds gvars rls asrt) =
-  let pcds = classDeclsOfProgram prelude
-      initialClassDecls = (pcds ++ cds)
-      elabClassDecls = elaborateClsProgram initialClassDecls
-      env = initialEnvOfProgram elabClassDecls gvars
-  in Program (PosAnnotTP annot) (map (fmap PosAnnotTP) lex) (map (fmap PosAnnotTP) elabClassDecls) (map (fmap PosAnnotTP) gvars) (map (tpRule env) rls) (map (tpAssertion env) asrt)
-
-
-liftProgram :: Program SRng -> Program AnnotTypingPhase
-liftProgram = fmap PosAnnotTP
+      restp = propagateError [t]
+              (if isBooleanTp t
+               then t
+               else ErrT (IllTypedSubExpr [getLoc annot, getLoc e] [t] [ExpectedExactTp (ClassT (ClsNm "Boolean"))]))
+  in Assertion (updType annot restp) te
 
 
 ----------------------------------------------------------------------
 -- Class declaration errors
 
 -- covers the check of fct. wellformedClassDecls above
-checkClassesForWfError :: [ClassDecl t] -> Program t -> Either (ClassDeclsError t) (Program t)
+checkClassesForWfError :: HasLoc t => [ClassDecl t] -> Program t -> Either ClassDeclsError (Program t)
 checkClassesForWfError cds prg =
   let class_names = map nameOfClassDecl cds
   in
     case filter (not . definedSuperclass class_names) cds of
       [] -> case duplicates class_names of
               [] -> Right prg
-              ds -> Left (DuplicateClassNamesCDE [cd | cd <- cds, nameOfClassDecl cd `elem` ds])
-      undefs -> Left (UndefinedSuperclassCDE undefs)
+              ds -> Left (DuplicateClassNamesCDE
+                    [(getLoc cd, nameOfClassDecl cd) | cd <- cds, nameOfClassDecl cd `elem` ds])
+      undefs -> Left (UndefinedSuperclassCDE (map (\cd -> (getLoc cd, nameOfClassDecl cd)) undefs))
 
-checkClassesForCyclicError :: [ClassDecl t] -> Program t -> Either (ClassDeclsError t) (Program t)
+checkClassesForCyclicError :: HasLoc t => [ClassDecl t] -> Program t -> Either ClassDeclsError (Program t)
 checkClassesForCyclicError cds prg =
   let cdf_assoc = classDefAssoc cds
       cyclicClassNames = lefts (map (superClassesConstr cdf_assoc [] . nameOfClassDecl) cds)
   in case cyclicClassNames of
      []   -> Right (prg {classDeclsOfProgram = elaborateFieldsInClassDecls (elaborateSupersInClassDecls cds)})
-     cycs -> Left (CyclicClassHierarchyCDE [cd | cd <- cds, nameOfClassDecl cd `elem` cycs])
+     cycs -> Left (CyclicClassHierarchyCDE
+              [ (getLoc cd, nameOfClassDecl cd)| cd <- cds, nameOfClassDecl cd `elem` cycs])
 
-checkClassDeclsError :: Program t -> Program t -> Either (ClassDeclsError t) (Program t)
+checkClassDeclsError :: HasLoc t => Program t -> Program t -> Either ClassDeclsError (Program t)
 checkClassDeclsError prelude prg@(Program  annot lex cds gvars rls asrt) =
   let pcds = classDeclsOfProgram prelude
       initialClassDecls = (pcds ++ cds)
@@ -628,22 +577,25 @@ checkClassDeclsError prelude prg@(Program  annot lex cds gvars rls asrt) =
 ----------------------------------------------------------------------
 -- Field declaration errors
 
-checkDuplicateFieldNamesFDE :: Program t -> Either (FieldDeclsError t) (Program t)
+checkDuplicateFieldNamesFDE ::HasLoc t =>  Program t -> Either FieldDeclsError(Program t)
 checkDuplicateFieldNamesFDE prg =
   let classDeclsWithDup = [cd | cd <- classDeclsOfProgram prg, not (null (duplicates (map nameOfFieldDecl ((fieldsOfClassDef . defOfClassDecl)  cd)))) ]
   in case classDeclsWithDup of
     [] -> Right prg
-    cds -> Left (DuplicateFieldNamesFDE (map (\cd -> (cd, duplicatesWrtFun nameOfFieldDecl (fieldsOfClassDef (defOfClassDecl cd)))) cds))
+    cds -> Left (DuplicateFieldNamesFDE
+                  (map (\cd -> (getLoc cd, nameOfClassDecl cd,
+                        map (\fd -> (getLoc fd, nameOfFieldDecl fd)) (duplicatesWrtFun nameOfFieldDecl (fieldsOfClassDef (defOfClassDecl cd)))))
+                   cds))
 
-checkUndefinedTypeFDE :: Program t -> Either (FieldDeclsError t) (Program t)
+checkUndefinedTypeFDE :: HasLoc t => Program t -> Either FieldDeclsError(Program t)
 checkUndefinedTypeFDE prg =
   let kenv = map nameOfClassDecl (classDeclsOfProgram prg)
       classDeclsWithUndefTp = [cd | cd <- classDeclsOfProgram prg, not (null (lefts (map (kndType kenv . tpOfFieldDecl) (fieldsOfClassDef (defOfClassDecl cd)))))]
   in case classDeclsWithUndefTp of
     [] -> Right prg
-    cds -> Left (UndefinedTypeFDE (concatMap (\cd -> [fd | fd <- fieldsOfClassDef (defOfClassDecl cd), isLeft (kndType kenv (tpOfFieldDecl fd))  ]) cds))
+    cds -> Left (UndefinedTypeFDE (concatMap (\cd -> [(getLoc fd, nameOfFieldDecl fd) | fd <- fieldsOfClassDef (defOfClassDecl cd), isLeft (kndType kenv (tpOfFieldDecl fd))  ]) cds))
 
-checkFieldDeclsError :: Program t -> Either (FieldDeclsError t) (Program t)
+checkFieldDeclsError ::HasLoc t =>  Program t -> Either FieldDeclsError (Program t)
 checkFieldDeclsError prg =
   do
     checkDuplicateFieldNamesFDE prg
@@ -653,21 +605,21 @@ checkFieldDeclsError prg =
 ----------------------------------------------------------------------
 -- Global variable declaration errors
 
-checkDuplicateVarNamesVDE :: Program t -> Either (VarDeclsError t) (Program t)
+checkDuplicateVarNamesVDE :: HasLoc t => Program t -> Either VarDeclsError (Program t)
 checkDuplicateVarNamesVDE prg =
   case duplicatesWrtFun nameOfVarDecl (globalsOfProgram  prg) of
     [] -> Right prg
-    ds -> Left (DuplicateVarNamesVDE ds)
+    vds -> Left (DuplicateVarNamesVDE (map (\vd -> (getLoc vd, nameOfVarDecl vd)) vds))
 
-checkUndefinedTypeVDE :: Program t -> Either (VarDeclsError t) (Program t)
+checkUndefinedTypeVDE :: HasLoc t => Program t -> Either VarDeclsError (Program t)
 checkUndefinedTypeVDE prg =
   let kenv = map nameOfClassDecl (classDeclsOfProgram prg)
       varDeclsWithUndefTp = [vd | vd <- globalsOfProgram prg, isLeft (kndType kenv (tpOfVarDecl vd))]
   in case varDeclsWithUndefTp of
     [] -> Right prg
-    vds -> Left (UndefinedTypeVDE vds)
+    vds -> Left (UndefinedTypeVDE (map (\vd -> (getLoc vd, nameOfVarDecl vd)) vds))
 
-checkVarDeclsError :: Program t -> Either (VarDeclsError t) (Program t)
+checkVarDeclsError :: HasLoc t => Program t -> Either VarDeclsError (Program t)
 checkVarDeclsError prg =
   do
     checkDuplicateVarNamesVDE prg
@@ -677,21 +629,15 @@ checkVarDeclsError prg =
 ----------------------------------------------------------------------
 -- Errors in Rules and Assertions
 
-checkRuleError :: (TypeAnnot f, HasLoc (f Tp)) => Program (f Tp) -> Either (RuleError (f Tp)) (Program (f Tp))
-checkRuleError prg =
-  let env = initialEnvOfProgram (classDeclsOfProgram prg) (globalsOfProgram prg)
-      tpdRules = map (tpRule2 env) (rulesOfProgram prg)
-  in
-    if any (isErrTp . getType . annotOfRule) tpdRules
-    then Left RuleErrorRE
-    else Right (prg {rulesOfProgram = tpdRules})
-
 
 -- TODO: preliminary def
 
 havingSpecificError :: TypeAnnot f => Expr (f Tp) -> Bool
-havingSpecificError e =
-  case getTypeOfExpr e of
+havingSpecificError = isSpecificError . getTypeOfExpr
+
+isSpecificError :: Tp -> Bool
+isSpecificError e =
+  case e of
     ErrT Inherited -> False
     ErrT Unspecified -> False
     ErrT _ -> True
@@ -704,6 +650,7 @@ extractErrorCause :: Tp -> ErrorCause
 extractErrorCause (ErrT c) = c
 extractErrorCause _ = Unspecified
 
+{-
 extractAssertionErrors :: (TypeAnnot f, HasLoc (f Tp)) => [Assertion (f Tp)] -> AssertionError (f Tp)
 extractAssertionErrors tpdAss =
   let errAss = filter (isErrTp . getType . annotOfAssertion) tpdAss
@@ -711,14 +658,56 @@ extractAssertionErrors tpdAss =
       nonBoolAss = [e | e <- errExprs, not (isBooleanTp (getType (annotOfExpr e))) && not (isErrTp (getType (annotOfExpr e)))]
       illTypedExpr = concatMap errorOrigins errExprs
   in AssertionErrAE nonBoolAss (map (extractErrorCause . getTypeOfExpr) illTypedExpr)
+-}
 
-checkAssertionError :: (TypeAnnot f, HasLoc (f Tp)) => Program (f Tp) -> Either (AssertionError (f Tp)) (Program (f Tp))
+{-
+class HasDisplayableErrors a where
+  getDisplayableErrors :: a -> [(SRng, ErrorCause)]
+
+instance (TypeAnnot f, HasLoc (f Tp)) => HasDisplayableErrors (Expr (f Tp)) where
+  getDisplayableErrors e = map (\errExp -> (getLoc errExp, extractErrorCause (getTypeOfExpr errExp))) (filter havingSpecificError (allSubExprs e))
+-}
+
+displayableErrors :: (TypeAnnot f, HasLoc (f Tp)) => f Tp -> [(SRng, ErrorCause)]
+displayableErrors annot = [(getLoc annot, extractErrorCause (getType annot)) | isSpecificError (getType annot)]
+
+extractRuleErrors::  (TypeAnnot f, HasLoc (f Tp)) => Rule (f Tp) -> [(SRng, ErrorCause)]
+extractRuleErrors rl =
+  concatMap (displayableErrors . annotOfVarDecl) (varDeclsOfRule rl) ++
+  concatMap (displayableErrors . annotOfExpr) (allSubExprs (precondOfRule rl)) ++
+  concatMap (displayableErrors . annotOfExpr) (allSubExprs (postcondOfRule rl)) ++
+  displayableErrors (annotOfRule rl)
+
+checkRuleError :: (TypeAnnot f, HasLoc (f Tp)) => Program (f Tp) -> Either RuleError (Program (f Tp))
+checkRuleError prg =
+  let env = initialEnvOfProgram (classDeclsOfProgram prg) (globalsOfProgram prg)
+      tpdRules = map (tpRule env) (rulesOfProgram prg)
+      errs = concatMap extractRuleErrors tpdRules
+  in
+    case errs of
+      [] -> Right (prg {rulesOfProgram = tpdRules})
+      _ ->  Left (RuleErrorRE  errs)
+    
+
+{-
+extractAssertionError :: (TypeAnnot f, HasLoc (f Tp)) => Assertion (f Tp) -> [(SRng, ErrorCause)]
+extractAssertionError ass =
+  let assErr = [extractErrorCause (getType (annotOfAssertion ass)) | isSpecificError (getType (annotOfAssertion ass))]
+      illTypedExpr = errorOrigins (exprOfAssertion ass)
+  in map (\ae -> (getLoc ass, ae)) (assErr ++ map (extractErrorCause . getTypeOfExpr) illTypedExpr)
+-}
+extractAssertionErrors :: (TypeAnnot f, HasLoc (f Tp)) => Assertion (f Tp) -> [(SRng, ErrorCause)]
+extractAssertionErrors ass =
+  concatMap (displayableErrors . annotOfExpr) (allSubExprs (exprOfAssertion ass)) ++
+  displayableErrors (annotOfAssertion ass)
+
+checkAssertionError :: (TypeAnnot f, HasLoc (f Tp)) => Program (f Tp) -> Either AssertionError (Program (f Tp))
 checkAssertionError prg =
   let env = initialEnvOfProgram (classDeclsOfProgram prg) (globalsOfProgram prg)
-      tpdAss = map (tpAssertion2 env) (assertionsOfProgram prg)
+      tpdAss = map (tpAssertion env) (assertionsOfProgram prg)
   in
-    if any (isErrTp . getType . annotOfAssertion) tpdAss
-    then Left (extractAssertionErrors tpdAss)
+    if any (isErrTp . getType . annotOfAssertion) tpdAss || any (isErrTp . getTypeOfExpr . exprOfAssertion) tpdAss
+    then Left (AssertionErrAE (concatMap extractAssertionErrors tpdAss))
     else Right (prg {assertionsOfProgram = tpdAss})
 
 ----------------------------------------------------------------------
@@ -729,7 +718,7 @@ liftLeft f (Left a) = Left (f a)
 liftLeft f (Right r) = Right r
 
 
-checkErrorGen :: (TypeAnnot f, HasLoc (f Tp)) => Program (f Tp) -> Program (f Tp) -> Either (Error (f Tp)) (Program (f Tp))
+checkErrorGen :: (TypeAnnot f, HasLoc (f Tp)) => Program (f Tp) -> Program (f Tp) -> Either Error (Program (f Tp))
 checkErrorGen prelude prg =
   do
     prgClsDecls <- liftLeft ClassDeclsErr (checkClassDeclsError prelude prg)
@@ -739,9 +728,9 @@ checkErrorGen prelude prg =
     liftLeft AssertionErr (checkAssertionError prgCheckRule)
 
 liftLoc :: SRng -> LocTypeAnnot Tp
-liftLoc rng  = LocTypeAnnot rng (ErrT Unspecified)
+liftLoc rng  = LocTypeAnnot rng OkT
 
-checkError :: Program SRng -> Program SRng -> Either (Error (LocTypeAnnot Tp)) (Program (LocTypeAnnot Tp))
+checkError :: Program SRng -> Program SRng -> Either Error (Program (LocTypeAnnot Tp))
 checkError prelude prg = checkErrorGen (fmap liftLoc prelude) (fmap liftLoc prg)
 
 

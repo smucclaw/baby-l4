@@ -5,7 +5,7 @@ module Main where
 
 import Parser (parseProgram)
 import Syntax (Program, ClassName)
-import Typing ( tpProgram, extractType, checkError, liftProgram )
+import Typing ( checkError )
 import System.Environment ( getEnv )
 import Options.Applicative
 import qualified ToGF.FromL4.ToProp as GF
@@ -48,8 +48,8 @@ process args input = do
         Right tpAst -> do
           let tpAstNoSrc = fmap typeAnnot tpAst
           when (astHS args) $ do
-            -- pPrint prog
-            hPrint stderr tpAst
+            pPrint tpAst
+            -- hPrint stderr tpAst
           when (astGF args) $ do
             GF.nlgAST (getGFL $ format args) tpAstNoSrc
           unless (astGF args) $ do
