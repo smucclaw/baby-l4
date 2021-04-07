@@ -145,14 +145,7 @@ errorRange (StringErr _) = Range (Position 0 0) (Position 999 0)
 findAllExpressions :: (Data t) => Program t -> [Expr t]
 findAllExpressions = toListOf template
 
--- | Use magic to find all Expressions in a program
-findAllElem :: (Data t, HasLoc t) => Program t -> [t]
-findAllElem = toListOf template
-
-findAllMappings :: (Data t) => Program t -> [Mapping t]
-findAllMappings = toListOf template
-
--- | Find the smallest subexpression which contains the specified position
+-- |  Find the smallest subexpression which contains the specified position
 findExprAt :: HasLoc t => J.Position -> Expr t -> Expr t
 findExprAt pos expr =
   case List.find (posInRange pos . getLoc) (childExprs expr) of
@@ -195,49 +188,33 @@ getValidatedToken pos = find (posInRange pos . tokenPos)
 convertMaybeToken :: Foldable t => Position -> t Token -> Either Err Token
 convertMaybeToken p t = maybeToRight (Err (convertPosition p) ("Couldn't find token at position" ++ show (convertPosition p))) $ getValidatedToken p t
 
-tokensToHover' :: Position -> [Token] -> ExceptT Err IO Hover
-tokensToHover' pos tokens = do
-      tok <-  except $ convertMaybeToken pos tokens
-      return $ tokenToHover tok
-
-tokensToHover :: Position -> [Token] -> ExceptT Err IO Hover
-tokensToHover pos tokens = do
-      tok <- extract "Couldn't find token" $ find (posInRange pos . tokenPos) tokens
-      return $ tokenToHover tok
-
-tokenToHover :: Token -> Hover
-tokenToHover tok = Hover contents range
-  where
-    contents = HoverContents $ markedUpContent "haskell" $ tokenToText tok
-    range = Just $ posToRange $ tokenPos tok
-
-tExprToHover :: Token -> Expr SRng -> Hover
+tExprToHover :: HasHover t => Token -> Maybe t -> Hover
 tExprToHover tok exp = Hover contents range
   where
-    contents = HoverContents $ markedUpContent "haskell" $ tokenToText' tok exp
+    contents = HoverContents $ markedUpContent "haskell" $ tokenToText tok exp
     range = Just $ posToRange $ tokenPos tok
 
-tokenToText :: Token -> T.Text
-tokenToText token =
+tokenToText :: HasHover t => Token -> Maybe t -> T.Text
+tokenToText token (Just expr) = getHover expr <> " and token " <> tshow token
+tokenToText token Nothing =
   case tokenKind token of
     TokenLexicon -> "This is a lexicon"
     _            -> tshow token
 
-tokenToText' :: Token -> Expr SRng -> T.Text
-tokenToText' token expr =
-  case tokenKind token of
-    TokenLexicon -> "This is a lexicon" <> tshow expr
-    _            -> tshow token <> tshow expr
+findAnyExprAt' :: (HasLoc t) => Position -> Program t -> ExceptT Err IO (Maybe (Mapping t))
+findAnyExprAt' pos ast = pure (List.find (posInRange pos . getLoc) (lexiconOfProgram ast))
 
-findAnyExprAt' :: (HasLoc t, Data t) => J.Position -> Program t -> ExceptT Err IO (Expr t)
-findAnyExprAt' pos ast = extract "KabooM" $ findAnyExprAt pos ast
-
--- Just copy and paste of tokensToHover. needs to use program information
 progToHover :: Position -> [Token] -> Program SRng -> ExceptT Err IO Hover
 progToHover pos tokens ast = do
       tok <- except $ convertMaybeToken pos tokens
-      xx <- findAnyExprAt' pos ast
-      return $ tExprToHover tok xx
+      hovElem <- findAnyExprAt' pos ast
+      return $ tExprToHover tok hovElem
+
+class HasHover t where
+  getHover :: t -> T.Text
+
+instance HasHover (Mapping t) where
+  getHover (Mapping t fromVar toVar) = "Mapping from " <> T.pack fromVar <> " to " <> T.pack toVar
 
 lookupTokenBare' :: Position -> Uri -> ExceptT Err IO Hover
 lookupTokenBare' pos uri = do
