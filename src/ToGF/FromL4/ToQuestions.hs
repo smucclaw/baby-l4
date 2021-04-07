@@ -71,7 +71,7 @@ grabArgs x = map ($ x) [getArg, getArg1, getArg2]
 makeArgPOS :: GAtom -> POS
 makeArgPOS (LexAtom x) = POS x $ PN getStr
   where getNum
-         | isDigit (last x) = digitToInt (last x) 
+         | isDigit (last x) = digitToInt (last x)
          | otherwise = 0
         getStr = init x
 
@@ -87,29 +87,30 @@ mkQLexicon x = (abstractLexicon lexicon, concreteLexicon lexicon)
   where
     lexicon = map makeArgPOS (grabArgs x)
 
-createGF :: GPred -> IO ()
-createGF x  = do
+-- createGF for single GPred
+
+createPredGF :: GPred -> IO ()
+createPredGF x  = do
   let (absS, cncS) = mkQLexicon x
   writeDoc (mkAbsName lexName) absS
   writeDoc (mkCncName lexName) cncS
   writeDoc (mkAbsName topName) $ "abstract " <> topName <+> "=" <+> ToGF.FromL4.ToQuestions.grName <> "," <+> lexName <+> "** {flags startcat = Statement ;}"
   writeDoc (mkCncName topName) $ "concrete " <> topName <> "Eng of " <> topName <+> "=" <+> ToGF.FromL4.ToQuestions.grName <> "Eng," <+> lexName <> "Eng ;"
 
-nlg :: GPred -> IO ()
-nlg x = do
-  ToGF.FromL4.ToQuestions.createGF x
+--createGF for all [GPred]
+nlgPreds :: [GPred] -> IO ()
+nlgPreds [] = error "No preds"
+nlgPreds ls = do
+  let allPred = mapM_ createPredGF ls
+  allPred -- dump all preds 
+  gr <- createPGF
+  let allAtoms = concatMap grabArgs ls
+  --printGF gr allAtoms
+  print "hello"
 
---dumpModels :: [Model] -> Model
---dumpModels = MExps . foldMap getModel
---  where
---    getModel :: Model -> [Exp]
---    getModel (MExps es) = es
-
---
-
+hello :: Questionable x => x -> IO ()
 hello prog =
-
-    mapM_ (putStrLn . showExpr [] . gf) (toQuestions prog)
+  mapM_ (putStrLn . showExpr [] . gf) (toQuestions prog)
 
 class Questionable x where
     toQuestions :: x -> [GQuestion]
