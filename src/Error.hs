@@ -3,78 +3,158 @@ module Error where
 import Syntax
 import Annotation ( SRng(SRng), Pos(Pos) )
 
-data ClassDeclsError t
-    = DuplicateClassNamesCDE [ClassDecl t]  -- classes whose name is defined multiple times
-    | UndefinedSuperclassCDE [ClassDecl t]  -- classes having undefined superclasses
-    | CyclicClassHierarchyCDE [ClassDecl t]    -- classes involved in a cyclic class definition
+data ClassDeclsError
+    = DuplicateClassNamesCDE [(SRng, ClassName)]  -- classes whose name is defined multiple times
+    | UndefinedSuperclassCDE [(SRng, ClassName)]  -- classes having undefined superclasses
+    | CyclicClassHierarchyCDE [(SRng, ClassName)]  -- classes involved in a cyclic class definition
   deriving (Eq, Ord, Show, Read)
 
-data FieldDeclsError t 
-    = DuplicateFieldNamesFDE [(ClassDecl t, [FieldDecl t])]     -- field names with duplicate defs
-    | UndefinedTypeFDE [FieldDecl t]              -- field names with duplicate defs
+data FieldDeclsError
+    = DuplicateFieldNamesFDE [(SRng, ClassName, [(SRng, FieldName)])]     -- field names with duplicate defs
+    | UndefinedTypeFDE [(SRng, FieldName)]              -- field names with duplicate defs
   deriving (Eq, Ord, Show, Read)
 
-data VarDeclsError t
-    = DuplicateVarNamesVDE [VarDecl t]
-    | UndefinedTypeVDE [VarDecl t]
+data VarDeclsError
+    = DuplicateVarNamesVDE [(SRng, VarName)]
+    | UndefinedTypeVDE [(SRng, VarName)]
   deriving (Eq, Ord, Show, Read)
 
-data RuleError t 
-  = RuleErrorRE    -- TODO: refine this error type
+data RuleError
+  = RuleErrorRE [(SRng, ErrorCause)]
   deriving (Eq, Ord, Show, Read)
 
-data AssertionError t 
-  -- first list: expressions not of type Boolean; 
-  -- second list: expressions that are ill-typed
-  = AssertionErrAE [Expr t] [ErrorCause]   
+data AssertionError
+  = AssertionErrAE [(SRng, ErrorCause)]
   deriving (Eq, Ord, Show, Read)
 
-data Error t 
-    = ClassDeclsErr (ClassDeclsError t)
-    | FieldDeclsErr (FieldDeclsError t)  
-    | VarDeclsErr (VarDeclsError t)
-    | RuleErr (RuleError t)
-    | AssertionErr (AssertionError t)
+data Error
+    = ClassDeclsErr ClassDeclsError
+    | FieldDeclsErr FieldDeclsError
+    | VarDeclsErr VarDeclsError
+    | RuleErr RuleError
+    | AssertionErr AssertionError
   deriving (Eq, Ord, Show, Read)
 
+----------------------------------------------------------------------
+-- Printing parts of the syntax
+----------------------------------------------------------------------
 
+printClassName :: ClassName -> String
+printClassName (ClsNm cn) = cn
+
+printFieldName :: FieldName -> String
+printFieldName (FldNm fn) = fn
+
+printVarName :: VarName -> String
+printVarName = id
+
+printTp :: Tp -> String
+printTp t = case t of
+  BoolT -> "Bool"
+  IntT -> "Int"
+  ClassT cn -> printClassName cn
+  FunT t1 t2 -> "(" ++ printTp t1 ++ " -> " ++ printTp t2 ++")"
+  TupleT [] -> "()"
+  TupleT [t] -> "(" ++ printTp t ++ ")"
+  TupleT (t:ts) -> "(" ++ printTp t ++ ", " ++ (foldr (\s r -> ((printTp s) ++ ", " ++ r)) "" ts) ++ ")"
+  _ -> error "internal error in printTp: ErrT or OkT not printable"
+
+printExpectedTp :: ExpectedType -> String
+printExpectedTp (ExpectedString s) = s
+printExpectedTp (ExpectedExactTp t) = "the type " ++ printTp t
+printExpectedTp (ExpectedSubTpOf t) = "a subtype of " ++ printTp t
 
 ----------------------------------------------------------------------
 -- Printing errors
 ----------------------------------------------------------------------
-printPos :: Pos -> String 
+
+printPos :: Pos -> String
 printPos (Pos l c) = "(" ++ show l ++ "," ++ show c ++ ")"
 
 printSRng :: SRng -> String
 --printSRng = show
-printSRng (SRng spos epos) = (printPos spos) ++ " .. " ++ (printPos epos)
+printSRng (SRng spos epos) = printPos spos ++ " .. " ++ printPos epos
 
 printErrorCause :: ErrorCause -> String
+printErrorCause (UndeclaredVariable r vn) = "Variable " ++ printVarName vn ++ " at " ++ (printSRng r) ++ " is undefined."
 printErrorCause (IllTypedSubExpr rngs givents expts) =
   "Expression at " ++ (printSRng (head rngs)) ++ " is ill-typed:\n" ++
-  unlines 
-  (map (\(r, gv, exp) -> "Subexpression at " ++ (printSRng r) ++ " has type " ++ (show gv) ++ " but " ++ (show exp) ++  " was expected") 
+  unlines
+  (map (\(r, gv, exp) -> "the subexpression at " ++ (printSRng r) ++ " has type " ++ (printTp gv) ++ " but " ++ (printExpectedTp exp) ++  " was expected")
   (zip3 (tail rngs) givents expts))
 printErrorCause (IncompatibleTp rngs givents) =
   "Expression at " ++ (printSRng (head rngs)) ++ " is ill-typed:\n" ++
-  unlines 
-  (map (\(r, gv) -> "Subexpression at " ++ (printSRng r) ++ " has type " ++ (show gv)) 
+  unlines
+  (map (\(r, gv) -> "the subexpression at " ++ (printSRng r) ++ " has type " ++ (printTp gv))
   (zip (tail rngs) givents)) ++
   "The types are not compatible (one is subtype of the other)"
 printErrorCause (NonScalarExpr rngs givents) =
   "Expression at " ++ (printSRng (head rngs)) ++ " is ill-typed:\n" ++
-  unlines 
-  (map (\(r, gv) -> "Subexpression at " ++ (printSRng r) ++ " has type " ++ (show gv)) 
+  unlines
+  (map (\(r, gv) -> "the subexpression at " ++ (printSRng r) ++ " has type " ++ (printTp gv))
   (zip (tail rngs) givents)) ++
   "At least one type is not scalar (non-functional)"
-printErrorCause c = show c 
+printErrorCause (NonFunctionTp rngs giventp) =
+  "Expression (application) at " ++ printSRng (head rngs) ++ " is ill-typed:\n" ++
+  "the subexpression at " ++ printSRng (rngs!!1) ++ " has type " ++ printTp giventp ++ " which is not a functional type."
+printErrorCause (CastIncompatible rngs giventp casttp) =
+  "Expression at " ++ printSRng (head rngs) ++ " is ill-typed:\n" ++
+  "the subexpression at "++ printSRng (rngs!!1) ++ " has type " ++ printTp giventp ++ "which cannot be cast to " ++ printTp casttp
+printErrorCause (IncompatiblePattern r) = 
+    "Expression at "++ printSRng r ++ " is ill-typed: the variable pattern and its type are incompatible (different number of components)"
+printErrorCause (UnknownFieldName r fn cn) =
+    "Expression at "++ printSRng r ++ " is ill-typed: access to an unknown field " ++ printFieldName fn ++ " in class " ++ printClassName cn
+printErrorCause (AccessToNonObjectType r) =
+  "Expression at "++ printSRng r ++ " is ill-typed: access to a field of a non-object type\n"
+printErrorCause c = show c
 
-printAssertionErr :: AssertionError t -> String 
-printAssertionErr (AssertionErrAE nonBoolExprs illTyped) =
-  unlines (map printErrorCause illTyped)
+printClassLocName :: (SRng, ClassName) -> String
+printClassLocName (r, cn) = "At " ++ printSRng r ++ " class name " ++ printClassName cn
 
-printError :: Show t => Error t -> String 
+printFieldLocName :: (SRng, FieldName) -> String
+printFieldLocName (r, fn) = "At " ++ printSRng r ++ " field name " ++ printFieldName fn
+
+printVarLocName :: (SRng, VarName) -> String
+printVarLocName (r, vn) = "At " ++ printSRng r ++ " variable name " ++ printVarName vn
+
+
+printClassDeclsError :: ClassDeclsError -> String
+printClassDeclsError (DuplicateClassNamesCDE cls) =
+  unlines ("Duplicate names in class declarations:" : map printClassLocName cls)
+printClassDeclsError (UndefinedSuperclassCDE cls) =
+  unlines ("Undefined superclasses in the following class declarations:" : map printClassLocName cls)
+printClassDeclsError (CyclicClassHierarchyCDE cls) =
+  unlines ("Cyclic class references in the following class declarations:" : map printClassLocName cls)
+
+
+printFieldDeclsError :: FieldDeclsError -> String
+printFieldDeclsError (DuplicateFieldNamesFDE dfs) =
+  unlines ("Duplicate field names in the following classes:" :
+              (map (\(r, cn, fdes) -> unlines (printClassLocName (r, cn) : map printFieldLocName fdes)) dfs) )
+printFieldDeclsError (UndefinedTypeFDE fdloc) =
+  unlines ("Undefined type in field declaration: " : map printFieldLocName fdloc)
+
+printVarDeclsError :: VarDeclsError -> String
+printVarDeclsError (DuplicateVarNamesVDE vdloc) =
+  unlines ("Duplicate variable declarations: " : map printVarLocName vdloc)
+printVarDeclsError (UndefinedTypeVDE vdloc) =
+  unlines ("Undefined type in variable declaration: " : map printVarLocName vdloc)
+
+printAssertionErr :: AssertionError -> String
+printAssertionErr (AssertionErrAE illTyped) =
+  unlines (map (\(r, ec) -> "In assertion:\n" ++ printErrorCause ec) illTyped)
+
+printRuleErr :: RuleError -> String 
+printRuleErr (RuleErrorRE illTyped) =
+  unlines (map (\(r, ec) -> "In rule " ++ printSRng r ++ "\n" ++ printErrorCause ec) illTyped)
+
+printError :: Error -> String
 printError e = case e of
+  ClassDeclsErr cde -> printClassDeclsError cde
+  FieldDeclsErr fde -> printFieldDeclsError fde
+  VarDeclsErr vde -> printVarDeclsError vde
+  RuleErr re -> printRuleErr re
   AssertionErr ae -> printAssertionErr ae
-  unknownErr -> show unknownErr
-  
+
+
+

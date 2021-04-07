@@ -13,6 +13,7 @@ import qualified Data.List as List
 import Data.Data (Data, Typeable)
 import Annotation
 
+
 ----------------------------------------------------------------------
 -- Definition of expressions
 ----------------------------------------------------------------------
@@ -54,6 +55,7 @@ data ExpectedType
   | ExpectedSubTpOf Tp
   deriving (Eq, Ord, Show, Read, Data, Typeable)
   
+
 data ErrorCause 
   = Inherited 
   | UndeclaredVariable SRng VarName
@@ -65,9 +67,10 @@ data ErrorCause
   | NonScalarExpr { exprRangesITSE :: [SRng]
                     , receivedITSE :: [Tp] }
   | NonFunctionTp { exprRangesITSE :: [SRng]
-                    , receivedITSE :: [Tp] }
+                    , receivedFunTpITSE :: Tp }
   | CastIncompatible { exprRangesITSE :: [SRng]
-                    , receivedITSE :: [Tp] }
+                    , receivedCastITSE :: Tp
+                    , castToITSE :: Tp }
   | IncompatiblePattern SRng
   | UnknownFieldName SRng FieldName ClassName
   | AccessToNonObjectType SRng
@@ -93,7 +96,7 @@ data VarDecl t = VarDecl {annotOfVarDecl ::t
                          , tpOfVarDecl :: Tp }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 instance HasLoc t => HasLoc (VarDecl t) where
-  getLoc (VarDecl t _ _) = getLoc t
+  getLoc = getLoc . annotOfVarDecl
 
 data Mapping t = Mapping t VarName VarName
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
@@ -107,6 +110,8 @@ data FieldDecl t = FieldDecl {annotOfFieldDecl ::t
                              , tpOfFieldDecl ::  Tp }
                             -- FieldAttribs
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+instance HasLoc t => HasLoc (FieldDecl t) where
+  getLoc = getLoc . annotOfFieldDecl
 
 -- superclass, list of field declarations
 -- TODO: ClassDef currently without annotation as ClassDef may be empty
@@ -310,11 +315,12 @@ data Cmd t
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 
-data Rule t = Rule t RuleName [VarDecl t] (Expr t) (Expr t)
+data Rule t = Rule { annotOfRule :: t
+                   , nameOfRule :: RuleName
+                   , varDeclsOfRule :: [VarDecl t]
+                   , precondOfRule :: Expr t
+                   , postcondOfRule :: Expr t}
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
-
-annotOfRule :: Rule t -> t  
-annotOfRule (Rule t _ _ _ _) = t
 
 instance HasLoc t => HasLoc (Rule t) where
   getLoc e = getLoc (annotOfRule e)

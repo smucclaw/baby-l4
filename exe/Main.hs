@@ -5,7 +5,7 @@ module Main where
 
 import Parser (parseProgram)
 import Syntax (Program, ClassName)
-import Typing ( tpProgram, extractType, checkError, liftProgram )
+import Typing ( checkError )
 import System.Environment ( getEnv )
 import Options.Applicative
 import qualified ToGF as GF
