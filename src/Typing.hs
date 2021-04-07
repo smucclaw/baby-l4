@@ -108,16 +108,6 @@ elaborateFieldsInClassDecls cds =
 -- the class decl cdc does not reference a superclass undefined in the list of defined class names cns
 definedSuperclass :: [ClassName] -> ClassDecl t -> Bool
 definedSuperclass cns cdc = all (`elem` cns) (supersOfClassDef (defOfClassDecl cdc))
-{-
-  case cdc of
-    (ClassDecl _ cn (ClassDef [] _)) -> True
-    (ClassDecl _ cn (ClassDef [scn] _)) ->
-      elem scn cns || error ("undefined superclass for class " ++ (case cn of (ClsNm n) -> n))
-    (ClassDecl _ cn (ClassDef _ _)) -> error "in definedSuperclass: superclass list should be empty or singleton (internal error)"
--}
-
-hasDuplicates :: (Ord a) => [a] -> Bool
-hasDuplicates xs = length (nub xs) /= length xs
 
 duplicates :: (Ord a) => [a] -> [a]
 duplicates xs = nub [x | x <- xs, countElem x xs > 1]
@@ -125,42 +115,6 @@ duplicates xs = nub [x | x <- xs, countElem x xs > 1]
 duplicatesWrtFun :: (Ord b) => (a -> b) -> [a] -> [a]
 duplicatesWrtFun f xs = [x | x <- xs, countElem (f x) (map f xs) > 1]
 
-
-{-| 
-
->>> duplicatesWrtFun (\x -> x `mod` 2) [1, 2, 3, 5] 
-[1,3,5]
-
-
->>> duplicates [1, 2, 1, 3, 1, 3]
-[1,3]
--}
-
-wellformedClassDecls :: [ClassDecl t] -> Bool
-wellformedClassDecls cds =
-  let class_names = map nameOfClassDecl cds
-  in all (definedSuperclass class_names) cds && not (hasDuplicates class_names)
-
--- TODO: still check that field decls only reference declared classes
--- TODO: hasDuplicates should check that field names are unique
---       and not only that (field name, type) is unique
-wellFormedFieldDecls :: (Ord t) => ClassDecl t -> Bool
-wellFormedFieldDecls (ClassDecl _ cn cdf) = not (hasDuplicates (fieldsOfClassDef cdf))
-
--- TODO: a bit of a hack. Error detection and treatment to be improved
--- - no ref to undefined superclass
--- - no cyclic graph hierarchy (implemented in superClasses above)
--- - no duplicate field declarations (local and inherited)
-elaborateClsProgram :: (Ord t, Show t) => [ClassDecl t] -> [ClassDecl t]
-elaborateClsProgram cds =
-  if wellformedClassDecls cds
-  then
-    let ecdcs = elaborateFieldsInClassDecls (elaborateSupersInClassDecls cds)
-    in
-      if all wellFormedFieldDecls ecdcs
-      then ecdcs
-      else error ("Problem in field declarations: duplicate field declarations" ++ show ecdcs)
-  else error "Problem in class declarations"
 
 superClassesOf :: Environment t -> ClassName -> [ClassName]
 superClassesOf env cn = case lookup cn (classDefAssoc (classDeclsOfEnv env)) of
@@ -493,18 +447,20 @@ tpExpr env x = case x of
   _ -> error "typing of lists not implemented yet"
 
 
--- TODO: to do type checking, Cmd also has to be annotated with type info
 tpCmd :: (TypeAnnot f, HasLoc (f a)) => Environment [ClassName] -> Cmd (f a) -> Cmd (f Tp)
-tpCmd env Skip = Skip
-{-
-tpCmd env (VAssign v e) =
+tpCmd env (Skip annot) = Skip (updType annot OkT)
+tpCmd env (VAssign annot v e) =
     let te = tpExpr env e
-    in
-      if tpVar env v == getTypeOfExpr te
-      then VAssign v te
-      else error "types do not correspond in assignment"
+        t = getTypeOfExpr te
+        tv = tpVar env (getLoc annot) v       -- TODO: the location is the one of the whole assingment and not of the variable alone
+        restp = propagateError [t, tv]
+                (if compatibleType env t tv
+                 then OkT
+                 else ErrT (IllTypedSubExpr [getLoc annot, getLoc e] [t] [ExpectedSubTpOf tv ])
+                )
+    in VAssign (updType annot restp) v te
 tpCmd env FAssign {} = error "typing of FAssign not implemented yet"
--}
+
 
 tpVarDecl :: TypeAnnot f => [ClassName] -> VarDecl (f a) -> VarDecl (f Tp)
 tpVarDecl kenv vd =
@@ -544,7 +500,7 @@ tpAssertion env (Assertion annot e) =
 ----------------------------------------------------------------------
 -- Class declaration errors
 
--- covers the check of fct. wellformedClassDecls above
+
 checkClassesForWfError :: HasLoc t => [ClassDecl t] -> Program t -> Either ClassDeclsError (Program t)
 checkClassesForWfError cds prg =
   let class_names = map nameOfClassDecl cds
@@ -630,11 +586,6 @@ checkVarDeclsError prg =
 -- Errors in Rules and Assertions
 
 
--- TODO: preliminary def
-
-havingSpecificError :: TypeAnnot f => Expr (f Tp) -> Bool
-havingSpecificError = isSpecificError . getTypeOfExpr
-
 isSpecificError :: Tp -> Bool
 isSpecificError e =
   case e of
@@ -643,30 +594,9 @@ isSpecificError e =
     ErrT _ -> True
     _ -> False
 
-errorOrigins :: TypeAnnot f => Expr (f Tp) -> [Expr (f Tp)]
-errorOrigins e = filter havingSpecificError (allSubExprs e)
-
 extractErrorCause :: Tp -> ErrorCause
 extractErrorCause (ErrT c) = c
 extractErrorCause _ = Unspecified
-
-{-
-extractAssertionErrors :: (TypeAnnot f, HasLoc (f Tp)) => [Assertion (f Tp)] -> AssertionError (f Tp)
-extractAssertionErrors tpdAss =
-  let errAss = filter (isErrTp . getType . annotOfAssertion) tpdAss
-      errExprs = map exprOfAssertion errAss
-      nonBoolAss = [e | e <- errExprs, not (isBooleanTp (getType (annotOfExpr e))) && not (isErrTp (getType (annotOfExpr e)))]
-      illTypedExpr = concatMap errorOrigins errExprs
-  in AssertionErrAE nonBoolAss (map (extractErrorCause . getTypeOfExpr) illTypedExpr)
--}
-
-{-
-class HasDisplayableErrors a where
-  getDisplayableErrors :: a -> [(SRng, ErrorCause)]
-
-instance (TypeAnnot f, HasLoc (f Tp)) => HasDisplayableErrors (Expr (f Tp)) where
-  getDisplayableErrors e = map (\errExp -> (getLoc errExp, extractErrorCause (getTypeOfExpr errExp))) (filter havingSpecificError (allSubExprs e))
--}
 
 displayableErrors :: (TypeAnnot f, HasLoc (f Tp)) => f Tp -> [(SRng, ErrorCause)]
 displayableErrors annot = [(getLoc annot, extractErrorCause (getType annot)) | isSpecificError (getType annot)]
@@ -689,13 +619,6 @@ checkRuleError prg =
       _ ->  Left (RuleErrorRE  errs)
     
 
-{-
-extractAssertionError :: (TypeAnnot f, HasLoc (f Tp)) => Assertion (f Tp) -> [(SRng, ErrorCause)]
-extractAssertionError ass =
-  let assErr = [extractErrorCause (getType (annotOfAssertion ass)) | isSpecificError (getType (annotOfAssertion ass))]
-      illTypedExpr = errorOrigins (exprOfAssertion ass)
-  in map (\ae -> (getLoc ass, ae)) (assErr ++ map (extractErrorCause . getTypeOfExpr) illTypedExpr)
--}
 extractAssertionErrors :: (TypeAnnot f, HasLoc (f Tp)) => Assertion (f Tp) -> [(SRng, ErrorCause)]
 extractAssertionErrors ass =
   concatMap (displayableErrors . annotOfExpr) (allSubExprs (exprOfAssertion ass)) ++
@@ -717,7 +640,7 @@ liftLeft :: (a -> la) -> Either a b -> Either la b
 liftLeft f (Left a) = Left (f a)
 liftLeft f (Right r) = Right r
 
-
+-- the generic version of the checkError function below
 checkErrorGen :: (TypeAnnot f, HasLoc (f Tp)) => Program (f Tp) -> Program (f Tp) -> Either Error (Program (f Tp))
 checkErrorGen prelude prg =
   do
