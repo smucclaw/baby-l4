@@ -161,7 +161,7 @@ expr2prop e = case e of
   FunApp2 f x xTp y yTp -> do
     f' <- var2pred2 f
     x' <- tp2ind x xTp
-    y' <- tp2ind x yTp
+    y' <- tp2ind y yTp
     pure $ GPAtom (GAPred2 f' x' y')
   Exist x cl exp -> do
     prop <- expr2prop exp

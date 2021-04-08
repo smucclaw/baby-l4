@@ -139,4 +139,5 @@ fun
   Other : Quantifier ;
   First, Second, Third, Fourth : Quantifier ;
   QString : String -> Quantifier ;
+  NoQuant : Quantifier -> Quantifier ;
 }

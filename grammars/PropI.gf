@@ -27,11 +27,11 @@ lincat
   Verb2 = V2 ;
   PassVerb2 = VP ;
 
-  Quantifier = {s : AP ; qt : QType} ;
+  Quantifier = {ap : AP ; np : NP ; qt : QType} ;
 
 param
   MyPol = MyPos | MyNeg ;
-  QType = QQuant | QStr ;
+  QType = QQuant | QStr | QNothing ;
 
 lin
   PAtom a = {s = PredVPS a.s (a.vp ! MyPos) ; c = False} ;
@@ -88,7 +88,7 @@ lincat
   [Prop] = {s : [S] ; c : Bool} ; -- c = True if any of props is complex
   [Pred1] = MyPol => [VPS] ;
   [Ind] = [NP] ;
-  [Var] = NP ;
+  [Var] = {s : NP ; d : Det} ;
 
 oper
   myVPS : VP -> MyPol => Extend.VPS = \vp ->
@@ -113,15 +113,15 @@ lin
     False => {s = mkS c.s ps.s ; c = True}
     } ;
   PUnivs vs k p = {
-    s = ExtAdvS (mkAdv for_Prep (mkNP all_Predet (mkNP aPl_Det (mkCN k.s vs)))) p.s ;
+    s = ExtAdvS (mkAdv for_Prep (mkNP all_Predet (mkNP aPl_Det (mkCN k.s vs.s)))) p.s ;
     c = False
     } ;
   PExists vs k p = {
-    s = mkS (mkCl (mkNP aPl_Det (mkCN (mkCN k.s vs) (mkAP (mkAP such_A) p.s)))) ;
+    s = mkS (mkCl (mkNP vs.d (mkCN (mkCN k.s vs.s) (mkAP (mkAP such_A) p.s)))) ;
     c = False
     } ;
   PNotExists vs k p = {
-    s = mkS negativePol (ExistCN (mkCN (mkCN k.s vs) (mkAP (mkAP such_A) p.s))) ;
+    s = mkS negativePol (ExistCN (mkCN (mkCN k.s vs.s) (mkAP (mkAP such_A) p.s))) ;
     c = False
     } ;
   PNegAtom a = {
@@ -132,8 +132,8 @@ lin
   BaseProp p q = {s = mkListS p.s q.s ; c = orB p.c q.c} ;
   ConsProp p ps = {s = mkListS p.s ps.s ; c = orB p.c ps.c} ;
 
-  BaseVar x = (symb x) ;
-  ConsVar x xs = mkNP and_Conj (mkListNP (symb x.s) xs) ;
+  BaseVar x = {s = symb x ; d = a_Det} ;
+  ConsVar x xs = {s = mkNP and_Conj (mkListNP (symb x.s) xs.s) ; d = aPl_Det} ;
 
   BaseInd x y = mkListNP x.s y.s ;
   ConsInd x xs = mkListNP x.s xs ;
@@ -179,24 +179,27 @@ lin
 
   KNoun qnt noun = {
     s = case qnt.qt of {
-          QStr => mkCN noun ; -- or mkCN noun (symb <string from the qnt>) to get "player A"
-          QQuant => mkCN qnt.s noun } ;
+          QStr => mkCN (mkCN noun) qnt.np ;
+          QQuant => mkCN qnt.ap noun ;
+          QNothing => mkCN noun } ;
     isClass = False
     } ;
 
   INoun qnt noun = {
     s = case qnt.qt of {
-          QStr => mkNP the_Det noun ; -- or mkCN noun (symb <string from the qnt>) to get "player A"
-          QQuant => mkNP (mkCN qnt.s noun) } ; 
+          QStr => mkNP (mkCN noun qnt.np) ;
+          QQuant => mkNP the_Det (mkCN qnt.ap noun) ;
+          QNothing => mkNP  noun } ; 
     isSymbolic = False
     } ;
 
-  First = {s = mkAP (mkOrd (mkNumeral n1_Unit)) ; qt = QQuant} ;
-  Second = {s = mkAP (mkOrd (mkNumeral n2_Unit)) ; qt = QQuant} ;
-  Third = {s = mkAP (mkOrd (mkNumeral n3_Unit)) ; qt = QQuant} ;
-  Fourth = {s = mkAP (mkOrd (mkNumeral n4_Unit)) ; qt = QQuant} ;
-  Other = {s = mkAP other_1_A ; qt = QQuant} ;
-  QString _ = {s = mkAP other_1_A ; qt = QStr} ;
+  First = {ap = mkAP (mkOrd (mkNumeral n1_Unit)) ; np = nothing_NP ; qt = QQuant} ;
+  Second = {ap = mkAP (mkOrd (mkNumeral n2_Unit)) ; np = nothing_NP ; qt = QQuant} ;
+  Third = {ap = mkAP (mkOrd (mkNumeral n3_Unit)) ; np = nothing_NP ; qt = QQuant} ;
+  Fourth = {ap = mkAP (mkOrd (mkNumeral n4_Unit)) ; np = nothing_NP ; qt = QQuant} ;
+  Other = {ap = mkAP other_1_A ; np = nothing_NP ; qt = QQuant} ;
+  QString str = {ap = mkAP other_1_A ; np = symb str ; qt = QStr} ;
+  NoQuant q = q ** {qt = QNothing} ;
 
 oper
   funType : N3 -> LinKind -> LinKind -> LinKind = \f,arg,ret ->

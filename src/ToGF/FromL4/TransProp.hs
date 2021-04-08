@@ -5,13 +5,14 @@ module ToGF.FromL4.TransProp where
 
 import qualified "gf" PGF (Tree, showExpr)
 import Prop   -- generated from GF
+import Data.Char (isUpper)
 
 transfer :: Mode -> PGF.Tree -> PGF.Tree
 transfer m = gf . trans . fg where
   trans = case m of
     MNone       -> id
     MMinimalize -> minimalizeP . normalizeP
-    MNormalize  -> normalizeP 
+    MNormalize  -> normalizeP
     MOptimize   -> optimizeP
 
 data Mode = MNone | MOptimize | MMinimalize | MNormalize deriving Show
@@ -30,19 +31,19 @@ optimizeP :: GProp -> GProp
 optimizeP = optimize
 
 optimize :: forall c. Tree c -> Tree c
-optimize t' = let t = groupQuantifs t' in case t of
+optimize t' = let t = niceInd $ groupQuantifs t' in case t of
   GPNeg (GPAtom a) -> GPNegAtom a
   GPConj co p q -> aggregate co $ optimize $ mergeConj co p q
   GPConjs co p -> aggregate co $ optimize p
   GAPred2 f x y | x == y -> GAPredRefl f x  ---- and no insitu quant in x
   GAPred2 f x y -> GAPred1 (GPartPred f y) x
-  GPUniv x (GPImpl (GPAtom (GAKind k (GIVar y))) p) | y == x -> 
+  GPUniv x (GPImpl (GPAtom (GAKind k (GIVar y))) p) | y == x ->
     let (km,pm) = getKindMod x k p in optimize $ GPUnivs (GListVar [x]) km pm
-  GPExist x (GPConj GCAnd (GPAtom (GAKind k (GIVar y))) p) | y == x -> 
+  GPExist x (GPConj GCAnd (GPAtom (GAKind k (GIVar y))) p) | y == x ->
     optimize $ GPExists (GListVar [x]) k p
-  GPUnivs  (GListVar [x]) k p -> inSitu GPUnivs  (GIUniv k)  k x $ optimize p 
+  GPUnivs  (GListVar [x]) k p -> inSitu GPUnivs  (GIUniv k)  k x $ optimize p
   GPExists (GListVar [x]) k p -> inSitu GPExists (GIExist k) k x $ optimize p
-  GPNeg (GPExists a k p) -> GPNotExists a k p 
+  GPNeg (GPExists a k p) -> GPNotExists a k p
   _ -> composOp optimize t
 
 -- assumes everything inside is binary conjunctions
@@ -70,7 +71,7 @@ inSitu quant qp k x b = case b of
   GPAtom (GAPred2 f z y) | y == vx && notFree x z -> GPAtom (GAPred2 f z qp)
   GPAtom (GAPred2 f z y) | z == vx && notFree x y -> GPAtom (GAPred2 f qp y)
   _ -> quant (GListVar [x]) k b
- where 
+ where
   vx = GIVar x
 
 getKindMod :: GVar -> GKind -> GProp -> (GKind,GProp)
@@ -93,13 +94,13 @@ getPreds = fmap unzip . mapM getPred where
 minimalizeP :: GProp -> GProp
 minimalizeP p = case p of
   GPConjs co (GListProp ps) -> foldl1 (GPConj co) (map minimalizeP ps)
-  GPUnivs (GListVar xs) k b -> 
-    foldl (flip GPUniv) 
-          (GPImpl (foldl1 (GPConj GCAnd) [minKind k x | x <- xs]) (minimalizeP b)) 
+  GPUnivs (GListVar xs) k b ->
+    foldl (flip GPUniv)
+          (GPImpl (foldl1 (GPConj GCAnd) [minKind k x | x <- xs]) (minimalizeP b))
           xs
-  GPExists (GListVar xs) k b -> 
-    foldl (flip GPExist) 
-          (GPConj GCAnd (foldl1 (GPConj GCAnd) [minKind k x | x <- xs]) (minimalizeP b)) 
+  GPExists (GListVar xs) k b ->
+    foldl (flip GPExist)
+          (GPConj GCAnd (foldl1 (GPConj GCAnd) [minKind k x | x <- xs]) (minimalizeP b))
           xs
   _ -> p
  where
@@ -110,7 +111,7 @@ minimalizeP p = case p of
 
 normalizeP :: GProp -> GProp
 normalizeP = iProp
- 
+
 iProp :: GProp -> Prop
 iProp p = case p of
   GPNegAtom a -> GPNeg (iAtom a)
@@ -130,7 +131,7 @@ iAtom a = case a of
 
 iPred1 :: GPred1 -> Ind -> Prop
 iPred1 f i = case f of
-  GConjPred1 co (GListPred1 fs) -> GPConjs co (GListProp [iPred1 g i | g <- fs]) 
+  GConjPred1 co (GListPred1 fs) -> GPConjs co (GListProp [iPred1 g i | g <- fs])
   GPartPred f y -> iPred2 f i y
   _ -> GPAtom (GAPred1 f i)
 
@@ -142,12 +143,12 @@ iInd :: GInd -> (Ind -> Prop) -> Prop
 iInd q f = case q of
   GIUniv  k -> let x = newVar 1 in GPUnivs  (GListVar [x]) k (f (GIVar x))
   GIExist k -> let x = newVar 2 in GPExists (GListVar [x]) k (f (GIVar x))
-  GIFun1 g r -> iInd r (\x -> f (GIFun1 g x)) 
-  GIFun2 g r s -> iInd r (\x -> iInd s (\y -> f (GIFun2 g x y))) 
+  GIFun1 g r -> iInd r (\x -> f (GIFun1 g x))
+  GIFun2 g r s -> iInd r (\x -> iInd s (\y -> f (GIFun2 g x y)))
   GIFunC g (GListInd rs) -> wind rs (\x y -> f (GIFun2 g x y)) where
     wind qs h = case qs of
       [r,s] -> iInd r (\x -> iInd s (\y -> h x y))
-      r :ss -> iInd r (\x -> wind ss (\y z -> h (GIFun2 g x y) z)) 
+      r :ss -> iInd r (\x -> wind ss (\y z -> h (GIFun2 g x y) z))
   GConjInd co (GListInd rs) -> wind rs (\x y -> GPConj co (f x) (f y)) where
     wind qs h = case qs of
       [r,s] -> iInd r (\x -> iInd s (\y -> h x y))
@@ -183,16 +184,16 @@ notFree x t = notElem x (freeVars t)
 groupQuantifs :: Tree c -> Tree c
 -- groupQuantifs (GPExist var prop) = GPExist _ _
 -- groupQuantifs (GPUniv var prop) = GPUniv _ _
-groupQuantifs p@(GPExists (GListVar vs) kind prop) = 
-  case prop of 
-    GPExists (GListVar vs') kind' prop' | sameEnough kind' kind 
-      -> groupQuantifs $ GPExists (GListVar (vs++vs')) kind prop'
-    _ -> p
-groupQuantifs p@(GPUnivs (GListVar vs) kind prop) = 
-  case prop of 
-    GPExists (GListVar vs') kind' prop' | sameEnough kind' kind 
-      -> groupQuantifs $ GPUnivs (GListVar (vs++vs')) kind prop'
-    _ -> p
+groupQuantifs (GPExists (GListVar vs) kind prop) =
+  case prop of
+    GPExists (GListVar vs') kind' prop' | sameEnough kind' kind
+      -> groupQuantifs $ GPExists (GListVar (vs++vs')) (noQuant kind) (optimize prop')
+    _ -> GPExists (GListVar vs) (noQuant kind) prop
+groupQuantifs (GPUnivs (GListVar vs) kind prop) =
+  case prop of
+    GPExists (GListVar vs') kind' prop' | sameEnough kind' kind
+      -> groupQuantifs $ GPUnivs (GListVar (vs++vs')) (noQuant kind) prop'
+    _ -> GPUnivs (GListVar vs) (noQuant kind) prop
 groupQuantifs x = x
 
 sameEnough :: GKind -> GKind -> Bool
@@ -204,3 +205,14 @@ sameEnough (GModKind a b) (GModKind a' b') = sameEnough a a' && b == b'
 sameEnough GNat GNat = True
 sameEnough (GSet a) (GSet a') = sameEnough a a'
 
+noQuant :: GKind -> GKind
+noQuant (GKNoun q n) = GKNoun (GNoQuant q) n
+noQuant k = k
+
+-- player A throws rock, not *player A throws sign Rock
+niceInd :: Tree x -> Tree x
+niceInd i = case i of 
+  GINoun q@(GQString (GString s@(x:xs))) noun
+    | isUpper x -> GINoun (GNoQuant q) (LexNoun s)
+    | otherwise -> i
+  x -> composOp niceInd i
