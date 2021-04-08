@@ -17,6 +17,7 @@ import Questions
 import Syntax
 import PGF
 import ToGF.GenerateLexicon
+
 import ToGF.FromSCasp.SCasp
 
 -- to lexicon
@@ -36,27 +37,15 @@ printGF gr expr = do
   mapM_ putStrLn (linearizeAll gr (gf expr))
 
 -- grab atoms and names 
-getName :: GPred -> GName
-getName (GMkPred1 x _)  = x
-
-getArg :: GPred -> GAtom
-getArg (GMkPred1 _ x)  = x
-
-getName2 :: GPred -> GName
-getName2 (GMkPred2 x _ _)  = x
-
-getArg1 :: GPred -> GAtom
-getArg1 (GMkPred2 _ x _)  = x
-
-getArg2 :: GPred -> GAtom
-getArg2 (GMkPred2 _ _ x)  = x
-
 -- apply list of functions to get atoms
-grabNames :: GPred -> [GName]
-grabNames x = map ($ x) [getName,getName2]
+grabName :: GPred -> [GName]
+grabName (GMkPred1 x _)  = [x]
+grabName (GMkPred2 x _ _) = [x]
 
 grabArgs :: GPred -> [GAtom]
-grabArgs x = map ($ x) [getArg, getArg1, getArg2]
+grabArgs (GMkPred1 _ arg) = [arg]
+grabArgs (GMkPred2 _ arg1 arg2) = [arg1, arg2]
+
 
 --data POS = POS {origName :: String, pos :: InnerPOS}
 
@@ -70,10 +59,12 @@ grabArgs x = map ($ x) [getArg, getArg1, getArg2]
 
 makeArgPOS :: GAtom -> POS
 makeArgPOS (LexAtom x) = POS x $ PN getStr
-  where getNum
-         | isDigit (last x) = digitToInt (last x)
-         | otherwise = 0
-        getStr = init x
+  where getStr
+         | isDigit (last x) = init x
+         | otherwise = x
+
+getListPOS :: [GAtom] -> [POS]
+getListPOS = map makeArgPOS
 
 --getPOS :: [GAtom] -> POS
 --getPOS (x:xs)
@@ -82,14 +73,12 @@ makeArgPOS (LexAtom x) = POS x $ PN getStr
 -- where
 --   getLength = length (x:xs)
 
-mkQLexicon :: GPred -> (Doc (), Doc ())
+mkQLexicon :: [GPred] -> (Doc (), Doc ())
 mkQLexicon x = (abstractLexicon lexicon, concreteLexicon lexicon)
   where
-    lexicon = map makeArgPOS (grabArgs x)
+    lexicon = getListPOS (concatMap grabArgs x)
 
--- createGF for single GPred
-
-createPredGF :: GPred -> IO ()
+createPredGF :: [GPred] -> IO ()
 createPredGF x  = do
   let (absS, cncS) = mkQLexicon x
   writeDoc (mkAbsName lexName) absS
@@ -101,15 +90,14 @@ createPredGF x  = do
 nlgPreds :: [GPred] -> IO ()
 nlgPreds [] = error "No preds"
 nlgPreds ls = do
-  let allPred = mapM_ createPredGF ls
-  allPred -- dump all preds 
+  createPredGF ls -- dump all preds 
   gr <- createPGF
-  let allAtoms = concatMap grabArgs ls
-  --printGF gr allAtoms
+  --let allAtoms = concatMap grabArgs ls
   print "hello"
 
-hello :: Questionable x => x -> IO ()
-hello prog =
+hello :: Program Tp -> IO ()
+hello prog = do
+  nlgPreds $ map toPred (globalsOfProgram prog)
   mapM_ (putStrLn . showExpr [] . gf) (toQuestions prog)
 
 class Questionable x where
@@ -124,6 +112,7 @@ instance Questionable (Program a) where
 toPred :: VarDecl t -> GPred
 toPred (Pred1 name arg1)      = GMkPred1 (LexName name) (LexAtom arg1)
 toPred (Pred2 name arg1 arg2) = GMkPred2 (LexName name) (LexAtom arg1) (LexAtom arg2)
+toPred _ = error "error"
 
 isPred :: VarDecl t -> Bool
 isPred = isPred' . tpOfVarDecl
