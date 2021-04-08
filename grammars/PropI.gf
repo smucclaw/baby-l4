@@ -27,8 +27,11 @@ lincat
   Verb2 = V2 ;
   PassVerb2 = VP ;
 
+  Quantifier = {s : AP ; qt : QType} ;
+
 param
   MyPol = MyPos | MyNeg ;
+  QType = QQuant | QStr ;
 
 lin
   PAtom a = {s = PredVPS a.s (a.vp ! MyPos) ; c = False} ;
@@ -114,7 +117,7 @@ lin
     c = False
     } ;
   PExists vs k p = {
-    s = mkS (mkCl (mkNP a_Quant (mkCN (mkCN k.s vs) (mkAP (mkAP such_A) p.s)))) ;
+    s = mkS (mkCl (mkNP aPl_Det (mkCN (mkCN k.s vs) (mkAP (mkAP such_A) p.s)))) ;
     c = False
     } ;
   PNotExists vs k p = {
@@ -151,8 +154,6 @@ lin
   PVar1 var = myVPS (mkVP (symb var)) ;
   PVar2 var = myVPS2 (VPSlashPrep (mkVP (symb var)) to_Prep) ; ----
 
-  INoun n = {s = mkNP the_Det n ; isSymbolic = False} ;
-
 lin
   ConjPred1 c ps = \\pol => ConjVPS c.s (ps ! pol) ;
 
@@ -175,7 +176,27 @@ lin
   BTrue = {s = symb "true" ; isSymbolic = True} ;
   BFalse = {s = symb "false" ; isSymbolic = True} ;
   KInd ind = {s = mkCN type_5_N ind.s ; isClass = True} ;
-  KNoun noun = {s = mkCN noun ; isClass = False} ;
+
+  KNoun qnt noun = {
+    s = case qnt.qt of {
+          QStr => mkCN noun ; -- or mkCN noun (symb <string from the qnt>) to get "player A"
+          QQuant => mkCN qnt.s noun } ;
+    isClass = False
+    } ;
+
+  INoun qnt noun = {
+    s = case qnt.qt of {
+          QStr => mkNP the_Det noun ; -- or mkCN noun (symb <string from the qnt>) to get "player A"
+          QQuant => mkNP (mkCN qnt.s noun) } ; 
+    isSymbolic = False
+    } ;
+
+  First = {s = mkAP (mkOrd (mkNumeral n1_Unit)) ; qt = QQuant} ;
+  Second = {s = mkAP (mkOrd (mkNumeral n2_Unit)) ; qt = QQuant} ;
+  Third = {s = mkAP (mkOrd (mkNumeral n3_Unit)) ; qt = QQuant} ;
+  Fourth = {s = mkAP (mkOrd (mkNumeral n4_Unit)) ; qt = QQuant} ;
+  Other = {s = mkAP other_1_A ; qt = QQuant} ;
+  QString _ = {s = mkAP other_1_A ; qt = QStr} ;
 
 oper
   funType : N3 -> LinKind -> LinKind -> LinKind = \f,arg,ret ->

@@ -15,7 +15,7 @@ import System.Environment (withArgs)
 import System.IO (stderr, hPutStrLn)
 import Text.Printf (printf)
 import ToGF.FromL4.TransProp
-import ToGF.NormalizeSyntax ( varName )
+import ToGF.NormalizeSyntax ( varName, normalizeQuantifGF ) 
 
 -- moved this here from exe/Main.hs, needed to tell optparse which languages to output
 data GFlang  = GFall | GFeng | GFswe deriving Show
@@ -85,7 +85,7 @@ program2prop e = case e of
 
 vardecl2prop :: VarDecl t -> CuteCats GProp
 vardecl2prop (VarDecl _ vname vtyp) = do
-  typ <- tp2kind vtyp
+  typ <- tp2kind (GlobalVar vname) vtyp
   name <- var2ind (GlobalVar vname)
   pure $ GPAtom (GAKind typ name)
 
@@ -118,30 +118,33 @@ var2pred2 var = do
     val : _ | gfType val == "Noun2" -> GPNoun2 (LexNoun2 name)
     _ -> GPVar2 (GVString (GString name))
 
-tp2kind :: Tp -> CuteCats GKind
-tp2kind e = case e of
+tp2kind :: Var -> Tp -> CuteCats GKind
+tp2kind v e = case e of
   BoolT -> pure GBoolean
   IntT -> pure GNat
-  ClassT (ClsNm name) -> pure $ GKNoun (LexNoun name)
-  FunT arg ret -> GKFun <$> tp2kind arg <*> tp2kind ret
+  ClassT (ClsNm name) -> pure $ GKNoun (var2quant v) (LexNoun name)
+  FunT arg ret -> GKFun <$> tp2kind v arg <*> tp2kind v ret
   -- TupleT [Tp]
   -- ErrT
   _ -> error $ "tp2kind: not yet supported: " ++ show e
 
-tp2ind :: Tp -> CuteCats GInd
-tp2ind e = case e of
+tp2ind :: Var -> Tp -> CuteCats GInd
+tp2ind v e = case e of
   --BoolT -> pure GBoolean
   --IntT -> pure GNat
-  ClassT (ClsNm name) -> pure $ GINoun (LexNoun name)
+  ClassT (ClsNm name) -> pure $ GINoun (var2quant v) (LexNoun name)
   --FunT arg ret -> GKFun <$> tp2kind arg <*> tp2kind ret
   -- TupleT [Tp]
   -- ErrT
   _ -> pure $ GIVar (GVString (GString "<unsupported>"))
   -- _ -> error $ "tp2kind: not yet supported: " ++ show e
 
+var2quant :: Var -> GQuantifier
+var2quant = GQString . GString . varName 
 
 rule2prop :: Rule Tp -> CuteCats GProp
-rule2prop (Rule _ nm vars ifE thenE) = local (updateVars vars) $
+rule2prop r = 
+  let r'@(Rule _ nm vars ifE thenE) = normalizeQuantifGF r in local (updateVars vars) $
   do
     ifProp <- expr2prop ifE
     thenProp <- expr2prop thenE
@@ -157,16 +160,16 @@ expr2prop e = case e of
     pure $ GPAtom (GAPred1 f' x')
   FunApp2 f x xTp y yTp -> do
     f' <- var2pred2 f
-    x' <- tp2ind xTp
-    y' <- tp2ind yTp
+    x' <- tp2ind x xTp
+    y' <- tp2ind x yTp
     pure $ GPAtom (GAPred2 f' x' y')
   Exist x cl exp -> do
     prop <- expr2prop exp
-    typ <- tp2kind cl
+    typ <- tp2kind (LocalVar x 0) cl
     pure $ GPExists (GListVar [GVString (GString x)]) typ prop
   Forall x cl exp -> do
     prop <- expr2prop exp
-    typ <- tp2kind cl
+    typ <- tp2kind (LocalVar x 0) cl
     pure $ GPUnivs (GListVar [GVString (GString x)]) typ prop
   And e1 e2 -> do
     exp1 <- expr2prop e1

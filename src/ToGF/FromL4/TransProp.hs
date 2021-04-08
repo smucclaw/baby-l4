@@ -30,7 +30,7 @@ optimizeP :: GProp -> GProp
 optimizeP = optimize
 
 optimize :: forall c. Tree c -> Tree c
-optimize t = case t of
+optimize t' = let t = groupQuantifs t' in case t of
   GPNeg (GPAtom a) -> GPNegAtom a
   GPConj co p q -> aggregate co $ optimize $ mergeConj co p q
   GPConjs co p -> aggregate co $ optimize p
@@ -178,6 +178,29 @@ freeVars t = [x | x@(GVString _) <- freeVarsM t]
 notFree :: GVar -> Tree a -> Bool
 notFree x t = notElem x (freeVars t)
 
---composOpMPlus :: (Compos t, MonadPlus m) => (forall a. t a -> m b) -> t c -> m b
---composOpM :: (Compos t, Monad m) => (forall a. t a -> m (t a)) -> t c -> m (t c)
+-- Not in Aarne's original
+
+groupQuantifs :: Tree c -> Tree c
+-- groupQuantifs (GPExist var prop) = GPExist _ _
+-- groupQuantifs (GPUniv var prop) = GPUniv _ _
+groupQuantifs p@(GPExists (GListVar vs) kind prop) = 
+  case prop of 
+    GPExists (GListVar vs') kind' prop' | sameEnough kind' kind 
+      -> groupQuantifs $ GPExists (GListVar (vs++vs')) kind prop'
+    _ -> p
+groupQuantifs p@(GPUnivs (GListVar vs) kind prop) = 
+  case prop of 
+    GPExists (GListVar vs') kind' prop' | sameEnough kind' kind 
+      -> groupQuantifs $ GPUnivs (GListVar (vs++vs')) kind prop'
+    _ -> p
+groupQuantifs x = x
+
+sameEnough :: GKind -> GKind -> Bool
+sameEnough GBoolean GBoolean = True
+sameEnough (GKFun a b) (GKFun a' b') = sameEnough a a' && sameEnough b b'
+sameEnough (GKInd a) (GKInd a') = a == a'
+sameEnough (GKNoun _ n) (GKNoun _ n') = n == n'
+sameEnough (GModKind a b) (GModKind a' b') = sameEnough a a' && b == b'
+sameEnough GNat GNat = True
+sameEnough (GSet a) (GSet a') = sameEnough a a'
 

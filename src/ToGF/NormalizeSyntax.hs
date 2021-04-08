@@ -6,18 +6,22 @@ import Data.List (intercalate)
 import Data.Maybe (fromMaybe)
 import Syntax
 
+-- This is for ToSCASP, where we want to put existential quantification into VarDecls.
 normalizeQuantif :: Rule Tp -> [Rule Tp]
 normalizeQuantif (Rule ann nm decls ifE thenE) =
   Rule ann nm (decls ++ newDecls) actuallyNewIfE thenE : faRules
   where
-    (faRules, negApp) = forallRule ifE
-    -- If it was universally quantified, we made a new predicate and now we negate it
-    actuallyNewIfE = fromMaybe newIfE negApp
+    -- 1) Take care of existential quantification
     (newDecls, newIfE) = go ifE -- result of the recursion
     go (QuantifE ann Ex varnm tp expr) = (VarDecl ann varnm tp : newDs, newE)
       where
         (newDs, newE) = go expr
     go e = ([], e)
+    
+    -- 2) Take care of universal quantification
+    (faRules, negApp) = forallRule ifE
+    -- If it was universally quantified, we made a new predicate and now we negate it
+    actuallyNewIfE = fromMaybe newIfE negApp
     
     forallRule :: Expr Tp -> ([Rule Tp], Maybe (Expr Tp))
     forallRule (QuantifE ann All name tp ifExp) = ([Rule ann "foo" vardecls ifExp thenExp], Just negThenExp)
@@ -30,6 +34,15 @@ normalizeQuantif (Rule ann nm decls ifE thenE) =
         negThenExp = negateExpr thenExp
     forallRule _ = ([], Nothing)
 
+-- -- Reverse of the previous normalizeQuantif: we want to move the vardecls into existential quantification
+normalizeQuantifGF :: Rule Tp -> Rule Tp
+normalizeQuantifGF r = r { varDeclsOfRule = [],
+                           precondOfRule = wrapInExistential decls ifE }
+  where
+    ifE = precondOfRule r
+    decls = varDeclsOfRule r
+    wrapInExistential [] e = e
+    wrapInExistential (VarDecl ann nm tp:xs) e = wrapInExistential xs (QuantifE ann Ex nm tp e)
 negateExpr :: Expr t -> Expr t
 negateExpr e = UnaOpE (annotOfExpr e) (UBool UBneg) e
 
