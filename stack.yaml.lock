@@ -77,7 +77,7 @@ packages:
       size: 3194
       sha256: d22f820a1f63497f7fd7e1f04b7d356d92de35582258f6ad55428c88b09e63ff
   original:
-    hackage: prettyprinter-1.7.0
+    hackage: prettyprinter-1.7.0@sha256:6a9569e21fa61163a7f066d23d701e23e917893e8f39733d6e617ec72787ae5f,6007
 - completed:
     hackage: regex-posix-clib-2.7@sha256:998fca06da3d719818f0691ef0b8b9b7375afeea228cb08bd9e2db53f96b0cd7,1232
     pantry-tree:
