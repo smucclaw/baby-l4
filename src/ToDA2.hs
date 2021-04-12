@@ -47,7 +47,12 @@ instance (Show t) => DSYaml (DSBlock t) where
             putSource Nothing = PP.emptyDoc
               
 
-
+-- ClassDecl {
+--   nameOfClassDecl = ClsNm "Class",
+--   defOfClassDecl = ClassDef {
+--     supersOfClassDef = [ClsNm "Object"],
+--     fieldsOfClassDef = []}}], 
+--
 -- ClassDecl {
 --   nameOfClassDecl = ClsNm "Player",
 --   defOfClassDecl = ClassDef {
@@ -69,11 +74,14 @@ classDeclToBlock ClassDecl { nameOfClassDecl, defOfClassDecl } =
           , blkType = "String"
           , blkCard = Nothing
           , blkEncodings = map toLower clnm ++ "(X)"
-          , blkAttrs = map (Just . fieldDeclToBlock) $ fieldsOfClassDef defOfClassDecl -- TODO: Fix attributes for singleton class defs
+          , blkAttrs = mapAttrs $ fieldsOfClassDef defOfClassDecl 
           , blkUI = undefined
           , blkSource = Nothing
           }
   where clnm = (\(ClsNm name) -> name) nameOfClassDecl
+        mapAttrs x = case x of 
+          [] -> [Nothing]
+          _  -> map (Just . fieldDeclToBlock) x
 
 fieldDeclToBlock :: FieldDecl ct -> DSBlock ct
 fieldDeclToBlock (FieldDecl _ (FldNm fldnm) fieldtype) =
