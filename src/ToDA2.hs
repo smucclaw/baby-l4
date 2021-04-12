@@ -38,6 +38,7 @@ instance (Show t) => DSYaml (DSBlock t) where
                                 , "type:" <+> pretty blkType <> putSource blkSource -- workaround to not print an emptyline when source is not present
                                 , "minimum/maximum/exactly:" --cardinality goes here
                                 , "ask/tell/any/other:" -- ui goes here
+                                , "encodings:"  , indent 2 $ "-" <+> pretty blkEncodings -- TODO : add functionality for list-encoding
                                 , docAttrs attrs blkAttrs
                                 ]
       where docAttrs attrs ba = case ba of
