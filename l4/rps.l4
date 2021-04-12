@@ -34,12 +34,12 @@ decl Paper : Sign
 decl Scissors : Sign
 
 rule <beats_rock_scissors>
-if True
+if (Beat Rock Scissors || Beat Paper Rock || Beat Scissors Paper)
 then Beat Rock Scissors
 
 
 rule <beats_scissors_paper>
-if True
+if (Beat Rock Scissors || Beat Paper Rock || Beat Scissors Paper)
 then Beat Scissors Paper
 
 
@@ -55,7 +55,7 @@ then Beat Rock Paper
 
 rule <winner>
 for a : Player, g : Game, r : Sign, s : Sign
-if (exists b : Player . Participate_in a g  && Participate_in b g  && 
+if (exists b : Player . Participate_in a g  && Participate_in b g  &&
                                            Throw a r  && Throw b s && Beat r s
                                            )
 then Win a g

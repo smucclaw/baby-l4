@@ -23,7 +23,7 @@ unstash :: Stash ann -> Doc ann
 unstash (Stash r f q) =
   pretty "% facts" <> f <> line <>
   pretty "% rules" <> r <> line <>
-  pretty "% queries " <> line <> q 
+  pretty "% queries " <> line <> q
 
 rule, fact, query :: Doc ann -> Stash ann
 rule rl = Stash rl mempty mempty
@@ -84,8 +84,12 @@ instance SCasp (Program Tp) where
   showSC p =
     showSClist (assertionsOfProgram p) -- TODO: should become queries!!!
       <> showSClist (removePred p)     -- These become facts
-      <> showSClist (concatMap normalizeQuantif $ rulesOfProgram p) -- These become rules and facts
+
+      <> showSClist (concatMap normaliseRule2ListE  $ rulesOfProgram p) -- These become rules and facts
+
   showSingle = unstash . showSC
+
+
 instance SCasp (Rule Tp) where
   showSC (Rule _ _ _ (ValE _ (BoolV True)) thenExp) = fact $ endDot $ showSingle thenExp
   showSC (Rule _ _ _ (ValE _ (BoolV False)) thenExp) = fact $ endDot $ showSingle (negateExpr thenExp)

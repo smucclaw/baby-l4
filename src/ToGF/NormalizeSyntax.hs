@@ -17,12 +17,12 @@ normalizeQuantif (Rule ann nm decls ifE thenE) =
       where
         (newDs, newE) = go expr
     go e = ([], e)
-    
+
     -- 2) Take care of universal quantification
     (faRules, negApp) = forallRule ifE
     -- If it was universally quantified, we made a new predicate and now we negate it
     actuallyNewIfE = fromMaybe newIfE negApp
-    
+
     forallRule :: Expr Tp -> ([Rule Tp], Maybe (Expr Tp))
     forallRule (QuantifE ann All name tp ifExp) = ([Rule ann "foo" vardecls ifExp thenExp], Just negThenExp)
       where
@@ -74,21 +74,21 @@ normalizeAnd e = e
 {- TODO:
 
 1. A function Rule t -> [Rule t], which work on L4 rules like
-  
+
   rule <blah>
   for foo : Foo
   if Legal foo
   then Good foo && MayBeEaten foo
 
 and returns 2 new L4 rules:
-  
+
   rule <blah>
   for foo : Foo
   if Legal foo
-  then Good foo 
-  
+  then Good foo
+
   rule <blah>
-  for foo : Foo  
+  for foo : Foo
   if Legal foo
   then MayBeEaten foo
 
@@ -101,17 +101,17 @@ and returns 2 new L4 rules:
 
 and returns 3 new rules:
 
-  rule <blah>
+  rule <blah1>
   for foo : Foo
   if Rich foo
   then Legal foo
 
-  rule <blah>
+  rule <blah2>
   for foo : Foo
   if Pretty foo
   then Legal foo
 
-  rule <blah>
+  rule <blah3>
   for foo : Foo
   if Smart foo
   then Legal foo
@@ -119,3 +119,18 @@ and returns 3 new rules:
 3. A function Program -> Program, which makes predicates out of class declarations
 
 -}
+-- Q2
+
+normaliseRule2ListE :: Rule t -> [Rule t]  -- takes a rule t and returns a list of expression
+normaliseRule2ListE (Rule ann nm decls ifE thenE) =
+  [Rule ann nm decls x thenE
+  | x <- newIfEs] -- TODO
+  where
+    newIfEs =  go ifE
+
+    go e@(BinOpE ann (BBool BBor) e1 e2) = go e1 ++ go e2-- result of the recursion
+    go e = [e]
+
+
+-- Q3
+normalizeProg

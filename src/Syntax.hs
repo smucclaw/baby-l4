@@ -40,8 +40,8 @@ newtype PartyName = PtNm String
 
 data Program t = Program{ annotOfProgram :: t
                             , lexiconOfProgram :: [Mapping t]
-                            , classDeclsOfProgram ::  [ClassDecl t] 
-                            , globalsOfProgram :: [VarDecl t] 
+                            , classDeclsOfProgram ::  [ClassDecl t]
+                            , globalsOfProgram :: [VarDecl t]
                             , rulesOfProgram :: [Rule t]
                             , assertionsOfProgram :: [Assertion t] }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
@@ -55,10 +55,10 @@ data ExpectedType
   | ExpectedExactTp Tp
   | ExpectedSubTpOf Tp
   deriving (Eq, Ord, Show, Read, Data, Typeable)
-  
 
-data ErrorCause 
-  = Inherited 
+
+data ErrorCause
+  = Inherited
   | UndeclaredVariable SRng VarName
   | IllTypedSubExpr { exprRangesITSE :: [SRng]
                     , receivedITSE :: [Tp]
@@ -75,12 +75,12 @@ data ErrorCause
   | IncompatiblePattern SRng
   | UnknownFieldName SRng FieldName ClassName
   | AccessToNonObjectType SRng
-  | Unspecified 
+  | Unspecified
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 
 ----- Types
--- TODO: also types have to be annotated with position information 
+-- TODO: also types have to be annotated with position information
 -- for the parser to do the right job
 data Tp
   = BoolT
@@ -92,7 +92,7 @@ data Tp
   | OkT                    -- fake type appearing in constructs (classes, rules etc.) that do not have a genuine type
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-data VarDecl t = VarDecl {annotOfVarDecl ::t 
+data VarDecl t = VarDecl {annotOfVarDecl ::t
                          , nameOfVarDecl :: VarName
                          , tpOfVarDecl :: Tp }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
@@ -228,7 +228,7 @@ data Quantif = All | Ex
     deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 type family Annot tpPhase
-type instance Annot SRng = SRng 
+type instance Annot SRng = SRng
 
 -- Expr t is an expression of type t (to be determined during type checking / inference)
 data Expr t
@@ -245,7 +245,7 @@ data Expr t
     | TupleE      t [Expr t]                     -- tuples
     | CastE       t Tp (Expr t)                  -- cast to type
     | ListE       t ListOp [Expr t]              -- list expression
-    | NotDeriv    t Bool (Expr t)            -- Negation as failure "not". 
+    | NotDeriv    t Bool (Expr t)            -- Negation as failure "not".
                                                       -- The Bool expresses whether "not" precedes a positive literal (True)
                                                       -- or is itself classically negated (False)
                                                       -- The expresssion argument should be a predicate
@@ -295,14 +295,14 @@ updAnnotOfExpr f x = case x of
   UnaOpE      t a b     -> UnaOpE (f t) a b
   BinOpE      t a b c   -> BinOpE (f t) a b c
   IfThenElseE t a b c   -> IfThenElseE (f t) a b c
-  AppE        t a b     -> AppE (f t) a b 
+  AppE        t a b     -> AppE (f t) a b
   FunE        t a b c   -> FunE (f t) a b c
   QuantifE    t a b c d -> QuantifE (f t) a b c d
-  FldAccE     t a b     -> FldAccE (f t) a b 
-  TupleE      t a       -> TupleE (f t) a 
+  FldAccE     t a b     -> FldAccE (f t) a b
+  TupleE      t a       -> TupleE (f t) a
   CastE       t a b     -> CastE (f t) a b
-  ListE       t a b     -> ListE (f t) a b 
-  NotDeriv    t a b     -> NotDeriv (f t) a b 
+  ListE       t a b     -> ListE (f t) a b
+  NotDeriv    t a b     -> NotDeriv (f t) a b
 
 
 instance HasLoc t => HasLoc (Expr t) where
