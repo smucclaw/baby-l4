@@ -2,6 +2,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 
+
 module ToDA2 where
 
 import Prettyprinter as PP
@@ -18,6 +19,8 @@ createDSyaml :: Program Tp -> IO ()
 createDSyaml p = putDoc $ PP.line <> runReader (showDS p) p
 
 
+-- Perhaps instead of using Maybe, an Either would be better. 
+-- With Left :: Doc ann = PP.emptyDoc, and right :: WithProgram (Doc ann) = concretized
 data DSBlock t = DSBlock { blkName  :: String
                          , blkType  :: String
                          , blkCard  :: Maybe Int -- cardinality
@@ -29,16 +32,20 @@ data DSBlock t = DSBlock { blkName  :: String
 
 
 instance (Show t) => DSYaml (DSBlock t) where
-  showDS DSBlock { blkName, blkType, blkCard, blkEncodings, blkAttrs, blkUI} = do
-    attrs <- showDSlist $ catMaybes blkAttrs-- i want showDSlist to return mempty/Doc ann where appropriate
+  showDS DSBlock { blkName, blkType, blkCard, blkEncodings, blkAttrs, blkUI, blkSource} = do
+    attrs <- showDSlist $ catMaybes blkAttrs
     pure $ hang 2 $ "-" <+> vsep [ "name:" <+> pretty blkName
-                                , "type:" <+> pretty blkType
-                                , "source:"
+                                , "type:" <+> pretty blkType <> putSource blkSource -- workaround to not print an emptyline when source is not present
                                 , "minimum/maximum/exactly:" --cardinality goes here
                                 , "ask/tell/any/other:" -- ui goes here
-                                , "encodings:"  , indent 2 $ "-" <+> pretty blkEncodings -- TODO : add functionality for list-encoding
-                                , "attributes:"  , indent 2 attrs -- attributes here (one-level only)
+                                , docAttrs attrs blkAttrs
                                 ]
+      where docAttrs attrs ba = case ba of
+              [Nothing] -> ""
+              _  -> "attributes:" <> PP.line <> indent 2 attrs -- attributes here (one-level only)
+            putSource (Just x) = PP.line <> "source:" <+> pretty x
+            putSource Nothing = PP.emptyDoc
+              
 
 
 -- ClassDecl {
@@ -56,25 +63,13 @@ instance (Show t) => DSYaml (DSBlock t) where
 --       FieldDecl (FldNm "winner") (ClassT (ClsNm "Player"))
 --     ]}}],
 
-pointerBlock :: DSBlock t -> DSBlock t  -- surely there must be less DRY way to write this...
-pointerBlock DSBlock { blkName, blkType, blkCard, blkEncodings, blkAttrs, blkUI, blkSource} =
-  DSBlock { blkName = blkName
-          , blkType = blkType
-          , blkCard = blkCard
-          , blkEncodings = blkEncodings
-          , blkAttrs = [Nothing]
-          , blkUI = undefined
-          , blkSource = Just blkName
-          }
-
-
 classDeclToBlock :: ClassDecl ct -> DSBlock ct
 classDeclToBlock ClassDecl { nameOfClassDecl, defOfClassDecl } =
   DSBlock { blkName = clnm
           , blkType = "String"
           , blkCard = Nothing
           , blkEncodings = map toLower clnm ++ "(X)"
-          , blkAttrs = map (Just . pointerBlock . fieldDeclToBlock) $ fieldsOfClassDef defOfClassDecl
+          , blkAttrs = map (Just . fieldDeclToBlock) $ fieldsOfClassDef defOfClassDecl -- TODO: Fix attributes for singleton class defs
           , blkUI = undefined
           , blkSource = Nothing
           }
@@ -86,10 +81,11 @@ fieldDeclToBlock (FieldDecl _ (FldNm fldnm) fieldtype) =
           , blkType = "String"
           , blkCard = Nothing
           , blkEncodings = map toLower fldnm ++ "(Y)"
-          , blkAttrs = undefined
+          , blkAttrs = [Nothing]
           , blkUI = undefined
-          , blkSource = Nothing
+          , blkSource = Just $ showFTname fieldtype 
           }
+
 showFTname (ClassT (ClsNm name)) = name
 showFTname (TupleT (x:xs)) = showFTname x
 
@@ -105,7 +101,7 @@ class DSYaml x where
 
 instance DSYaml (Program Tp) where
   showDS Program { lexiconOfProgram,classDeclsOfProgram,globalsOfProgram,rulesOfProgram,assertionsOfProgram} = do
-    something <- showDSlist $ map classDeclToBlock $ reverse $ drop 6 classDeclsOfProgram
+    something <- showDSlist $ map classDeclToBlock $ reverse $ drop 7 classDeclsOfProgram
     pure $ vsep
       [ "rules: "
       , "query: "
