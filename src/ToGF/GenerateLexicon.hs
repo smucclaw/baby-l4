@@ -96,8 +96,10 @@ concrEntry (POS name p) = hsep [pretty name, "=", "mkAtom", parens $ innerLex p,
 type Prep = Maybe String
 
 data POS = POS {origName :: String, pos :: InnerPOS}
+          deriving (Eq, Show)
 
 data InnerPOS = PN2 String Prep | PN String | PV2 String Prep | PV String
+          deriving (Eq, Show)
 
 guessPOS :: AtomWithArity -> POS
 guessPOS aa@(AA str int) = POS str $ case (int, splitOn "_" str) of

@@ -12,18 +12,64 @@ import Prettyprinter.Render.Text (hPutDoc)
 import Data.Set (Set)
 import qualified Data.Set as S
 import Data.Char
+import Data.List
 
 import Questions
 import Syntax
+import qualified GF
 import PGF
-import ToGF.GenerateLexicon
+import System.Environment (withArgs)
+import System.IO (IOMode (WriteMode), withFile)
+import Text.Printf (printf)
+import ToGF.GenerateLexicon hiding (grName, topName, lexName, createPGF, abstractLexicon, concreteLexicon)
 
 import ToGF.FromSCasp.SCasp
 
--- to lexicon
+-- lexicon layout
 
-grName :: Doc () --String
+grName, topName, lexName :: Doc () --String
 grName = "Question"
+topName = grName <> "Top"
+lexName = grName <> "Lexicon"
+
+createPGF :: IO PGF.PGF
+createPGF = do
+  withArgs
+    [ "-make",
+      "--output-dir=/tmp",
+      "--gfo-dir=/tmp",
+      "-v=0",
+      mkCncName topName
+    ]
+    GF.main
+  PGF.readPGF $ mkPGFName topName
+
+concreteLexicon :: [POS] -> Doc ()
+concreteLexicon poses =
+  vsep
+    [ "concrete" <+> lexName <> "Eng of" <+> lexName <+> "=" <+> grName <> "Eng ** open SyntaxEng, ParadigmsEng in {",
+      "lin",
+      (indent 4 . vsep) (concrEntry <$> poses),
+      "}"
+    ]
+
+abstractLexicon :: [POS] -> Doc ()
+abstractLexicon poses =
+  vsep
+    [ "abstract" <+> lexName <+> "=" <+> grName <+> "** {",
+      "fun",
+      indent 4 . sep . punctuate "," . map (pretty . origName) $ poses,
+      indent 4 ": Atom ;",
+      "}"
+    ]
+
+removeDupes :: [POS] -> [POS]
+removeDupes (x:xs)
+  | null xs = [x]
+  | x == head xs = removeDupes xs
+  | otherwise = x : removeDupes xs
+
+--
 
 getPred :: [VarDecl t] -> [GPred]
 getPred (x:xs)
@@ -74,13 +120,18 @@ getListPOS = map makeArgPOS
 --   getLength = length (x:xs)
 
 mkQLexicon :: [GPred] -> (Doc (), Doc ())
-mkQLexicon x = (abstractLexicon lexicon, concreteLexicon lexicon)
+mkQLexicon x = (abstractLexicon $ removeDupes lexicon, concreteLexicon $ removeDupes lexicon)
   where
-    lexicon = getListPOS (concatMap grabArgs x)
+    lexicon = getListPOS $ concatMap grabArgs x
+    --lexicon = map makeArgPOS $ grabArgs x
 
 createPredGF :: [GPred] -> IO ()
 createPredGF x  = do
-  let (absS, cncS) = mkQLexicon x
+  let (absS, cncS) =  mkQLexicon x
+  print "check abs"
+  print absS
+  print "check concrete"
+  print cncS
   writeDoc (mkAbsName lexName) absS
   writeDoc (mkCncName lexName) cncS
   writeDoc (mkAbsName topName) $ "abstract " <> topName <+> "=" <+> ToGF.FromL4.ToQuestions.grName <> "," <+> lexName <+> "** {flags startcat = Statement ;}"
@@ -97,7 +148,7 @@ nlgPreds ls = do
 
 hello :: Program Tp -> IO ()
 hello prog = do
-  nlgPreds $ map toPred (globalsOfProgram prog)
+  nlgPreds $ map toPred $ filter isPred (globalsOfProgram prog)
   mapM_ (putStrLn . showExpr [] . gf) (toQuestions prog)
 
 class Questionable x where
@@ -112,7 +163,7 @@ instance Questionable (Program a) where
 toPred :: VarDecl t -> GPred
 toPred (Pred1 name arg1)      = GMkPred1 (LexName name) (LexAtom arg1)
 toPred (Pred2 name arg1 arg2) = GMkPred2 (LexName name) (LexAtom arg1) (LexAtom arg2)
-toPred _ = error "error"
+--toPred _ = error "error"
 
 isPred :: VarDecl t -> Bool
 isPred = isPred' . tpOfVarDecl
