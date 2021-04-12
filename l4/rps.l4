@@ -43,13 +43,14 @@ if (Beat Rock Scissors || Beat Paper Rock || Beat Scissors Paper)
 then Beat Scissors Paper
 
 
+rule <beats_paper_paper>
+for c : Player
+if (Beat Rock Rock || Beat Paper Paper || Beat Scissors Rock)
+then Beat Scissors Scissors
+
+
 rule <beats_paper_rock>
 if True
-then Beat Paper Rock
-
-
-rule <beats_paper_rock>
-if False
 then Beat Rock Paper
 
 
@@ -58,7 +59,7 @@ for a : Player, g : Game, r : Sign, s : Sign
 if (exists b : Player . Participate_in a g  && Participate_in b g  &&
                                            Throw a r  && Throw b s && Beat r s
                                            )
-then Win a g
+then Win a g && Lose a g
 
 
 rule <test>

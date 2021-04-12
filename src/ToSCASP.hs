@@ -40,6 +40,15 @@ instance Semigroup (Stash ann) where
 instance Monoid (Stash ann) where
   mempty = Stash mempty mempty mempty
 
+-- instance Functor (Stash ann) where
+--   fmap f x = f x
+--   f (<*>) x = f x 
+-- instance Functor (Stash ann) where
+--   fmap f (Stash x) = Stash (f x)
+
+
+  
+
 isPred :: VarDecl t -> Bool
 isPred = isPred' . tpOfVarDecl
 
@@ -84,9 +93,10 @@ instance SCasp (Program Tp) where
   showSC p =
     showSClist (assertionsOfProgram p) -- TODO: should become queries!!!
       <> showSClist (removePred p)     -- These become facts
-
+      <> (showSClist (concatMap normalizeQuantif $ rulesOfProgram p) -- These become rules and facts
       <> showSClist (concatMap normaliseRule2ListE  $ rulesOfProgram p) -- These become rules and facts
-
+      <> rule (pretty "---------")
+      <*> showSClist (concatMap normalizeBinOpAnd $ rulesOfProgram p) )
   showSingle = unstash . showSC
 
 
@@ -136,8 +146,11 @@ instance SCasp (Expr Tp) where
     FunApp2 f x xTp y yTp -> mkAtom f <> encloseSep lparen rparen comma (mkVar <$> [(x, xTp), (y, yTp)])
     ListE _ _ es -> commaList $ map showSingle es
     QuantifE _ _ _ _ es -> showSingle es
+    BinOpE _ _ e1 e2 -> showSingle e1 <+> showSingle e2
     UnaOpE _ unaop exp -> showSingle unaop <+> showSingle exp
     NotDeriv ann _ e  -> showSingle $ UnaOpE ann (UBool UBneg) e
+    AppE _ e1 e2 -> showSingle e1 <+> showSingle e2
+    FunE _ _ _ es -> showSingle es
     --IfThenElseE _ ifE thenE elseE -> vsep [
     --                                  showSC ifE <> comma,
     --                                showSC thenE,

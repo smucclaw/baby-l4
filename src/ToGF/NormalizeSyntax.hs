@@ -34,10 +34,22 @@ normalizeQuantif (Rule ann nm decls ifE thenE) =
         negThenExp = negateExpr thenExp
     forallRule _ = ([], Nothing)
 
+--create as many rules as there are expressions
+normalizeBinOpAnd :: Rule Tp -> [Rule Tp]
+normalizeBinOpAnd (Rule ann nm decls ifE thenE) =
+  [Rule ann nm decls ifE x
+  | x <- newthenEs ] -- List comprehension feeds the new then-expressions
+  where
+    -- 1) Take care of the conjunction
+    newthenEs = go thenE -- result of the recursion
+    go (BinOpE ann (BBool BBand) e1 e2) = go e1 ++ go e2  -- recursion is defined here
+    go e = [e]
+
+
 -- -- Reverse of the previous normalizeQuantif: we want to move the vardecls into existential quantification
 normalizeQuantifGF :: Rule Tp -> Rule Tp
 normalizeQuantifGF r = r { varDeclsOfRule = [],
-                           precondOfRule = wrapInExistential decls ifE }
+                           precondOfRule = wrapInExistential decls ifE }
   where
     ifE = precondOfRule r
     decls = varDeclsOfRule r
@@ -71,6 +83,14 @@ normalizeAnd e@(BinOpE ann (BBool BBand) e1 e2) = ListE ann AndList (go e)
     go (BinOpE _ (BBool BBand) e1 e2) = go e1 ++ go e2
     go e = [e]
 normalizeAnd e = e
+
+normalizeOr :: Expr t -> Expr t
+normalizeOr e@(BinOpE ann (BBool BBor ) e1 e2) = ListE ann OrList (go e)
+  where
+    go (BinOpE _ (BBool BBor ) e1 e2) = go e1 ++ go e2
+    go e = [e]
+normalizeOr e = e
+
 {- TODO:
 
 1. A function Rule t -> [Rule t], which work on L4 rules like
@@ -81,14 +101,14 @@ normalizeAnd e = e
   then Good foo && MayBeEaten foo
 
 and returns 2 new L4 rules:
-
-  rule <blah>
+  
+  rule <blah1>
   for foo : Foo
   if Legal foo
-  then Good foo
-
-  rule <blah>
-  for foo : Foo
+  then Good foo 
+  
+  rule <blah2>
+  for foo : Foo  
   if Legal foo
   then MayBeEaten foo
 
