@@ -35,16 +35,17 @@ normalizeQuantif (Rule ann nm decls ifE thenE) =
     forallRule _ = ([], Nothing)
 
 --create as many rules as there are expressions
-normalizeBinOpAnd :: Rule Tp -> [Rule Tp]
-normalizeBinOpAnd (Rule ann nm decls ifE thenE) =
-  [Rule ann nm decls ifE x
-  | x <- newthenEs ] -- List comprehension feeds the new then-expressions
+normalizeBinOpAndOr :: Rule Tp -> [Rule Tp]
+normalizeBinOpAndOr (Rule ann nm decls ifE thenE) =
+  [Rule ann nm decls x y
+  | x <- newIfEs , y <- newthenEs ]  -- List comprehension feeds the new if- and then-expressions into the rules
   where
-    -- 1) Take care of the conjunction
-    newthenEs = go thenE -- result of the recursion
+    newIfEs =  go ifE -- result of the ifE recursion
+    newthenEs = go thenE -- result of the thenE recursion
     go (BinOpE ann (BBool BBand) e1 e2) = go e1 ++ go e2  -- recursion is defined here
     go e = [e]
 
+-- norma
 
 -- -- Reverse of the previous normalizeQuantif: we want to move the vardecls into existential quantification
 normalizeQuantifGF :: Rule Tp -> Rule Tp
@@ -140,17 +141,16 @@ and returns 3 new rules:
 
 -}
 -- Q2
+-- normaliseRule2ListE :: Rule t -> [Rule t]  -- takes a rule t and returns a list of expression
+-- normaliseRule2ListE (Rule ann nm decls ifE thenE) =
+--   [Rule ann nm decls x thenE
+--   | x <- newIfEs] -- TODO
+--   where
+--     newIfEs =  go ifE
 
-normaliseRule2ListE :: Rule t -> [Rule t]  -- takes a rule t and returns a list of expression
-normaliseRule2ListE (Rule ann nm decls ifE thenE) =
-  [Rule ann nm decls x thenE
-  | x <- newIfEs] -- TODO
-  where
-    newIfEs =  go ifE
-
-    go e@(BinOpE ann (BBool BBor) e1 e2) = go e1 ++ go e2-- result of the recursion
-    go e = [e]
+--     go e@(BinOpE ann (BBool BBor) e1 e2) = go e1 ++ go e2-- result of the recursion
+--     go e = [e]
 
 
 -- Q3
-normalizeProg
+-- normalizeProg

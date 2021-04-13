@@ -93,10 +93,9 @@ instance SCasp (Program Tp) where
   showSC p =
     showSClist (assertionsOfProgram p) -- TODO: should become queries!!!
       <> showSClist (removePred p)     -- These become facts
-      <> (showSClist (concatMap normalizeQuantif $ rulesOfProgram p) -- These become rules and facts
-      <> showSClist (concatMap normaliseRule2ListE  $ rulesOfProgram p) -- These become rules and facts
+      <> showSClist (concatMap normalizeQuantif $ rulesOfProgram p) -- These become rules and facts
       <> rule (pretty "---------")
-      <*> showSClist (concatMap normalizeBinOpAnd $ rulesOfProgram p) )
+      <> showSClist (concatMap normalizeBinOpAndOr $ rulesOfProgram p)
   showSingle = unstash . showSC
 
 
