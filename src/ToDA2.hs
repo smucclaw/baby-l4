@@ -16,13 +16,13 @@ import Control.Monad.Reader
 import Control.Applicative (liftA2)
 
 createDSyaml :: Program Tp -> IO ()
-createDSyaml p = putDoc $ PP.line <> runReader (showDS p) p
+createDSyaml p = putDoc $ PP.line <> showDS p
 
 
 -- Perhaps instead of using Maybe, an Either would be better. 
 -- With Left :: Doc ann = PP.emptyDoc, and right :: WithProgram (Doc ann) = concretized
 data DSBlock t = DSBlock { blkName  :: String
-                         , blkType  :: String
+                         , blkType  :: String 
                          , blkCard  :: Maybe Int -- cardinality
                          , blkEncodings :: String
                          , blkAttrs :: [Maybe (DSBlock t)]
@@ -32,27 +32,27 @@ data DSBlock t = DSBlock { blkName  :: String
 
 
 instance (Show t) => DSYaml (DSBlock t) where
-  showDS DSBlock { blkName, blkType, blkCard, blkEncodings, blkAttrs, blkUI, blkSource} = do
-    attrs <- showDSlist $ catMaybes blkAttrs
-    pure $ hang 2 $ "-" <+> vsep [ "name:" <+> pretty blkName
-                                , "type:" <+> pretty blkType <> putSource blkSource -- workaround to not print an emptyline when source is not present
-                                , "minimum/maximum/exactly:" --cardinality goes here
-                                , "ask/tell/any/other:" -- ui goes here
-                                , "encodings:"  , indent 2 $ "-" <+> pretty blkEncodings -- TODO : add functionality for list-encoding
-                                , docAttrs attrs blkAttrs
-                                ]
-      where docAttrs attrs ba = case ba of
-              [Nothing] -> ""
-              _  -> "attributes:" <> PP.line <> indent 2 attrs -- attributes here (one-level only)
-            putSource (Just x) = PP.line <> "source:" <+> pretty x
+  showDS DSBlock { blkName, blkType, blkCard, blkEncodings, blkAttrs, blkUI, blkSource} =
+    hang 2 $ "-" <+> vsep [ "name:" <+> pretty blkName
+                          , "type:" <+> pretty blkType 
+                          , "minimum/maximum/exactly:" --cardinality goes here
+                          , "ask/tell/any/other:" -- ui goes here
+                          , "encodings:"  , indent 2 $ "-" <+> pretty blkEncodings -- TODO : add functionality for list-encoding
+                          , putAttrs blkAttrs <> putSource blkSource <> PP.line
+                          ]
+      where putAttrs ba = case ba of
+              [Nothing] -> PP.emptyDoc 
+              _  -> "attributes:" <> PP.line <> (vsep $ map showDS $ catMaybes ba) -- attributes here (one-level only)
+            putSource (Just x) = "source:" <+> pretty x
             putSource Nothing = PP.emptyDoc
               
 
 -- ClassDecl {
---   nameOfClassDecl = ClsNm "Class",
---   defOfClassDecl = ClassDef {
---     supersOfClassDef = [ClsNm "Object"],
---     fieldsOfClassDef = []}}], 
+--   nameOfClassDecl = ClsNm "Sign"
+--   defOfClassDecl = ClassDef { 
+--     supersOfClassDef = [ ClsNm "Sign", ClsNm "Class, ClsNm "Object"], 
+--     fieldsOfClassDef = []
+--           }
 --
 -- ClassDecl {
 --   nameOfClassDecl = ClsNm "Player",
@@ -69,10 +69,24 @@ instance (Show t) => DSYaml (DSBlock t) where
 --       FieldDecl (FldNm "winner") (ClassT (ClsNm "Player"))
 --     ]}}],
 
+
+
+
+-- globalsOfProgram =
+--         [ VarDecl _ "Participate_in" ( FunT ( ClassT ( ClsNm "Player" ) ) ( FunT ( ClassT ( ClsNm "Game" ) ) BoolT ) )
+--         , VarDecl _ "Win" ( FunT ( ClassT ( ClsNm "Player" ) ) ( FunT ( ClassT ( ClsNm "Game" ) ) BoolT ) )
+--         , VarDecl _ "Beat" ( FunT ( ClassT ( ClsNm "Sign" ) ) ( FunT ( ClassT ( ClsNm "Sign" ) ) BoolT ) )
+--         , VarDecl _ "Throw" ( FunT (ClassT ( ClsNm "Player" ) ) ( FunT ( ClassT ( ClsNm "Sign" ) ) BoolT ) )
+--         , VarDecl _ "Rock" ( ClassT ( ClsNm "Sign" ) )
+--         , VarDecl _ "Paper" ( ClassT ( ClsNm "Sign" ) )
+--         , VarDecl _ "Scissors" ( ClassT ( ClsNm "Sign" ) )
+--         ]
+
+
 classDeclToBlock :: ClassDecl ct -> DSBlock ct
 classDeclToBlock ClassDecl { nameOfClassDecl, defOfClassDecl } =
   DSBlock { blkName = clnm
-          , blkType = "String"
+          , blkType = "String" -- This needs to show "boolean" for types that are supported
           , blkCard = Nothing
           , blkEncodings = map toLower clnm ++ "(X)"
           , blkAttrs = mapAttrs $ fieldsOfClassDef defOfClassDecl 
@@ -87,41 +101,43 @@ classDeclToBlock ClassDecl { nameOfClassDecl, defOfClassDecl } =
 fieldDeclToBlock :: FieldDecl ct -> DSBlock ct
 fieldDeclToBlock (FieldDecl _ (FldNm fldnm) fieldtype) =
   DSBlock { blkName = fldnm
-          , blkType = "String"
+          , blkType = "Object" -- showBlkType "Object" fieldtype -- This needs to show the "boolean" for types that are supported
           , blkCard = Nothing
-          , blkEncodings = map toLower fldnm ++ "(Y)"
+          , blkEncodings = map toLower fldnm ++ "(X,Y)"
           , blkAttrs = [Nothing]
           , blkUI = undefined
-          , blkSource = Just $ showFTname fieldtype 
+          , blkSource = showFTname fieldtype  -- for supported types, there is no source block
           }
 
-showFTname (ClassT (ClsNm name)) = name
-showFTname (TupleT (x:xs)) = showFTname x
+showBlkType :: String -> Tp -> Either String Tp
+showBlkType x tp = if elem tp [BoolT, IntT] then Right tp else Left x
+
+showFTname :: Tp -> Maybe String 
+showFTname tp = case tp of 
+  (ClassT (ClsNm name)) -> Just name
+  _                     -> Nothing
 
 
-type WithProgram = Reader (Program Tp)
-
+-- type WithProgram = Reader (Program Tp)
 
 class DSYaml x where
-  showDS :: x -> WithProgram (Doc ann)
-  showDSlist :: [x] -> WithProgram (Doc ann)
-  showDSlist = fmap vsep . mapM showDS
+  showDS :: x -> Doc ann
+  showDSlist :: [x] -> Doc ann
+  showDSlist = vsep . map showDS
 
 
 instance DSYaml (Program Tp) where
   showDS Program { lexiconOfProgram,classDeclsOfProgram,globalsOfProgram,rulesOfProgram,assertionsOfProgram} = do
-    something <- showDSlist $ map classDeclToBlock $ reverse $ drop 7 classDeclsOfProgram
-    pure $ vsep
-      [ "rules: "
-      , "query: "
-      , "data:"      , hang 2 something
-      , "terms: "
-      , "options: " <> PP.line
-      ]
+    vsep [ "rules: "
+         , "query: "
+         , "data:"      , hang 2 $ showDSlist $ map classDeclToBlock $ reverse $ drop 7 classDeclsOfProgram
+         , "terms: "
+         , "options: " <> PP.line
+         ]
 
 
 instance DSYaml Tp where
   showDS tp = case tp of
-    BoolT         -> pure "Boolean"
-    IntT          -> pure "Number"
-    _             -> pure "Unsupported Type"
+    BoolT         -> "Boolean"
+    IntT          -> "Number"
+    _             -> "Unsupported Type"
