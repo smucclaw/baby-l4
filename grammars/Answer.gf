@@ -1,4 +1,4 @@
-abstract Answer = {
+abstract Answer = Atoms ** {
   flags startcat = Statement ;
   cat
     Statement ;
@@ -6,7 +6,6 @@ abstract Answer = {
     Var ;
     Arg ;
     [Arg]{2} ;
-    Atom ;
     Typography ;
 
   fun
@@ -16,13 +15,13 @@ abstract Answer = {
 
     AAtom : Atom -> Arg ;
     AVar : Var -> Arg ;
-    
+
     V : String -> Var ;
 
 
     -- Aggregation functions, manually written
     -- Transformations from the direct s(CASP) functions to these need to be manually written in Haskell
-                     -- sleep          -> [A,C]       
+                     -- sleep          -> [A,C]
     AggregateSubj1 : Atom              -> (subjs:[Arg]) -> Statement ; -- A and C are players
     AggregateSubj2 : Atom -> (obj:Arg) -> (subjs:[Arg]) -> Statement ; -- A and C are participants in RPS
 
@@ -31,7 +30,7 @@ abstract Answer = {
     Pred ;
 
   fun
-    
+
     TransPred : Atom -> Arg -> Pred ;
     IntransPred : Atom -> Pred ;
 
@@ -45,7 +44,5 @@ abstract Answer = {
 
     Inline, Bullets : Typography ;
 
-    dummyAtom : Atom ;
-    
-}
 
+}

@@ -14,6 +14,7 @@ import qualified Data.List as List
 import Data.Data (Data, Typeable)
 import Annotation
 
+
 ----------------------------------------------------------------------
 -- Definition of expressions
 ----------------------------------------------------------------------
@@ -35,43 +36,51 @@ newtype PartyName = PtNm String
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 
--- TODO: has been moved to Annotation.hs
-{-
-class HasLoc a where
-  getLoc :: a -> SRng
-
-
-data Pos = Pos
-  { line :: !Int
-  , col  :: !Int
-  }
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
-data SRng = SRng
-  { start :: Pos
-  , end   :: Pos
-  }
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
-
-instance HasLoc SRng where
-  getLoc = id
--}
-
 ----- Program
 
 data Program t = Program{ annotOfProgram :: t
                             , lexiconOfProgram :: [Mapping t]
-                            , classDeclsOfProgram ::  [ClassDecl t] 
-                            , globalsOfProgram :: [VarDecl t] 
+                            , classDeclsOfProgram ::  [ClassDecl t]
+                            , globalsOfProgram :: [VarDecl t]
                             , rulesOfProgram :: [Rule t]
                             , assertionsOfProgram :: [Assertion t] }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 -- TODO: still needed?
---removeAnnotations :: Program ct et -> Program ct ()
---removeAnnotations = (()<$)
+removeAnnotations :: Program et -> Program ()
+removeAnnotations = (()<$)
+
+data ExpectedType
+  = ExpectedString  String
+  | ExpectedExactTp Tp
+  | ExpectedSubTpOf Tp
+  deriving (Eq, Ord, Show, Read, Data, Typeable)
+
+
+data ErrorCause
+  = Inherited
+  | UndeclaredVariable SRng VarName
+  | IllTypedSubExpr { exprRangesITSE :: [SRng]
+                    , receivedITSE :: [Tp]
+                    , expectedITSE :: [ExpectedType] }
+  | IncompatibleTp { exprRangesITSE :: [SRng]
+                    , receivedITSE :: [Tp] }
+  | NonScalarExpr { exprRangesITSE :: [SRng]
+                    , receivedITSE :: [Tp] }
+  | NonFunctionTp { exprRangesITSE :: [SRng]
+                    , receivedFunTpITSE :: Tp }
+  | CastIncompatible { exprRangesITSE :: [SRng]
+                    , receivedCastITSE :: Tp
+                    , castToITSE :: Tp }
+  | IncompatiblePattern SRng
+  | UnknownFieldName SRng FieldName ClassName
+  | AccessToNonObjectType SRng
+  | Unspecified
+  deriving (Eq, Ord, Show, Read, Data, Typeable)
+
 
 ----- Types
--- TODO: also types have to be annotated with position information 
+-- TODO: also types have to be annotated with position information
 -- for the parser to do the right job
 data Tp
   = BoolT
@@ -79,15 +88,16 @@ data Tp
   | ClassT ClassName
   | FunT Tp Tp
   | TupleT [Tp]
-  | ErrT
+  | ErrT ErrorCause
+  | OkT                    -- fake type appearing in constructs (classes, rules etc.) that do not have a genuine type
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-data VarDecl t = VarDecl {annotOfVarDecl ::t 
+data VarDecl t = VarDecl {annotOfVarDecl ::t
                          , nameOfVarDecl :: VarName
                          , tpOfVarDecl :: Tp }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 instance HasLoc t => HasLoc (VarDecl t) where
-  getLoc (VarDecl t _ _) = getLoc t
+  getLoc = getLoc . annotOfVarDecl
 
 data Mapping t = Mapping t VarName VarName
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
@@ -101,6 +111,8 @@ data FieldDecl t = FieldDecl {annotOfFieldDecl ::t
                              , tpOfFieldDecl ::  Tp }
                             -- FieldAttribs
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+instance HasLoc t => HasLoc (FieldDecl t) where
+  getLoc = getLoc . annotOfFieldDecl
 
 -- superclass, list of field declarations
 -- TODO: ClassDef currently without annotation as ClassDef may be empty
@@ -216,7 +228,7 @@ data Quantif = All | Ex
     deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 type family Annot tpPhase
-type instance Annot SRng = SRng 
+type instance Annot SRng = SRng
 
 -- Expr t is an expression of type t (to be determined during type checking / inference)
 data Expr t
@@ -233,39 +245,13 @@ data Expr t
     | TupleE      t [Expr t]                     -- tuples
     | CastE       t Tp (Expr t)                  -- cast to type
     | ListE       t ListOp [Expr t]              -- list expression
-    | NotDeriv    t Bool Var (Expr t)            -- Negation as failure "not". 
+    | NotDeriv    t Bool (Expr t)            -- Negation as failure "not".
                                                       -- The Bool expresses whether "not" precedes a positive literal (True)
                                                       -- or is itself classically negated (False)
+                                                      -- The expresssion argument should be a predicate
+                                                      -- or the application of a predicate to an atom
     deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
-toList :: Expr t -> Expr t
-toList e@(BinOpE ann binop e1 e2) = ListE ann listop (go e)
-  where
-    go (BinOpE _ _ e1 e2) = go e1 ++ go e2
-    go e = [e]
-    listop = case binop of 
-      BBool BBand -> AndList
-      BBool BBor  -> OrList
-      _ -> CommaList
-toList e = e
-
-{-
-instance HasLoc (Expr t) where
-  getLoc x = case x of
-    ValE        loc _ _       -> loc
-    VarE        loc _ _       -> loc
-    UnaOpE      loc _ _ _     -> loc
-    BinOpE      loc _ _ _ _   -> loc
-    IfThenElseE loc _ _ _ _   -> loc
-    AppE        loc _ _ _     -> loc
-    FunE        loc _ _ _ _   -> loc
-    QuantifE    loc _ _ _ _ _ -> loc
-    FldAccE     loc _ _ _     -> loc
-    TupleE      loc _ _       -> loc
-    CastE       loc _ _ _     -> loc
-    ListE       loc _ _ _     -> loc
-    NotDeriv    loc _ _ _ _   -> loc 
--}
 
 childExprs :: Expr t -> [Expr t]
 childExprs x = case x of
@@ -281,7 +267,10 @@ childExprs x = case x of
     TupleE      _ xs      -> xs
     CastE       _ _ x     -> [x]
     ListE       _ _ xs    -> xs
-    NotDeriv    _ _ _ e   -> [e]
+    NotDeriv    _ _ e     -> [e]
+
+allSubExprs :: Expr t -> [Expr t]
+allSubExprs e = e : concatMap allSubExprs (childExprs e)
 
 annotOfExpr :: Expr t -> t
 annotOfExpr x = case x of
@@ -297,7 +286,23 @@ annotOfExpr x = case x of
   TupleE      t _       -> t
   CastE       t _ _     -> t
   ListE       t _ _     -> t
-  NotDeriv    t _ _ _   -> t
+  NotDeriv    t _ _     -> t
+
+updAnnotOfExpr :: (a -> a) -> Expr a -> Expr a
+updAnnotOfExpr f x = case x of
+  ValE        t a       -> ValE (f t) a
+  VarE        t a       -> VarE (f t) a
+  UnaOpE      t a b     -> UnaOpE (f t) a b
+  BinOpE      t a b c   -> BinOpE (f t) a b c
+  IfThenElseE t a b c   -> IfThenElseE (f t) a b c
+  AppE        t a b     -> AppE (f t) a b
+  FunE        t a b c   -> FunE (f t) a b c
+  QuantifE    t a b c d -> QuantifE (f t) a b c d
+  FldAccE     t a b     -> FldAccE (f t) a b
+  TupleE      t a       -> TupleE (f t) a
+  CastE       t a b     -> CastE (f t) a b
+  ListE       t a b     -> ListE (f t) a b
+  NotDeriv    t a b     -> NotDeriv (f t) a b
 
 
 instance HasLoc t => HasLoc (Expr t) where
@@ -311,22 +316,12 @@ data Cmd t
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 
-data Rule t = Rule t RuleName [VarDecl t] (Expr t) (Expr t)
+data Rule t = Rule { annotOfRule :: t
+                   , nameOfRule :: RuleName
+                   , varDeclsOfRule :: [VarDecl t]
+                   , precondOfRule :: Expr t
+                   , postcondOfRule :: Expr t}
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
-
-normalizeQuantif :: Rule t -> Rule t
-normalizeQuantif (Rule ann nm decls ifE thenE) = 
-  Rule ann nm (decls ++ newDecls) newIfE thenE
-  where
-    (newDecls,newIfE) = go ifE -- result of the recursion
-    go e = case e of
-      QuantifE ann _ varnm tp expr ->
-        let (newDs, newE) = go expr
-        in (VarDecl ann varnm tp:newDs, newE)
-      _ -> ([], e)
-
-annotOfRule :: Rule t -> t  
-annotOfRule (Rule t _ _ _ _) = t
 
 instance HasLoc t => HasLoc (Rule t) where
   getLoc e = getLoc (annotOfRule e)

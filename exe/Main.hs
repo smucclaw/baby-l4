@@ -4,8 +4,8 @@
 module Main where
 
 import Parser (parseProgram)
-import Syntax (Program, ClassName, Tp (ErrT))
-import Typing ( tpProgram, extractType, checkError, liftProgram )
+import Syntax (Program, ClassName)
+import Typing ( checkError )
 import System.Environment ( getEnv )
 import Options.Applicative
 import qualified ToGF.FromL4.ToProp as GF
@@ -15,9 +15,12 @@ import Control.Exception (catch, SomeException (SomeException))
 import Control.Monad ( when, unless )
 import ToSCASP (createSCasp)
 import ToGF.FromL4.ToQuestions
-import Annotation ( SRng )
+import Annotation ( SRng, LocTypeAnnot (typeAnnot) )
 import Paths_baby_l4 (getDataFileName)
-import Text.Pretty.Simple (pPrint)
+import Text.Pretty.Simple (pPrint, pPrintString)
+import Error (printError)
+
+
 
 
 readPrelude :: IO (Program SRng)
@@ -40,19 +43,18 @@ process args input = do
     Right ast -> do
       preludeAst <- readPrelude
 
-      let tpAst = tpProgram preludeAst ast
-      --let tpAst = checkError preludeAst ast
-      let tpAstNoSrc = fmap extractType tpAst
-
-      when (astHS args) $ do
-        hPrint stderr tpAst
-        -- pPrint tpAst
-      when (astGF args) $ do
-        GF.nlgAST (getGFL $ format args) tpAstNoSrc
-      unless (astGF args) $ do
-        GF.nlg (getGFL $ format args) tpAstNoSrc
-      createSCasp tpAstNoSrc
-      hello tpAstNoSrc
+      case checkError preludeAst ast of 
+        Left err -> putStrLn (printError err)
+        Right tpAst -> do
+          let tpAstNoSrc = fmap typeAnnot tpAst
+          when (astHS args) $ do
+            pPrint tpAst
+            -- hPrint stderr tpAst
+          when (astGF args) $ do
+            GF.nlgAST (getGFL $ format args) tpAstNoSrc
+          unless (astGF args) $ do
+            GF.nlg (getGFL $ format args) tpAstNoSrc
+          createSCasp tpAstNoSrc
 
     Left err -> do
       putStrLn "Parser Error:"

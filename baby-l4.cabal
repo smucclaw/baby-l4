@@ -43,6 +43,7 @@ library
                   ToGF.FromL4.ToProp
                   ToGF.FromL4.TransProp
                   ToGF.GenerateLexicon
+                  ToGF.NormalizeSyntax
                   ToGF.TreeTransform
                   ToGF.FromSCasp.SCasp
                   ToGF.FromSCasp.AnswerToGF

@@ -48,11 +48,12 @@ instance HasLoc SRng where
 instance HasLoc a => HasLoc [a] where
   getLoc = tokenRangeList . (map getLoc)
 
-
--- TODO: the following class might supersede the HasLoc class
+{-
+-- TODO: still used?
 class LocAnnot f where
   getLocOfAnnot :: f SRng -> SRng
   updLoc :: f SRng -> SRng -> f SRng
+-}
 
 data LocTypeAnnot a = LocTypeAnnot { locAnnot :: SRng 
                                    , typeAnnot :: a
@@ -63,14 +64,16 @@ data LocTypeAnnot a = LocTypeAnnot { locAnnot :: SRng
 instance HasLoc (LocTypeAnnot a) where
   getLoc = locAnnot
 
-
 class TypeAnnot f where
   getType :: f a -> a
   updType :: f a -> b -> f b
 
+{-
+-- TODO: still used?
 instance LocAnnot LocTypeAnnot where
   getLocOfAnnot = locAnnot
   updLoc lta l = lta {locAnnot = l} 
+-}
 
 instance TypeAnnot LocTypeAnnot where
   getType = typeAnnot

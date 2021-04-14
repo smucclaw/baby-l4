@@ -1,13 +1,10 @@
-abstract Questions = {
+abstract Questions = Atoms ** {
 
   flags startcat = Question ;
 
   cat
     Question ;
-
-    Atom ;
-    Name ;
-    Pred ;
+    Pred ; -- different Pred than in Answer.gf
 
   fun
     AreThereAny,
@@ -16,9 +13,16 @@ abstract Questions = {
 
     Properties : Pred -> Question ;
 
+    MkPred0 : (name : Name)                    -> Pred ;
     MkPred1 : (name : Name) -> (a1     : Atom) -> Pred ;
     MkPred2 : (name : Name) -> (a1, a2 : Atom) -> Pred ;
 
-    dummyName : Name ;
-    dummyAtom : Atom ;
+    -- Test lexicon
+    Win : Name ;
+    Rock : Name ;
+    Winner : Name ;
+    Player : Atom ;
+    Game : Atom ;
+
+
 }

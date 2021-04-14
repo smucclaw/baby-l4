@@ -2,6 +2,7 @@ module ToYaml where
 
 import Data.Char (toLower, toUpper)
 import Syntax
+import ToGF.NormalizeSyntax
 import ToGF.FromL4.ToProp
 import Data.List
 
@@ -71,7 +72,7 @@ showExpr :: (Datablob t) => Expr t -> String
 showExpr (ValE s t v) = lowerString $ mkName t ++ mkName v -- player1
 showExpr (VarE s t v) = lowerString $ mkName t ++ mkName v
 --showExpr (UnaOpE s t u et) = _
-showExpr e@(BinOpE s t b et et8) = showExpr $ toList e
+showExpr e@(BinOpE s t b et et8) = showExpr $ normalizeAnd e
 showExpr (IfThenElseE s t et et7 et8) = "if_" ++ showExpr et ++ "_then_" ++ showExpr et7 ++ "_else_" ++ showExpr et8
 showExpr (FunApp1 f x xTp) = mkName f ++ "_" ++ mkName x ++ "_" ++ mkName xTp
 showExpr (FunApp2 f x xTp y yTp) = mkName f ++ "_" ++ mkName x ++ "_" ++ mkName xTp ++ "_" ++ mkName y ++ "_" ++ mkName yTp

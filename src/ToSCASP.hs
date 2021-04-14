@@ -1,15 +1,53 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE FlexibleContexts #-}
 
 module ToSCASP where
 
+import Control.Applicative
+import Control.Monad.Writer.Class
 import Data.Char (toLower, toUpper)
 import Prettyprinter as PP
 import Prettyprinter.Render.Text (putDoc)
 import Syntax
+import ToGF.NormalizeSyntax
 import ToGF.FromL4.ToProp
-import Control.Applicative
+
+data Stash ann = Stash
+  { rules :: Doc ann,
+    facts :: Doc ann,
+    queries :: Doc ann
+  }
+
+unstash :: Stash ann -> Doc ann
+unstash (Stash r f q) =
+  pretty "% facts" <> f <> line <>
+  pretty "% rules" <> r <> line <>
+  pretty "% queries " <> line <> q
+
+rule, fact, query :: Doc ann -> Stash ann
+rule rl = Stash rl mempty mempty
+fact fc = Stash mempty fc mempty
+query q = Stash mempty mempty q
+
+instance Semigroup (Stash ann) where
+  Stash rules1 facts1 queries1 <> Stash rules2 facts2 queries2 =
+    Stash
+      (rules1 <> line <> rules2)
+      (facts1 <> line <> facts2)
+      (queries1 <> line <> queries2)
+
+instance Monoid (Stash ann) where
+  mempty = Stash mempty mempty mempty
+
+-- instance Functor (Stash ann) where
+--   fmap f x = f x
+--   f (<*>) x = f x 
+-- instance Functor (Stash ann) where
+--   fmap f (Stash x) = Stash (f x)
+
+
+  
 
 isPred :: VarDecl t -> Bool
 isPred = isPred' . tpOfVarDecl
@@ -20,30 +58,28 @@ isPred' (FunT t t2) = isPred' t2
 isPred' _ = False
 
 createSCasp :: Program Tp -> IO ()
-createSCasp p = putDoc (showSC p <> PP.line)
+createSCasp = putDoc . unstash . showSC
 
 indent' :: Doc ann -> Doc ann
 indent' = indent 4
 
+vsep' :: [Stash ann] -> Stash ann
+vsep' ss = Stash (vsep $ map rules ss) (vsep $ map facts ss) (vsep $ map queries ss)
 class Arg x where
   mkAtom, mkVar :: x -> Doc ann
 
 class SCasp x where
-  showSC :: x -> Doc ann
-  showSClist :: [x] -> Doc ann
-  showSClist = vsep . map showSC
+  showSC :: x -> Stash ann
+  showSC = rule . showSingle
+  showSingle :: x -> Doc ann
+  showSClist :: [x] -> Stash ann
+  showSClist = vsep' . map showSC
 
-showSCcommalist :: (SCasp a) => [a] -> Doc ann
-showSCcommalist = commaList . map showSC
-
-showSCdotlist :: (SCasp a) => [a] -> Doc ann
-showSCdotlist = dotList . map showSC
-
-onlyPred :: Program t -> [VarDecl t]
-onlyPred = filter isPred . globalsOfProgram
+removePred :: Program t -> [VarDecl t]
+removePred = filter (not . isPred) . globalsOfProgram
 
 commaList :: [Doc ann] -> Doc ann
-commaList = vsep . punctuate comma            -- separator: a, b, c
+commaList = vsep . punctuate comma -- separator: a, b, c
 
 -- Don't add a dot after an empty list
 dotList :: [Doc ann] -> Doc ann
@@ -55,69 +91,79 @@ endDot x = x <> dot
 
 instance SCasp (Program Tp) where
   showSC p =
-    vsep
-      [ pretty "\n% Facts",
-        showSClist $ assertionsOfProgram p,
-        showSClist $ onlyPred p,
-        pretty "\n% Rules",
-        showSClist $ map normalizeQuantif $ rulesOfProgram p
-      ]
+    showSClist (assertionsOfProgram p) -- TODO: should become queries!!!
+      <> showSClist (removePred p)     -- These become facts
+      <> showSClist (concatMap normalizeQuantif $ rulesOfProgram p) -- These become rules and facts
+      <> rule (pretty "---------")
+      <> showSClist (concatMap normalizeBinOpAndOr $ rulesOfProgram p)
+  showSingle = unstash . showSC
+
 
 instance SCasp (Rule Tp) where
-  showSC (Rule _ rulename vardecls ifExp thenExp) =
-    vsep
-      [ showSC thenExp <+> pretty ":-",
-        endDot $ indent' $ vsep $ punctuate comma (map showSC vardecls ++ [showSC ifExp]),
-        PP.line
-      ]
+  showSC (Rule _ _ _ (ValE _ (BoolV True)) thenExp) = fact $ endDot $ showSingle thenExp
+  showSC (Rule _ _ _ (ValE _ (BoolV False)) thenExp) = fact $ endDot $ showSingle (negateExpr thenExp)
+  showSC r = rule $ showSingle r
+  showSingle (Rule _ rulename vardecls ifExp thenExp) =
+      vsep
+        [ showSingle thenExp <+> pretty ":-",
+          endDot $ indent' $ commaList (map showSingle vardecls ++ [showSingle ifExp]),
+          PP.line
+        ]
 
--- We don't want to state as a fact anything that is quantified: 
---   `assert exists foo. Legal foo`
--- doesn't mean the same as s(CASP) expression `legal(foo)`.
 -- Only assertions like `assert Beats Rock Scissors` become facts.
+-- Other assertions become rules.
 instance SCasp (Assertion Tp) where
-  showSC (Assertion _ assertExpr) = case assertExpr of
-    QuantifE {} -> mempty
-    _           -> endDot $ showSC assertExpr
+  showSingle (Assertion ann query) =
+    vsep
+        [ pretty "?-",
+          endDot $ indent' $ commaList [showSingle query],
+          PP.line
+        ]
+    --line <> showSingle bar <> line
+  showSC = query . showSingle
 
 instance SCasp (VarDecl t) where
-  showSC (VarDecl _ v tp) = mkAtom tp <> parens (mkVar (v, tp))
-  showSClist =  dotList . map (\(VarDecl _ v tp) -> mkAtom tp <> parens (mkAtom v))
+  -- assume this is used only from Expr! Becomes a part of a Rule.
+  showSingle (VarDecl _ v tp) = mkAtom tp <> parens (mkVar (v, tp))
+
+  -- assume this is used only from Program! Becomes a fact.
+  showSClist = fact . dotList . map decl2fact
+    where decl2fact (VarDecl _ v tp) = mkAtom tp <> parens (mkAtom v)
 
 instance SCasp (Expr Tp) where
-  showSC (Exist x typ exp) = vsep $ existX : suchThat
+  -- We don't need a case for Forall, because normalizeQuantif has taken care of it already earlier
+  showSingle (Exist x typ exp) = vsep $ existX : suchThat
     where
       existX = mkAtom typ <> parens (mkVar (x, typ))
       suchThat =
-        showSC <$> case toList exp of
+        showSingle <$> case normalizeAnd exp of
           ListE _ _ es -> es
           _ -> [exp]
-  showSC x = case toList x of
-    ValE _ v -> showSC v
+  showSingle x = case normalizeAnd x of
+    ValE _ v -> showSingle v
     FunApp1 f x xTp -> mkAtom f <> parens (mkVar (x, xTp))
     FunApp2 f x xTp y yTp -> mkAtom f <> encloseSep lparen rparen comma (mkVar <$> [(x, xTp), (y, yTp)])
-    ListE _ _ es -> showSCcommalist es
-    UnaOpE _ _ es -> showSC es
-    QuantifE _ _ _ _ es -> showSC es
-    NotDeriv _ boo _ es -> if True then showSClist [es] else showSC es
-    --IfThenElseE _ ifE thenE elseE -> vsep [ 
-      --                                  showSC ifE <> comma,
-        --                                showSC thenE,
-          --                              showSC elseE ]
-    x -> error $ "not handled yet: " ++ show x -- if there's a QuantifE, move it into VarDecls
-
+    ListE _ _ es -> commaList $ map showSingle es
+    QuantifE _ _ _ _ es -> showSingle es
+    BinOpE _ _ e1 e2 -> showSingle e1 <+> showSingle e2
+    UnaOpE _ unaop exp -> showSingle unaop <+> showSingle exp
+    NotDeriv ann _ e  -> showSingle $ UnaOpE ann (UBool UBneg) e
+    AppE _ e1 e2 -> showSingle e1 <+> showSingle e2
+    FunE _ _ _ es -> showSingle es
+    --IfThenElseE _ ifE thenE elseE -> vsep [
+    --                                  showSC ifE <> comma,
+    --                                showSC thenE,
+    --                              showSC elseE ]
+    x -> error $ "not handled yet: " ++ show x
 --   showSC (BinOpE s t b et et5) = _
 --   showSC (VarE s t v) = _
---   showSC (UnaOpE s t u et) = _
---   showSC (IfThenElseE s t et et4 et5) = _
---   showSC (AppE s t et et4) = _
 --   showSC (FunE s t p t4 et) = _
---   showSC (QuantifE s t q l_c t5 et) = _
 --   showSC (FldAccE s t et f) = _
 --   showSC (TupleE s t l_et) = _
 --   showSC (CastE s t t3 et) = _
---   showSC (ListE s t l l_et) = _
---   showSC (NotDeriv s t b v et) = _
+instance SCasp UnaOp where
+  showSingle (UArith u) = mempty
+  showSingle (UBool UBneg) = pretty "not"
 
 instance Arg (Var, Tp) where
   mkAtom (var, tp) = mkAtom tp <> pretty "_" <> mkAtom var
@@ -155,8 +201,8 @@ instance Arg Tp where
     _ -> "UnsupportedType"
 
 instance SCasp Val where
-  showSC (BoolV b) = pretty "Bool"
-  showSC (IntV i) = pretty "Int"
-  showSC (StringV l_c) = pretty l_c
-  showSC (RecordV c l_p_fv) = pretty "unsupported, sorry"
-  showSC ErrV = pretty "Error"
+  showSingle (BoolV b) = pretty "Bool"
+  showSingle (IntV i) = pretty "Int"
+  showSingle (StringV l_c) = pretty l_c
+  showSingle (RecordV c l_p_fv) = pretty "unsupported, sorry"
+  showSingle ErrV = pretty "Error"
