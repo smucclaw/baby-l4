@@ -85,10 +85,10 @@ instance (Show t) => DSYaml (DSBlock t) where
 
 classDeclToBlock :: ClassDecl ct -> DSBlock ct
 classDeclToBlock ClassDecl { nameOfClassDecl, defOfClassDecl } =
-  DSBlock { blkName = clnm
+  DSBlock { blkName = lowercase clnm
           , blkType = Left "String" -- This needs to show "boolean" for types that are supported
           , blkCard = Nothing
-          , blkEncodings = map toLower clnm ++ "(X)"
+          , blkEncodings = lowercase clnm ++ "(X)"
           , blkAttrs = mapAttrs $ fieldsOfClassDef defOfClassDecl 
           , blkUI = undefined
           , blkSource = Nothing
@@ -100,23 +100,24 @@ classDeclToBlock ClassDecl { nameOfClassDecl, defOfClassDecl } =
 
 fieldDeclToBlock :: FieldDecl ct -> DSBlock ct
 fieldDeclToBlock (FieldDecl _ (FldNm fldnm) fieldtype) =
-  DSBlock { blkName = fldnm
-          , blkType = showBlkType "Object" fieldtype -- This needs to show the "boolean" for types that are supported
+  DSBlock { blkName = lowercase fldnm
+          , blkType = eitherTp "Object" fieldtype fieldtype -- This needs to show the "boolean" for types that are supported
           , blkCard = Nothing
-          , blkEncodings = map toLower fldnm ++ "(X,Y)"
+          , blkEncodings = (lowercase fldnm ++) $ either id id $ eitherTp "(X,Y)" "(Y)" fieldtype
           , blkAttrs = [Nothing]
           , blkUI = undefined
           , blkSource = showFTname fieldtype  -- for supported types, there is no source block
           }
 
-showBlkType :: String -> Tp -> Either String Tp
-showBlkType x tp = if elem tp [BoolT, IntT] then Right tp else Left x
+eitherTp :: String -> a -> Tp -> Either String a
+eitherTp x1 x2 tp = if elem tp [BoolT, IntT] then Right x2 else Left x1
 
 showFTname :: Tp -> Maybe String 
 showFTname tp = case tp of 
-  (ClassT (ClsNm name)) -> Just name
+  (ClassT (ClsNm name)) -> Just $ lowercase name
   _                     -> Nothing
 
+lowercase = map toLower
 
 -- type WithProgram = Reader (Program Tp)
 
