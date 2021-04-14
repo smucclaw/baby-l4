@@ -63,12 +63,6 @@ abstractLexicon poses =
       "}"
     ]
 
-removeDupes :: [POS] -> [POS]
-removeDupes (x:xs)
-  | null xs = [x]
-  | x == head xs = removeDupes xs
-  | otherwise = x : removeDupes xs
-
 --
 
 getPred :: [VarDecl t] -> [GPred]
@@ -78,20 +72,19 @@ getPred (x:xs)
   | otherwise = []
 
 printGF :: Gf a => PGF -> a -> IO ()
-printGF gr expr = do
-  --putStrLn $ showExpr [] $ gf expr
+printGF gr expr =
   mapM_ putStrLn (linearizeAll gr (gf expr))
 
 -- grab atoms and names 
 -- apply list of functions to get atoms
-grabName :: GPred -> [GName]
-grabName (GMkPred1 x _)  = [x]
-grabName (GMkPred2 x _ _) = [x]
+
+grabNames :: GPred -> [GName]
+grabNames (GMkPred1 x _)  = [x]
+grabNames (GMkPred2 x _ _) = [x]
 
 grabArgs :: GPred -> [GAtom]
 grabArgs (GMkPred1 _ arg) = [arg]
 grabArgs (GMkPred2 _ arg1 arg2) = [arg1, arg2]
-
 
 --data POS = POS {origName :: String, pos :: InnerPOS}
 
@@ -103,26 +96,23 @@ grabArgs (GMkPred2 _ arg1 arg2) = [arg1, arg2]
 --mkName (mkV2 (mkV "foo"))
 --mkAtom (mkN "bar")
 
+makeNamePOS :: GName -> POS
+makeNamePOS (LexName x) = POS x $ PN x
+
 makeArgPOS :: GAtom -> POS
-makeArgPOS (LexAtom x) = POS x $ PN getStr
-  where getStr
-         | isDigit (last x) = init x
-         | otherwise = x
+makeArgPOS (LexAtom x) = POS x $ PN x
 
-getListPOS :: [GAtom] -> [POS]
-getListPOS = map makeArgPOS
+getListNamePOS :: [GName] -> [POS]
+getListNamePOS = map makeNamePOS
 
---getPOS :: [GAtom] -> POS
---getPOS (x:xs)
--- | getLength == 2 =  
--- | getLength == 1 = singlePOS x 
--- where
---   getLength = length (x:xs)
+getListAtomPOS :: [GAtom] -> [POS]
+getListAtomPOS = map makeArgPOS
 
 mkQLexicon :: [GPred] -> (Doc (), Doc ())
-mkQLexicon x = (abstractLexicon $ removeDupes lexicon, concreteLexicon $ removeDupes lexicon)
+mkQLexicon x = (abstractLexicon lexicon, concreteLexicon lexicon)
   where
-    lexicon = getListPOS $ concatMap grabArgs x
+    lexicon =
+      nub $ getListAtomPOS (concatMap grabArgs x) ++ getListNamePOS (concatMap grabNames x)
     --lexicon = map makeArgPOS $ grabArgs x
 
 createPredGF :: [GPred] -> IO ()
