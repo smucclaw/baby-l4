@@ -25,6 +25,10 @@ class Game {
     win : Player -> Bool
 }
 
+
+# If ClassDef attrs/methods are already relational in nature, why bother with VarDecls? 
+# Is there a reason why we aren't keeping to a classical OOP syntax style (like python) here instead?
+
 decl Participate_in : Player -> Game -> Bool
 decl Win : Player -> Game -> Bool
 decl Lose : Player -> Game -> Bool
