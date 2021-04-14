@@ -22,7 +22,7 @@ createDSyaml p = putDoc $ PP.line <> showDS p
 -- Perhaps instead of using Maybe, an Either would be better. 
 -- With Left :: Doc ann = PP.emptyDoc, and right :: WithProgram (Doc ann) = concretized
 data DSBlock t = DSBlock { blkName  :: String
-                         , blkType  :: String 
+                         , blkType  :: Either String Tp 
                          , blkCard  :: Maybe Int -- cardinality
                          , blkEncodings :: String
                          , blkAttrs :: [Maybe (DSBlock t)]
@@ -34,15 +34,15 @@ data DSBlock t = DSBlock { blkName  :: String
 instance (Show t) => DSYaml (DSBlock t) where
   showDS DSBlock { blkName, blkType, blkCard, blkEncodings, blkAttrs, blkUI, blkSource} =
     hang 2 $ "-" <+> vsep [ "name:" <+> pretty blkName
-                          , "type:" <+> pretty blkType 
-                          , "minimum/maximum/exactly:" --cardinality goes here
+                          , "type:" <+> either pretty showDS blkType 
+                          , "minimum: 0 # Change cardinality accordingly" --cardinality goes here
                           , "ask/tell/any/other:" -- ui goes here
                           , "encodings:"  , indent 2 $ "-" <+> pretty blkEncodings -- TODO : add functionality for list-encoding
-                          , putAttrs blkAttrs <> putSource blkSource <> PP.line
+                          , putSource blkSource <> putAttrs blkAttrs <>  PP.line
                           ]
       where putAttrs ba = case ba of
               [Nothing] -> PP.emptyDoc 
-              _  -> "attributes:" <> PP.line <> (vsep $ map showDS $ catMaybes ba) -- attributes here (one-level only)
+              _  -> "attributes:" <> PP.line <> indent 2 (showDSlist $ catMaybes ba) -- attributes here (one-level only)
             putSource (Just x) = "source:" <+> pretty x
             putSource Nothing = PP.emptyDoc
               
@@ -86,7 +86,7 @@ instance (Show t) => DSYaml (DSBlock t) where
 classDeclToBlock :: ClassDecl ct -> DSBlock ct
 classDeclToBlock ClassDecl { nameOfClassDecl, defOfClassDecl } =
   DSBlock { blkName = clnm
-          , blkType = "String" -- This needs to show "boolean" for types that are supported
+          , blkType = Left "String" -- This needs to show "boolean" for types that are supported
           , blkCard = Nothing
           , blkEncodings = map toLower clnm ++ "(X)"
           , blkAttrs = mapAttrs $ fieldsOfClassDef defOfClassDecl 
@@ -101,7 +101,7 @@ classDeclToBlock ClassDecl { nameOfClassDecl, defOfClassDecl } =
 fieldDeclToBlock :: FieldDecl ct -> DSBlock ct
 fieldDeclToBlock (FieldDecl _ (FldNm fldnm) fieldtype) =
   DSBlock { blkName = fldnm
-          , blkType = "Object" -- showBlkType "Object" fieldtype -- This needs to show the "boolean" for types that are supported
+          , blkType = showBlkType "Object" fieldtype -- This needs to show the "boolean" for types that are supported
           , blkCard = Nothing
           , blkEncodings = map toLower fldnm ++ "(X,Y)"
           , blkAttrs = [Nothing]
