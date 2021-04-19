@@ -63,10 +63,6 @@ concrete QuestionsEng of Questions = AtomsEng - [Name, Pred, LinPred, mkPred] **
     any_Det = aPl_Det ** {s = "any"} ; -- hack: extending an existing Det from the API
     more_Det = aPl_Det ** {s = "more"} ;
 
-
-    -- Args
-    --Arg : Type = CN ;
-
     dummyArg : CN = mkCN (mkN "dummy") ;
 
     -- Predicates

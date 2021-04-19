@@ -14,11 +14,14 @@ import System.IO.Error (catchIOError)
 import Control.Exception (catch, SomeException (SomeException))
 import Control.Monad ( when, unless )
 import ToSCASP (createSCasp)
+import ToGF.FromSCasp.SCasp ( parseModel )
+import ToGF.FromSCasp.AnswerToGF ( nlgModels )
 import ToGF.FromL4.ToQuestions
 import Annotation ( SRng, LocTypeAnnot (typeAnnot) )
 import Paths_baby_l4 (getDataFileName)
 import Text.Pretty.Simple (pPrint, pPrintString)
 import Error (printError)
+import Data.Either (rights)
 
 
 
@@ -55,6 +58,10 @@ process args input = do
           unless (astGF args) $ do
             GF.nlg (getGFL $ format args) tpAstNoSrc
           createSCasp tpAstNoSrc
+
+--          hello tpAstNoSrc
+      -- let models = rights $ map parseModel tests
+      -- nlgModels models
 
     Left err -> do
       putStrLn "Parser Error:"
@@ -111,3 +118,10 @@ debugGF = do
 -- | catch and print all exceptions
 catchAll :: IO () -> IO ()
 catchAll ioAction = catch ioAction (print @SomeException)
+
+tests :: [String]
+tests = [
+  "{ win(A,RPS),  is_game(RPS),  is_participant_in(A,RPS),  is_player(A),  throw(A,rock), is_player(C),  is_participant_in(C,RPS),  throw(C,scissors),  beat(rock,scissors) }",
+  "{ win(A,RPS),  is_game(RPS),  is_participant_in(A,RPS),  is_player(A),  throw(A,scissors),  is_player(C),  is_participant_in(C,RPS),  throw(C,paper),  beat(scissors,paper) }",
+  "{ win(A,RPS),  is_game(RPS),  is_participant_in(A,RPS),  is_player(A),  throw(A,paper),  is_player(C),  is_participant_in(C,RPS),  throw(C,rock),  beat(paper,rock) }"
+  ]
