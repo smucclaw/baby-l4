@@ -106,7 +106,7 @@ instance SCasp (Program Tp) where
   showSC p' = let p = normalizeProg p' in
     showSClist (assertionsOfProgram p) -- These become queries
       <> showSClist (onlyFacts p)      -- These become facts
-      <> showSClist (rulesOfProgram p >>= normalizeQuantif >>= normaliseConditionsAndConclusions) -- These become rules and facts
+      <> showSClist (rulesOfProgram p >>= normaliseConditionsAndConclusions >>= normalizeQuantif) -- These become rules and facts
   showSingle = unstash . showSC
 
 
