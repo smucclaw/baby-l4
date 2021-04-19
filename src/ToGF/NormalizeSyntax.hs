@@ -91,7 +91,7 @@ normaliseConditionsAndConclusions (Rule ann nm decls ifE thenE) =
     goConc e = [e]
 
 -- Make VarDecls out of ClassDecls
-normalizeProg :: Program Tp -> Program Tp
+normalizeProg :: Program t -> Program t
 normalizeProg (Program annP lex classdecs globals rules assert) =
   Program annP lex classdecs (newGlobals++globals) rules assert
   where
@@ -101,6 +101,6 @@ normalizeProg (Program annP lex classdecs globals rules assert) =
       | (functname, returntype) <- getFieldNmNType def]
       where argtype = ClassT clsname
 
-    getFieldNmNType :: ClassDef Tp -> [(String, Tp)]
+    getFieldNmNType :: ClassDef t -> [(String, Tp)]
     getFieldNmNType (ClassDef  _ fields) = map getFieldNmNType' fields
     getFieldNmNType' (FieldDecl _ (FldNm name) tp) = (name, tp)
