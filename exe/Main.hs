@@ -17,6 +17,7 @@ import ToSCASP (createSCasp)
 import ToGF.FromSCasp.SCasp ( parseModel )
 import ToGF.FromSCasp.AnswerToGF ( nlgModels )
 import ToGF.FromL4.ToQuestions
+import ToGF.NormalizeSyntax
 import Annotation ( SRng, LocTypeAnnot (typeAnnot) )
 import Paths_baby_l4 (getDataFileName)
 import Text.Pretty.Simple (pPrint, pPrintString)
@@ -46,7 +47,7 @@ process args input = do
     Right ast -> do
       preludeAst <- readPrelude
 
-      case checkError preludeAst ast of 
+      case checkError preludeAst (normalizeProg ast) of 
         Left err -> putStrLn (printError err)
         Right tpAst -> do
           let tpAstNoSrc = fmap typeAnnot tpAst
