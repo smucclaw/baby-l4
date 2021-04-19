@@ -177,8 +177,11 @@ data Val
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 data Var
-    = GlobalVar VarName             -- global variable only known by its name
-    | LocalVar VarName Int          -- local variable known by its provisional name and deBruijn index.
+      -- global variable only known by its name
+    = GlobalVar { nameOfVar :: VarName }
+    -- local variable known by its provisional name and deBruijn index.
+    | LocalVar { nameOfVar :: VarName
+               , indexOfVar :: Int }
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 -- unary arithmetic operators

@@ -6,6 +6,7 @@ module Main where
 import Parser (parseProgram)
 import Syntax (Program, ClassName)
 import Typing ( checkError )
+import Smt (proveProgram)
 import System.Environment ( getEnv )
 import Options.Applicative
 import qualified ToGF as GF
@@ -49,6 +50,8 @@ process args input = do
             -- hPrint stderr tpAst
           when (astGF args) $ do
             GF.nlgAST (getGFL $ format args) tpAstNoSrc
+          when (smt args) $ do
+            proveProgram tpAst
           unless (astGF args) $ do
             GF.nlg (getGFL $ format args) tpAstNoSrc
     Left err -> do
@@ -64,6 +67,7 @@ data InputOpts = InputOpts
   { format   :: Format
   , astHS    :: Bool
   , astGF    :: Bool
+  , smt      :: Bool
   , filepath :: FilePath
   } deriving Show
 
@@ -74,6 +78,7 @@ optsParse = InputOpts <$>
                <> command "gf" (info gfSubparser gfHelper))
             <*> switch (long "astHS" <> help "Print Haskell AST to STDERR")
             <*> switch (long "astGF" <> help "Print GF AST to STDERR")
+            <*> switch (long "smt"   <> help "Check program with SMT solver")
             <*> argument str (metavar "Filename")
         where
           gfSubparser = subparser ( command "all" (info (pure (Fgf GF.GFall)) (progDesc "tell GF to output all languages"))
