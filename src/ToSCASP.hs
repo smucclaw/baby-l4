@@ -1,6 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE NamedFieldPuns #-}
 
 module ToSCASP where
 
@@ -28,7 +27,7 @@ unstash (Stash r f q) =
 rule, fact, query :: Doc ann -> Stash ann
 rule rl = Stash rl mempty mempty
 fact fc = Stash mempty fc mempty
-query q = Stash mempty mempty q
+query = Stash mempty mempty
 
 instance Semigroup (Stash ann) where
   Stash rules1 facts1 queries1 <> Stash rules2 facts2 queries2 =
@@ -75,8 +74,22 @@ class SCasp x where
   showSClist :: [x] -> Stash ann
   showSClist = vsep' . map showSC
 
-removePred :: Program t -> [VarDecl t]
-removePred = filter (not . isPred) . globalsOfProgram
+-- Blacklist version: only remove those of form Foo -> Bar -> Bool
+-- removePred :: Program t -> [VarDecl t]
+-- removePred = filter (not . isPred) . globalsOfProgram
+
+-- Whitelist version: only accept facts of the form Foo : Bar
+onlyFacts :: Program t -> [VarDecl t]
+onlyFacts = filter isFact . globalsOfProgram
+  where
+    isFact :: VarDecl t -> Bool
+    isFact = isFact' . tpOfVarDecl
+
+    isFact' BoolT = True
+    isFact' IntT = True
+    isFact' (ClassT _) = True
+    -- isFact' (TupleT _) = _ ---- ??????
+    isFact' _ = False
 
 commaList :: [Doc ann] -> Doc ann
 commaList = vsep . punctuate comma -- separator: a, b, c
@@ -92,7 +105,7 @@ endDot x = x <> dot
 instance SCasp (Program Tp) where
   showSC p' = let p = normalizeProg p' in
     showSClist (assertionsOfProgram p) -- These become queries
-      <> showSClist (removePred p)     -- These become facts
+      <> showSClist (onlyFacts p)      -- These become facts
       <> showSClist (rulesOfProgram p >>= normalizeQuantif >>= normaliseConditionsAndConclusions) -- These become rules and facts
   showSingle = unstash . showSC
 
