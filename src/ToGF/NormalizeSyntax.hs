@@ -35,20 +35,7 @@ normalizeQuantif (Rule ann nm decls ifE thenE) =
         negThenExp = negateExpr thenExp
     forallRule _ = ([], Nothing)
 
---create as many rules as there are expressions
-normalizeBinOpAndOr :: Rule Tp -> [Rule Tp]
-normalizeBinOpAndOr (Rule ann nm decls ifE thenE) =
-  [Rule ann nm decls x y
-  | x <- newIfEs , y <- newthenEs ]  -- List comprehension feeds the new if- and then-expressions into the rules
-  where
-    newIfEs =  go ifE -- result of the ifE recursion
-    newthenEs = go thenE -- result of the thenE recursion
-    go (BinOpE ann (BBool BBand) e1 e2) = go e1 ++ go e2  -- recursion is defined here
-    go e = [e]
-
--- norma
-
--- -- Reverse of the previous normalizeQuantif: we want to move the vardecls into existential quantification
+-- Reverse of the previous normalizeQuantif: we want to move the vardecls into existential quantification
 normalizeQuantifGF :: Rule Tp -> Rule Tp
 normalizeQuantifGF r = r { varDeclsOfRule = [],
                            precondOfRule = wrapInExistential decls ifE }
@@ -79,81 +66,31 @@ varName :: Var -> VarName
 varName (GlobalVar n) = n
 varName (LocalVar n _) = n
 
-normalizeAnd :: Expr t -> Expr t
-normalizeAnd e@(BinOpE ann (BBool BBand) e1 e2) = ListE ann AndList (go e)
+-- Nested binary ands into a single AndList
+normalizeAndExpr :: Expr t -> Expr t
+normalizeAndExpr e@(BinOpE ann (BBool BBand) e1 e2) = ListE ann AndList (go e)
   where
     go (BinOpE _ (BBool BBand) e1 e2) = go e1 ++ go e2
     go e = [e]
-normalizeAnd e = e
+normalizeAndExpr e = e
 
-normalizeOr :: Expr t -> Expr t
-normalizeOr e@(BinOpE ann (BBool BBor ) e1 e2) = ListE ann OrList (go e)
+-- Handles rules with multiple options:
+-- rule <blah>
+--   for foo : Foo
+--   if Legal foo || Edible foo
+--   then Good foo && MayBeEaten foo
+-- becomes 4 new rules, with all permutations
+normaliseConditionsAndConclusions :: Rule t -> [Rule t]  -- takes a rule t and returns a list of rules
+normaliseConditionsAndConclusions (Rule ann nm decls ifE thenE) =
+  [Rule ann nm decls condition conclusion
+  | condition <- goCond ifE, conclusion <- goConc thenE]
   where
-    go (BinOpE _ (BBool BBor ) e1 e2) = go e1 ++ go e2
-    go e = [e]
-normalizeOr e = e
+    goCond e@(BinOpE ann (BBool BBor) e1 e2) = goCond e1 ++ goCond e2 -- result of the recursion
+    goCond e = [e]
+    goConc e@(BinOpE ann (BBool BBand) e1 e2) = goConc e1 ++ goConc e2 -- result of the recursion
+    goConc e = [e]
 
-{- TODO:
-
-1. A function Rule t -> [Rule t], which work on L4 rules like
-
-  rule <blah>
-  for foo : Foo
-  if Legal foo
-  then Good foo && MayBeEaten foo
-
-and returns 2 new L4 rules:
-
-  rule <blah1>
-  for foo : Foo
-  if Legal foo
-  then Good foo
-
-  rule <blah2>
-  for foo : Foo
-  if Legal foo
-  then MayBeEaten foo
-
-2. A function Rule t -> [Rule t], which work on rules like
-
-  rule <blah>
-  for foo : Foo
-  if (Rich foo || Pretty foo || Smart foo)
-  then Legal foo
-
-and returns 3 new rules:
-
-  rule <blah1>
-  for foo : Foo
-  if Rich foo
-  then Legal foo
-
-  rule <blah2>
-  for foo : Foo
-  if Pretty foo
-  then Legal foo
-
-  rule <blah3>
-  for foo : Foo
-  if Smart foo
-  then Legal foo
-
-3. A function Program -> Program, which makes predicates out of class declarations
-
--}
--- Q2
-normaliseRule2ListE :: Rule t -> [Rule t]  -- takes a rule t and returns a list of expression
-normaliseRule2ListE (Rule ann nm decls ifE thenE) =
-  [Rule ann nm decls x thenE
-  | x <- newIfEs]
-  where
-    newIfEs =  go ifE
-
-    go e@(BinOpE ann (BBool BBor) e1 e2) = go e1 ++ go e2 -- result of the recursion
-    go e = [e]
-
-
--- Q3
+-- Make VarDecls out of ClassDecls
 normalizeProg :: Program Tp -> Program Tp
 normalizeProg (Program annP lex classdecs globals rules assert) =
   Program annP lex classdecs (newGlobals++globals) rules assert
@@ -167,5 +104,3 @@ normalizeProg (Program annP lex classdecs globals rules assert) =
     getFieldNmNType :: ClassDef Tp -> [(String, Tp)]
     getFieldNmNType (ClassDef  _ fields) = map getFieldNmNType' fields
     getFieldNmNType' (FieldDecl _ (FldNm name) tp) = (name, tp)
-
-

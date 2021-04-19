@@ -34,20 +34,12 @@ decl Paper : Sign
 decl Scissors : Sign
 
 rule <beats_rock_scissors>
-if (Beat Rock Scissors || Beat Paper Rock || Beat Scissors Paper)
+if True
 then Beat Rock Scissors
 
-
 rule <beats_scissors_paper>
-if (Beat Rock Scissors || Beat Paper Rock || Beat Scissors Paper)
+if True
 then Beat Scissors Paper
-
-
-rule <beats_paper_paper>
-for c : Player
-if (Beat Rock Rock || Beat Paper Paper || Beat Scissors Rock)
-then Beat Scissors Scissors
-
 
 rule <beats_paper_rock>
 if True

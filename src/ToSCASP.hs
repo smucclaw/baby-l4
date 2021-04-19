@@ -91,11 +91,9 @@ endDot x = x <> dot
 
 instance SCasp (Program Tp) where
   showSC p' = let p = normalizeProg p' in
-    showSClist (assertionsOfProgram p) -- TODO: should become queries!!!
+    showSClist (assertionsOfProgram p) -- These become queries
       <> showSClist (removePred p)     -- These become facts
-      <> showSClist (concatMap normalizeQuantif $ rulesOfProgram p) -- These become rules and facts
-      <> rule (pretty "---------")
-      <> showSClist (concatMap normalizeBinOpAndOr $ rulesOfProgram p)
+      <> showSClist (rulesOfProgram p >>= normalizeQuantif >>= normaliseConditionsAndConclusions) -- These become rules and facts
   showSingle = unstash . showSC
 
 
@@ -136,10 +134,10 @@ instance SCasp (Expr Tp) where
     where
       existX = mkAtom typ <> parens (mkVar (x, typ))
       suchThat =
-        showSingle <$> case normalizeAnd exp of
+        showSingle <$> case normalizeAndExpr exp of
           ListE _ _ es -> es
           _ -> [exp]
-  showSingle x = case normalizeAnd x of
+  showSingle x = case normalizeAndExpr x of
     ValE _ v -> showSingle v
     FunApp1 f x xTp -> mkAtom f <> parens (mkVar (x, xTp))
     FunApp2 f x xTp y yTp -> mkAtom f <> encloseSep lparen rparen comma (mkVar <$> [(x, xTp), (y, yTp)])
