@@ -42,12 +42,12 @@ instance Monoid (Stash ann) where
 
 -- instance Functor (Stash ann) where
 --   fmap f x = f x
---   f (<*>) x = f x 
+--   f (<*>) x = f x
 -- instance Functor (Stash ann) where
 --   fmap f (Stash x) = Stash (f x)
 
 
-  
+
 
 isPred :: VarDecl t -> Bool
 isPred = isPred' . tpOfVarDecl
@@ -90,7 +90,7 @@ endDot :: Doc ann -> Doc ann
 endDot x = x <> dot
 
 instance SCasp (Program Tp) where
-  showSC p =
+  showSC p' = let p = normalizeProg p' in
     showSClist (assertionsOfProgram p) -- TODO: should become queries!!!
       <> showSClist (removePred p)     -- These become facts
       <> showSClist (concatMap normalizeQuantif $ rulesOfProgram p) -- These become rules and facts
@@ -189,11 +189,13 @@ instance Arg Var where
       f : irst = varName var
 
 instance Arg Tp where
-  mkAtom tp = pretty $ case tp of
-    ClassT (ClsNm (f : irst)) -> toLower f : irst
-    BoolT -> "bool"
-    IntT -> "int"
-    _ -> "unsupportedtype"
+  mkAtom tp = case tp of
+    ClassT (ClsNm (f : irst)) -> pretty $ toLower f : irst
+    BoolT -> pretty "bool"
+    IntT -> pretty "int"
+    FunT t1 t2 -> mkAtom t1 <> pretty "->" <> mkAtom t2
+    TupleT ts -> encloseSep lparen rparen comma $ map mkAtom ts
+    _ -> pretty "unsupportedtype"
   mkVar tp = pretty $ case tp of
     ClassT (ClsNm (f : irst)) -> toUpper f : irst
     BoolT -> "Bool"

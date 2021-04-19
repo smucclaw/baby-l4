@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 module ToGF.NormalizeSyntax where
 
 import Annotation (TypeAnnot (updType))
@@ -102,14 +103,14 @@ normalizeOr e = e
   then Good foo && MayBeEaten foo
 
 and returns 2 new L4 rules:
-  
+
   rule <blah1>
   for foo : Foo
   if Legal foo
-  then Good foo 
-  
+  then Good foo
+
   rule <blah2>
-  for foo : Foo  
+  for foo : Foo
   if Legal foo
   then MayBeEaten foo
 
@@ -141,16 +142,30 @@ and returns 3 new rules:
 
 -}
 -- Q2
--- normaliseRule2ListE :: Rule t -> [Rule t]  -- takes a rule t and returns a list of expression
--- normaliseRule2ListE (Rule ann nm decls ifE thenE) =
---   [Rule ann nm decls x thenE
---   | x <- newIfEs] -- TODO
---   where
---     newIfEs =  go ifE
+normaliseRule2ListE :: Rule t -> [Rule t]  -- takes a rule t and returns a list of expression
+normaliseRule2ListE (Rule ann nm decls ifE thenE) =
+  [Rule ann nm decls x thenE
+  | x <- newIfEs]
+  where
+    newIfEs =  go ifE
 
---     go e@(BinOpE ann (BBool BBor) e1 e2) = go e1 ++ go e2-- result of the recursion
---     go e = [e]
+    go e@(BinOpE ann (BBool BBor) e1 e2) = go e1 ++ go e2 -- result of the recursion
+    go e = [e]
 
 
 -- Q3
--- normalizeProg
+normalizeProg :: Program Tp -> Program Tp
+normalizeProg (Program annP lex classdecs globals rules assert) =
+  Program annP lex classdecs (newGlobals++globals) rules assert
+  where
+    newGlobals = concatMap cd2vd classdecs
+    cd2vd (ClassDecl annot clsname def) =
+      [VarDecl annot functname (FunT argtype returntype)
+      | (functname, returntype) <- getFieldNmNType def]
+      where argtype = ClassT clsname
+
+    getFieldNmNType :: ClassDef Tp -> [(String, Tp)]
+    getFieldNmNType (ClassDef  _ fields) = map getFieldNmNType' fields
+    getFieldNmNType' (FieldDecl _ (FldNm name) tp) = (name, tp)
+
+
