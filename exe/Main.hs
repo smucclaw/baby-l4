@@ -56,10 +56,10 @@ process args input = do
             -- hPrint stderr tpAst
           when (astGF args) $ do
             GF.nlgAST (getGFL $ format args) tpAstNoSrc
-          unless (astGF args) $ do
+          unless (astGF args) $
             GF.nlg (getGFL $ format args) tpAstNoSrc
-          when (toSCASP args) $ do
-          createSCasp tpAstNoSrc
+          when (toSCASP args) $
+            createSCasp tpAstNoSrc
 
 --          hello tpAstNoSrc
       -- let models = rights $ map parseModel tests
@@ -78,8 +78,9 @@ data InputOpts = InputOpts
   { format   :: Format
   , astHS    :: Bool
   , astGF    :: Bool
-  , filepath :: FilePath
   , toSCASP  :: Bool
+  , filepath :: FilePath
+
   } deriving Show
 
 optsParse :: Parser InputOpts
