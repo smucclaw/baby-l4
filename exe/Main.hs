@@ -79,7 +79,7 @@ data InputOpts = InputOpts
   , astHS    :: Bool
   , astGF    :: Bool
   , filepath :: FilePath
-  , ToSCASP  :: Bool
+  , toSCASP  :: Bool
   } deriving Show
 
 optsParse :: Parser InputOpts
