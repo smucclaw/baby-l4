@@ -47,7 +47,7 @@ process args input = do
     Right ast -> do
       preludeAst <- readPrelude
 
-      case checkError preludeAst (normalizeProg ast) of 
+      case checkError preludeAst (normalizeProg ast) of
         Left err -> putStrLn (printError err)
         Right tpAst -> do
           let tpAstNoSrc = fmap typeAnnot tpAst
@@ -58,6 +58,7 @@ process args input = do
             GF.nlgAST (getGFL $ format args) tpAstNoSrc
           unless (astGF args) $ do
             GF.nlg (getGFL $ format args) tpAstNoSrc
+          when (toSCASP args) $ do
           createSCasp tpAstNoSrc
 
 --          hello tpAstNoSrc
@@ -78,6 +79,7 @@ data InputOpts = InputOpts
   , astHS    :: Bool
   , astGF    :: Bool
   , filepath :: FilePath
+  , ToSCASP  :: Bool
   } deriving Show
 
 optsParse :: Parser InputOpts
@@ -87,6 +89,7 @@ optsParse = InputOpts <$>
                <> command "gf" (info gfSubparser gfHelper))
             <*> switch (long "astHS" <> help "Print Haskell AST to STDERR")
             <*> switch (long "astGF" <> help "Print GF AST to STDERR")
+            <*> switch (long "toSCASP" <> help "Print sCASP to STDOUT")
             <*> argument str (metavar "Filename")
         where
           gfSubparser = subparser ( command "all" (info (pure (Fgf GF.GFall)) (progDesc "tell GF to output all languages"))
