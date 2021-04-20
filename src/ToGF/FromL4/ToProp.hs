@@ -18,7 +18,7 @@ import ToGF.FromL4.TransProp
 import ToGF.NormalizeSyntax ( varName, normalizeQuantifGF ) 
 
 -- moved this here from exe/Main.hs, needed to tell optparse which languages to output
-data GFlang  = GFall | GFeng | GFswe deriving Show
+data GFlang  = GFall | GFeng | GFswe deriving (Show,Eq)
 
 gfl2lang:: GFlang -> [Lang]
 gfl2lang gfLang =

@@ -54,16 +54,22 @@ process args input = do
           when (astHS args) $ do
             pPrint tpAst
             -- hPrint stderr tpAst
-          when (astGF args) $ do
-            GF.nlgAST (getGFL $ format args) tpAstNoSrc
-          unless (astGF args) $
-            GF.nlg (getGFL $ format args) tpAstNoSrc
-          when (toSCASP args) $
-            createSCasp tpAstNoSrc
+          case format args of
+            FScasp -> createSCasp tpAstNoSrc            
+            otherFormat -> do
+              let gfl = getGFL otherFormat
+              when (astGF args) $ do
+                GF.nlgAST gfl tpAstNoSrc
+              unless (astGF args) $ do
+                GF.nlg gfl tpAstNoSrc
+              when (otherFormat == Fall) $
+                createSCasp tpAstNoSrc
 
---          hello tpAstNoSrc
-      -- let models = rights $ map parseModel tests
-      -- nlgModels models
+          -- Just a test for creating natural language from s(CASP) models.
+          when (testModels args) $ do
+            putStrLn "\nDemo of NLG from s(CASP) models"
+            let models = rights $ map parseModel tests
+            nlgModels models
 
     Left err -> do
       putStrLn "Parser Error:"
@@ -72,25 +78,25 @@ process args input = do
     getGFL (Fall)    = GF.GFall
     getGFL (Fgf gfl) = gfl
 
-data Format   = Fall | Fgf GF.GFlang deriving Show
+data Format   = Fall | Fgf GF.GFlang | FScasp deriving (Show,Eq)
 
 data InputOpts = InputOpts
   { format   :: Format
   , astHS    :: Bool
   , astGF    :: Bool
-  , toSCASP  :: Bool
+  , testModels  :: Bool
   , filepath :: FilePath
-
   } deriving Show
 
 optsParse :: Parser InputOpts
 optsParse = InputOpts <$>
               subparser
                 ( command "all" (info (pure Fall) (progDesc "Prints all available formats"))
-               <> command "gf" (info gfSubparser gfHelper))
+               <> command "gf" (info gfSubparser gfHelper)
+               <> command "scasp" (info (pure FScasp) (progDesc "Prints out s(CASP)")))
             <*> switch (long "astHS" <> help "Print Haskell AST to STDERR")
             <*> switch (long "astGF" <> help "Print GF AST to STDERR")
-            <*> switch (long "toSCASP" <> help "Print sCASP to STDOUT")
+            <*> switch  (long "testModels" <> help "Demo of NLG from sCASP models")
             <*> argument str (metavar "Filename")
         where
           gfSubparser = subparser ( command "all" (info (pure (Fgf GF.GFall)) (progDesc "tell GF to output all languages"))
@@ -101,7 +107,6 @@ optsParse = InputOpts <$>
           gfHelper = fullDesc
                   <> header "l4 gf - specialized for natLang output"
                   <> progDesc "Prints natLang format (subcommands: en, my)"
-
 
 main :: IO ()
 main = do
