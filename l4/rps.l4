@@ -26,32 +26,9 @@ class Game {
 }
 
 
-# If ClassDef attrs/methods are already relational in nature, why bother with VarDecls? 
-# Is there a reason why we aren't keeping to a classical OOP syntax style (like python) here instead?
-
-decl Participate_in : Player -> Game -> Bool
-decl Win : Player -> Game -> Bool
-decl Lose : Player -> Game -> Bool
-decl Beat : Sign -> Sign -> Bool
-
-# there is a concern here -- are we matching top to bottom,
-# or more specific to less specific, and if so how do we order specificity?
-# Beat Paper Rock: True
-# Beat       Rock Scissors: True
-# Beat            Scissors Paper: True
-# Beat _ _: False
-
-decl Throw : Player -> Sign -> Bool
-
-# these things later get treated as enums
-decl Rock     : Sign
-decl Paper    : Sign
-decl Scissors : Sign
-
-rule <beats_rock_scissors>
-if True
-then Beats Rock Scissors
-
+# decl Rock : Sign
+# decl Paper : Sign
+# decl Scissors : Sign
 
 # rule <beats_rock_scissors>
 # if True
@@ -64,6 +41,11 @@ then Beats Rock Scissors
 # rule <beats_paper_rock>
 # if True
 # then beat Rock Paper
+
+# these things later get treated as enums
+# decl Rock     : Sign
+# decl Paper    : Sign
+# decl Scissors : Sign
 
 # proposed new syntax: 
 # https://www.typescriptlang.org/docs/handbook/enums.html

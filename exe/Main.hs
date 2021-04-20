@@ -51,22 +51,16 @@ process args input = do
       preludeAst <- readPrelude
 
       case checkError preludeAst (normalizeProg ast) of
-        Left err -> putStrLn (printError err)
+        Left err -> putStrLn ("Type Error: " ++ printError err)
         Right tpAst -> do
           let tpAstNoSrc = fmap typeAnnot tpAst
-          when (astHS args) $ do
-            pPrint tpAst
-            -- hPrint stderr tpAst
+
           case format args of
-            FScasp -> createSCasp tpAstNoSrc            
-            otherFormat -> do
-              let gfl = getGFL otherFormat
-              when (astGF args) $ do
-                GF.nlgAST gfl tpAstNoSrc
-              unless (astGF args) $ do
-                GF.nlg gfl tpAstNoSrc
-              when (otherFormat == Fall) $
-                createSCasp tpAstNoSrc
+            Fast                     ->  pPrint tpAst
+            (Fgf GFOpts { gflang = gfl, showast = True } ) -> GF.nlgAST gfl tpAstNoSrc
+            (Fgf GFOpts { gflang = gfl, showast = False} ) -> GF.nlg    gfl tpAstNoSrc
+            Fscasp -> do createSCasp tpAstNoSrc
+            Fyaml -> do createDSyaml tpAstNoSrc
 
           -- Just a test for creating natural language from s(CASP) models.
           when (testModels args) $ do
@@ -74,11 +68,6 @@ process args input = do
             let models = rights $ map parseModel tests
             nlgModels models
 
-      case format args of
-        Fast                     ->  pPrint tpAst
-        (Fgf GFOpts { gflang = gfl, showast = True } ) -> GF.nlgAST gfl tpAstNoSrc
-        (Fgf GFOpts { gflang = gfl, showast = False} ) -> GF.nlg    gfl tpAstNoSrc
-        Fyaml -> do createDSyaml tpAstNoSrc
     Left err -> do
       putStrLn "Parser Error:"
       print err
