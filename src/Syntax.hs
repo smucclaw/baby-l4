@@ -310,9 +310,9 @@ instance HasLoc t => HasLoc (Expr t) where
 
 -- Cmd t is a command of type t
 data Cmd t
-    = Skip                                      -- Do nothing
-    | VAssign Var (Expr t)                   -- Assignment to variable
-    | FAssign (Expr t) FieldName (Expr t)         -- Assignment to field
+    = Skip t                                      -- Do nothing
+    | VAssign t Var (Expr t)                   -- Assignment to variable
+    | FAssign t (Expr t) FieldName (Expr t)         -- Assignment to field
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 
