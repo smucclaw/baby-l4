@@ -16,7 +16,7 @@ import Control.Monad.Reader
 import Control.Applicative (liftA2)
 
 createDSyaml :: Program Tp -> IO ()
-createDSyaml p = putDoc $ PP.line <> showDS p
+createDSyaml p = putDoc $ showDS p
 
 
 -- Perhaps instead of using Maybe, an Either would be better. 
@@ -36,7 +36,7 @@ instance (Show t) => DSYaml (DSBlock t) where
     hang 2 $ "-" <+> vsep [ "name:" <+> pretty blkName
                           , "type:" <+> either pretty showDS blkType 
                           , "minimum: 0 # Change cardinality accordingly" --cardinality goes here
-                          , "ask/tell/any/other:" -- ui goes here
+                          -- , "ask/tell/any/other:" -- ui goes here
                           , "encodings:"  , indent 2 $ "-" <+> pretty blkEncodings -- TODO : add functionality for list-encoding
                           , putSource blkSource <> putAttrs blkAttrs <>  PP.line
                           ]
@@ -47,40 +47,41 @@ instance (Show t) => DSYaml (DSBlock t) where
             putSource Nothing = PP.emptyDoc
               
 
--- ClassDecl {
---   nameOfClassDecl = ClsNm "Sign"
---   defOfClassDecl = ClassDef { 
---     supersOfClassDef = [ ClsNm "Sign", ClsNm "Class, ClsNm "Object"], 
---     fieldsOfClassDef = []
---           }
+-- ClassDecl { 
+--     annotOfClassDecl = _           
+--   , nameOfClassDecl = ClsNm "Sign"
+--   , defOfClassDecl = ClassDef { supersOfClassDef = [ ClsNm "Sign"
+--                                                    , ClsNm "Class"
+--                                                    , ClsNm "Object" ]
+--                               , fieldsOfClassDef = [ FieldDecl { annotOfFieldDecl = _
+--                                                                , nameOfFieldDecl = FldNm "beat"
+--                                                                , tpOfFieldDecl = FunT
+--                                                                    ( ClassT ( ClsNm "Sign" ) ) BoolT }]} }
 --
--- ClassDecl {
---   nameOfClassDecl = ClsNm "Player",
---   defOfClassDecl = ClassDef {
---     supersOfClassDef = [ClsNm "Class",ClsNm "Object"],
---     fieldsOfClassDef = [FieldDecl (FldNm "throws") (ClassT (ClsNm "Sign"))]}}
+-- ClassDecl { annotOfClassDecl = _
+--           , nameOfClassDecl = ClsNm "Player"
+--           , defOfClassDecl = ClassDef { supersOfClassDef = [ ClsNm "Player"
+--                                                            , ClsNm "Class"
+--                                                            , ClsNm "Object" ]
+--                                       , fieldsOfClassDef = [ FieldDecl { annotOfFieldDecl = _ 
+--                                                                        , nameOfFieldDecl = FldNm "throw"
+--                                                                        , tpOfFieldDecl = FunT ( ClassT ( ClsNm "Sign" ) ) BoolT } ] } }
 
--- ClassDecl {
---   nameOfClassDecl = ClsNm "Game",
---   defOfClassDecl = ClassDef {
---     supersOfClassDef = [ClsNm "Class",ClsNm "Object"],
---     fieldsOfClassDef = [
---       FieldDecl (FldNm "participants") (TupleT [ClassT (ClsNm "Player"), ClassT (ClsNm "Player")]),
---       FieldDecl (FldNm "winner") (ClassT (ClsNm "Player"))
---     ]}}],
+-- ClassDecl { annotOfClassDecl = _
+--           , nameOfClassDecl = ClsNm "Game"
+--           , defOfClassDecl = ClassDef { supersOfClassDef = [ ClsNm "Game"
+--                                                            , ClsNm "Class"
+--                                                            , ClsNm "Object" ]
+--                                       , fieldsOfClassDef = [ FieldDecl { annotOfFieldDecl = _
+--                                                                        , nameOfFieldDecl = FldNm "participate_in"
+--                                                                        , tpOfFieldDecl = FunT ( ClassT ( ClsNm "Player" ) ) BoolT
+--                                                                        }
+--                                                            , FieldDecl { annotOfFieldDecl = _
+--                                                                        , nameOfFieldDecl = FldNm "win"
+--                                                                        , tpOfFieldDecl = FunT ( ClassT ( ClsNm "Player" ) ) BoolT
+--                                                                        }
+--                                                            ] } } ]
 
-
-
-
--- globalsOfProgram =
---         [ VarDecl _ "Participate_in" ( FunT ( ClassT ( ClsNm "Player" ) ) ( FunT ( ClassT ( ClsNm "Game" ) ) BoolT ) )
---         , VarDecl _ "Win" ( FunT ( ClassT ( ClsNm "Player" ) ) ( FunT ( ClassT ( ClsNm "Game" ) ) BoolT ) )
---         , VarDecl _ "Beat" ( FunT ( ClassT ( ClsNm "Sign" ) ) ( FunT ( ClassT ( ClsNm "Sign" ) ) BoolT ) )
---         , VarDecl _ "Throw" ( FunT (ClassT ( ClsNm "Player" ) ) ( FunT ( ClassT ( ClsNm "Sign" ) ) BoolT ) )
---         , VarDecl _ "Rock" ( ClassT ( ClsNm "Sign" ) )
---         , VarDecl _ "Paper" ( ClassT ( ClsNm "Sign" ) )
---         , VarDecl _ "Scissors" ( ClassT ( ClsNm "Sign" ) )
---         ]
 
 
 classDeclToBlock :: ClassDecl ct -> DSBlock ct
@@ -114,6 +115,7 @@ eitherTp x1 x2 tp = if elem tp [BoolT, IntT] then Right x2 else Left x1
 
 showFTname :: Tp -> Maybe String 
 showFTname tp = case tp of 
+  (FunT x BoolT)        -> showFTname x
   (ClassT (ClsNm name)) -> Just $ lowercase name
   _                     -> Nothing
 
