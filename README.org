@@ -38,6 +38,14 @@ more typechecking! more expressions!
 - roundtrip :: =newSave.l4= goes from IDE to parser & typechecker, which produces an error message, and IDE displays it. (error message in what format: markdown? or old-school fixed-width? decision: [[https://microsoft.github.io/language-server-protocol/specification#diagnostic][plain string]].)
 - s(CASP) English explanations come out of GF :: Inari has made a demo! So there is a fragment of s(CASP). Team Bencoolen will continue discussions about how to improve on s(CASP)'s =#rped= commands.
 
+** 0.3.8
+
+support for defeasibility
+
+- Notwithstanding
+- SubjectTo
+- Despite
+
 * Toolchain Versions
 
 | l4 version | file    | parser status | nlg status    | ide status             | type checking | reasoner status |
