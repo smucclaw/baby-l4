@@ -1,9 +1,0 @@
-
-rules: 
-query: 
-data:
-- name: Game
-  attributes:
-  FieldDecl ErrT (FldNm "participants") (TupleT [ClassT (ClsNm "Player"),ClassT (ClsNm "Player")])
-  FieldDecl ErrT (FldNm "winner") (ClassT (ClsNm "Player"))
-terms: 
