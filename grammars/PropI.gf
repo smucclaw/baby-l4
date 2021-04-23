@@ -27,8 +27,11 @@ lincat
   Verb2 = V2 ;
   PassVerb2 = VP ;
 
+  Quantifier = {ap : AP ; np : NP ; qt : QType} ;
+
 param
   MyPol = MyPos | MyNeg ;
+  QType = QQuant | QStr | QNothing ;
 
 lin
   PAtom a = {s = PredVPS a.s (a.vp ! MyPos) ; c = False} ;
@@ -85,7 +88,7 @@ lincat
   [Prop] = {s : [S] ; c : Bool} ; -- c = True if any of props is complex
   [Pred1] = MyPol => [VPS] ;
   [Ind] = [NP] ;
-  [Var] = NP ;
+  [Var] = {s : NP ; d : Det} ;
 
 oper
   myVPS : VP -> MyPol => Extend.VPS = \vp ->
@@ -110,15 +113,15 @@ lin
     False => {s = mkS c.s ps.s ; c = True}
     } ;
   PUnivs vs k p = {
-    s = ExtAdvS (mkAdv for_Prep (mkNP all_Predet (mkNP aPl_Det (mkCN k.s vs)))) p.s ;
+    s = ExtAdvS (mkAdv for_Prep (mkNP all_Predet (mkNP aPl_Det (mkCN k.s vs.s)))) p.s ;
     c = False
     } ;
   PExists vs k p = {
-    s = mkS (mkCl (mkNP a_Quant (mkCN (mkCN k.s vs) (mkAP (mkAP such_A) p.s)))) ;
+    s = mkS (mkCl (mkNP vs.d (mkCN (mkCN k.s vs.s) (mkAP (mkAP such_A) p.s)))) ;
     c = False
     } ;
   PNotExists vs k p = {
-    s = mkS negativePol (ExistCN (mkCN (mkCN k.s vs) (mkAP (mkAP such_A) p.s))) ;
+    s = mkS negativePol (ExistCN (mkCN (mkCN k.s vs.s) (mkAP (mkAP such_A) p.s))) ;
     c = False
     } ;
   PNegAtom a = {
@@ -129,8 +132,8 @@ lin
   BaseProp p q = {s = mkListS p.s q.s ; c = orB p.c q.c} ;
   ConsProp p ps = {s = mkListS p.s ps.s ; c = orB p.c ps.c} ;
 
-  BaseVar x = (symb x) ;
-  ConsVar x xs = mkNP and_Conj (mkListNP (symb x.s) xs) ;
+  BaseVar x = {s = symb x ; d = a_Det} ;
+  ConsVar x xs = {s = mkNP and_Conj (mkListNP (symb x.s) xs.s) ; d = aPl_Det} ;
 
   BaseInd x y = mkListNP x.s y.s ;
   ConsInd x xs = mkListNP x.s xs ;
@@ -150,8 +153,6 @@ lin
 
   PVar1 var = myVPS (mkVP (symb var)) ;
   PVar2 var = myVPS2 (VPSlashPrep (mkVP (symb var)) to_Prep) ; ----
-
-  INoun n = {s = mkNP the_Det n ; isSymbolic = False} ;
 
 lin
   ConjPred1 c ps = \\pol => ConjVPS c.s (ps ! pol) ;
@@ -175,7 +176,30 @@ lin
   BTrue = {s = symb "true" ; isSymbolic = True} ;
   BFalse = {s = symb "false" ; isSymbolic = True} ;
   KInd ind = {s = mkCN type_5_N ind.s ; isClass = True} ;
-  KNoun noun = {s = mkCN noun ; isClass = False} ;
+
+  KNoun qnt noun = {
+    s = case qnt.qt of {
+          QStr => mkCN (mkCN noun) qnt.np ;
+          QQuant => mkCN qnt.ap noun ;
+          QNothing => mkCN noun } ;
+    isClass = False
+    } ;
+
+  INoun qnt noun = {
+    s = case qnt.qt of {
+          QStr => mkNP (mkCN noun qnt.np) ;
+          QQuant => mkNP the_Det (mkCN qnt.ap noun) ;
+          QNothing => mkNP  noun } ; 
+    isSymbolic = False
+    } ;
+
+  First = {ap = mkAP (mkOrd (mkNumeral n1_Unit)) ; np = nothing_NP ; qt = QQuant} ;
+  Second = {ap = mkAP (mkOrd (mkNumeral n2_Unit)) ; np = nothing_NP ; qt = QQuant} ;
+  Third = {ap = mkAP (mkOrd (mkNumeral n3_Unit)) ; np = nothing_NP ; qt = QQuant} ;
+  Fourth = {ap = mkAP (mkOrd (mkNumeral n4_Unit)) ; np = nothing_NP ; qt = QQuant} ;
+  Other = {ap = mkAP other_1_A ; np = nothing_NP ; qt = QQuant} ;
+  QString str = {ap = mkAP other_1_A ; np = symb str ; qt = QStr} ;
+  NoQuant q = q ** {qt = QNothing} ;
 
 oper
   funType : N3 -> LinKind -> LinKind -> LinKind = \f,arg,ret ->

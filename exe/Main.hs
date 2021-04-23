@@ -8,15 +8,22 @@ import Syntax (Program, ClassName)
 import Typing ( checkError )
 import System.Environment ( getEnv )
 import Options.Applicative
-import qualified ToGF as GF
+import qualified ToGF.FromL4.ToProp as GF
 import System.IO ( stderr, hPutStr, hPutStrLn, hPrint )
 import System.IO.Error (catchIOError)
 import Control.Exception (catch, SomeException (SomeException))
 import Control.Monad ( when, unless )
+import ToSCASP (createSCasp)
+import ToGF.FromSCasp.SCasp ( parseModel )
+import ToGF.FromSCasp.AnswerToGF ( nlgModels )
+import ToGF.FromL4.ToQuestions
+import ToGF.NormalizeSyntax
 import Annotation ( SRng, LocTypeAnnot (typeAnnot) )
 import Paths_baby_l4 (getDataFileName)
 import Text.Pretty.Simple (pPrint, pPrintString)
 import Error (printError)
+import Data.Either (rights)
+
 
 
 
@@ -40,17 +47,30 @@ process args input = do
     Right ast -> do
       preludeAst <- readPrelude
 
-      case checkError preludeAst ast of 
+      case checkError preludeAst (normalizeProg ast) of
         Left err -> putStrLn (printError err)
         Right tpAst -> do
           let tpAstNoSrc = fmap typeAnnot tpAst
           when (astHS args) $ do
             pPrint tpAst
             -- hPrint stderr tpAst
-          when (astGF args) $ do
-            GF.nlgAST (getGFL $ format args) tpAstNoSrc
-          unless (astGF args) $ do
-            GF.nlg (getGFL $ format args) tpAstNoSrc
+          case format args of
+            FScasp -> createSCasp tpAstNoSrc            
+            otherFormat -> do
+              let gfl = getGFL otherFormat
+              when (astGF args) $ do
+                GF.nlgAST gfl tpAstNoSrc
+              unless (astGF args) $ do
+                GF.nlg gfl tpAstNoSrc
+              when (otherFormat == Fall) $
+                createSCasp tpAstNoSrc
+
+          -- Just a test for creating natural language from s(CASP) models.
+          when (testModels args) $ do
+            putStrLn "\nDemo of NLG from s(CASP) models"
+            let models = rights $ map parseModel tests
+            nlgModels models
+
     Left err -> do
       putStrLn "Parser Error:"
       print err
@@ -58,12 +78,13 @@ process args input = do
     getGFL (Fall)    = GF.GFall
     getGFL (Fgf gfl) = gfl
 
-data Format   = Fall | Fgf GF.GFlang deriving Show
+data Format   = Fall | Fgf GF.GFlang | FScasp deriving (Show,Eq)
 
 data InputOpts = InputOpts
   { format   :: Format
   , astHS    :: Bool
   , astGF    :: Bool
+  , testModels  :: Bool
   , filepath :: FilePath
   } deriving Show
 
@@ -71,9 +92,11 @@ optsParse :: Parser InputOpts
 optsParse = InputOpts <$>
               subparser
                 ( command "all" (info (pure Fall) (progDesc "Prints all available formats"))
-               <> command "gf" (info gfSubparser gfHelper))
+               <> command "gf" (info gfSubparser gfHelper)
+               <> command "scasp" (info (pure FScasp) (progDesc "Prints out s(CASP)")))
             <*> switch (long "astHS" <> help "Print Haskell AST to STDERR")
             <*> switch (long "astGF" <> help "Print GF AST to STDERR")
+            <*> switch  (long "testModels" <> help "Demo of NLG from sCASP models")
             <*> argument str (metavar "Filename")
         where
           gfSubparser = subparser ( command "all" (info (pure (Fgf GF.GFall)) (progDesc "tell GF to output all languages"))
@@ -84,7 +107,6 @@ optsParse = InputOpts <$>
           gfHelper = fullDesc
                   <> header "l4 gf - specialized for natLang output"
                   <> progDesc "Prints natLang format (subcommands: en, my)"
-
 
 main :: IO ()
 main = do
@@ -106,3 +128,10 @@ debugGF = do
 -- | catch and print all exceptions
 catchAll :: IO () -> IO ()
 catchAll ioAction = catch ioAction (print @SomeException)
+
+tests :: [String]
+tests = [
+  "{ win(A,RPS),  is_game(RPS),  is_participant_in(A,RPS),  is_player(A),  throw(A,rock), is_player(C),  is_participant_in(C,RPS),  throw(C,scissors),  beat(rock,scissors) }",
+  "{ win(A,RPS),  is_game(RPS),  is_participant_in(A,RPS),  is_player(A),  throw(A,scissors),  is_player(C),  is_participant_in(C,RPS),  throw(C,paper),  beat(scissors,paper) }",
+  "{ win(A,RPS),  is_game(RPS),  is_participant_in(A,RPS),  is_player(A),  throw(A,paper),  is_player(C),  is_participant_in(C,RPS),  throw(C,rock),  beat(paper,rock) }"
+  ]

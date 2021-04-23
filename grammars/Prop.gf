@@ -102,11 +102,11 @@ fun
   -- Not part of the original
 
   -- Overgenerating, but we're using this grammar only to linearise
-  KNoun        : Noun -> Kind ;
+  KNoun        : Quantifier -> Noun -> Kind ;
   KInd         : Ind -> Kind ;
   KFun         : Kind -> Kind -> Kind ;
 
-  INoun : Noun -> Ind ;
+  INoun : Quantifier -> Noun -> Ind ;
 
   PAdj1 : Adj -> Pred1 ;
   PAdj2 : Adj2 -> Pred2 ;
@@ -131,4 +131,13 @@ fun
   DummyV : Verb ;
   DummyV2 : Verb2 ;
 
+-- Quantifiers, to handle "a buyer / other buyer", or "first, second and third buyer"
+-- instead of "buyers A, B and C"
+cat
+  Quantifier ;
+fun
+  Other : Quantifier ;
+  First, Second, Third, Fourth : Quantifier ;
+  QString : String -> Quantifier ;
+  NoQuant : Quantifier -> Quantifier ;
 }

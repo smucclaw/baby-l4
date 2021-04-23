@@ -1,0 +1,51 @@
+Task 1 (3qn for predicate)
+<Game>
+1. Are there any games?
+2. What is the name of game?
+3. Are there more games?
+<Participate_in>
+1. Are there players in the game?
+2. What is the name of player in the game?
+3. Are there more players? -- need to improve
+<Win>
+1. Is there a winner in the game?
+2. What is the name of the winner?
+3. Is there more than one winner? -- need to improve
+<Beat>
+1. Are there two different RPS signs?
+2. What are the signs of player_A and player_B? -- <Throw>?
+3. ???? -- need to improve 
+<Throw>
+1. Did player_A throw a sign?
+2. Did player_B throw a sign? 
+OR
+1. Did player_A throw a rock?
+2. Did player_A throw a paper?
+3. Did player_A throw a scissors?
+4. Did player_B throw a rock?
+5. Did player_B throw a paper?
+6. Did player_B throw a scissors?
+
+
+
+4. R/S:  Are there any game for this player
+5. What game did the player participate in 
+
+Task 2 (NA)
+Think of questions for
+1 Game
+3. Participate_in
+4. Win
+5. Beat
+6. Throw
+
+Task 3 (Inari completed Abstract)
+1. GF Grammar
+- Abstract RPS; Concrete RPSEng
+
+Task 4 (L4 -> GF ) 
+1. Generate lexicon
+2. AST -> GF
+
+Task 5 (for Object -> Bool)
+1. Normalisation of l4 AST ( class definition -> Pred)
