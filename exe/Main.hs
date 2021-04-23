@@ -84,6 +84,7 @@ data Format   = Fast | Fgf GFOpts | Fscasp | Fyaml
 
 data InputOpts = InputOpts
   { format   :: Format
+  , testModels :: Bool
   , filepath :: FilePath
   } deriving Show
 
@@ -100,6 +101,7 @@ optsParse = InputOpts <$>
                <> command "scasp" (info (pure Fscasp) (progDesc "output to sCASP for DocAssemble purposes"))
                <> command "yaml" (info (pure Fyaml) (progDesc "output to YAML for DocAssemble purposes"))
                )
+            <*> switch (long "testModels" <> help "Demo of NLG from sCASP models")
             <*> argument str (metavar "Filename")
             <**> helper
         where
