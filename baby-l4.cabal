@@ -126,6 +126,8 @@ test-suite lsp-server-tests
     exitcode-stdio-1.0
   hs-source-dirs:
     lsp-tests
+  build-tool-depends:
+    baby-l4:lsp-server-bl4
   main-is:
     Test.hs
   build-depends:
@@ -135,3 +137,4 @@ test-suite lsp-server-tests
     , baby-l4
     , lsp-test
     , lsp-types
+    , text

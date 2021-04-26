@@ -131,7 +131,7 @@ posInRange (Position line col) (SRng (Pos top left) (Pos bottom right)) =
 
 -- | Convert l4 source ranges to lsp source ranges
 posToRange :: SRng -> Range
-posToRange (SRng (Pos l1 c1) (Pos l2 c2)) = Range (Position l1 l2) (Position l2 c2)
+posToRange (SRng (Pos l1 c1) (Pos l2 c2)) = Range (Position l1 c1) (Position l2 c2)
 
 -- | Extract the range from an alex/happy error
 errorRange :: Err -> Range
