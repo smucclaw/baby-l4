@@ -88,11 +88,13 @@ means that       if defeated_rule applies and it concludes defeated_conclusion,
             then we discard defeated_conclusion
              and use defeating_conclusion instead.
 
-Of course we also check if the defeating_rule is itself defeated.
+Of course we also check if the defeating_rule is itself defeated. So we need to order the evaluation. And detect cycles.
 
 Suppose Rule X says:
 - source legal text :: Rule X says: Despite Rule Y, X_inner concludes (May or MustNot)
-- output: overrides(X_inner,Y)
+- output :: overrides(X_inner,X_conclusion, Y_rule, Y_conclusion)
+
+question: do we deal with Y_rule (outer) or Y_inner?
 
 rule 34.5 says: despite rule 34.1.B
 hence: 
