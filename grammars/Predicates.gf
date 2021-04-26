@@ -16,7 +16,8 @@ abstract Predicates =
   Numeral,
   Tense,
   Extend [
-    GerundCN,PresPartAP,PastPartAP,PastPartAgentAP,CompoundN,PositAdVAdj,VPI],
+    GerundCN,PresPartAP,PastPartAP,PastPartAgentAP,CompoundN,PositAdVAdj,
+    VPS, VPS2, MkVPS, MkVPS2, PredVPS,  A2VPSlash, N2VPSlash],
   Construction ** {
 
 flags
@@ -31,7 +32,7 @@ flags
 --    AdvVVP : Adv -> VP -> VP ; -- allow Adv to be used like AdV: materially interferes
     May,Must,Shall : VPSlash -> VPSlash ; -- allow SlashVV only for deontics
 
-    APInf : AP -> VPI -> AP ; -- authorized to practice law
+    APInf : AP -> VP -> AP ; -- authorized to practice law
 
     -- Quick and dirty way to get rid of attachment ambiguity: all Advs attach to the closest word
     MkN2 : N -> Prep -> N2 ;
@@ -42,7 +43,7 @@ flags
     Predicate ;
     Predicate1 ; Predicate2 ; GenPredicate ;
   fun
-    ComplV2V : V2V -> NP -> Predicate1 ; -- EntitlesHolder
+    ComplV2V : Temp -> Pol -> V2V -> NP -> Predicate1 ; -- EntitlesHolder
 
     ComplNP : NP -> Predicate1 ; -- IsOwner,
     ComplNP2 : NP -> Prep -> Predicate2 ; -- IsOwnerOf (argument)
@@ -51,12 +52,12 @@ flags
     ComplAP2 : AP -> Prep -> Predicate2 ; -- IsAuthorizedToPracticeLawIn (argument)
     ComplAdv : Adv -> Predicate1 ; --
 
-    ComplVP : VP -> Predicate1 ; -- MateriallyInterferesWithPracticingAsLawyer
-    ComplVP2 : VP -> Prep -> Predicate2 ; -- HeldAsRepresentativeOf
-    ComplVPSlash1 : VPSlash -> Predicate1 ; -- DescribedInSection1
-    ComplVPSlash2 : VPSlash -> Predicate2 ; -- Approves
+    ComplVP : VPS -> Predicate1 ; -- MateriallyInterferesWithPracticingAsLawyer
+    ComplVP2 : VPS -> Prep -> Predicate2 ; -- HeldAsRepresentativeOf
+    ComplVPSlash1 : VPS2 -> Predicate1 ; -- DescribedInSection1
+    ComplVPSlash2 : VPS2 -> Predicate2 ; -- Approves
 
-    ComplSentence : NP -> VP -> GenPredicate ; -- (the company's) jurisdiction is Singapore
+    ComplSentence : NP -> VPS -> GenPredicate ; -- (the company's) jurisdiction is Singapore
 
     -- Coercions to startcat
     p1 : Predicate1 -> Predicate ;

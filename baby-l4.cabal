@@ -16,6 +16,8 @@ extra-source-files:  README.org
                    , grammars/Prop.gf
                    , grammars/Answer.gf
                    , grammars/Questions.gf
+                   , grammars/Predicates.gf
+                   , grammars/ParsePredicates.gf
 data-files:          l4/Prelude.l4
 
 -- data-files: LICENSE
@@ -35,6 +37,8 @@ library
                   Prop
                   Answer
                   Questions
+                  ParsePredicates
+                  Predicates
                   -- from src
                   Annotation
                   Error
@@ -44,6 +48,7 @@ library
                   ToGF.FromL4.TransProp
                   ToGF.GenerateLexicon
                   ToGF.NormalizeSyntax
+                  ToGF.ParsePred
                   ToGF.TreeTransform
                   ToGF.FromSCasp.SCasp
                   ToGF.FromSCasp.AnswerToGF

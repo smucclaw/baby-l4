@@ -1,43 +1,45 @@
-abstract ParsePredicates = Predicates, ParseExtend [UttVPS], ReducedWordNet - [in_N, in_A] ** {
+abstract ParsePredicates = Predicates, ReducedWordNet - [in_N, in_A] ** {
 
 flags
-  startcat = Utt ;
-
+  startcat = FullPredicate ;
+  cat
+    FullPredicate ;
   fun
-
+    -- asdjkfs
     -- Map to ComplNP(2)
-    PredNP : Polarity -> NP -> Utt ; -- Owner, LegalOwner
-    PredNP2 : Polarity -> NP -> Prep -> Utt ; -- OwnerOf (argument)
+    PredNP : Polarity -> NP -> FullPredicate ; -- Owner, LegalOwner
+    PredNP2 : Polarity -> NP -> Prep -> FullPredicate ; -- OwnerOf (argument)
 
     -- Map to ComplAP(2)
-    PredAP : Polarity -> AP -> Utt ; -- Legal, AuthorizedToPracticeLaw
-    PredAP2 : Polarity -> AP -> Prep -> Utt ; -- AuthorizedToPracticeLawIn (argument)
+    PredAP : Polarity -> AP -> FullPredicate ; -- Legal, AuthorizedToPracticeLaw
+    PredAP2 : Polarity -> AP -> Prep -> FullPredicate ; -- AuthorizedToPracticeLawIn (argument)
 
     -- Map to ComplVPSlash "Described in Section 1"
-    V2PartAdv : Polarity -> V2 -> Adv -> Utt ;
+    V2PartAdv : Polarity -> V2 -> Adv -> FullPredicate ;
 
     -- Map to GenPredicate
-    PredSentence : Polarity -> NP -> VP -> Utt ; -- JurisdictionIsSingapore
+    PredSentence : NP -> VPS -> FullPredicate ; -- JurisdictionIsSingapore
 
     -- Internal error messages
-    -- PartialParseAfterNTokens,
-    -- ParseFailedAfterNTokens : Int -> Utt ;
-    -- NoParse : Utt ;
+    PartialParseAfterNTokens,
+    ParseFailedAfterNTokens : Int -> FullPredicate ;
+    NoParse : FullPredicate ;
 
   cat
-    AgrTAM ;
+    Agreement ;
     Polarity ;
 
   fun
---    SgAgr, PlAgr : Agreement ; -- simplify: don't really need persons here. TODO: revisit if need reflexive?
+    SgAgr, PlAgr : Agreement ; -- don't need persons here. TODO: revisit if need reflexive?
 
-    PosPol, NegPol : Polarity ;
+    PosPol, NegPol : Polarity ; -- ???
 
-    PresIndSg, PresIndPl,
-      --PastInd,
-      PPartInd,
-      Gerund, Imperative : AgrTAM ; -- TODO see if need e.g. conditional
+    -- PresIndSg, PresIndPl,
+    --   --PastInd,
+    --   PPartInd,
+    --   Gerund, Imperative : AgrTAM ; -- TODO see if need e.g. conditional
 
-    FullPred : AgrTAM -> Polarity -> Predicate -> Utt ;
+    FullPred : Predicate -> FullPredicate ;
+  -- FullPred : Agreement -> Polarity -> Predicate -> Utt ;
 
 }

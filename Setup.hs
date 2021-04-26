@@ -36,6 +36,10 @@ gfPP bi lbi clbi = PreProcessor {
                         "Answer.gf" -> "Atom"
                         "Prop.gf" -> "Noun,Noun2,Adj,Adj2,Verb,Verb2"
                         "Questions.gf" -> "Atom,Name"
+                        _ -> "N,V,A,N2,N3,V2,A2,VA,V2V,VV,V3,VS,V2A,V2S,V2Q,Adv,AdV,AdA,AdN,ACard,CAdv,Conj,Interj,PN,Prep,Pron,Quant,Det,Card,Text,Predet,Subj"
+            concrete = case inFile of 
+                         "ParsePredicates.gf" -> [inDir </> "ParsePredicatesEng.gf"]
+                         _ -> []
         let args =
                 [ "-make"
                 , "-f", "haskell"
@@ -44,7 +48,8 @@ gfPP bi lbi clbi = PreProcessor {
                 , "--lexical=" ++ lexical
                 , "--output-dir=" ++ outDir
                 , inDir </> inFile
-                ]
+                ] ++ concrete
+                
         print args
         (gfProg, _) <- requireProgram verbosity gfProgram (withPrograms lbi)
         -- runDbProgram verbosity gfProgram (withPrograms lbi) args
