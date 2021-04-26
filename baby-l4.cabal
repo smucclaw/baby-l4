@@ -39,6 +39,7 @@ library
                   Annotation
                   Error
                   Syntax
+
                   --ToYaml
                   ToGF.FromL4.ToProp
                   ToGF.FromL4.TransProp
@@ -49,6 +50,8 @@ library
                   ToGF.FromSCasp.AnswerToGF
                   ToGF.FromL4.ToQuestions
                   ToSCASP
+                  ToDA2
+
                   --ExampleInput
                   --Exec
                   InterfaceNunchaku
@@ -69,7 +72,7 @@ library
                      , array
                      , containers
                      , pretty-simple
-                     , prettyprinter
+                     , prettyprinter >= 1.7.0
                      , split
                      , text
                      , extra
@@ -98,8 +101,8 @@ executable l4
                      , haskeline  >= 0.7
                      , mtl        >= 2.2 && <2.4
                      , pretty-simple
-
                      , optparse-applicative
+                     , prettyprinter
 executable lsp-server-bl4
   hs-source-dirs:      lsp
   main-is:             Main.hs
