@@ -6,7 +6,7 @@
 -- {-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 
 
-module Smt(proveProgram) where
+module SmtSBV(proveProgram) where
 
 import Syntax
     ( Assertion(exprOfAssertion),
