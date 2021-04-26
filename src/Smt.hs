@@ -9,6 +9,21 @@
 module Smt(proveProgram) where
 
 import Syntax
+    ( Assertion(exprOfAssertion),
+      BArithOp(..),
+      BBoolOp(..),
+      BComparOp(..),
+      BinOp(..),
+      Expr(..),
+      Program(assertionsOfProgram, globalsOfProgram),
+      Tp,
+      UArithOp(..),
+      UBoolOp(..),
+      UnaOp(..),
+      Val(IntV, BoolV),
+      Var(GlobalVar, LocalVar),
+      VarDecl(VarDecl),
+      VarName )
 import Annotation (TypeAnnot)
 import Typing (getTypeOfExpr, isBooleanTp, isIntegerTp)
 
@@ -19,6 +34,8 @@ import qualified Data.Map as M
 import qualified Data.Set as Set
 import qualified Data.Maybe
 import Control.Monad ((<=<))
+import Control.Monad.Trans         (MonadIO(liftIO), MonadTrans(lift))
+import Data.SBV.Internals
 
 
 -- returns a list of subexpressions that are not in the fragment translateable to SMT
@@ -57,8 +74,8 @@ data SBVType
     | TSInteger SInteger
 
 -- implemented as list because new elements are added by binders
-type TransEnvGen = [(VarName, SBVType)]
-lookupTransEnvGen :: TransEnvGen -> VarName -> SBVType
+type TransEnvGen = [(VarName, Smt.SBVType)]
+lookupTransEnvGen :: TransEnvGen -> VarName -> Smt.SBVType
 lookupTransEnvGen env vn =
     Data.Maybe.fromMaybe (error $ "internal error in lookupTransEnvGen: Var not found: " ++ show vn)
     (lookup vn env)
@@ -228,8 +245,34 @@ transToPredicate vds e = do
     transExprPredicate env e
 -}
 
+
+type TransEnvDyn = [(VarName, IO SVal)]
+lookupTransEnvDyn :: TransEnvDyn -> VarName -> IO SVal
+lookupTransEnvDyn env vn =
+    Data.Maybe.fromMaybe (error $ "internal error in lookupTransEnvDyn: Var not found: " ++ show vn)
+    (lookup vn env)
+
+
+varTypeToKind :: Tp -> Kind 
+varTypeToKind vt 
+  | isBooleanTp vt = KBool
+  | isIntegerTp vt = KUnbounded 
+  | otherwise = error $ "in varTypeToKind: type " ++ show vt ++ " not supported"
+
+varDeclToTransEnvDyn :: MonadSymbolic m => VarDecl t -> m SVal
+varDeclToTransEnvDyn (VarDecl _ vn vt) = symbolicEnv >>= liftIO . svMkSymVar (NonQueryVar Nothing) (varTypeToKind vt) (Just vn) 
+
 proveExpr :: [VarDecl t] -> Expr t ->IO ()
-proveExpr vds  = print <=< ((Data.SBV.Dynamic.satWith z3) . transExprDyn vds)
+-- Works for SBV.Dynamic:
+-- proveExpr vds  = print <=< ((Data.SBV.Dynamic.satWith z3) . transExprDyn vds)
+proveExpr vds e = do
+    let tr = transExprDyn vds e
+    benchm <- Data.SBV.Dynamic.generateSMTBenchmark True tr
+    satres <- Data.SBV.Dynamic.satWith z3 tr
+    putStrLn benchm
+    print satres
+
+
 -- proveExpr vds  = (print <=< (allSat . transToPredicate vds))
 -- proveExpr vds  = (print <=< (allSat . transToPredicateSingle (head vds)))
 {-
