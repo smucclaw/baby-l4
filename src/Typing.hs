@@ -196,6 +196,10 @@ isNumberTp :: Environment t -> Tp -> Bool
 isNumberTp env (ClassT t) = isSubclassOf env t (ClsNm "Number")
 isNumberTp _ _ = False
 
+isIntegerTp :: Tp -> Bool
+isIntegerTp (ClassT (ClsNm "Integer")) = True 
+isIntegerTp _ = False
+
 isScalarTp :: Tp -> Bool
 isScalarTp BoolT = True
 isScalarTp IntT = True

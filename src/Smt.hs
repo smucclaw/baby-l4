@@ -1,9 +1,20 @@
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 
+
+-- The following two included following type checking hints to get rid of typing errors in transToPredicateSingle
+-- {-# LANGUAGE FlexibleContexts #-}
+-- {-# OPTIONS_GHC -Wno-deferred-type-errors #-}
+
+
 module Smt(proveProgram) where
 
 import Syntax
+import Annotation (TypeAnnot)
+import Typing (getTypeOfExpr, isBooleanTp, isIntegerTp)
+
 import Data.SBV
+import Data.SBV.Dynamic
+
 import qualified Data.Map as M
 import qualified Data.Set as Set
 import qualified Data.Maybe
@@ -41,53 +52,272 @@ fv (CastE _ _ e) = fv e
 fv (ListE _ _ es) = Set.unions (map fv es)
 fv (NotDeriv _ _ e) = fv e
 
+data SBVType
+    = TSBool SBool
+    | TSInteger SInteger
+
+-- implemented as list because new elements are added by binders
+type TransEnvGen = [(VarName, SBVType)]
+lookupTransEnvGen :: TransEnvGen -> VarName -> SBVType
+lookupTransEnvGen env vn =
+    Data.Maybe.fromMaybe (error $ "internal error in lookupTransEnvGen: Var not found: " ++ show vn)
+    (lookup vn env)
+
+lookupEnvSBool :: TransEnvGen -> VarName -> SBool
+lookupEnvSBool env vn =
+    case lookupTransEnvGen env vn of
+        TSBool s -> s
+        _ -> error $
+                "internal error in lookupEnvSBool: "
+              ++ vn
+              ++ " should be boolean"
+
+lookupEnvSInteger :: TransEnvGen -> VarName -> SInteger
+lookupEnvSInteger env vn =
+    case lookupTransEnvGen env vn of
+        TSInteger s -> s
+        _ -> error $
+                "internal error in lookupEnvSInteger: "
+              ++ vn
+              ++ " should be integer"
 
 type TransEnv = M.Map VarName SBool
 lookupTransEnv :: TransEnv -> VarName -> SBool
 lookupTransEnv env vn = Data.Maybe.fromMaybe (error $ "internal error in lookupTransEnv: Var not found: " ++ show vn)
                             (M.lookup vn env)
 
+transBComparOp ::  (OrdSymbolic a) => BComparOp ->  a -> a -> SBool
+transBComparOp  BCeq = (.==)
+transBComparOp  BClt = (.<)
+transBComparOp  BClte = (.<=)
+transBComparOp  BCgt = (.>)
+transBComparOp  BCgte = (.>=)
+transBComparOp  BCne = (./=)
+
+
 transBBoolOp :: BBoolOp ->  SBool -> SBool -> SBool
 transBBoolOp BBimpl = (.=>)
 transBBoolOp BBor = (.||)
 transBBoolOp BBand = (.&&)
 
+transBArithOp :: BArithOp ->  SInteger -> SInteger -> SInteger
+transBArithOp BAadd = (+)
+transBArithOp BAsub = (-)
+transBArithOp BAmul = (*)
+{-
+transBArithOp BAdiv = div
+transBArithOp BAmod= mod
+  -}
+
+transExprSInteger :: TransEnvGen -> Expr t -> SInteger
+transExprSInteger env (ValE _ (IntV i)) = fromIntegral i
+transExprSInteger env (ValE _ _) =
+    error "internal error in transExprSInteger: non-integer value"
+transExprSInteger env (VarE _ (GlobalVar vn)) =
+    lookupEnvSInteger env vn
+transExprSInteger env (BinOpE _ (BArith baop) e1 e2) =
+    transBArithOp baop (transExprSInteger env e1) (transExprSInteger env e2)
+-- TODO  -- catchall
+transExprSInteger env _ = 0
+
+
 -- TODO: non-boolean unary and binary functions
-transExpr :: TransEnv -> Expr t -> Predicate
-transExpr env (ValE _ (BoolV b)) = if b then return sTrue else return sFalse   -- TODO: non-boolean values
-transExpr env (VarE _ (GlobalVar vn)) = return (lookupTransEnv env vn)         -- TODO: local variables
-transExpr env (UnaOpE _ (UBool UBneg) e) =
-    do re <- transExpr env e
+transExprPredicate :: TransEnvGen -> Expr t -> Predicate
+transExprPredicate env (ValE _ (BoolV b)) = if b then return sTrue else return sFalse
+transExprPredicate env (ValE _ _) =
+    error "internal error in transExprPredicate: non-boolean value"
+transExprPredicate env (VarE _ (GlobalVar vn)) =
+    return (lookupEnvSBool env vn)
+transExprPredicate env (UnaOpE _ (UBool UBneg) e) =
+    do re <- transExprPredicate env e
        return (sNot re)
-transExpr env (BinOpE _ (BBool bbop) e1 e2) =
+       {-
+transExprPredicate env (BinOpE _ (BCompar bcop) e1 e2) =
     do re1 <- transExpr env e1
        re2 <- transExpr env e2
+       return (transBComparOp bcop re1 re2)
+       -}
+transExprPredicate env (BinOpE _ (BCompar bcop) e1 e2) =
+    let re1 = transExprSInteger env e1
+        re2 = transExprSInteger env e2
+    in return (transBComparOp bcop re1 re2)
+transExprPredicate env (BinOpE _ (BBool bbop) e1 e2) =
+    do re1 <- transExprPredicate env e1
+       re2 <- transExprPredicate env e2
        return (transBBoolOp bbop re1 re2)
-transExpr env (IfThenElseE _ c e1 e2) =
+-- TODO: translating if-then-else as in the following only works
+-- if the two branches are of type Bool. 
+-- To be done otherwise: some form of if-lifting
+-- TODO: what about the "ite" mentioned in section "cardinality constraints"
+-- of https://hackage.haskell.org/package/sbv-8.14/docs/Data-SBV.html
+-- Also see Mergeable Values:
+-- https://hackage.haskell.org/package/sbv-8.14/docs/Data-SBV.html#g:23
+{-
+transExprPredicate env (IfThenElseE _ c e1 e2) =
     do rc <- transExpr env c
        re1 <- transExpr env e1
        re2 <- transExpr env e2
        return ((rc .=> re1) .&& (sNot rc .=> re2))
+-}
 -- TODO  -- catchall
-transExpr env e = return sFalse
+transExprPredicate env e = return sFalse
 
-transToPredicate:: Expr t -> Predicate
-transToPredicate e = do
+transExprBCompar :: TypeAnnot f => TransEnvGen -> BComparOp -> Expr (f Tp) -> Expr (f Tp) -> Predicate
+transExprBCompar env bcop e1 e2 =
+    let t1 = getTypeOfExpr e1
+        t2 = getTypeOfExpr e2
+    in
+    if isBooleanTp t1 && isBooleanTp t2
+    then do
+        re1 <- transExprPredicate env e1
+        re2 <- transExprPredicate env e2
+        return (transBComparOp bcop re1 re2)
+    else error "transExprBCompar"
+
+
+{-
+transExprPredicateOld :: TransEnv -> Expr t -> Predicate
+transExprPredicateOld env (ValE _ (BoolV b)) = if b then return sTrue else return sFalse
+transExprPredicateOld env _ = error "Foobar"
+
+transToPredicateOld :: Expr t -> Predicate
+transToPredicateOld e = do
     let varns = map nameOfVar (Set.toList (fv e))
+    -- mapM: (a -> m b) -> t a -> m (t b)
+    -- exists: SymVal c => String -> Symbolic (SBV c)
+    -- varns: [VarName]
+    -- mapM exists: [String] -> Symbolic (SBV c)   with: a = String, m = Symbolic, b = SBV c, t = [ .. ]
+    -- not clear why c is instantiated to Bool. Because this is the first instance of SymVal?
     syms <- mapM exists varns
-    let env = M.fromList (zip varns syms)
-    transExpr env e
+    let lst = zip varns syms
+    let env = M.fromList lst
+    transExprPredicateOld env e
 
-proveExpr :: Expr t ->IO ()
-proveExpr = (print <=< (allSat . transToPredicate))
+proveExprOld :: Expr t ->IO ()
+proveExprOld = (print <=< (allSat . transToPredicateOld))
+
+
+varDeclToTransEnvGen :: VarDecl t -> SBVType
+varDeclToTransEnvGen (VarDecl _ vn vt)
+  | isBooleanTp vt = TSBool (exists vn)
+  | isIntegerTp vt = TSInteger (exists vn)
+  | otherwise = error $ "in varDeclToTransEnvGen: type " ++ show vt ++ " not supported"
+-}
+
+transExprSBool :: TransEnvGen -> Expr t -> SBool
+transExprSBool env (ValE _ (BoolV b)) = if b then sTrue else sFalse
+transExprSBool env (ValE _ _) =
+    error "internal error in transExprPredicate: non-boolean value"
+transExprSBool env (VarE _ (GlobalVar vn)) = lookupEnvSBool env vn
+transExprSBool env (UnaOpE _ (UBool UBneg) e) = sNot (transExprSBool env e)
+transExprSBool env _ = error "in transExprSBool"
+
+--transToPredicateSingle:: Provable a => VarDecl t -> Expr t -> a
+transToPredicateSingle:: VarDecl t -> Expr t -> IO SatResult
+transToPredicateSingle (VarDecl _ vn vt) e
+  | isBooleanTp vt = sat (\x -> transExprSBool [(vn, TSBool x)] e)
+  | isIntegerTp vt = sat (\x -> transExprSBool [(vn, TSInteger x)] e)
+  | otherwise = error "in transToPredicateSingle"
+
+{-
+transToPredicate:: [VarDecl t] -> Expr t -> Predicate
+transToPredicate vds e = do
+    let varns = map nameOfVarDecl vds
+        syms = map exists varns
+        env = M.fromList (zip varns syms)
+    transExprPredicate env e
+-}
+
+proveExpr :: [VarDecl t] -> Expr t ->IO ()
+proveExpr vds  = print <=< ((Data.SBV.Dynamic.satWith z3) . transExprDyn vds)
+-- proveExpr vds  = (print <=< (allSat . transToPredicate vds))
+-- proveExpr vds  = (print <=< (allSat . transToPredicateSingle (head vds)))
+{-
+proveExpr vds e = 
+    do 
+        res <- transToPredicateSingle (head vds) e
+        print res
+-}
 
 proveProgram :: Show t => Program t -> IO ()
-proveProgram p = 
+proveProgram p =
     case assertionsOfProgram p of
         [] -> error "in proveProgram: at least one assertion required"
         a:_ -> do
             putStrLn "Launching SMT solver"
-            proveExpr (exprOfAssertion a)
+            proveExpr (globalsOfProgram p) (exprOfAssertion a)
+
+
+
+
+-------------------------------------------------------------
+-- Experiments with the untyped SBV.Dynamic
+-------------------------------------------------------------
+transUArithOpDyn :: UArithOp ->  SVal -> SVal
+transUArithOpDyn UAminus = svUNeg
+
+transUBoolOpDyn :: UBoolOp ->  SVal -> SVal
+transUBoolOpDyn UBneg = svNot
+
+transUnaOpDyn :: UnaOp -> SVal -> SVal
+transUnaOpDyn (UArith ua) = transUArithOpDyn ua
+transUnaOpDyn (UBool ub) = transUBoolOpDyn ub
+
+transBArithOpDyn :: BArithOp ->  SVal  -> SVal  -> SVal
+transBArithOpDyn BAadd = svPlus
+transBArithOpDyn BAsub = svMinus
+transBArithOpDyn BAmul = svTimes
+transBArithOpDyn BAdiv = svDivide
+transBArithOpDyn BAmod= svRem
+
+transBComparOpDyn :: BComparOp ->  SVal -> SVal -> SVal
+transBComparOpDyn  BCeq = svEqual
+transBComparOpDyn  BClt = svLessThan
+transBComparOpDyn  BClte = svLessEq
+transBComparOpDyn  BCgt = svGreaterThan
+transBComparOpDyn  BCgte = svGreaterEq
+transBComparOpDyn  BCne = svNotEqual
+
+transBBoolOpDyn :: BBoolOp ->  SVal -> SVal -> SVal
+{- transBBoolOpDyn BBimpl = (.=>) -}
+transBBoolOpDyn BBor = svOr
+transBBoolOpDyn BBand = svAnd
+
+transBinOp :: BinOp ->  SVal -> SVal -> SVal
+transBinOp (BArith ba) = transBArithOpDyn ba
+transBinOp (BCompar bc) = transBComparOpDyn bc
+transBinOp (BBool bb) = transBBoolOpDyn bb
+
+transExprDyn :: [VarDecl t] -> Expr t -> Symbolic SVal
+transExprDyn env (ValE _ (BoolV b)) = return (svBool b)
+transExprDyn env (ValE _ (IntV i)) = return (svInteger KUnbounded i)
+-- transExprDyn env (VarE _ (GlobalVar vn)) =
+--     return (lookupEnvSBool env vn)
+transExprDyn env (UnaOpE _ u e) =
+    do re <- transExprDyn env e
+       return (transUnaOpDyn u re)
+transExprDyn env (BinOpE _ b e1 e2) =
+    do re1 <- transExprDyn env e1
+       re2 <- transExprDyn env e2
+       return (transBinOp b re1 re2)
+       {-
+transExprDyn env (BinOpE _ (BCompar bcop) e1 e2) =
+    do re1 <- transExpr env e1
+       re2 <- transExpr env e2
+       return (transBComparOp bcop re1 re2)
+
+transExprDyn env (BinOpE _ (BCompar bcop) e1 e2) =
+    let re1 = transExprSInteger env e1
+        re2 = transExprSInteger env e2
+    in return (transBComparOp bcop re1 re2)
+transExprDyn env (BinOpE _ (BBool bbop) e1 e2) =
+    do re1 <- transExprDyn env e1
+       re2 <- transExprDyn env e2
+       return (transBBoolOp bbop re1 re2)
+       -}
+-- TODO  -- catchall
+transExprDyn env _ = return svFalse
+
 
 
 
