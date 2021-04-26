@@ -46,6 +46,82 @@ support for defeasibility
 - SubjectTo
 - Despite
 
+Let's start with a simple expression:
+
+34.2 is subject to 34.1.
+
+in the s(CASP) (line 189 of r34.pl) we have an =opposes= and an =overrides= statement. TMTOWTDI, of course.
+
+In this style, the override/oppose statement talks about who overrides what, /with respect to which conclusion/.
+
+Things are more complicatd around line 280: the override is the conclusion of a rule –– it is conditional.
+
+The conclusion being overridden here is the defeasible conclusion of some other rule.
+
+This is our old friend "Subject to 34.1.b, but despite 34.1.a and 34.1.c–f".
+
+So do we need to name every intermediate conclusion? Lol we need De Bruijn indices for defeasible conclusions
+
+Opposes vs Overrides:
+
+We need an =opposes= whenever there are two conclusions that can't defeasibly hold at the same time. (Here, may =≠= must not)
+
+We need an =overrides= statement whenever the conclusion of one rule defeats the conclusion of another.
+
+Rule 34.1 despite Rule 34.5
+override(34.1,34.5)
+
+Rule 34.1 is subject to Rule 34.5
+override(34.5,34.1)
+
+
+*** Let us agree on the semantics as follows:
+
+Given
+   overrides(defeating_rule,
+             defeating_conclusion,
+             defeated_rule,
+             defeated_conclusion)
+
+means that       if defeated_rule applies and it concludes defeated_conclusion,
+             and if defeating_rule applies,
+            then we discard defeated_conclusion
+             and use defeating_conclusion instead.
+
+Of course we also check if the defeating_rule is itself defeated.
+
+Suppose Rule X says:
+- source legal text :: Rule X says: Despite Rule Y, X_inner concludes (May or MustNot)
+- output: overrides(X_inner,Y)
+
+rule 34.5 says: despite rule 34.1.B
+hence: 
+    overrides(r34_5
+             ,may(LP,accept,EA)
+             ,r34_1
+             ,must_not(LP,accept,EA)) :-
+    according_to(r34_1_b
+                ,must_not(LP,accept,EA)).
+
+Martin: all this seems to just be structural organization, why do we need to even have a logic for this stuff – why do we need an "overrides" operator?
+
+Meng thinks: because it's just syntactic sugar?
+
+Jason: because this is the level of reasoning that the law has; and that the end-user wants to see in explanations, so from the point of view of "argumentation theory" the defeasibility is meaningful to humans.
+
+and because it's what we've implemented in s(CASP), because Jason was writing s(CASP) and wanted a compact representation of some sort; but that's not the only way to do it.
+
+There could be other ways to do it. We could do the sugar in L4 instead of in s(CASP), and do transformation differently, as long as we ge the same explanations.
+
+Suppose Rule Y says:
+Subject to Rule X, Y_inner
+ruleY = overrides(X, Y_inner)
+
+*** Discussion note: We need an expansion step
+
+34.1.x are "sentence fragments", but for defeasibility we need to expand the rules to a complete "sentence" which can be used in defeasibility.
+
+
 * Toolchain Versions
 
 | l4 version | file    | parser status | nlg status    | ide status             | type checking | reasoner status |
