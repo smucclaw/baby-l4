@@ -17,12 +17,5 @@ abstract Questions = Atoms ** {
     MkPred1 : (name : Name) -> (a1     : Atom) -> Pred ;
     MkPred2 : (name : Name) -> (a1, a2 : Atom) -> Pred ;
 
-    -- Test lexicon
-    Win : Name ;
-    Rock : Name ;
-    Winner : Name ;
-    Player : Atom ;
-    Game : Atom ;
-
 
 }

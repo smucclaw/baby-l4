@@ -52,7 +52,7 @@ createPGF = do
 concreteLexicon :: [POS] -> Doc ()
 concreteLexicon poses =
   vsep
-    [ "concrete" <+> lexName <> "Eng of" <+> lexName <+> "=" <+> "Atoms" <> "Eng ** open SyntaxEng, ParadigmsEng, WordNetEng in {",
+    [ "concrete" <+> lexName <> "Eng of" <+> lexName <+> "=" <+> grName <> "Eng ** open SyntaxEng, ParadigmsEng, WordNetEng in {",
       "lin",
       (indent 4 . vsep) (eachConcrete <$> poses),
       "}"
@@ -64,7 +64,7 @@ eachConcrete (POS name lex) = hsep [pretty name, "=", "mkAtom", parens $ pretty 
 abstractLexicon :: [POS] -> Doc ()
 abstractLexicon poses =
   vsep
-    [ "abstract" <+> lexName <+> "=" <+> "Atoms" <+> "** {",
+    [ "abstract" <+> lexName <+> "=" <+> grName <+> "** {",
       "fun",
       indent 4 . sep . punctuate "," . map (pretty . origName) $ poses,
       indent 4 ": Atom ;",
