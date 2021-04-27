@@ -52,7 +52,7 @@ createPGF = do
 concreteLexicon :: [POS] -> Doc ()
 concreteLexicon poses =
   vsep
-    [ "concrete" <+> lexName <> "Eng of" <+> lexName <+> "=" <+> grName <> "Eng ** open SyntaxEng, ParadigmsEng in {",
+    [ "concrete" <+> lexName <> "Eng of" <+> lexName <+> "=" <+> grName <> "Eng ** open SyntaxEng, ParadigmsEng, WordNetEng in {",
       "lin",
       (indent 4 . vsep) (eachConcrete <$> poses),
       "}"
@@ -138,7 +138,7 @@ assignPOS x = POS (fst x) $ checkWords (snd x)
 
 checkWords x
   | length str == 1 = x
-  | length str > 1 = (head str) ++ " (" ++ (unwords $ tail str) ++ ")"
+  | length str > 1 = head str ++ " (" ++ unwords (tail str) ++ ")"
   where str = words x
   -- POS (fst x) $ case concatMap (splitOn "_") (splitOn " " (snd x)) of
   --   [word, _, "N"] -> PN word
@@ -164,10 +164,6 @@ createProgGF :: Program Tp -> IO ()
 createProgGF x  = do
   -- let (absS, cncS) =  mkQLexicon x
   let (absS, cncS) =  makeProgLexicon x
-  print "check abs"
-  print absS
-  print "check concrete"
-  print cncS
   writeDoc (mkAbsName lexName) absS
   writeDoc (mkCncName lexName) cncS
   writeDoc (mkAbsName topName) $ "abstract " <> topName <+> "=" <+> ToGF.FromL4.ToQuestions.grName <> "," <+> lexName <+> "** {flags startcat = Statement ;}"
