@@ -22,12 +22,15 @@ import PGF
 import System.Environment (withArgs)
 import System.IO (IOMode (WriteMode), withFile)
 import Text.Printf (printf)
-import ToGF.GenerateLexicon hiding (grName, topName, lexName, createPGF, abstractLexicon, concreteLexicon)
+import ToGF.GenerateLexicon hiding (origName, POS, grName, topName, lexName, createPGF, abstractLexicon, concreteLexicon)
 
 import ToGF.FromL4.ToProp
-import ToGF.FromSCasp.SCasp
 
 -- lexicon layout
+
+
+data POS = POS {origName :: String, pos :: String}
+  deriving (Eq, Show)
 
 grName, topName, lexName :: Doc () --String
 grName = "Question"
@@ -51,9 +54,12 @@ concreteLexicon poses =
   vsep
     [ "concrete" <+> lexName <> "Eng of" <+> lexName <+> "=" <+> grName <> "Eng ** open SyntaxEng, ParadigmsEng in {",
       "lin",
-      (indent 4 . vsep) (concrEntry <$> poses),
+      (indent 4 . vsep) (eachConcrete <$> poses),
       "}"
     ]
+
+eachConcrete :: POS -> Doc ()
+eachConcrete (POS name lex) = hsep [pretty name, "=", "mkAtom", parens $ pretty lex, ";"]
 
 abstractLexicon :: [POS] -> Doc ()
 abstractLexicon poses =
@@ -92,21 +98,21 @@ grabArgs (GMkPred2 _ arg1 arg2) = [arg1, arg2]
 --mkAtom (mkV2 throw_2_V)
 --mkAtom (mkN "bar")
 
-makeNamePOS :: GName -> POS
-makeNamePOS (LexName x) = POS x $ PN x
+-- makeNamePOS :: GName -> POS
+-- makeNamePOS (LexName x) = POS x $ PN x
 
-makeArgPOS :: GAtom -> POS
-makeArgPOS (LexAtom x) = POS x $ PN x
+-- makeArgPOS :: GAtom -> POS
+-- makeArgPOS (LexAtom x) = POS x $ PN x
 
 -- makeNamePOS :: GName -> Mapping t -> POS
 -- makeNamePOS (LexName x) (Mapping _ name gfexpr) =
 --   POS x $ matchNames x (grabLexicon ())
 
-getListNamePOS :: [GName] -> [POS]
-getListNamePOS = map makeNamePOS
+-- getListNamePOS :: [GName] -> [POS]
+-- getListNamePOS = map makeNamePOS
 
-getListAtomPOS :: [GAtom] -> [POS]
-getListAtomPOS = map makeArgPOS
+-- getListAtomPOS :: [GAtom] -> [POS]
+-- getListAtomPOS = map makeArgPOS
 
 --grabLexicon prog = lexiconofProgram prog
 -- Mapping _ _ gfexp
@@ -128,25 +134,30 @@ getGFExprFromProg prog = map grabLexicon (lexiconOfProgram prog)
 -- rock_1_N
 -- assignPOS to atoms
 assignPOS :: (String, String) -> POS
-assignPOS x =
-  POS (fst x) $ case concatMap (splitOn "_") (splitOn " " (snd x)) of
-    [word, _, "N"] -> PN word
-    [word, _, "V2"] -> PV2 word Nothing
-    [word, _, "V"] -> PV word
-    [word, _, "N2"] -> PN2 word Nothing
-    ["mkV2", word, _, _, prep, "Prep"] -> PV2 word (Just prep)
-    _ -> error $ "error " ++ show x
+assignPOS x = POS (fst x) $ checkWords (snd x)
+
+checkWords x
+  | length str == 1 = x
+  | length str > 1 = (head str) ++ " (" ++ (unwords $ tail str) ++ ")"
+  where str = words x
+  -- POS (fst x) $ case concatMap (splitOn "_") (splitOn " " (snd x)) of
+  --   [word, _, "N"] -> PN word
+  --   [word, _, "V2"] -> PV2 word Nothing
+  --   [word, _, "V"] -> PV word
+  --   [word, _, "N2"] -> PN2 word Nothing
+  --   ["mkV2", word, _, _, prep, "Prep"] -> PV2 word (Just prep)
+  --   _ -> error $ "error " ++ show x
 
 makeProgLexicon :: Program Tp -> (Doc (), Doc ())
 makeProgLexicon prog = (abstractLexicon lex, concreteLexicon lex)
   where
     lex = map assignPOS (getGFExprFromProg prog)
 
-mkQLexicon :: [GPred] -> (Doc (), Doc ())
-mkQLexicon x = (abstractLexicon lexicon, concreteLexicon lexicon)
-  where
-    lexicon =
-      nub $ getListAtomPOS (concatMap grabArgs x) ++ getListNamePOS (concatMap grabNames x)
+-- mkQLexicon :: [GPred] -> (Doc (), Doc ())
+-- mkQLexicon x = (abstractLexicon lexicon, concreteLexicon lexicon)
+--   where
+--     lexicon =
+--       nub $ getListAtomPOS (concatMap grabArgs x) ++ getListNamePOS (concatMap grabNames x)
 
 createProgGF :: Program Tp -> IO ()
 -- createPredGF :: [GPred] -> IO ()
