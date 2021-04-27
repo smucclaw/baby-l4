@@ -121,3 +121,23 @@ executable lsp-server-bl4
                      , sorted-list
                      , either
                      , transformers
+
+test-suite lsp-server-tests
+  default-language:
+    Haskell2010
+  type:
+    exitcode-stdio-1.0
+  hs-source-dirs:
+    lsp-tests
+  build-tool-depends:
+    baby-l4:lsp-server-bl4
+  main-is:
+    Test.hs
+  build-depends:
+      base >= 4 && < 5
+    , tasty
+    , tasty-hunit
+    , baby-l4
+    , lsp-test
+    , lsp-types
+    , text
