@@ -13,9 +13,9 @@ abstract Questions = Atoms ** {
 
     Properties : Pred -> Question ;
 
-    MkPred0 : (name : Name)                    -> Pred ;
-    MkPred1 : (name : Name) -> (a1     : Atom) -> Pred ;
-    MkPred2 : (name : Name) -> (a1, a2 : Atom) -> Pred ;
+    MkPred0 : (name : Atom)                    -> Pred ;
+    MkPred1 : (name : Atom) -> (a1     : Atom) -> Pred ;
+    MkPred2 : (name : Atom) -> (a1, a2 : Atom) -> Pred ;
 
 
 }
