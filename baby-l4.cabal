@@ -121,6 +121,7 @@ executable lsp-server-bl4
                      , sorted-list
                      , either
                      , transformers
+  ghc-options: -Wall
 
 test-suite lsp-server-tests
   default-language:
