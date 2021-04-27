@@ -13,6 +13,7 @@ import Data.Set (Set)
 import qualified Data.Set as S
 import Data.Char
 import Data.List
+import Data.List.Extra (splitOn)
 
 import Questions
 import Syntax
@@ -23,6 +24,7 @@ import System.IO (IOMode (WriteMode), withFile)
 import Text.Printf (printf)
 import ToGF.GenerateLexicon hiding (grName, topName, lexName, createPGF, abstractLexicon, concreteLexicon)
 
+import ToGF.FromL4.ToProp
 import ToGF.FromSCasp.SCasp
 
 -- lexicon layout
@@ -86,14 +88,8 @@ grabArgs :: GPred -> [GAtom]
 grabArgs (GMkPred1 _ arg) = [arg]
 grabArgs (GMkPred2 _ arg1 arg2) = [arg1, arg2]
 
---data POS = POS {origName :: String, pos :: InnerPOS}
-
---data InnerPOS = PN2 String Prep | PN String | PV2 String Prep | PV String
-
 --Not found in lexicon: create the N/V/A/N2/V2/A2 using GF smart paradigms
---mkName (rock_1_N)
 --mkAtom (mkV2 throw_2_V)
---mkName (mkV2 (mkV "foo"))
 --mkAtom (mkN "bar")
 
 makeNamePOS :: GName -> POS
@@ -102,22 +98,61 @@ makeNamePOS (LexName x) = POS x $ PN x
 makeArgPOS :: GAtom -> POS
 makeArgPOS (LexAtom x) = POS x $ PN x
 
+-- makeNamePOS :: GName -> Mapping t -> POS
+-- makeNamePOS (LexName x) (Mapping _ name gfexpr) =
+--   POS x $ matchNames x (grabLexicon ())
+
 getListNamePOS :: [GName] -> [POS]
 getListNamePOS = map makeNamePOS
 
 getListAtomPOS :: [GAtom] -> [POS]
 getListAtomPOS = map makeArgPOS
 
+--grabLexicon prog = lexiconofProgram prog
+-- Mapping _ _ gfexp
+
+-- get gftype from lexicon
+
+grabLexicon :: Mapping t -> (String, String)
+grabLexicon (Mapping _ name gfexpr) = (name, gfexpr)
+
+-- just generate Lexicon
+
+-- get prog to [gname], 
+getNameFromProg prog = map (grabNames . toPred) (globalsOfProgram prog)
+
+-- prog to [mapping t's (string, string)]
+getGFExprFromProg :: Program Tp -> [(String, String)]
+getGFExprFromProg prog = map grabLexicon (lexiconOfProgram prog)
+
+-- rock_1_N
+-- assignPOS to atoms
+assignPOS :: (String, String) -> POS
+assignPOS x =
+  POS (fst x) $ case concatMap (splitOn "_") (splitOn " " (snd x)) of
+    [word, _, "N"] -> PN word
+    [word, _, "V2"] -> PV2 word Nothing
+    [word, _, "V"] -> PV word
+    [word, _, "N2"] -> PN2 word Nothing
+    ["mkV2", word, _, _, prep, "Prep"] -> PV2 word (Just prep)
+    _ -> error $ "error " ++ show x
+
+makeProgLexicon :: Program Tp -> (Doc (), Doc ())
+makeProgLexicon prog = (abstractLexicon lex, concreteLexicon lex)
+  where
+    lex = map assignPOS (getGFExprFromProg prog)
+
 mkQLexicon :: [GPred] -> (Doc (), Doc ())
 mkQLexicon x = (abstractLexicon lexicon, concreteLexicon lexicon)
   where
     lexicon =
       nub $ getListAtomPOS (concatMap grabArgs x) ++ getListNamePOS (concatMap grabNames x)
-    --lexicon = map makeArgPOS $ grabArgs x
 
-createPredGF :: [GPred] -> IO ()
-createPredGF x  = do
-  let (absS, cncS) =  mkQLexicon x
+createProgGF :: Program Tp -> IO ()
+-- createPredGF :: [GPred] -> IO ()
+createProgGF x  = do
+  -- let (absS, cncS) =  mkQLexicon x
+  let (absS, cncS) =  makeProgLexicon x
   print "check abs"
   print absS
   print "check concrete"
@@ -128,18 +163,19 @@ createPredGF x  = do
   writeDoc (mkCncName topName) $ "concrete " <> topName <> "Eng of " <> topName <+> "=" <+> ToGF.FromL4.ToQuestions.grName <> "Eng," <+> lexName <> "Eng ;"
 
 --createGF for all [GPred]
-nlgPreds :: [GPred] -> IO ()
-nlgPreds [] = error "No preds"
-nlgPreds ls = do
-  createPredGF ls -- dump all preds 
-  gr <- createPGF
-  --let allAtoms = concatMap grabArgs ls
-  print "hello"
+-- nlgPreds :: [GPred] -> IO ()
+-- nlgPreds [] = error "No preds"
+-- nlgPreds ls = do
+--   createPredGF ls -- dump all preds 
+--   gr <- ToGF.FromL4.ToQuestions.createPGF
+--   --let allAtoms = concatMap grabArgs ls
+--   print "hello"
 
 hello :: Program Tp -> IO ()
 hello prog = do
-  nlgPreds $ map toPred $ filter isPred (globalsOfProgram prog)
-  mapM_ (putStrLn . showExpr [] . gf) (toQuestions prog)
+  createProgGF prog
+  -- nlgPreds $ map toPred $ filter isPred (globalsOfProgram prog)
+  -- mapM_ (putStrLn . showExpr [] . gf) (toQuestions prog)
 
 class Questionable x where
     toQuestions :: x -> [GQuestion]
@@ -149,6 +185,7 @@ instance Questionable (VarDecl t) where
 
 instance Questionable (Program a) where
   toQuestions = concatMap toQuestions . filter isPred.globalsOfProgram
+
 
 toPred :: VarDecl t -> GPred
 toPred (Pred1 name arg1)      = GMkPred1 (LexName name) (LexAtom arg1)

@@ -55,6 +55,7 @@ process args input = do
           unless (astGF args) $ do
             GF.nlg (getGFL $ format args) tpAstNoSrc
           createSCasp tpAstNoSrc
+          hello tpAstNoSrc
 
     Left err -> do
       putStrLn "Parser Error:"
