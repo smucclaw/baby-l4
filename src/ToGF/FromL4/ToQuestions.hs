@@ -33,7 +33,7 @@ data POS = POS {origName :: String, pos :: String}
   deriving (Eq, Show)
 
 grName, topName, lexName :: Doc () --String
-grName = "Question"
+grName = "Questions"
 topName = grName <> "Top"
 lexName = grName <> "Lexicon"
 
@@ -52,7 +52,7 @@ createPGF = do
 concreteLexicon :: [POS] -> Doc ()
 concreteLexicon poses =
   vsep
-    [ "concrete" <+> lexName <> "Eng of" <+> lexName <+> "=" <+> grName <> "Eng ** open SyntaxEng, ParadigmsEng, WordNetEng in {",
+    [ "concrete" <+> lexName <> "Eng of" <+> lexName <+> "=" <+> "Atoms" <> "Eng ** open SyntaxEng, ParadigmsEng, WordNetEng in {",
       "lin",
       (indent 4 . vsep) (eachConcrete <$> poses),
       "}"
@@ -64,7 +64,7 @@ eachConcrete (POS name lex) = hsep [pretty name, "=", "mkAtom", parens $ pretty 
 abstractLexicon :: [POS] -> Doc ()
 abstractLexicon poses =
   vsep
-    [ "abstract" <+> lexName <+> "=" <+> grName <+> "** {",
+    [ "abstract" <+> lexName <+> "=" <+> "Atoms" <+> "** {",
       "fun",
       indent 4 . sep . punctuate "," . map (pretty . origName) $ poses,
       indent 4 ": Atom ;",
@@ -166,7 +166,7 @@ createProgGF x  = do
   let (absS, cncS) =  makeProgLexicon x
   writeDoc (mkAbsName lexName) absS
   writeDoc (mkCncName lexName) cncS
-  writeDoc (mkAbsName topName) $ "abstract " <> topName <+> "=" <+> ToGF.FromL4.ToQuestions.grName <> "," <+> lexName <+> "** {flags startcat = Statement ;}"
+  writeDoc (mkAbsName topName) $ "abstract " <> topName <+> "=" <+> ToGF.FromL4.ToQuestions.grName <> "," <+> lexName <+> "** {flags startcat = Question ;}"
   writeDoc (mkCncName topName) $ "concrete " <> topName <> "Eng of " <> topName <+> "=" <+> ToGF.FromL4.ToQuestions.grName <> "Eng," <+> lexName <> "Eng ;"
 
 --createGF for all [GPred]
