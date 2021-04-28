@@ -206,7 +206,7 @@ Acc : Acc '.' VAR                  { FldAccE (tokenRange $1 $3) $1 (FldNm $ toke
 
 Atom : '(' ExprsCommaSep ')'       { let ecs = $2
                                      in
-                                        if length ecs == 1 
+                                        if length ecs == 1
                                         then updAnnotOfExpr (const (tokenRange $1 $3)) (head ecs)
                                         else TupleE (tokenRange $1 $3) (reverse ecs) }
      | NUM                         { ValE (pos) (IntV $1) }
