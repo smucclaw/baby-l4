@@ -164,6 +164,8 @@ data SomeAstNode t
   | SExpr (Expr t)
   | SMapping (Mapping t)
   | SClassDecl (ClassDecl t)
+  | SGlobalVarDecl (VarDecl t)
+  | SRule (Rule t)
   deriving (Show)
 
 instance HasLoc t => HasLoc (SomeAstNode t) where
@@ -171,6 +173,8 @@ instance HasLoc t => HasLoc (SomeAstNode t) where
   getLoc (SExpr et) = getLoc et
   getLoc (SMapping et) = getLoc et
   getLoc (SClassDecl et) = getLoc et
+  getLoc (SGlobalVarDecl et) = getLoc et
+  getLoc (SRule et) = getLoc et
 
 selectSmallestContaining :: HasLoc t => Position -> SomeAstNode t -> SomeAstNode t
 selectSmallestContaining pos node =
@@ -179,10 +183,13 @@ selectSmallestContaining pos node =
     Just sub -> selectSmallestContaining pos sub
 
 getChildren :: SomeAstNode t -> [SomeAstNode t]
-getChildren (SProg Program {lexiconOfProgram, classDeclsOfProgram}) = map SMapping lexiconOfProgram ++ map SClassDecl classDeclsOfProgram-- TODO: Add other children
+getChildren (SProg Program {lexiconOfProgram, classDeclsOfProgram, globalsOfProgram, rulesOfProgram }) = 
+  map SMapping lexiconOfProgram ++ map SClassDecl classDeclsOfProgram ++ map SGlobalVarDecl globalsOfProgram ++ map SRule rulesOfProgram -- TODO: Add other children
 getChildren (SExpr et) = SExpr <$> childExprs et
 getChildren (SMapping _) = []
 getChildren (SClassDecl _) = []
+getChildren (SGlobalVarDecl _) = []
+getChildren (SRule _) = []
 
 findAstAtPoint :: HasLoc t => Position -> Program t -> SomeAstNode t
 findAstAtPoint pos = selectSmallestContaining pos . SProg
@@ -228,6 +235,8 @@ tokenToHover tok astNode = Hover contents range
 astToText :: SomeAstNode SRng -> Maybe T.Text
 astToText (SMapping (Mapping _ from to)) = Just $ "This block maps variable " <> T.pack from <> " to GrammaticalFramework WordNet definion " <> tshow to
 astToText (SClassDecl (ClassDecl _ (ClsNm x) _)) = Just $ "Declaration of new class : " <> T.pack x
+astToText (SGlobalVarDecl (VarDecl _ n _)) = Just $ "Declaration of global variable " <> T.pack n
+astToText (SRule (Rule _ n _ _ _)) = Just $ "Declaration of rule " <> T.pack n
 astToText _ = Nothing
 
 tokenToText :: Token -> T.Text
