@@ -22,7 +22,7 @@ import Syntax
       UnaOp(..),
       Val(IntV, BoolV),
       Var(GlobalVar, LocalVar),
-      VarDecl(VarDecl),
+      VarDecl(VarDecl, nameOfVarDecl),
       VarName )
 import Annotation (TypeAnnot)
 import Typing (getTypeOfExpr, isBooleanTp, isIntegerTp)
@@ -74,8 +74,8 @@ data SBVType
     | TSInteger SInteger
 
 -- implemented as list because new elements are added by binders
-type TransEnvGen = [(VarName, Smt.SBVType)]
-lookupTransEnvGen :: TransEnvGen -> VarName -> Smt.SBVType
+type TransEnvGen = [(VarName, SmtSBV.SBVType)]
+lookupTransEnvGen :: TransEnvGen -> VarName -> SmtSBV.SBVType
 lookupTransEnvGen env vn =
     Data.Maybe.fromMaybe (error $ "internal error in lookupTransEnvGen: Var not found: " ++ show vn)
     (lookup vn env)
@@ -163,7 +163,7 @@ transExprPredicate env (BinOpE _ (BBool bbop) e1 e2) =
        re2 <- transExprPredicate env e2
        return (transBBoolOp bbop re1 re2)
 -- TODO: translating if-then-else as in the following only works
--- if the two branches are of type Bool. 
+-- if the two branches are of type Bool.
 -- To be done otherwise: some form of if-lifting
 -- TODO: what about the "ite" mentioned in section "cardinality constraints"
 -- of https://hackage.haskell.org/package/sbv-8.14/docs/Data-SBV.html
@@ -246,38 +246,45 @@ transToPredicate vds e = do
 -}
 
 
-type TransEnvDyn = [(VarName, IO SVal)]
-lookupTransEnvDyn :: TransEnvDyn -> VarName -> IO SVal
+type TransEnvDyn = [(VarName, SVal)]
+lookupTransEnvDyn :: TransEnvDyn -> VarName -> SVal
 lookupTransEnvDyn env vn =
     Data.Maybe.fromMaybe (error $ "internal error in lookupTransEnvDyn: Var not found: " ++ show vn)
     (lookup vn env)
 
 
-varTypeToKind :: Tp -> Kind 
-varTypeToKind vt 
+varTypeToKind :: Tp -> Kind
+varTypeToKind vt
   | isBooleanTp vt = KBool
-  | isIntegerTp vt = KUnbounded 
+  | isIntegerTp vt = KUnbounded
   | otherwise = error $ "in varTypeToKind: type " ++ show vt ++ " not supported"
 
 varDeclToTransEnvDyn :: MonadSymbolic m => VarDecl t -> m SVal
-varDeclToTransEnvDyn (VarDecl _ vn vt) = symbolicEnv >>= liftIO . svMkSymVar (NonQueryVar Nothing) (varTypeToKind vt) (Just vn) 
+varDeclToTransEnvDyn (VarDecl _ vn vt) = symbolicEnv >>= liftIO . svMkSymVar (NonQueryVar Nothing) (varTypeToKind vt) (Just vn)
 
 proveExpr :: [VarDecl t] -> Expr t ->IO ()
 -- Works for SBV.Dynamic:
 -- proveExpr vds  = print <=< ((Data.SBV.Dynamic.satWith z3) . transExprDyn vds)
 proveExpr vds e = do
-    let tr = transExprDyn vds e
+    let tr = do
+              tvds <- mapM mkTrEnvDyn vds
+              transExprDyn tvds e
     benchm <- Data.SBV.Dynamic.generateSMTBenchmark True tr
     satres <- Data.SBV.Dynamic.satWith z3 tr
     putStrLn benchm
     print satres
 
+mkTrEnvDyn :: VarDecl t -> SymbolicT IO (VarName, SVal)
+mkTrEnvDyn vd = do
+    x <- varDeclToTransEnvDyn vd
+    pure (nameOfVarDecl vd,x)
+
 
 -- proveExpr vds  = (print <=< (allSat . transToPredicate vds))
 -- proveExpr vds  = (print <=< (allSat . transToPredicateSingle (head vds)))
 {-
-proveExpr vds e = 
-    do 
+proveExpr vds e =
+    do
         res <- transToPredicateSingle (head vds) e
         print res
 -}
@@ -331,11 +338,11 @@ transBinOp (BArith ba) = transBArithOpDyn ba
 transBinOp (BCompar bc) = transBComparOpDyn bc
 transBinOp (BBool bb) = transBBoolOpDyn bb
 
-transExprDyn :: [VarDecl t] -> Expr t -> Symbolic SVal
+transExprDyn :: TransEnvDyn -> Expr t -> Symbolic SVal
 transExprDyn env (ValE _ (BoolV b)) = return (svBool b)
 transExprDyn env (ValE _ (IntV i)) = return (svInteger KUnbounded i)
--- transExprDyn env (VarE _ (GlobalVar vn)) =
---     return (lookupEnvSBool env vn)
+transExprDyn env (VarE _ (GlobalVar vn)) =
+    return (lookupTransEnvDyn env vn)
 transExprDyn env (UnaOpE _ u e) =
     do re <- transExprDyn env e
        return (transUnaOpDyn u re)
@@ -343,6 +350,20 @@ transExprDyn env (BinOpE _ b e1 e2) =
     do re1 <- transExprDyn env e1
        re2 <- transExprDyn env e2
        return (transBinOp b re1 re2)
+transExprDyn env (ValE t v) = undefined
+transExprDyn env (VarE t v) = undefined
+transExprDyn env (IfThenElseE t et et4 et5) = undefined
+transExprDyn env (AppE t et et4) = undefined
+transExprDyn env (FunE t p t4 et) = undefined
+transExprDyn env (QuantifE t q varname tp et) = do
+    let vd = VarDecl () varname tp
+    varDeclToTransEnvDyn vd
+    -- TODO: This is just nonsense
+transExprDyn env (FldAccE t et f) = undefined
+transExprDyn env (TupleE t l_et) = undefined
+transExprDyn env (CastE t t3 et) = undefined
+transExprDyn env (ListE t l l_et) = undefined
+transExprDyn env (NotDeriv t b et) = undefined
        {-
 transExprDyn env (BinOpE _ (BCompar bcop) e1 e2) =
     do re1 <- transExpr env e1
@@ -359,7 +380,7 @@ transExprDyn env (BinOpE _ (BBool bbop) e1 e2) =
        return (transBBoolOp bbop re1 re2)
        -}
 -- TODO  -- catchall
-transExprDyn env _ = return svFalse
+-- transExprDyn env _ = return svFalse
 
 
 

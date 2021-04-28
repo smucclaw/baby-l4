@@ -6,7 +6,7 @@ module Main where
 import Parser (parseProgram)
 import Syntax (Program, ClassName)
 import Typing ( checkError )
-import Smt (proveProgram)
+import SmtSBV (proveProgram)
 import System.Environment ( getEnv )
 import Options.Applicative
 import qualified ToGF as GF
@@ -41,7 +41,7 @@ process args input = do
     Right ast -> do
       preludeAst <- readPrelude
 
-      case checkError preludeAst ast of 
+      case checkError preludeAst ast of
         Left err -> putStrLn (printError err)
         Right tpAst -> do
           let tpAstNoSrc = fmap typeAnnot tpAst

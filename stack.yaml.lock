@@ -85,6 +85,13 @@ packages:
       sha256: 2c3dc6abc101832026902feb1f4d0cfd227dc0cddf9db857c30da38c80ac387c
   original:
     hackage: simple-smt-0.9.5@sha256:70e6f694d401d23783b6f5c62774262a01cc7c305a64a13690ab7664a4f98ebf,736
+- completed:
+    hackage: sbv-8.9@sha256:efb0f16c671869805e57d11e269793d5e5ae512e8e626582cf76b8e46a63e9c6,28985
+    pantry-tree:
+      size: 62515
+      sha256: 9bb3bb8dbb26363388e013c795e60e81f9b243ecac6e28b3e9d7079c083ebdf4
+  original:
+    hackage: sbv-8.9@sha256:efb0f16c671869805e57d11e269793d5e5ae512e8e626582cf76b8e46a63e9c6,28985
 snapshots:
 - completed:
     size: 532177
