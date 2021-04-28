@@ -18,9 +18,7 @@ import qualified Language.LSP.Types            as J
 import qualified Language.LSP.Types.Lens       as J
 import           Language.LSP.Diagnostics
 import           System.Log.Logger
-import Data.Traversable ( for )
 -- import Control.Monad.Identity (Identity(runIdentity))
-import Data.Functor.Const (Const(..))
 import Parser (parseProgram)
 import Data.Foldable (for_)
 import qualified Data.List as List
@@ -28,11 +26,13 @@ import Syntax
 import Control.Lens.Extras (template)
 import Data.Data (Data)
 import Data.Either.Combinators (rightToMaybe, maybeToRight)
-import Control.Monad.Trans.Except (except, ExceptT)
+import Control.Monad.Trans.Except (except)
 import Control.Monad.Except
 -- import Syntax (Pos(..),SRng(..))
 
 import Annotation
+import Data.Maybe (fromMaybe)
+import Annotation (SRng(DummySRng))
 
 type Config = ()
 
@@ -105,7 +105,7 @@ parseAndSendErrors uri contents = do
   let pres = parseProgram loc $ T.unpack contents
       nuri = toNormalizedUri uri
   case pres of
-    Right err ->
+    Right _ast ->
       publishDiagnostics 100 nuri Nothing (Map.singleton (Just "parser") mempty)
     Left err -> do
       let
@@ -125,18 +125,21 @@ tshow :: Show a => a -> T.Text
 tshow = T.pack . show
 
 posInRange :: Position -> SRng -> Bool
-posInRange (Position line col) (SRng (Pos top left) (Pos bottom right)) =
+posInRange (Position line col) (DummySRng _) = False
+posInRange (Position line col) (RealSRng (SRng (Pos top left) (Pos bottom right))) =
   (line == top && col >= left || line > top)
   && (line == bottom && col <= right || line < bottom)
 
 -- | Convert l4 source ranges to lsp source ranges
-posToRange :: SRng -> Range
-posToRange (SRng (Pos l1 c1) (Pos l2 c2)) = Range (Position l1 c1) (Position l2 c2)
+sRngToRange :: SRng -> Maybe Range
+sRngToRange (RealSRng (SRng (Pos l1 c1) (Pos l2 c2))) = Just $ Range (Position l1 c1) (Position l2 c2)
+sRngToRange (DummySRng _) = Nothing
 
 -- | Extract the range from an alex/happy error
 errorRange :: Err -> Range
-errorRange (Err s _) = posToRange s
-errorRange (StringErr _) = Range (Position 0 0) (Position 999 0)
+errorRange (Err s _)
+  | Just rng <- sRngToRange s = rng
+  | otherwise = Range (Position 0 0) (Position 999 0)
 
 -- TODO: Use findAllExpressions and findExprAt to extract types for hover
 -- TODO: Show type errors as diagnostics
@@ -156,6 +159,31 @@ findExprAt pos expr =
 findAnyExprAt :: (HasLoc t, Data t) => J.Position -> Program t -> Maybe (Expr t)
 findAnyExprAt pos = List.find (posInRange pos . getLoc) . findAllExpressions
 
+data SomeAstNode t
+  = SProg (Program t)
+  | SExpr (Expr t)
+  | SMapping (Mapping t)
+  deriving (Show)
+
+instance HasLoc t => HasLoc (SomeAstNode t) where
+  getLoc (SProg pt) = getLoc (annotOfProgram pt)
+  getLoc (SExpr et) = getLoc et
+  getLoc (SMapping et) = getLoc et
+
+selectSmallestContaining :: HasLoc t => Position -> SomeAstNode t -> SomeAstNode t
+selectSmallestContaining pos node =
+  case List.find (posInRange pos . getLoc) (getChildren node) of
+    Nothing -> node
+    Just sub -> selectSmallestContaining pos sub
+
+getChildren :: SomeAstNode t -> [SomeAstNode t]
+getChildren (SProg Program {lexiconOfProgram}) = map SMapping lexiconOfProgram -- TODO: Add other children
+getChildren (SExpr et) = SExpr <$> childExprs et
+getChildren (SMapping _) = []
+
+findAstAtPoint :: HasLoc t => Position -> Program t -> SomeAstNode t
+findAstAtPoint pos = selectSmallestContaining pos . SProg
+
 -- | Temporary bad debugging function.
 -- Use @debugM@ instead
 elog :: (MonadIO m, Show a) => a -> m ()
@@ -164,23 +192,39 @@ elog = liftIO . hPutStrLn stderr . tshow
 scanFile' :: FilePath -> ExceptT Err IO [Token]
 scanFile' = ExceptT . scanFile
 
+-- TODO: Accept a virtual file as well
+parseProgram' :: FilePath -> ExceptT Err IO (Program SRng)
+parseProgram' filename = ExceptT $ parseProgram filename <$> readFile filename
+
 uriToFilePath' :: Monad m => Uri -> ExceptT Err m FilePath
 uriToFilePath' uri = extract "Read token Error" $ uriToFilePath uri
 
 -- | Convert Maybe to ExceptT using string as an error message in Maybe is Nothing
+-- TODO: Handle different kinds of problems differently!
 extract :: Monad m => String -> Maybe a -> ExceptT Err m a
-extract errMessage = except . maybeToRight (StringErr errMessage)
+extract errMessage = except . maybeToRight (Err (DummySRng "From lsp") errMessage)
 
-tokensToHover :: Position -> [Token] -> ExceptT Err IO Hover
-tokensToHover pos tokens = do
+-- TODO: Add type checking as well
+tokensToHover :: Position -> [Token] -> Program SRng -> ExceptT Err IO Hover
+tokensToHover pos tokens ast = do
+      let astNode = findAstAtPoint pos ast
       tok <- extract "Couldn't find token" $ find (posInRange pos . tokenPos) tokens
-      return $ tokenToHover tok
+      return $ tokenToHover tok astNode
 
-tokenToHover :: Token -> Hover
-tokenToHover tok = Hover contents range
+tokenToHover :: Token -> SomeAstNode SRng -> Hover
+tokenToHover tok astNode = Hover contents range
   where
-    contents = HoverContents $ markedUpContent "haskell" $ tokenToText tok
-    range = Just $ posToRange $ tokenPos tok
+    astText = astToText astNode
+    txt = fromMaybe (tokenToText tok) astText
+    contents = HoverContents $ markedUpContent "haskell" txt
+    annRange = case astText of
+      Just _ -> getLoc astNode
+      Nothing -> tokenPos tok
+    range = sRngToRange annRange
+
+astToText :: SomeAstNode SRng -> Maybe T.Text
+astToText (SMapping (Mapping _ from to)) = Just $ "This block maps variable " <> T.pack from <> " to GrammaticalFramework WordNet definion " <> tshow to
+astToText _ = Nothing
 
 tokenToText :: Token -> T.Text
 tokenToText token =
@@ -192,7 +236,8 @@ lookupTokenBare' :: Position -> Uri -> ExceptT Err IO Hover
 lookupTokenBare' pos uri = do
   path <- uriToFilePath' uri
   allTokens <- scanFile' path
-  tokensToHover pos allTokens
+  ast <- parseProgram' path
+  tokensToHover pos allTokens ast
 
 syncOptions :: J.TextDocumentSyncOptions
 syncOptions = J.TextDocumentSyncOptions
