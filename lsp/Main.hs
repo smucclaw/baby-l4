@@ -31,6 +31,7 @@ import Control.Monad.Except
 -- import Syntax (Pos(..),SRng(..))
 
 import Annotation
+import Data.Maybe (fromMaybe)
 
 type Config = ()
 
@@ -128,12 +129,12 @@ posInRange (Position line col) (SRng (Pos top left) (Pos bottom right)) =
   && (line == bottom && col <= right || line < bottom)
 
 -- | Convert l4 source ranges to lsp source ranges
-posToRange :: SRng -> Range
-posToRange (SRng (Pos l1 c1) (Pos l2 c2)) = Range (Position l1 c1) (Position l2 c2)
+sRngToRange :: SRng -> Range
+sRngToRange (SRng (Pos l1 c1) (Pos l2 c2)) = Range (Position l1 c1) (Position l2 c2)
 
 -- | Extract the range from an alex/happy error
 errorRange :: Err -> Range
-errorRange (Err s _) = posToRange s
+errorRange (Err s _) = sRngToRange s
 errorRange (StringErr _) = Range (Position 0 0) (Position 999 0)
 
 -- TODO: Use findAllExpressions and findExprAt to extract types for hover
@@ -158,6 +159,7 @@ data SomeAstNode t
   = SProg (Program t)
   | SExpr (Expr t)
   | SMapping (Mapping t)
+  deriving (Show)
 
 instance HasLoc t => HasLoc (SomeAstNode t) where
   getLoc (SProg pt) = getLoc (annotOfProgram pt)
@@ -207,12 +209,20 @@ tokensToHover pos tokens ast = do
 tokenToHover :: Token -> SomeAstNode SRng -> Hover
 tokenToHover tok astNode = Hover contents range
   where
-    contents = HoverContents $ markedUpContent "haskell" $ tokenToText tok astNode
-    range = Just $ posToRange $ tokenPos tok
+    astText = astToText astNode
+    txt = fromMaybe (tokenToText tok) astText
+    contents = HoverContents $ markedUpContent "haskell" txt
+    annRange = case astText of
+      Just _ -> getLoc astNode
+      Nothing -> tokenPos tok
+    range = Just $ sRngToRange annRange
 
-tokenToText :: Token -> SomeAstNode SRng -> T.Text
-tokenToText token (SMapping (Mapping _ from to)) = "This block maps variable " <> T.pack from <> " to GrammaticalFramework WordNet definion " <> tshow to
-tokenToText token ast =
+astToText :: SomeAstNode SRng -> Maybe T.Text
+astToText (SMapping (Mapping _ from to)) = Just $ "This block maps variable " <> T.pack from <> " to GrammaticalFramework WordNet definion " <> tshow to
+astToText _ = Nothing
+
+tokenToText :: Token -> T.Text
+tokenToText token =
   case tokenKind token of
     TokenLexicon -> "This is a lexicon"
     _            -> tshow token

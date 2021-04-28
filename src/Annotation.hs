@@ -2,7 +2,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Annotation where 
+module Annotation where
 
 import Data.Data (Data, Typeable)
 
@@ -29,7 +29,7 @@ nullSRng :: SRng
 nullSRng = SRng nullPos nullPos
 
 coordFromTo :: SRng -> SRng -> SRng
-coordFromTo (SRng f1 t1) (SRng f2 t2) = SRng f1 t2
+coordFromTo (SRng f1 t1) (SRng f2 t2) = SRng (min f1 f2) (max t2 t2)
 
 tokenRange :: (HasLoc f, HasLoc g) => f -> g -> SRng
 tokenRange a b = coordFromTo (getLoc a) (getLoc b)
@@ -46,9 +46,9 @@ instance HasLoc SRng where
   getLoc = id
 
 instance HasLoc a => HasLoc [a] where
-  getLoc = tokenRangeList . (map getLoc)
+  getLoc = tokenRangeList . map getLoc
 
-data LocTypeAnnot a = LocTypeAnnot { locAnnot :: SRng 
+data LocTypeAnnot a = LocTypeAnnot { locAnnot :: SRng
                                    , typeAnnot :: a
 }
   deriving (Eq, Ord, Show, Read, Data, Typeable)
@@ -63,6 +63,6 @@ class TypeAnnot f where
 
 instance TypeAnnot LocTypeAnnot where
   getType = typeAnnot
-  updType lta v = lta {typeAnnot = v} 
+  updType lta v = lta {typeAnnot = v}
 
 
