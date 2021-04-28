@@ -17,7 +17,7 @@ import Control.Monad ( when, unless )
 import ToSCASP (createSCasp)
 import ToGF.FromSCasp.SCasp ( parseModel )
 import ToGF.FromSCasp.ToAnswer ( nlgModels )
-import ToGF.FromL4.ToQuestions
+import ToGF.FromL4.ToQuestions ( createQuestions )
 import ToGF.NormalizeSyntax
 import Annotation ( SRng, LocTypeAnnot (typeAnnot) )
 import Paths_baby_l4 (getDataFileName)
@@ -61,13 +61,15 @@ process args input = do
             (Fgf GFOpts { gflang = gfl, showast = False} ) -> GF.nlg    gfl tpAstNoSrc
             Fscasp -> do createSCasp tpAstNoSrc
             Fyaml -> do createDSyaml tpAstNoSrc
+                        putStrLn "---------------"
+                        createQuestions tpAstNoSrc
+
 
           -- Just a test for creating natural language from s(CASP) models.
           when (testModels args) $ do
             putStrLn "\nDemo of NLG from s(CASP) models"
             let models = rights $ map parseModel tests
             nlgModels models
-          hello tpAstNoSrc
 
     Left err -> do
       putStrLn "Parser Error:"

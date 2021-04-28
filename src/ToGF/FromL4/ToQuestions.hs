@@ -38,8 +38,8 @@ getAtoms (GMkPred0 (LexAtom name)) = [AA name 0]
 getAtoms (GMkPred1 (LexAtom name) (LexAtom arg)) = [AA name 1, AA arg 0]
 getAtoms (GMkPred2 (LexAtom name) (LexAtom arg1) (LexAtom arg2)) = [AA name 2, AA arg1 0, AA arg2 0]
 
-nlgPreds :: Program t -> IO ()
-nlgPreds prog = do
+createQuestions :: Program t -> IO ()
+createQuestions prog = do
   gr <- createGF prog -- TODO: involve lexicon
   let questions = toQuestions prog
   mapM_ (printGF gr) questions
