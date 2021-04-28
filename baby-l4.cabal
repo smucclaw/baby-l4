@@ -138,6 +138,7 @@ test-suite lsp-server-tests
       base >= 4 && < 5
     , tasty
     , tasty-hunit
+    , tasty-expected-failure
     , baby-l4
     , lsp-test
     , lsp-types
