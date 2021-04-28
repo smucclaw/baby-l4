@@ -1,0 +1,9 @@
+# run with:
+# stack run -- l4 all --smt l4/smt.l4
+
+
+# decl a: Boolean
+# decl b: Boolean
+decl x: Integer
+
+assert 2 + x < 2 * x  &&  2 * (x - 3 ) < 10 

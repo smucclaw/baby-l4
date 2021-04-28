@@ -69,7 +69,7 @@ library
                      , lsp-types
                      , MissingH
                      -- required for SMT interaction
-                     , sbv
+                     , simple-smt
   build-tools:         alex, happy, gf
   -- build-tools-depends:         alex:alex, happy:happy, gf:gf
   default-language: Haskell2010
