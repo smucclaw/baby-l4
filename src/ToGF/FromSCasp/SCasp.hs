@@ -9,8 +9,6 @@ import Data.Void ( Void )
 import Text.Megaparsec hiding (State)
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
-import Data.Set (Set)
-import qualified Data.Set as S
 
 ----------------------------------------------------------------
 -- Abstract syntax
@@ -44,22 +42,12 @@ type Model = Tree KModel
 type Atom = Tree KAtom
 type Arg = Tree KArg
 
-fancyFoldMap :: Monoid m => (forall a. Tree a -> m) -> Tree s -> m
-fancyFoldMap f t@(MExps l_tk) = f t <> foldMap (fancyFoldMap f) l_tk
-fancyFoldMap f t@(EApp tk l_tk) = f t <> fancyFoldMap f tk <> foldMap (fancyFoldMap f) l_tk
-fancyFoldMap f t@(AAtom tk) = f t <> fancyFoldMap f tk
-fancyFoldMap f t@(AVar tk) = f t <> fancyFoldMap f tk
-fancyFoldMap f t = f t
-
-data AtomWithArity = AA String Int deriving (Show, Eq, Ord)
-
-getAtom :: Tree a -> Set AtomWithArity
-getAtom (EApp (A str) ts) = S.singleton $ AA str (length ts)
-getAtom (AAtom (A str))   = S.singleton $ AA str 0
-getAtom _                 = mempty
-
-getAtoms :: Tree s -> Set AtomWithArity
-getAtoms = fancyFoldMap getAtom
+foldMapTree :: Monoid m => (forall a. Tree a -> m) -> Tree s -> m
+foldMapTree f t@(MExps l_tk) = f t <> foldMap (foldMapTree f) l_tk
+foldMapTree f t@(EApp tk l_tk) = f t <> foldMapTree f tk <> foldMap (foldMapTree f) l_tk
+foldMapTree f t@(AAtom tk) = f t <> foldMapTree f tk
+foldMapTree f t@(AVar tk) = f t <> foldMapTree f tk
+foldMapTree f t = f t
 
 dumpModels :: [Model] -> Model
 dumpModels = MExps . foldMap getModel
