@@ -47,7 +47,7 @@ library
                   ToGF.NormalizeSyntax
                   ToGF.TreeTransform
                   ToGF.FromSCasp.SCasp
-                  ToGF.FromSCasp.AnswerToGF
+                  ToGF.FromSCasp.ToAnswer
                   ToGF.FromL4.ToQuestions
                   ToSCASP
                   ToDA2

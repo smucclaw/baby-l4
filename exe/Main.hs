@@ -16,7 +16,7 @@ import Control.Exception (catch, SomeException (SomeException))
 import Control.Monad ( when, unless )
 import ToSCASP (createSCasp)
 import ToGF.FromSCasp.SCasp ( parseModel )
-import ToGF.FromSCasp.AnswerToGF ( nlgModels )
+import ToGF.FromSCasp.ToAnswer ( nlgModels )
 import ToGF.FromL4.ToQuestions
 import ToGF.NormalizeSyntax
 import Annotation ( SRng, LocTypeAnnot (typeAnnot) )
@@ -67,6 +67,7 @@ process args input = do
             putStrLn "\nDemo of NLG from s(CASP) models"
             let models = rights $ map parseModel tests
             nlgModels models
+          hello tpAstNoSrc
 
     Left err -> do
       putStrLn "Parser Error:"
