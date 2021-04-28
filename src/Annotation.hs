@@ -19,17 +19,30 @@ data Pos = Pos
 nullPos :: Pos
 nullPos = Pos 0 0
 
-data SRng = SRng
+type Reason = String
+
+data SRng =
+  RealSRng RealSRng
+  | DummySRng Reason
+  deriving (Eq, Ord, Show, Read, Data, Typeable)
+
+data RealSRng = SRng
   { start :: Pos
   , end   :: Pos
   }
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 nullSRng :: SRng
-nullSRng = SRng nullPos nullPos
+nullSRng = DummySRng "Empty list"
+
+realCoordFromTo :: RealSRng -> RealSRng -> RealSRng
+realCoordFromTo (SRng f1 t1) (SRng f2 t2) = SRng (min f1 f2) (max t2 t2)
+
 
 coordFromTo :: SRng -> SRng -> SRng
-coordFromTo (SRng f1 t1) (SRng f2 t2) = SRng (min f1 f2) (max t2 t2)
+coordFromTo (RealSRng r) (RealSRng r1) = RealSRng $ realCoordFromTo r r1
+coordFromTo r (DummySRng _) = r
+coordFromTo (DummySRng _) r = r
 
 tokenRange :: (HasLoc f, HasLoc g) => f -> g -> SRng
 tokenRange a b = coordFromTo (getLoc a) (getLoc b)

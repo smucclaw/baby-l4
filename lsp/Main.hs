@@ -32,6 +32,7 @@ import Control.Monad.Except
 
 import Annotation
 import Data.Maybe (fromMaybe)
+import Annotation (SRng(DummySRng))
 
 type Config = ()
 
@@ -124,18 +125,21 @@ tshow :: Show a => a -> T.Text
 tshow = T.pack . show
 
 posInRange :: Position -> SRng -> Bool
-posInRange (Position line col) (SRng (Pos top left) (Pos bottom right)) =
+posInRange (Position line col) (DummySRng _) = False
+posInRange (Position line col) (RealSRng (SRng (Pos top left) (Pos bottom right))) =
   (line == top && col >= left || line > top)
   && (line == bottom && col <= right || line < bottom)
 
 -- | Convert l4 source ranges to lsp source ranges
-sRngToRange :: SRng -> Range
-sRngToRange (SRng (Pos l1 c1) (Pos l2 c2)) = Range (Position l1 c1) (Position l2 c2)
+sRngToRange :: SRng -> Maybe Range
+sRngToRange (RealSRng (SRng (Pos l1 c1) (Pos l2 c2))) = Just $ Range (Position l1 c1) (Position l2 c2)
+sRngToRange (DummySRng _) = Nothing
 
 -- | Extract the range from an alex/happy error
 errorRange :: Err -> Range
-errorRange (Err s _) = sRngToRange s
-errorRange (StringErr _) = Range (Position 0 0) (Position 999 0)
+errorRange (Err s _)
+  | Just rng <- sRngToRange s = rng
+  | otherwise = Range (Position 0 0) (Position 999 0)
 
 -- TODO: Use findAllExpressions and findExprAt to extract types for hover
 -- TODO: Show type errors as diagnostics
@@ -196,8 +200,9 @@ uriToFilePath' :: Monad m => Uri -> ExceptT Err m FilePath
 uriToFilePath' uri = extract "Read token Error" $ uriToFilePath uri
 
 -- | Convert Maybe to ExceptT using string as an error message in Maybe is Nothing
+-- TODO: Handle different kinds of problems differently!
 extract :: Monad m => String -> Maybe a -> ExceptT Err m a
-extract errMessage = except . maybeToRight (StringErr errMessage)
+extract errMessage = except . maybeToRight (Err (DummySRng "From lsp") errMessage)
 
 -- TODO: Add type checking as well
 tokensToHover :: Position -> [Token] -> Program SRng -> ExceptT Err IO Hover
@@ -215,7 +220,7 @@ tokenToHover tok astNode = Hover contents range
     annRange = case astText of
       Just _ -> getLoc astNode
       Nothing -> tokenPos tok
-    range = Just $ sRngToRange annRange
+    range = sRngToRange annRange
 
 astToText :: SomeAstNode SRng -> Maybe T.Text
 astToText (SMapping (Mapping _ from to)) = Just $ "This block maps variable " <> T.pack from <> " to GrammaticalFramework WordNet definion " <> tshow to
