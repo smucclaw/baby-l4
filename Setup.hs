@@ -33,16 +33,21 @@ gfPP bi lbi clbi = PreProcessor {
     runPreProcessor = \(inDir,inFile) (outDir,outFile) verbosity -> do
         -- putStrLn $ "hello world! " ++ show ((inDir,inFile), (outDir,outFile), verbosity)
         let lexical = case inFile of 
-                        "Answer.gf" -> "Atom"
-                        "Prop.gf" -> "Noun,Noun2,Adj,Adj2,Verb,Verb2"
-                        "Questions.gf" -> "Atom,Name"
+                        "Prop.gf"
+                          -> ["--haskell=lexical", "--lexical=Noun,Noun2,Adj,Adj2,Verb,Verb2"]
+                        "Answer.gf"
+                          -> ["--haskell=lexical", "--lexical=Atom"]
+                        "Atoms.gf"
+                          -> ["--haskell=lexical", "--lexical=Atom"]
+                        "Questions.gf"
+                          -> ["--haskell=lexical", "--lexical=Atom"]
+                        _ -> []
         let args =
                 [ "-make"
                 , "-f", "haskell"
-                , "--haskell=gadt"
-                , "--haskell=lexical"
-                , "--lexical=" ++ lexical
-                , "--output-dir=" ++ outDir
+                , "--haskell=gadt" ] 
+                ++ lexical
+                ++ ["--output-dir=" ++ outDir
                 , inDir </> inFile
                 ]
         print args
