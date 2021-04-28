@@ -9,7 +9,7 @@ import Control.Monad.IO.Class
 import qualified Data.Text as T
 import Lexer
 import Data.List (find)
-import Data.Text.IO (hPutStrLn)
+import Data.Text.IO (hPutStrLn, putStr)
 import qualified Data.Map as Map
 import System.IO (stderr)
 
@@ -132,7 +132,7 @@ posInRange (Position line col) (RealSRng (SRng (Pos top left) (Pos bottom right)
 
 -- | Convert l4 source ranges to lsp source ranges
 sRngToRange :: SRng -> Maybe Range
-sRngToRange (RealSRng (SRng (Pos l1 c1) (Pos l2 c2))) = Just $ Range (Position l1 c1) (Position l2 c2)
+sRngToRange (RealSRng (SRng (Pos l1 c1) (Pos l2 c2))) = Just $ Range (Position l1 c1) (Position l2 c2)
 sRngToRange (DummySRng _) = Nothing
 
 -- | Extract the range from an alex/happy error
@@ -163,12 +163,14 @@ data SomeAstNode t
   = SProg (Program t)
   | SExpr (Expr t)
   | SMapping (Mapping t)
+  | SClassDecl (ClassDecl t)
   deriving (Show)
 
 instance HasLoc t => HasLoc (SomeAstNode t) where
   getLoc (SProg pt) = getLoc (annotOfProgram pt)
   getLoc (SExpr et) = getLoc et
   getLoc (SMapping et) = getLoc et
+  getLoc (SClassDecl et) = getLoc et
 
 selectSmallestContaining :: HasLoc t => Position -> SomeAstNode t -> SomeAstNode t
 selectSmallestContaining pos node =
@@ -177,9 +179,10 @@ selectSmallestContaining pos node =
     Just sub -> selectSmallestContaining pos sub
 
 getChildren :: SomeAstNode t -> [SomeAstNode t]
-getChildren (SProg Program {lexiconOfProgram}) = map SMapping lexiconOfProgram -- TODO: Add other children
+getChildren (SProg Program {lexiconOfProgram, classDeclsOfProgram}) = map SMapping lexiconOfProgram ++ map SClassDecl classDeclsOfProgram-- TODO: Add other children
 getChildren (SExpr et) = SExpr <$> childExprs et
 getChildren (SMapping _) = []
+getChildren (SClassDecl _) = []
 
 findAstAtPoint :: HasLoc t => Position -> Program t -> SomeAstNode t
 findAstAtPoint pos = selectSmallestContaining pos . SProg
@@ -224,6 +227,7 @@ tokenToHover tok astNode = Hover contents range
 
 astToText :: SomeAstNode SRng -> Maybe T.Text
 astToText (SMapping (Mapping _ from to)) = Just $ "This block maps variable " <> T.pack from <> " to GrammaticalFramework WordNet definion " <> tshow to
+astToText (SClassDecl (ClassDecl _ (ClsNm x) _)) = Just $ "Declaration of new class : " <> T.pack x
 astToText _ = Nothing
 
 tokenToText :: Token -> T.Text
