@@ -16,6 +16,8 @@ import System.Environment (withArgs)
 import System.IO (IOMode (WriteMode), withFile)
 import Text.Printf (printf)
 import Data.List.Extra (splitOn)
+import Data.Set (Set)
+import qualified Data.Set as S
 
 ----------------------------------------------------------------------
 -- Generate GF code
@@ -56,7 +58,20 @@ writeDoc name doc = withFile name WriteMode $ \h -> hPutDoc h doc
 mkLexicon :: SC.Tree s -> (Doc (), Doc ())
 mkLexicon model = (abstractLexicon lexicon, concreteLexicon lexicon)
   where
-    lexicon = guessPOS <$> S.toList (getAtoms model)
+----------------------------------------------------------------------
+-- If there is no lexicon available, we parse the predicates and use GF smart paradigms
+
+-- Internal format that works for all sources
+data AtomWithArity = AA String Int deriving (Show, Eq, Ord)
+
+getAtoms :: SC.Tree s -> Set AtomWithArity
+getAtoms = SC.foldMapTree getAtom
+  where
+    getAtom :: SC.Tree a -> Set AtomWithArity
+    getAtom (EApp (A str) ts) = S.singleton $ AA str (length ts)
+    getAtom (AAtom (A str))   = S.singleton $ AA str 0
+    getAtom _                 = mempty
+
 
 concreteLexicon :: [POS] -> Doc ()
 concreteLexicon poses =
