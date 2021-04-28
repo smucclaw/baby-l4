@@ -8,11 +8,12 @@ module ToGF.FromSCasp.ToAnswer where
 
 import GHC.Exts (the)
 import Data.Set (toList)
-import PGF (PGF, linearizeAll)
+import PGF (PGF)
 import Answer
 import ToGF.FromSCasp.SCasp as SC
 import ToGF.GenerateLexicon
 import ToGF.TreeTransform
+import Control.Monad (when)
 
 -- 1) This is a data family that translates SKind to GF types
 type family SKind2GF (k :: SKind) :: * where
@@ -48,29 +49,32 @@ wrap t ss = case ss of
   _ -> GConjStatement t $ GListStatement ss
 
 ----------------------------------------------------------------------
--- print etc.
+-- Helper functions from GenerateLexicon specialised for Answer
 
 grName :: GrName
 grName = "Answer"
-createGF' :: Model -> IO PGF.PGF
-createGF' model = createGF grName (Data.Set.toList (getAtoms model))
 
-postprocess :: String -> String
-postprocess = map (\c -> if c == '\\' then '\n' else c)
+createGF :: Model -> IO PGF.PGF
+createGF model = createGF' grName (Data.Set.toList (getAtoms model))
 
 printGF :: Gf a => PGF -> a -> IO ()
-printGF gr expr = do
-  --putStrLn $ showExpr [] $ gf expr
-  mapM_ (putStrLn . postprocess) (linearizeAll gr (gf expr))
+printGF gr expr = printGF' gr (gf expr)
+
+----------------------------------------------------------------------
+type Verbosity = Bool
 
 nlgModels :: [Model] -> IO ()
 nlgModels [] = error "nlgModels: no models given"
 nlgModels [model] = nlg model -- default to nlg for just a single model
-nlgModels models = do
-  gr <- createGF' (dumpModels models) -- We need all models together just to create lexicon
+nlgModels ms = nlgModels' False ms
+
+nlgModels' :: Verbosity -> [Model] -> IO ()
+nlgModels' verbose models = do
+  gr <- createGF (dumpModels models) -- We need all models together just to create lexicon
   let gfModels = toGF <$> models
-  -- putStrLn "\nRaw translation of the model"
-  -- mapM_ (printGF gr) gfModels
+  when verbose $ do 
+      putStrLn "\nRaw translation of the model"
+      mapM_ (printGF gr) gfModels
 
   let concls_evidences =
         [ (concl, aggregate evidence)
@@ -101,7 +105,7 @@ nlgModels models = do
 
 nlg :: Model -> IO ()
 nlg model = do
-  gr <- createGF' model
+  gr <- createGF model
   let gfModel = toGF model
   putStrLn "\nRaw translation of the model"
   printGF gr gfModel

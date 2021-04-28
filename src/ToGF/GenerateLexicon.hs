@@ -8,7 +8,7 @@ module ToGF.GenerateLexicon where
 
 import qualified Data.Set as S
 import qualified GF
-import PGF (PGF, readPGF)
+import PGF (PGF, Expr, readPGF, linearizeAll)
 import Prettyprinter
 import Prettyprinter.Render.Text (hPutDoc)
 import ToGF.FromSCasp.SCasp as SC hiding (parens)
@@ -17,47 +17,61 @@ import System.IO (IOMode (WriteMode), withFile)
 import Text.Printf (printf)
 import Data.List.Extra (splitOn)
 import Data.Set (Set)
-import qualified Data.Set as S
 
 ----------------------------------------------------------------------
 -- Generate GF code
 
-grName, topName, lexName :: Doc () --String
-grName = "Answer"
-topName = grName <> "Top"
-lexName = grName <> "Lexicon"
+type GrName = String
+
+topName, lexName :: GrName -> Doc () --String
+topName grName = pretty grName <> "Top"
+lexName grName = pretty grName <> "Lexicon"
 
 mkAbsName, mkCncName, mkPGFName :: Doc () -> String
 mkAbsName d = printf "grammars/%s.gf" (show d)
 mkCncName d = printf "grammars/%sEng.gf" (show d)
-mkPGFName d = printf "/tmp/%s.pgf" (show d)
+mkPGFName d = printf "generated/%s.pgf" (show d)
 
-createPGF :: IO PGF.PGF
-createPGF = do
+createPGF :: Doc () -> IO PGF.PGF
+createPGF name = do
   withArgs
     [ "-make",
-      "--output-dir=/tmp",
-      "--gfo-dir=/tmp",
+      "--output-dir=generated",
+      "--gfo-dir=generated",
       "-v=0",
-      mkCncName topName
+      mkCncName name
     ]
     GF.main
-  PGF.readPGF $ mkPGFName topName
+  PGF.readPGF $ mkPGFName name
 
-createGF :: Model -> IO ()
-createGF model = do
-  let (absS, cncS) = mkLexicon model
-  writeDoc (mkAbsName lexName) absS
-  writeDoc (mkCncName lexName) cncS
-  writeDoc (mkAbsName topName) $ "abstract " <> topName <+> "=" <+> grName <> "," <+> lexName <+> "** {flags startcat = Statement ;}"
-  writeDoc (mkCncName topName) $ "concrete " <> topName <> "Eng of " <> topName <+> "=" <+> grName <> "Eng," <+> lexName <> "Eng ;"
+createGF' :: GrName -> [AtomWithArity] -> IO PGF.PGF
+createGF' gname model = do
+  let lName = lexName gname
+      tName = topName gname
+      grName = pretty gname
+  let (absS, cncS) = mkLexicon gname model
+  writeDoc (mkAbsName lName) absS
+  writeDoc (mkCncName lName) cncS
+  writeDoc (mkAbsName tName) $ "abstract" <+> tName <+> "=" <+> grName <> "," <+> lName <+> "** {flags startcat = Statement ;}"
+  writeDoc (mkCncName tName) $ "concrete" <+> tName <> "Eng of " <> tName <+> "=" <+> grName <> "Eng," <+> lName <> "Eng ;"
+  createPGF tName
 
 writeDoc :: FilePath -> Doc () -> IO ()
 writeDoc name doc = withFile name WriteMode $ \h -> hPutDoc h doc
 
-mkLexicon :: SC.Tree s -> (Doc (), Doc ())
-mkLexicon model = (abstractLexicon lexicon, concreteLexicon lexicon)
+mkLexicon :: GrName -> [AtomWithArity] -> (Doc (), Doc ())
+mkLexicon gname atoms = (abstractLexicon gname lexicon, concreteLexicon gname lexicon)
   where
+    lexicon = guessPOS <$> atoms
+
+printGF' :: PGF -> Expr -> IO ()
+printGF' gr expr = do
+  --putStrLn $ showExpr [] $ gf expr
+  mapM_ (putStrLn . postprocess) (linearizeAll gr expr)
+
+postprocess :: String -> String
+postprocess = map (\c -> if c == '\\' then '\n' else c)
+
 ----------------------------------------------------------------------
 -- If there is no lexicon available, we parse the predicates and use GF smart paradigms
 
@@ -69,23 +83,42 @@ getAtoms = SC.foldMapTree getAtom
   where
     getAtom :: SC.Tree a -> Set AtomWithArity
     getAtom (EApp (A str) ts) = S.singleton $ AA str (length ts)
-    getAtom (AAtom (A str))   = S.singleton $ AA str 0
+    getAtom (AAtom (A str))   = S.singleton $ AA str 0
     getAtom _                 = mempty
 
+-- POS
+type Prep = Maybe String
 
-concreteLexicon :: [POS] -> Doc ()
-concreteLexicon poses =
+data POS = POS {origName :: String, pos :: InnerPOS}
+
+data InnerPOS = PN2 String Prep | PN String | PV2 String Prep | PV String
+
+guessPOS :: AtomWithArity -> POS
+guessPOS aa@(AA str int) = POS str $ case (int, splitOn "_" str) of
+  (0, [noun]) -> PN noun
+  (2, ["is", noun, prep]) -> PN2 noun (Just prep) -- e.g. is_participant_in
+  (2, ["is", noun]) -> PN2 noun Nothing           -- e.g. is_winner
+  (1, ["is", noun]) -> PN noun                    -- e.g. is_game
+  (1, ["is", noun, _]) -> PN noun                 -- for completeness' sake
+  (1, [verb]) -> PV verb
+  (2, [verb]) -> PV2 verb Nothing
+  (2, [verb, prep]) -> PV2 verb (Just prep)
+  _ -> error $ "guessPOS: unexpected output " ++ show aa
+
+
+concreteLexicon :: GrName -> [POS] -> Doc ()
+concreteLexicon gname poses = let lName = lexName gname in
   vsep
-    [ "concrete" <+> lexName <> "Eng of" <+> lexName <+> "=" <+> grName <> "Eng ** open SyntaxEng, ParadigmsEng in {",
+    [ "concrete" <+> lName <> "Eng of" <+> lName <+> "=" <+> pretty gname <> "Eng ** open SyntaxEng, ParadigmsEng in {",
       "lin",
       (indent 4 . vsep) (concrEntry <$> poses),
       "}"
     ]
 
-abstractLexicon :: [POS] -> Doc ()
-abstractLexicon poses =
+abstractLexicon :: GrName -> [POS] -> Doc ()
+abstractLexicon gname poses =
   vsep
-    [ "abstract" <+> lexName <+> "=" <+> grName <+> "** {",
+    [ "abstract" <+> lexName gname <+> "=" <+> pretty gname <+> "** {",
       "fun",
       indent 4 . sep . punctuate "," . map (pretty . origName) $ poses,
       indent 4 ": Atom ;",
@@ -108,21 +141,4 @@ concrEntry (POS name p) = hsep [pretty name, "=", "mkAtom", parens $ innerLex p,
         Just prep -> pretty prep <> "_Prep"
     innerLex (PV v) = "mkV" <+> viaShow v
 
-type Prep = Maybe String
-
-data POS = POS {origName :: String, pos :: InnerPOS}
-
-data InnerPOS = PN2 String Prep | PN String | PV2 String Prep | PV String
-
-guessPOS :: AtomWithArity -> POS
-guessPOS aa@(AA str int) = POS str $ case (int, splitOn "_" str) of
-  (0, [noun]) -> PN noun
-  (2, ["is", noun, prep]) -> PN2 noun (Just prep) -- e.g. is_participant_in
-  (2, ["is", noun]) -> PN2 noun Nothing           -- e.g. is_winner
-  (1, ["is", noun]) -> PN noun                    -- e.g. is_game
-  (1, ["is", noun, _]) -> PN noun                 -- for completeness' sake
-  (1, [verb]) -> PV verb
-  (2, [verb]) -> PV2 verb Nothing
-  (2, [verb, prep]) -> PV2 verb (Just prep)
-  _ -> error $ "guessPOS: unexpected output " ++ show aa
 
