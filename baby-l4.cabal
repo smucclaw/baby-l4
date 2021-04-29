@@ -28,17 +28,33 @@ custom-setup
                      , Cabal >= 1.10
                      , filepath
 
-library
+library l4-generated
   exposed-modules:
-                  -- generated
-                  Lexer
-                  Parser
                   -- generated from GF grammars
                   Prop
                   Answer
                   Questions
                   ParsePredicates
                   Predicates
+
+  build-depends:       base >= 4.7 && < 5
+                     , gf
+                     , mtl        >= 2.2 && <2.4
+
+  build-tools:         alex, happy, gf
+  -- build-tools-depends:         alex:alex, happy:happy, gf:gf
+  hs-source-dirs:
+    -- src
+    -- Stack complains with this and doesn't work without it
+    -- https://github.com/commercialhaskell/stack/issues/3929
+    grammars
+  default-language: Haskell2010
+
+library
+  exposed-modules:
+                  -- generated
+                  Lexer
+                  Parser
                   -- from src
                   Annotation
                   Error
@@ -63,14 +79,9 @@ library
   other-modules: Paths_baby_l4
   hs-source-dirs:
     src
-    -- generated
 
-    -- Stack complains with this and doesn't work without it
-    -- https://github.com/commercialhaskell/stack/issues/3929
-    grammars
-    --src-bnfc
-    --src-l4
   build-depends:       base >= 4.7 && < 5
+                     , l4-generated
                      , array
                      , containers
                      , pretty-simple
@@ -88,8 +99,6 @@ library
                      -- Required for lexer/lsp interop
                      , lsp-types
                      , MissingH
-  build-tools:         alex, happy, gf
-  -- build-tools-depends:         alex:alex, happy:happy, gf:gf
   default-language: Haskell2010
 
 executable l4
@@ -105,6 +114,7 @@ executable l4
                      , pretty-simple
 
                      , optparse-applicative
+
 executable lsp-server-bl4
   hs-source-dirs:      lsp
   main-is:             Main.hs
