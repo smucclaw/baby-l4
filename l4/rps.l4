@@ -25,6 +25,7 @@ class Game {
     win : Player -> Bool
 }
 
+
 # decl Rock : Sign
 # decl Paper : Sign
 # decl Scissors : Sign
@@ -41,6 +42,22 @@ class Game {
 # if True
 # then beat Rock Paper
 
+# these things later get treated as enums
+# decl Rock     : Sign
+# decl Paper    : Sign
+# decl Scissors : Sign
+
+# proposed new syntax: 
+# https://www.typescriptlang.org/docs/handbook/enums.html
+# good artists copy; great artists steal
+# enum Sign {
+#     Rock, Paper, Scissors
+# }
+
+# downstream, rps.out wants to have
+#   "throws" is an Enum whose options are rock:Rock, paper:Paper, scissors:Scissors
+# and that's cool, our rule is, we downcase the enum value, and we create "options" under
+# an attribute whose "name" is whatever, and we ignore the orig enum type name and just say "Enum".
 
 rule <winner>
 for a : Player, g : Game, r : Sign, s : Sign

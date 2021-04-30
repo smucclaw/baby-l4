@@ -9,13 +9,14 @@ extra-deps:
   - json-0.10@sha256:d9fc6b07ce92b8894825a17d2cf14799856767eb30c8bf55962baa579207d799,3210
   - lsp-1.1.1.0@sha256:c8856e5fc71bc9834301731b5ba8786159e1d7e2d2d8ee07aec4f5421f2cf847,5568
   - lsp-types-1.1.0.0@sha256:071289b1c5e2ba8fedf846cfe1931d1cfdaac24a624abdf5dcee52562b1f3e2a,4240
+  - lsp-test-0.13.0.0
   - dependent-map-0.4.0.0@sha256:ca2b131046f4340a1c35d138c5a003fe4a5be96b14efc26291ed35fd08c62221,1657
   - dependent-sum-0.7.1.0@sha256:5599aa89637db434431b1dd3fa7c34bc3d565ee44f0519bfbc877be1927c2531,2068
   - dependent-sum-template-0.1.0.3@sha256:0bbbacdfbd3abf2a15aaf0cf2c27e5bdd159b519441fec39e1e6f2f54424adde,1682
   - unliftio-core-0.2.0.1@sha256:9b3e44ea9aacacbfc35b3b54015af450091916ac3618a41868ebf6546977659a,1082
   - constraints-extras-0.3.0.2@sha256:013b8d0392582c6ca068e226718a4fe8be8e22321cc0634f6115505bf377ad26,1853
-  - prettyprinter-1.7.0
   - regex-posix-clib-2.7@sha256:998fca06da3d719818f0691ef0b8b9b7375afeea228cb08bd9e2db53f96b0cd7,1232
+  - prettyprinter-1.7.0@sha256:6a9569e21fa61163a7f066d23d701e23e917893e8f39733d6e617ec72787ae5f,6007
 
 # Required for the option custom-preprocessor-extensions
 # require-stack-version: ">= 2.6.0"

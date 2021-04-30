@@ -1,8 +1,7 @@
-concrete QuestionsEng of Questions = AtomsEng - [Name, Pred, LinPred, mkPred] ** open Prelude, SyntaxEng, (S=SyntaxEng), ParadigmsEng, WordNetEng in {
+concrete QuestionsEng of Questions = AtomsEng - [Pred, LinPred, mkPred] ** open Prelude, SyntaxEng, (S=SyntaxEng), ParadigmsEng, WordNetEng in {
 
   lincat
     Question = QS ;
-    Name = LinAtom ;
     Pred = LinPred' ;
     -- Pred = AtomsEng.LinPred ** {s : CN} ; -- s field for the name. TODO unify with Answer
 

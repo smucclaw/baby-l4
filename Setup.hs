@@ -32,21 +32,16 @@ gfPP bi lbi clbi = PreProcessor {
     platformIndependent = True,
     runPreProcessor = \(inDir,inFile) (outDir,outFile) verbosity -> do
         -- putStrLn $ "hello world! " ++ show ((inDir,inFile), (outDir,outFile), verbosity)
-        let lexical = case inFile of 
-                        "Answer.gf" -> "Atom"
-                        "Prop.gf" -> "Noun,Noun2,Adj,Adj2,Verb,Verb2"
-                        "Questions.gf" -> "Atom,Name"
-                        _ -> "N,V,A,N2,N3,V2,A2,VA,V2V,VV,V3,VS,V2A,V2S,V2Q,Adv,AdV,AdA,AdN,ACard,CAdv,Conj,Interj,PN,Prep,Pron,Quant,Det,Card,Text,Predet,Subj"
+        let lexical = getLexCategories inFile
             concrete = case inFile of 
                          "ParsePredicates.gf" -> [inDir </> "ParsePredicatesEng.gf"]
                          _ -> []
         let args =
                 [ "-make"
                 , "-f", "haskell"
-                , "--haskell=gadt"
-                , "--haskell=lexical"
-                , "--lexical=" ++ lexical
-                , "--output-dir=" ++ outDir
+                , "--haskell=gadt" ] 
+                ++ lexical
+                ++ ["--output-dir=" ++ outDir
                 , inDir </> inFile
                 ] ++ concrete
                 
@@ -60,3 +55,19 @@ gfPP bi lbi clbi = PreProcessor {
 gfProgram :: Program
 gfProgram = simpleProgram "gf"
 
+getLexCategories fname = case fname of 
+    "Prop.gf"
+        -> lexPrefix "Noun,Noun2,Adj,Adj2,Verb,Verb2"
+    "Atoms.gf"
+        -> lexPrefix "Atom"
+    "Answer.gf"
+        -> getLexCategories "Atoms.gf"
+    "Questions.gf"
+        -> getLexCategories "Atoms.gf"
+    "Predicates.gf"
+        -> lexPrefix "N,V,A,N2,N3,V2,A2,VA,V2V,VV,V3,VS,V2A,V2S,V2Q,Adv,AdV,AdA,AdN,ACard,CAdv,Conj,Interj,PN,Prep,Pron,Quant,Det,Card,Text,Predet,Subj"
+    "ParsePredicates.gf"
+        -> getLexCategories "Predicates.gf"
+    _ -> []
+    where
+      lexPrefix x = ["--haskell=lexical", "--lexical="++x]
