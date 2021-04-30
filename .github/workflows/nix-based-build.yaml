@@ -1,0 +1,19 @@
+name: Examples
+on:
+  push:
+  pull_request:
+jobs:
+  flakes-simple:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: nixbuild/nix-quick-install-action@v5
+        with:
+          nix_version: 2.4pre20201205_a5d85d0
+          nix_conf: experimental-features = nix-command flakes
+      - name: Initial nix develop
+        run: nix develop --profile dev-profile -c sh -c 'which stack; which gf; echo $GF_LIB_PATH'
+      - name: stack build
+        run: nix develop --profile dev-profile -c stack build --nix --test --no-run-tests
+      - name: stack test
+        run: nix develop --profile dev-profile -c stack test --nix
