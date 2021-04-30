@@ -1,5 +1,7 @@
 #+TITLE: Core Abstract Syntax
 
+[[https://github.com/smucclaw/baby-l4/actions/workflows/nix-based-build.yaml][https://github.com/smucclaw/baby-l4/actions/workflows/nix-based-build.yaml/badge.svg]]
+
 * Overview
 
 Abstract syntax for core L4 concepts.
@@ -23,7 +25,7 @@ The file =Test.hs= is for testing only and can be discarded.
 - with lexicon :: =Business -> business_2=
 - wordnet annotations in classes :: e.g. =class Business (132) {=
 - classes :: e.g. =class Business...=
-- rule expressions :: 
+- rule expressions ::
 
 ** 0.3.4
 
@@ -97,7 +99,7 @@ Suppose Rule X says:
 question: do we deal with Y_rule (outer) or Y_inner?
 
 rule 34.5 says: despite rule 34.1.B
-hence: 
+hence:
     overrides(r34_5
              ,may(LP,accept,EA)
              ,r34_1
