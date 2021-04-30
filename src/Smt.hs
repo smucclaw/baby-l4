@@ -1,3 +1,4 @@
+-- L4 to SMT interface using the SimpleSMT library
 
 module Smt(proveProgram) where
 
@@ -9,14 +10,35 @@ import SimpleSMT as SMT
 import qualified Data.Maybe
 
 
+
+
+-------------------------------------------------------------
+-- Extensions to SExpr construction currently not in SimpleSMT
+-------------------------------------------------------------
+
+quantifToSMT :: Quantif -> String
+quantifToSMT All = "forall"
+quantifToSMT Ex = "exists"
+
+quantif :: Quantif -> SExpr -> SExpr -> SExpr
+quantif q vds e = fun (quantifToSMT q) [vds, e]
+
+-- local variable reference in a quantified expression 
+localVarRef :: VarName -> SExpr
+localVarRef = Atom
+
 type SMTFunEnv = [(VarName, SExpr)]
 
 
-tpToSort :: Tp -> SExpr 
-tpToSort t 
-  | isBooleanTp t = tBool 
-  | isIntegerTp t = tInt 
+tpToSort :: Tp -> SExpr
+tpToSort t
+  | isBooleanTp t = tBool
+  | isIntegerTp t = tInt
   | otherwise = error $ "in tpToSort: " ++ show t ++ " not supported"
+
+
+varTypeToSExprTD :: VarName -> Tp -> SExpr
+varTypeToSExprTD vn t = List [List [Atom vn, tpToSort t]]
 
 
 varDeclToFun :: Solver -> VarDecl t -> IO (VarName, SExpr)
@@ -25,7 +47,7 @@ varDeclToFun s (VarDecl _ vn vt) = do
      return (vn, se)
 
 varDeclsToFunEnv :: Solver -> [VarDecl t] -> IO SMTFunEnv
-varDeclsToFunEnv s = mapM (varDeclToFun s) 
+varDeclsToFunEnv s = mapM (varDeclToFun s)
 
 
 valToSExpr :: Val -> SExpr
@@ -33,13 +55,13 @@ valToSExpr (BoolV b) = bool b
 valToSExpr (IntV i) = int i
 valToSExpr _ = error "valToSExpr: not implemented"
 
--- TODO: local variables
+-- TODO: For this to work, names (also of bound variables) have to be unique
 varToSExpr :: SMTFunEnv -> Var -> SExpr
-varToSExpr env (GlobalVar vn) = 
+varToSExpr env (GlobalVar vn) =
     Data.Maybe.fromMaybe
         (error $ "internal error in varToSExpr: Var not found: " ++ show vn)
         (lookup vn env)
-
+varToSExpr env (LocalVar vn i) = localVarRef vn
 
 transUArithOp :: UArithOp ->  SExpr -> SExpr
 transUArithOp UAminus = neg
@@ -59,7 +81,7 @@ transBArithOp BAdiv = SMT.div
 transBArithOp BAmod = SMT.mod
 
 transBComparOp :: BComparOp -> SExpr -> SExpr -> SExpr
-transBComparOp  BCeq = eq 
+transBComparOp  BCeq = eq
 transBComparOp  BClt = lt
 transBComparOp  BClte = leq
 transBComparOp  BCgt = gt
@@ -82,15 +104,17 @@ exprToSExpr env (VarE _ v) = varToSExpr env v
 exprToSExpr env (UnaOpE _ u e) = transUnaOp u (exprToSExpr env e)
 exprToSExpr env (BinOpE _ b e1 e2) = transBinOp b (exprToSExpr env e1) (exprToSExpr env e2)
 exprToSExpr env (IfThenElseE _ c e1 e2) = ite (exprToSExpr env c) (exprToSExpr env e1) (exprToSExpr env e2)
+exprToSExpr env (QuantifE _ q vn t e) =
+  quantif q (varTypeToSExprTD vn t) (exprToSExpr env e)
 -- TODO: still incomplete
 
 
 proveExpr :: [VarDecl t] -> Expr t ->IO ()
 proveExpr vds e = do
-  l <- newLogger 3
+  l <- newLogger 0
   -- s <- newSolver "cvc4" ["--lang=smt2"] (Just l)
   s <- newSolver "z3" ["-in"] (Just l)
-  setLogic s "QF_LIA"
+  setLogic s "LIA"
   env <- varDeclsToFunEnv s vds
   assert s (exprToSExpr env e)
   print =<< check s
