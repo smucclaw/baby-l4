@@ -58,13 +58,14 @@ instance Questionable (Program a) where
 toPred :: VarDecl t -> GPred
 toPred (Pred1 name arg1)      = GMkPred1 (LexAtom name) (LexAtom arg1)
 toPred (Pred2 name arg1 arg2) = GMkPred2 (LexAtom name) (LexAtom arg1) (LexAtom arg2)
+toPred _ = error "The VarDecl is not a predicate :("
 
 isPred :: VarDecl t -> Bool
 isPred = isPred' . tpOfVarDecl
 
 isPred' :: Tp -> Bool
-isPred' (FunT t BoolT) = True
-isPred' (FunT t t2) = isPred' t2
+isPred' (FunT _ BoolT) = True
+isPred' (FunT _ t2) = isPred' t2
 isPred' _ = False
 
 -- patterns

@@ -109,7 +109,7 @@ nlg model = do
   let gfModel = toGF model
   putStrLn "\nRaw translation of the model"
   printGF gr gfModel
-  let aggr@(f : rest) = aggregate $ peel gfModel
+  let (f : rest) = aggregate $ peel gfModel
   -- putStrLn "\nFirst step: aggregation"
   -- printGF $ unpeel aggr
 

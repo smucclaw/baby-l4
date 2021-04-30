@@ -40,9 +40,9 @@ library l4-generated
   build-depends:       base >= 4.7 && < 5
                      , gf
                      , mtl        >= 2.2 && <2.4
-
-  build-tools:         alex, happy, gf
-  -- build-tools-depends:         alex:alex, happy:happy, gf:gf
+  ghc-options: -Wno-all 
+  build-tools:         gf
+  -- build-tools-depends: gf:gf
   hs-source-dirs:
     -- src
     -- Stack complains with this and doesn't work without it
