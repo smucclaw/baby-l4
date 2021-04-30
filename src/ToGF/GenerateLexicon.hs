@@ -11,12 +11,15 @@ import qualified GF
 import PGF (PGF, Expr, readPGF, linearizeAll)
 import Prettyprinter
 import Prettyprinter.Render.Text (hPutDoc)
+import ToGF.ParsePred
 import ToGF.FromSCasp.SCasp as SC hiding (parens)
 import System.Environment (withArgs)
 import System.IO (IOMode (WriteMode), withFile)
 import Text.Printf (printf)
 import Data.List.Extra (splitOn)
 import Data.Set (Set)
+import Syntax (Mapping(..))
+import Data.Maybe (mapMaybe)
 
 ----------------------------------------------------------------------
 -- Generate GF code
@@ -44,12 +47,13 @@ createPGF name = do
     GF.main
   PGF.readPGF $ mkPGFName name
 
-createGF' :: GrName -> [AtomWithArity] -> IO PGF.PGF
-createGF' gname model = do
+createGF' :: GrName -> [Mapping t] -> [AtomWithArity] -> IO PGF.PGF
+createGF' gname userlexicon model = do
   let lName = lexName gname
       tName = topName gname
       grName = pretty gname
-  let (absS, cncS) = mkLexicon gname model
+  parsepgf <- readPGF "generated/ParsePredicates.pgf"
+  let (absS, cncS) = mkLexicon parsepgf gname userlexicon model
   writeDoc (mkAbsName lName) absS
   writeDoc (mkCncName lName) cncS
   writeDoc (mkAbsName tName) $ "abstract" <+> tName <+> "=" <+> grName <> "," <+> lName <+> "** {flags startcat = Statement ;}"
@@ -59,10 +63,18 @@ createGF' gname model = do
 writeDoc :: FilePath -> Doc () -> IO ()
 writeDoc name doc = withFile name WriteMode $ \h -> hPutDoc h doc
 
-mkLexicon :: GrName -> [AtomWithArity] -> (Doc (), Doc ())
-mkLexicon gname atoms = (abstractLexicon gname lexicon, concreteLexicon gname lexicon)
+mkLexicon :: PGF -> GrName -> [Mapping t] -> [AtomWithArity] -> (Doc (), Doc ())
+mkLexicon parsepgf gname userlex atoms = (abstractLexicon gname lexicon, concreteLexicon gname userlexicon lexicon)
   where
-    lexicon = guessPOS <$> atoms
+    bothLexica =
+      [ ( [ parsePred parsepgf value
+          | Mapping _ name value <- userlex
+          , name == funname ] -- is empty if the funname doesn't appear in 
+        , guessPOS aa)
+      | aa@(AA funname _) <- atoms
+      ]
+    userlexicon = [ p | (p:ps , _) <- bothLexica] -- Use the parsed predicate
+    lexicon = [ posguess | ([] , posguess) <- bothLexica] -- If no result for parsePred, fall back to guessed pos
 
 printGF' :: PGF -> Expr -> IO ()
 printGF' gr expr = do
@@ -91,10 +103,11 @@ type Prep = Maybe String
 
 data POS = POS {origName :: String, pos :: InnerPOS}
 
-data InnerPOS = PN2 String Prep | PN String | PV2 String Prep | PV String
+data InnerPOS = PN2 String Prep | PN String | PV2 String Prep | PV String | PGuess String
 
 guessPOS :: AtomWithArity -> POS
-guessPOS aa@(AA str int) = POS str $ case (int, splitOn "_" str) of
+guessPOS (AA str int) = POS str $
+  case (int, splitOn "_" str) of
   (0, [noun]) -> PN noun
   (2, ["is", noun, prep]) -> PN2 noun (Just prep) -- e.g. is_participant_in
   (2, ["is", noun]) -> PN2 noun Nothing           -- e.g. is_winner
@@ -103,11 +116,11 @@ guessPOS aa@(AA str int) = POS str $ case (int, splitOn "_" str) of
   (1, [verb]) -> PV verb
   (2, [verb]) -> PV2 verb Nothing
   (2, [verb, prep]) -> PV2 verb (Just prep)
-  _ -> error $ "guessPOS: unexpected output " ++ show aa
+  _ -> PGuess str
 
 
-concreteLexicon :: GrName -> [POS] -> Doc ()
-concreteLexicon gname poses = let lName = lexName gname in
+concreteLexicon :: GrName -> [Predicate] -> [POS] -> Doc ()
+concreteLexicon gname userlexicon poses = let lName = lexName gname in
   vsep
     [ "concrete" <+> lName <> "Eng of" <+> lName <+> "=" <+> pretty gname <> "Eng ** open SyntaxEng, ParadigmsEng in {",
       "lin",
@@ -140,5 +153,6 @@ concrEntry (POS name p) = hsep [pretty name, "=", "mkAtom", parens $ innerLex p,
         Nothing -> ""
         Just prep -> pretty prep <> "_Prep"
     innerLex (PV v) = "mkV" <+> viaShow v
+    innerLex (PGuess np) = "mkN" <+> viaShow np
 
 

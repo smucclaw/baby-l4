@@ -20,7 +20,7 @@ grName :: GrName
 grName = "Questions"
 
 createGF :: Program t -> IO PGF
-createGF prog = createGF' grName allPreds
+createGF prog = createGF' grName (lexiconOfProgram prog) allPreds
   where
     allPreds = S.toList $ S.fromList $ concat
       [ getAtoms $ toPred vardecl
@@ -58,10 +58,11 @@ instance Questionable (Program a) where
 toPred :: VarDecl t -> GPred
 toPred (Pred1 name arg1)      = GMkPred1 (LexAtom name) (LexAtom arg1)
 toPred (Pred2 name arg1 arg2) = GMkPred2 (LexAtom name) (LexAtom arg1) (LexAtom arg2)
-toPred _ = error "The VarDecl is not a predicate :("
+toPred (VarDecl _ nm tp) = error $  "The VarDecl '" ++ nm ++ " : " ++ show tp ++ "' is not a predicate :("
 
 isPred :: VarDecl t -> Bool
-isPred = isPred' . tpOfVarDecl
+isPred x = True
+--isPred = isPred' . tpOfVarDecl
 
 isPred' :: Tp -> Bool
 isPred' (FunT _ BoolT) = True

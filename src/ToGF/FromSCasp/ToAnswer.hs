@@ -55,7 +55,7 @@ grName :: GrName
 grName = "Answer"
 
 createGF :: Model -> IO PGF.PGF
-createGF model = createGF' grName (Data.Set.toList (getAtoms model))
+createGF model = createGF' grName [] (Data.Set.toList (getAtoms model))
 
 printGF :: Gf a => PGF -> a -> IO ()
 printGF gr expr = printGF' gr (gf expr)
