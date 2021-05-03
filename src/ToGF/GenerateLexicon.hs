@@ -67,9 +67,12 @@ mkLexicon :: PGF -> GrName -> [Mapping t] -> [AtomWithArity] -> (Doc (), Doc ())
 mkLexicon parsepgf gname userlex atoms = (abstractLexicon gname lexicon, concreteLexicon gname userlexicon lexicon)
   where
     bothLexica =
-      [ ( [ parsePred parsepgf value
+      [ ( [ pr -- only those user-defined predicates that actually parse!
           | Mapping _ name value <- userlex
-          , name == funname ] -- is empty if the funname doesn't appear in 
+          , name == funname         
+          , let pr = parsePred parsepgf name value
+          , not $ null $ trees pr
+          ] -- is empty if the funname doesn't appear in user lex, or if there's no parse
         , guessPOS aa)
       | aa@(AA funname _) <- atoms
       ]
@@ -124,7 +127,9 @@ concreteLexicon gname userlexicon poses = let lName = lexName gname in
   vsep
     [ "concrete" <+> lName <> "Eng of" <+> lName <+> "=" <+> pretty gname <> "Eng ** open SyntaxEng, ParadigmsEng in {",
       "lin",
-      (indent 4 . vsep) (concrEntry <$> poses),
+      (indent 4 . vsep) (concrEntryPOS <$> poses),
+      (indent 4 . vsep) (concrEntryUserLex <$> userlexicon),
+      "oper TODO = mkAtom (mkN \"TODO\") ;",
       "}"
     ]
 
@@ -138,8 +143,8 @@ abstractLexicon gname poses =
       "}"
     ]
 
-concrEntry :: POS -> Doc ()
-concrEntry (POS name p) = hsep [pretty name, "=", "mkAtom", parens $ innerLex p, ";"]
+concrEntryPOS :: POS -> Doc ()
+concrEntryPOS (POS name p) = hsep [pretty name, "=", "mkAtom", parens $ innerLex p, ";"]
   where
     innerLex :: InnerPOS -> Doc ()
     innerLex (PN2 n pr) =
@@ -155,4 +160,10 @@ concrEntry (POS name p) = hsep [pretty name, "=", "mkAtom", parens $ innerLex p,
     innerLex (PV v) = "mkV" <+> viaShow v
     innerLex (PGuess np) = "mkN" <+> viaShow np
 
+concrEntryUserLex :: Predicate -> Doc ()
+concrEntryUserLex pr
+  | null $ trees pr = mempty
+  | otherwise = hsep [pretty $ name pr, "=", "TODO ;"]
 
+
+--- TODO: filter out predicates based on arity

@@ -56,11 +56,11 @@ getPGF = do
 
 ----------------------------------------------------
 
-data Predicate = Pred {name :: String, trees :: MyParseOutput, arity :: Int}
+data Predicate = Pred {name :: String, description :: String, trees :: MyParseOutput, arity :: Int}
 
 instance Show Predicate where
-  show (Pred nm [] ar) = printf "%s\narity %d, no parses" nm ar
-  show (Pred nm ts ar) = printf "%s\narity %d\nparses\n%s" nm ar exprs
+  show (Pred nm _ [] ar) = printf "%s\narity %d, no parses" nm ar
+  show (Pred nm _ ts ar) = printf "%s\narity %d\nparses\n%s" nm ar exprs
     where
       exprs = unlines $ map (showExpr []) ts
 
@@ -78,7 +78,7 @@ step1 pr | length (trees pr) <= 1 = []
 mkQuestion :: [[String]] -> [Question]
 mkQuestion = transpose .
   differingItems
-  
+
 differingItems :: (Ord a) => [[a]] -> [[a]]
 differingItems = filter (not . allSame) . transpose . map sort
 
@@ -99,38 +99,43 @@ extractContentWords pr = [onlyLex (fg' tree) | tree <- trees pr]
 
 
 -- >>> gr <- getPGF
--- >>> (parsePred gr "SoleIndependentContractor")
+-- >>> (parsePred gr "SIC" "sole independent contractor")
+-- >>> (parsePred gr "SoleIndependentContractor" "")
 
-parsePred :: PGF -> [Char] -> Predicate
-parsePred gr str = Pred nm (filterHeuristic ts) ar
+type Name = String
+type Description = [String]
+
+parsePred :: PGF -> Name -> String -> Predicate
+parsePred gr funname optdesc = Pred nm (unwords desc) (filterHeuristic ts) ar
   where
-    nm : _ = splitOn ":" str
-    ar = length $ filter (== '>') str
-    ts = parseGF gr nm
+    nm : _ = splitOn ":" funname
+    desc = case optdesc of -- if no description provided, parse the name, e.g. DescribedInSection1
+              [] -> map (trim . map toLower) $ split (startsWithOneOf (['A' .. 'Z']++['0'..'9'])) nm
+              _  -> words optdesc
+    ar = length $ filter (== '>') funname
+    ts = parseGF gr desc
+
+
 
 type MyParseOutput = [Expr]
 
-parseGF :: PGF -> String -> MyParseOutput
-parseGF gr str = go wds
+parseGF :: PGF -> Description -> MyParseOutput
+parseGF gr = go
   where
-    wds = map (trim . map toLower) $ split (startsWithOneOf (['A' .. 'Z']++['0'..'9']) ) str
     lang = head $ languages gr
     cat = startCat gr
-    go :: [String] -> MyParseOutput
+    go :: Description -> MyParseOutput
     go ws = finalParse
       where
         (output, bstring) = parse_ gr lang cat Nothing (unwords ws)
         finalParse = case output of
           ParseOk ts -> ts
           ParseFailed n | all isLower (ws !! (n-1)) ->
-            go
-              [ capWd
-                | (ind, w:ord) <- zip [1..] ws,
-                  let capWd
-                        | ind == n = toUpper w : ord
-                        | otherwise = w:ord
-              ]
-          ParseFailed 1 -> [gf GNoParse]
+            go [ case ind of  -- Try capitalising the word where parse failed
+                   n -> toUpper w : ord
+                   _ -> w : ord
+               | (ind, w:ord) <- zip [1..] ws ]
+          ParseFailed 1 -> [] -- [gf GNoParse]
           ParseFailed n -> go (take (n-1) ws) ++ [gf (GParseFailedAfterNTokens (GInt n))]
           ParseIncomplete -> go (init ws)
           _ -> []
@@ -144,7 +149,7 @@ filterHeuristic ts = filter (not . ppBeforeAP) (filter filterGerund ts)
   where
     filterGerund
       | any hasGerund ts &&  -- "practicing as lawyer": progressive, pres. part. or gerund
-        any hasProgr ts && 
+        any hasProgr ts &&
         not (all hasGerund ts) = not . hasProgr
 --      | any hasGerund ts && not (all hasGerund ts) = hasGerund
       | otherwise = const True
