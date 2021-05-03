@@ -1,0 +1,117 @@
+### Fake example rules about speed limits of different kinds of vehicles
+### on different days on different kinds of roads.
+
+### Classes
+
+class Vehicle
+class Car extends Vehicle
+class Truck extends Vehicle
+
+class Day
+class Workday extends Day
+class Holiday extends Day
+
+class Road
+class Highway extends Road
+
+### Predicates 
+
+## uninteresting (the is... predicates should be generated)
+decl isVehicle : Class -> Boolean
+decl isCar : Class -> Boolean
+decl isTruck : Class -> Boolean
+
+decl isDay : Class -> Boolean
+decl isWorkday : Class -> Boolean
+decl isHoliday : Class -> Boolean
+
+decl isRoad : Class -> Boolean
+decl isHighway : Class -> Boolean
+
+## interesting: the maximal speed of a vehicle on a day on a road is ...
+# Could be modeled as a functional dependency, but this would
+# make it impossible to verify that the relation is functional
+decl maxSpeed : Vehicle -> Day -> Road -> Integer -> Boolean
+
+# typical representatives of their class
+decl tCar : Car
+decl tDay : Day
+decl tRoad : Road
+decl tSpeed1: Integer
+decl tSpeed2: Integer
+
+### Facts and rules
+
+## Class inclusion (should be generated)
+
+fact <CarClassIncl>
+for c: Class
+isCar c --> isVehicle c
+
+fact <TruckClassIncl>
+for c: Class
+isTruck c --> isVehicle c
+
+
+fact <WorkdayClassIncl>
+for c: Class
+isWorkday c --> isDay c
+
+fact <HolidayClassIncl>
+for c: Class
+isHoliday c --> isDay c
+
+
+fact <HighwayClassIncl>
+for c: Class
+isHighway c --> isRoad c
+
+
+## Class disjointness (possible to automate)
+
+fact <WdHdDistinct>
+for c: Class
+not (isWorkday c && isHoliday c)
+
+fact <CarTrDistinct>
+for c: Class
+not (isCar c && isTruck c)
+
+
+## Domain rules
+
+rule <maxSpCarWorkdayHighway>
+for v: Vehicle, d: Day, r: Road, s: Integer
+if isCar v && isWorkday d && isHighway r && s = 130
+then maxSpeed v d r s
+
+rule <maxSpCarWorkdayRoad>
+for v: Vehicle, d: Day, r: Road, s: Integer
+if isCar v && isWorkday d && isRoad r && s = 90
+then maxSpeed v d r s
+
+# Closure of predicate maxSpeed:
+# all that is said about maxSpeed is expressed in the two rules
+rule <maxSpClosure>
+for v: Vehicle, d: Day, r: Road, s: Integer
+if maxSpeed v d r s
+then
+(isCar v && isWorkday d && isHighway r && s = 130) ||
+(isCar v && isWorkday d && isHighway r && s =  90)
+
+# Assertion trying to derive a contradiction from the above rules:
+# The rules stipulate different maximal speeds under the same conditions.
+# The contradiction should be derivable
+# (rule <maxSpCarWorkdayRoad> does not say that r is a non-highway road)
+assert # consistent
+maxSpeed tCar tDay tRoad tSpeed1 &&
+maxSpeed tCar tDay tRoad tSpeed2 &&
+tSpeed1 < tSpeed2
+
+
+
+assert # provable
+# with maxSpCarWorkdayHighway maxSpCarWorkdayRoadNotHighway
+maxSpeed tCar tDay tRoad tSpeed1 &&
+maxSpeed tCar tDay tRoad tSpeed2
+--> tSpeed1 == tSpeed2

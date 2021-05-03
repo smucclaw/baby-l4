@@ -6,7 +6,8 @@ module Main where
 import Parser (parseProgram)
 import Syntax (Program, ClassName)
 import Typing ( checkError )
-import SmtSBV (proveProgram)
+--import SmtSBV (proveProgram)
+import Smt (proveProgram)
 import System.Environment ( getEnv )
 import Options.Applicative
 import qualified ToGF as GF
