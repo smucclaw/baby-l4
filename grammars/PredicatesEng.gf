@@ -37,6 +37,7 @@ lin
 
   lin
     CnNum cn card = mkCN cn (mkNP (mkDet card)) ;
+    Int2Card int =  symb (mkSymb int.s) ; -- mkSymb : Str -> Symb ;
     CnInt cn int = mkCN cn (symb int) ;
     CompoundA n ap = mkAP (lin AdA (mkUtt n)) ap ;
 
@@ -82,10 +83,6 @@ lin
 
     -- : NP -> VPS -> Predicate ; -- JurisdictionIsSingapore
     ComplSentence np vp = {subj = \\_ => np ; pred = vp} ;
-
-    p1 pred1 = \\agr => PredVPS (pred1.subj ! agr) pred1.pred ;
-    p2 pred2 = \\agr => PredVPS (pred2.subj ! agr) (ComplVPS2 pred2.pred (dummyNP ! MySg)) ;
-
 
   param
     MyAgr = MySg | MyPl ;

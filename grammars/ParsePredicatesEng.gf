@@ -11,6 +11,10 @@ flags
     Agreement = {a : MyAgr} ; -- Agreement is redundant in all but present
     Polarity = {p : Pol ; s : Str} ;
   lin
+
+    p1 pred1 = \\agr => PredVPS (pred1.subj ! agr) pred1.pred ;
+    p2 pred2 = \\agr => PredVPS (pred2.subj ! agr) (ComplVPS2 pred2.pred (dummyNP ! MySg)) ;
+
     PosPol = {p = positivePol ; s = ""} ;
     NegPol = {p = negativePol | UncontractedNeg ; s = "not"} ; -- a hack
 

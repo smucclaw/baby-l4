@@ -27,8 +27,8 @@ flags
   fun
     -- Application-specific extensions
  
-    CnNum : CN -> Card -> CN ; -- Section one
-    CnInt : CN -> Int -> CN ; -- Section 341
+    CnNum : CN -> Card -> CN ; -- Section one/34
+    Int2Card : Int -> Card ;
 
     CompoundA : N -> AP -> AP ; -- owner-driven
     NegAP : AP -> AP ; -- non-executive
@@ -61,9 +61,5 @@ flags
     ComplVPSlash2 : VPS2 -> Predicate2 ; -- Approves
 
     ComplSentence : NP -> VPS -> GenPredicate ; -- (the company's) jurisdiction is Singapore
-
-    -- Coercions to startcat
-    p1 : Predicate1 -> Predicate ;
-    p2 : Predicate2 -> Predicate ;
-
+    ComplSentence2 : NP -> VPS2 -> GenPredicate ; -- rule 34 applies 
 }

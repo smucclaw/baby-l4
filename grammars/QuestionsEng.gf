@@ -1,4 +1,4 @@
-concrete QuestionsEng of Questions = AtomsEng - [Pred, LinPred, mkPred], PredicatesEng - [p1,p2] ** open Prelude, SyntaxEng, (S=SyntaxEng), ParadigmsEng, ExtendEng, WordNetEng in {
+concrete QuestionsEng of Questions = AtomsEng - [Pred, LinPred, mkPred] ** open Prelude, SyntaxEng, (S=SyntaxEng), ParadigmsEng, ExtendEng, WordNetEng in {
 
   lincat
     Question = QS ;
@@ -37,10 +37,6 @@ concrete QuestionsEng of Questions = AtomsEng - [Pred, LinPred, mkPred], Predica
     -- transitive: decl Win : Player -> Game -> Bool
     -- s = win, arg1 = player, arg2 = game
     MkPred2 nm a1 a2 = mkPred' nm a1.cn a2.cn ;
-
-    -- Versions for the preds from PredicatesEng
-    p1 pred1 = mkAtom pred1.pred ;
-    p2 pred2 = mkAtom pred2.pred ;
 
   oper
     suchThat = overload {
@@ -93,14 +89,5 @@ concrete QuestionsEng of Questions = AtomsEng - [Pred, LinPred, mkPred], Predica
          arg2 = a2 ;
          arity = Ar2 }
       } ;
-
-  lin
-    -- Test lexicon, to be generated dynamically later
-    Win = mkAtom win_1_V2 ;
-    Rock = mkAtom rock_1_N ;
-    Winner = mkAtom winner_1_N ;
-
-    Player = mkAtom player_1_N ;
-    Game = mkAtom game_1_N ;
 
 }

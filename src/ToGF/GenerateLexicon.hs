@@ -127,18 +127,20 @@ guessPOS (AA str int) = POS str $
 concreteLexicon :: GrName -> [Predicate] -> [POS] -> Doc ()
 concreteLexicon gname userlexicon poses = let lName = lexName gname in
   vsep
-    [ "concrete" <+> lName <> "Eng of" <+> lName <+> "=" <+> pretty gname <> "Eng ** open SyntaxEng, ParadigmsEng in {",
+    [ "concrete" <+> lName <> "Eng of" <+> lName <+> "=" <+> "AtomsEng ** open PredicatesEng, SyntaxEng, ParadigmsEng, AdjectiveEng, ReducedWordNetEng in {",
       "lin",
       (indent' . vsep) (concrEntryPOS <$> poses),
       (indent' . vsep) (concrEntryUserLex <$> userlexicon),
-      "oper TODO = mkAtom (mkN \"TODO\") ;",
+      "oper",
+      "    p1 : {pred : VPS} -> LinAtom = \\vps -> mkAtom <vps.pred : VPS> ;",
+      "    p2 : {pred : VPS2} -> LinAtom = \\vps2 -> mkAtom <vps2.pred : VPS2> ;",
       "}"
     ]
 
 abstractLexicon :: GrName -> [Predicate] -> [POS] -> Doc ()
 abstractLexicon gname userlexicon poses =
   vsep
-    [ "abstract" <+> lexName gname <+> "=" <+> pretty gname <+> "** {",
+    [ "abstract" <+> lexName gname <+> "=" <+> "Atoms ** {",
       "fun",
       indent' $ sep $ punctuate "," $ map pretty
         (map origName poses ++ map name userlexicon),
@@ -162,13 +164,27 @@ concrEntryPOS (POS nm p) = hsep [pretty nm, "=", "mkAtom", parens $ innerLex p, 
         Nothing -> ""
         Just prep -> pretty prep <> "_Prep"
     innerLex (PV v) = "mkV" <+> viaShow v
-    innerLex (PGuess np) = "mkN" <+> viaShow np
+    innerLex (PGuess np) = let invar = viaShow np in "mkN" <+> invar <+> invar
 
 concrEntryUserLex :: Predicate -> Doc ()
 concrEntryUserLex pr =
   case trees pr of 
     [] -> mempty 
-    t:_ -> hsep [pretty $ name pr, "=", "TODO ; -- ", pretty $ showExpr [] t]
+    t:_ -> hsep $ map pretty [name pr, "=", hackyRemoveFullPred $ showExpr [] t, ";"]
+
+-- TODO: handle this function as Gf trees to other Gf trees, not string processing
+hackyRemoveFullPred :: String -> String
+hackyRemoveFullPred str = case words $ hackyChangeIntToCard $ trim str of
+                       "FullPred":ws -> unwords ws
+                       "PredAP":_pol:ws -> printf "p1 (ComplAP %s)" $ unwords ws
+                       "V2PartAdv":_pol:v2:adv 
+                         -> printf "p1 (ComplAP (AdvAP (PastPartAP (mkVPSlash %s)) %s))" v2 (unwords adv)
+                       _ -> "mkAtom business_N"
+
+hackyChangeIntToCard :: String -> String
+hackyChangeIntToCard str = case splitOn "(Int2Card 1)" str of
+                        [] -> str
+                        xs -> intercalate "(mkCard \"1\")" xs
 
 
 --- TODO: filter out predicates based on arity

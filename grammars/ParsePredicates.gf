@@ -5,7 +5,12 @@ flags
   cat
     FullPredicate ;
   fun
-    -- asdjkfs
+
+    -- Coercions to startcat
+    p1 : Predicate1 -> Predicate ;
+    p2 : Predicate2 -> Predicate ;
+    gp : GenPredicate -> Predicate ;
+
     -- Map to ComplNP(2)
     PredNP : Polarity -> NP -> FullPredicate ; -- Owner, LegalOwner
     PredNP2 : Polarity -> NP -> Prep -> FullPredicate ; -- OwnerOf (argument)
