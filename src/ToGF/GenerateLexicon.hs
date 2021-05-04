@@ -8,7 +8,7 @@ module ToGF.GenerateLexicon where
 
 import qualified Data.Set as S
 import qualified GF
-import PGF (PGF, Expr, readPGF, linearizeAll)
+import PGF (PGF, Expr, readPGF, linearizeAll, showExpr)
 import Prettyprinter
 import Prettyprinter.Render.Text (hPutDoc)
 import ToGF.ParsePred
@@ -19,10 +19,12 @@ import Text.Printf (printf)
 import Data.List.Extra (splitOn)
 import Data.Set (Set)
 import Syntax (Mapping(..))
-import Data.Maybe (mapMaybe)
 
 ----------------------------------------------------------------------
 -- Generate GF code
+
+indent' :: Doc ann -> Doc ann
+indent' = indent 4
 
 type GrName = String
 
@@ -36,16 +38,16 @@ mkCncName d = printf "grammars/%sEng.gf" (show d)
 mkPGFName d = printf "generated/%s.pgf" (show d)
 
 createPGF :: Doc () -> IO PGF.PGF
-createPGF name = do
+createPGF nm = do
   withArgs
     [ "-make",
       "--output-dir=generated",
       "--gfo-dir=generated",
       "-v=0",
-      mkCncName name
+      mkCncName nm
     ]
     GF.main
-  PGF.readPGF $ mkPGFName name
+  PGF.readPGF $ mkPGFName nm
 
 createGF' :: GrName -> [Mapping t] -> [AtomWithArity] -> IO PGF.PGF
 createGF' gname userlexicon model = do
@@ -61,22 +63,22 @@ createGF' gname userlexicon model = do
   createPGF tName
 
 writeDoc :: FilePath -> Doc () -> IO ()
-writeDoc name doc = withFile name WriteMode $ \h -> hPutDoc h doc
+writeDoc nm doc = withFile nm WriteMode $ \h -> hPutDoc h doc
 
 mkLexicon :: PGF -> GrName -> [Mapping t] -> [AtomWithArity] -> (Doc (), Doc ())
-mkLexicon parsepgf gname userlex atoms = (abstractLexicon gname lexicon, concreteLexicon gname userlexicon lexicon)
+mkLexicon parsepgf gname userlex atoms = (abstractLexicon gname userlexicon lexicon, concreteLexicon gname userlexicon lexicon)
   where
     bothLexica =
       [ ( [ pr -- only those user-defined predicates that actually parse!
-          | Mapping _ name value <- userlex
-          , name == funname         
-          , let pr = parsePred parsepgf name value
+          | Mapping _ nm value <- userlex
+          , nm == funname         
+          , let pr = parsePred parsepgf nm value
           , not $ null $ trees pr
           ] -- is empty if the funname doesn't appear in user lex, or if there's no parse
         , guessPOS aa)
       | aa@(AA funname _) <- atoms
       ]
-    userlexicon = [ p | (p:ps , _) <- bothLexica] -- Use the parsed predicate
+    userlexicon = [ p | (p:_ , _) <- bothLexica] -- Use the parsed predicate. TODO filter in smart way, not just use the first one!
     lexicon = [ posguess | ([] , posguess) <- bothLexica] -- If no result for parsePred, fall back to guessed pos
 
 printGF' :: PGF -> Expr -> IO ()
@@ -127,24 +129,25 @@ concreteLexicon gname userlexicon poses = let lName = lexName gname in
   vsep
     [ "concrete" <+> lName <> "Eng of" <+> lName <+> "=" <+> pretty gname <> "Eng ** open SyntaxEng, ParadigmsEng in {",
       "lin",
-      (indent 4 . vsep) (concrEntryPOS <$> poses),
-      (indent 4 . vsep) (concrEntryUserLex <$> userlexicon),
+      (indent' . vsep) (concrEntryPOS <$> poses),
+      (indent' . vsep) (concrEntryUserLex <$> userlexicon),
       "oper TODO = mkAtom (mkN \"TODO\") ;",
       "}"
     ]
 
-abstractLexicon :: GrName -> [POS] -> Doc ()
-abstractLexicon gname poses =
+abstractLexicon :: GrName -> [Predicate] -> [POS] -> Doc ()
+abstractLexicon gname userlexicon poses =
   vsep
     [ "abstract" <+> lexName gname <+> "=" <+> pretty gname <+> "** {",
       "fun",
-      indent 4 . sep . punctuate "," . map (pretty . origName) $ poses,
-      indent 4 ": Atom ;",
+      indent' $ sep $ punctuate "," $ map pretty
+        (map origName poses ++ map name userlexicon),
+      indent' ": Atom ;",
       "}"
     ]
 
 concrEntryPOS :: POS -> Doc ()
-concrEntryPOS (POS name p) = hsep [pretty name, "=", "mkAtom", parens $ innerLex p, ";"]
+concrEntryPOS (POS nm p) = hsep [pretty nm, "=", "mkAtom", parens $ innerLex p, ";"]
   where
     innerLex :: InnerPOS -> Doc ()
     innerLex (PN2 n pr) =
@@ -153,6 +156,7 @@ concrEntryPOS (POS name p) = hsep [pretty name, "=", "mkAtom", parens $ innerLex
           Nothing -> "possess_Prep"
           Just prep -> "(mkPrep \"" <> pretty prep <> "\")"
     innerLex (PN n) = "mkN" <+> viaShow n
+
     innerLex (PV2 v pr) = "mkV2" <+> parens (innerLex (PV v))
       <+> case pr of
         Nothing -> ""
@@ -161,9 +165,10 @@ concrEntryPOS (POS name p) = hsep [pretty name, "=", "mkAtom", parens $ innerLex
     innerLex (PGuess np) = "mkN" <+> viaShow np
 
 concrEntryUserLex :: Predicate -> Doc ()
-concrEntryUserLex pr
-  | null $ trees pr = mempty
-  | otherwise = hsep [pretty $ name pr, "=", "TODO ;"]
+concrEntryUserLex pr =
+  case trees pr of 
+    [] -> mempty 
+    t:_ -> hsep [pretty $ name pr, "=", "TODO ; -- ", pretty $ showExpr [] t]
 
 
 --- TODO: filter out predicates based on arity
