@@ -131,9 +131,9 @@ parseGF gr = go
         finalParse = case output of
           ParseOk ts -> ts
           ParseFailed n | all isLower (ws !! (n-1)) ->
-            go [ case ind of  -- Try capitalising the word where parse failed
-                   n -> toUpper w : ord
-                   _ -> w : ord
+            go [ if ind==n   -- Try capitalising the word where parse failed
+                   then toUpper w : ord
+                   else w : ord
                | (ind, w:ord) <- zip [1..] ws ]
           ParseFailed 1 -> [] -- [gf GNoParse]
           ParseFailed n -> go (take (n-1) ws) ++ [gf (GParseFailedAfterNTokens (GInt n))]
