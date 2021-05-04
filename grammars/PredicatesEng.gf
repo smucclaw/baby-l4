@@ -15,7 +15,8 @@ concrete PredicatesEng of Predicates =
     GerundCN,PresPartAP,PastPartAP,PastPartAgentAP,CompoundN,PositAdVAdj,
     VPS, VPS2, MkVPS, MkVPS2, PredVPS, A2VPSlash, N2VPSlash],
   TenseX - [Pol,PPos,PNeg,SC,CAdv],
-  ConstructionEng
+  ConstructionEng,
+  AtomsEng
    ** open ResEng, ExtraEng, (VE=VerbEng), (SE=SentenceEng), (P=ParadigmsEng), ExtendEng, SyntaxEng, Prelude in {
 
 flags
@@ -30,7 +31,7 @@ lin
   IdRP = which_who_RP ;
 
   lincat
-    Predicate = LinPred ;
+    Predicate = MyAgr => S ;
     Predicate1, GenPredicate = LinGenPred ;
     Predicate2 = LinGenPred2 ;
 
@@ -88,7 +89,6 @@ lin
   param
     MyAgr = MySg | MyPl ;
   oper
-    LinPred : Type = MyAgr => S ;
     LinGenPred2 : Type = {
       subj : MyAgr => NP ; -- dummyNP for all but GenPredicate
       pred : VPS2
@@ -120,6 +120,6 @@ lin
       vpSlash : VPS -> Prep -> VPS2 = \vps,prep -> vps ** {c2 = prep.s} ;
       } ; 
 
-    myVPS : VP -> VPS = \vp -> MkVPS (mkTemp presentTense simultaneousAnt) positivePol vp ;
-    myVPS2 : VPSlash -> VPS2 = \vp -> MkVPS2 (mkTemp presentTense simultaneousAnt) positivePol vp ;
+--    myVPS : VP -> VPS = \vp -> MkVPS (mkTemp presentTense simultaneousAnt) positivePol vp ;
+--    myVPS2 : VPSlash -> VPS2 = \vp -> MkVPS2 (mkTemp presentTense simultaneousAnt) positivePol vp ;
 }

@@ -1,4 +1,4 @@
-concrete QuestionsEng of Questions = AtomsEng - [Pred, LinPred, mkPred] ** open Prelude, SyntaxEng, (S=SyntaxEng), ParadigmsEng, WordNetEng in {
+concrete QuestionsEng of Questions = AtomsEng - [Pred, LinPred, mkPred], PredicatesEng - [p1,p2] ** open Prelude, SyntaxEng, (S=SyntaxEng), ParadigmsEng, ExtendEng, WordNetEng in {
 
   lincat
     Question = QS ;
@@ -38,12 +38,16 @@ concrete QuestionsEng of Questions = AtomsEng - [Pred, LinPred, mkPred] ** open 
     -- s = win, arg1 = player, arg2 = game
     MkPred2 nm a1 a2 = mkPred' nm a1.cn a2.cn ;
 
+    -- Versions for the preds from PredicatesEng
+    p1 pred1 = mkAtom pred1.pred ;
+    p2 pred2 = mkAtom pred2.pred ;
+
   oper
     suchThat = overload {
       suchThat : LinAtom -> CN -> RS = \atom,arg ->
-        mkRS (mkRCl which_RP (pred2 atom (mkNP a_Det arg))) ;
+        RelVPS which_RP (pred2 atom (mkNP a_Det arg)) ;
       suchThat : LinAtom -> RS = \atom ->
-        mkRS (mkRCl which_RP (pred1 atom))
+        RelVPS which_RP (pred1 atom)
       } ;
 
     areThere : Det -> CN -> QS = \det,cn -> mkQS (mkCl (mkNP det cn)) ;

@@ -6,6 +6,9 @@ concrete AnswerEng of Answer = AtomsEng ** open
     Var, Arg = NP ;
     [Arg] = ListNP ;
 
+  lincat
+    Pred = LinPred ;
+
   lin
 
     -- Coercions to Arg
@@ -16,10 +19,10 @@ concrete AnswerEng of Answer = AtomsEng ** open
     } ;
 
     -- Atom -> Arg -> Statement ;
-    App1 atom arg = mkS (mkCl arg (pred1 atom)) ;
+    App1 atom arg = PredVPS arg (pred1 atom) ;
 
     -- : Atom -> (x, y : Arg) -> Statement ;
-    App2 atom subj obj = mkS (mkCl subj (pred2 atom obj)) ;
+    App2 atom subj obj = PredVPS subj (pred2 atom obj) ;
 
     -- : String -> Var
     V = symb ;

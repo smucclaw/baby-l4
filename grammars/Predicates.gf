@@ -18,7 +18,8 @@ abstract Predicates =
   Extend [
     GerundCN,PresPartAP,PastPartAP,PastPartAgentAP,CompoundN,PositAdVAdj,
     VPS, VPS2, MkVPS, MkVPS2, PredVPS,  A2VPSlash, N2VPSlash],
-  Construction ** {
+  Construction,
+  Atoms ** {
 
 flags
   startcat = Predicate ;
