@@ -38,6 +38,7 @@ gfPP bi lbi clbi = PreProcessor {
                          _ -> []
         let args =
                 [ "-make"
+                , "-v=0"
                 , "-f", "haskell"
                 , "--haskell=gadt" ] 
                 ++ lexical
