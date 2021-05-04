@@ -22,6 +22,9 @@ flags
     PastInd = {t = mkTemp pastTense simultaneousAnt ; a = MySg} ;
     PPartInd = {t = mkTemp presentTense anteriorAnt ; a = MySg} ;
 
+    PredSentence np vps = mkUtt (PredVPS np vps) ;
+    PredSentence2 np vps = PredSentence np <vps : VPS> ;
+
 --    FullPred agrtam pol pred = mkUtt (UseCl agrtam.t pol.p (pred ! agrtam.a)) ;
    FullPred pr = mkUtt (pr ! (MySg|MyPl)) ;
 

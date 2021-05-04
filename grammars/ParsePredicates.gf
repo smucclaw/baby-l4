@@ -19,6 +19,7 @@ flags
 
     -- Map to GenPredicate
     PredSentence : NP -> VPS -> FullPredicate ; -- JurisdictionIsSingapore
+    PredSentence2 : NP -> VPS2 -> FullPredicate ; -- Rule 34 applies
 
     -- Internal error messages
     PartialParseAfterNTokens,

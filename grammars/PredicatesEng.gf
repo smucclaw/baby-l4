@@ -17,7 +17,7 @@ concrete PredicatesEng of Predicates =
   TenseX - [Pol,PPos,PNeg,SC,CAdv],
   ConstructionEng,
   AtomsEng
-   ** open ResEng, ExtraEng, (VE=VerbEng), (SE=SentenceEng), (P=ParadigmsEng), ExtendEng, SyntaxEng, Prelude in {
+   ** open ResEng, ExtraEng, (VE=VerbEng), (SE=SentenceEng), (P=ParadigmsEng), ExtendEng, SyntaxEng, SymbolicEng, Prelude in {
 
 flags
   case_sensitive = off;
@@ -37,6 +37,7 @@ lin
 
   lin
     CnNum cn card = mkCN cn (mkNP (mkDet card)) ;
+    CnInt cn int = mkCN cn (symb int) ;
     CompoundA n ap = mkAP (lin AdA (mkUtt n)) ap ;
 
     APInf ap vp = SentAP ap (SE.EmbedVP vp) ;
