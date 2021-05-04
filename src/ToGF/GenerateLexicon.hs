@@ -8,7 +8,7 @@ module ToGF.GenerateLexicon where
 
 import qualified Data.Set as S
 import qualified GF
-import PGF (PGF, Expr, readPGF, linearizeAll, showExpr)
+import PGF (PGF, Expr, readPGF, linearizeAll, showExpr, unMeta, unapply)
 import Prettyprinter
 import Prettyprinter.Render.Text (hPutDoc)
 import ToGF.ParsePred
@@ -16,9 +16,10 @@ import ToGF.FromSCasp.SCasp as SC hiding (parens)
 import System.Environment (withArgs)
 import System.IO (IOMode (WriteMode), withFile)
 import Text.Printf (printf)
-import Data.List.Extra (splitOn)
+import Data.List.Extra (splitOn, trim, intercalate)
 import Data.Set (Set)
 import Syntax (Mapping(..))
+import Data.Maybe (isJust)
 
 ----------------------------------------------------------------------
 -- Generate GF code
@@ -54,6 +55,7 @@ createGF' gname userlexicon model = do
   let lName = lexName gname
       tName = topName gname
       grName = pretty gname
+--  parsepgf <- readPGF =<< getDataFileName "ParsePredicates.pgf"
   parsepgf <- readPGF "generated/ParsePredicates.pgf"
   let (absS, cncS) = mkLexicon parsepgf gname userlexicon model
   writeDoc (mkAbsName lName) absS
@@ -69,25 +71,39 @@ mkLexicon :: PGF -> GrName -> [Mapping t] -> [AtomWithArity] -> (Doc (), Doc ())
 mkLexicon parsepgf gname userlex atoms = (abstractLexicon gname userlexicon lexicon, concreteLexicon gname userlexicon lexicon)
   where
     bothLexica =
-      [ ( [ pr -- only those user-defined predicates that actually parse!
-          | Mapping _ nm value <- userlex
-          , nm == funname         
-          , let pr = parsePred parsepgf nm value
-          , not $ null $ trees pr
-          ] -- is empty if the funname doesn't appear in user lex, or if there's no parse
+      [ ( parsePredFromUserLex funname
+          ++ parsePredFromName funname
         , guessPOS aa)
       | aa@(AA funname _) <- atoms
       ]
+    parsePredFromUserLex funname = [ pr {trees = onlyNonMeta} -- only those user-defined predicates that actually parse!
+                                   | Mapping _ nm value <- userlex
+                                   , nm == funname
+                                   , let pr = parsePred parsepgf nm value
+                                   , let onlyNonMeta = filter (not . hasMeta) (trees pr)
+                                   , not $ null onlyNonMeta -- TODO: why doesn't this work?
+                                   ] -- is empty if the funname doesn't appear in user lex, or if there's no parse
+    parsePredFromName funname = [ pr
+                                | let pr = parsePred parsepgf funname ""
+                                , not $ null $ trees pr]
     userlexicon = [ p | (p:_ , _) <- bothLexica] -- Use the parsed predicate. TODO filter in smart way, not just use the first one!
     lexicon = [ posguess | ([] , posguess) <- bothLexica] -- If no result for parsePred, fall back to guessed pos
 
 printGF' :: PGF -> Expr -> IO ()
 printGF' gr expr = do
-  --putStrLn $ showExpr [] $ gf expr
+  --putStrLn $ showExpr [] expr
   mapM_ (putStrLn . postprocess) (linearizeAll gr expr)
 
 postprocess :: String -> String
 postprocess = map (\c -> if c == '\\' then '\n' else c)
+
+hasMeta :: PGF.Expr -> Bool
+hasMeta expr = go $ unapply expr
+  where
+    go (e, []) = isMeta e
+    go (e, es) = or $ isMeta e : map (go . unapply) es
+
+    isMeta = isJust . unMeta
 
 ----------------------------------------------------------------------
 -- If there is no lexicon available, we parse the predicates and use GF smart paradigms
@@ -168,16 +184,16 @@ concrEntryPOS (POS nm p) = hsep [pretty nm, "=", "mkAtom", parens $ innerLex p, 
 
 concrEntryUserLex :: Predicate -> Doc ()
 concrEntryUserLex pr =
-  case trees pr of 
-    [] -> mempty 
+  case trees pr of
+    [] -> mempty
     t:_ -> hsep $ map pretty [name pr, "=", hackyRemoveFullPred $ showExpr [] t, ";"]
 
 -- TODO: handle this function as Gf trees to other Gf trees, not string processing
 hackyRemoveFullPred :: String -> String
-hackyRemoveFullPred str = case words $ hackyChangeIntToCard $ trim str of
+hackyRemoveFullPred str = case words $ hackyChangeIntToCard $ trim str of
                        "FullPred":ws -> unwords ws
                        "PredAP":_pol:ws -> printf "p1 (ComplAP %s)" $ unwords ws
-                       "V2PartAdv":_pol:v2:adv 
+                       "V2PartAdv":_pol:v2:adv
                          -> printf "p1 (ComplAP (AdvAP (PastPartAP (mkVPSlash %s)) %s))" v2 (unwords adv)
                        _ -> "mkAtom business_N"
 
@@ -185,6 +201,7 @@ hackyChangeIntToCard :: String -> String
 hackyChangeIntToCard str = case splitOn "(Int2Card 1)" str of
                         [] -> str
                         xs -> intercalate "(mkCard \"1\")" xs
+
 
 
 --- TODO: filter out predicates based on arity
