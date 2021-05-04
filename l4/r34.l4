@@ -576,7 +576,30 @@ then MayAccept lp ea && r34_4_applies lp ea &&
 # does not provide any legal services or law-related services, if all of the 
 # conditions set out in the Second Schedule are satisfied.
 
+# consider a conditional that applies to the defeasibility bits but not the main body
+# e.g. in SQL we have WHERE vs HAVING
+
+# we need to be able to say that an inner rule holds (which is what the sCASP version means by "according_to")
+# and that one rule defeats another -- to produce an "outer rule" that holds or doesn't.
+
+# layer 1. rules can hold or not
+# layer 2. rules can contradict each other; we resolve the contradictions through defeasibility meta-rules
+# layer 3. we trace the reason a rule holds, and construct hypotheticals in which we can consider that a rule would or would not have held if not for some factor
+# e.g. "the conclusion of Rule 36 is what the conclusion of Rule 35 would be in, arguendo, a world where rule 34.5 did not conclude May".
+# https://legaldictionary.net/arguendo/
+
+# if, arguendo, parking had been free (either because it was a weekend, or it was after 5pm) …
+
+# despite   <r34_1 = MustNot> byVirtueOf <34_1_b holds True>
+# subjectTo <r34_1 = MustNot> byVirtueOf <r34_1_a,r34_1_c..f holds True>
+
+# notion: "expansion" would convert the fragment 34_1_a to "34_1 by virtue of 34_1_a"
+
+# let's add a conditional to the despite and subjectTos.
+
 rule <r34_5>
+# despite   <34_1_b>
+# subjectTo <r34_1_a,r34_1_c..f> PROVIDED zzz
 for lp: LegalPractitioner, ea: ExecutiveAppointment
 if (
     LocumSolicitor lp &&

@@ -1,7 +1,7 @@
 
 module Error where
 import Syntax
-import Annotation ( SRng(SRng), Pos(Pos) )
+import Annotation (RealSRng(..), SRng(..), Pos(Pos) )
 
 data ClassDeclsError
     = DuplicateClassNamesCDE [(SRng, ClassName)]  -- classes whose name is defined multiple times
@@ -73,7 +73,8 @@ printPos (Pos l c) = "(" ++ show l ++ "," ++ show c ++ ")"
 
 printSRng :: SRng -> String
 --printSRng = show
-printSRng (SRng spos epos) = printPos spos ++ " .. " ++ printPos epos
+printSRng (RealSRng(SRng spos epos)) = printPos spos ++ " .. " ++ printPos epos
+printSRng (DummySRng reason) = show reason
 
 printErrorCause :: ErrorCause -> String
 printErrorCause (UndeclaredVariable r vn) = "Variable " ++ printVarName vn ++ " at " ++ (printSRng r) ++ " is undefined."
@@ -100,7 +101,7 @@ printErrorCause (NonFunctionTp rngs giventp) =
 printErrorCause (CastIncompatible rngs giventp casttp) =
   "Expression at " ++ printSRng (head rngs) ++ " is ill-typed:\n" ++
   "the subexpression at "++ printSRng (rngs!!1) ++ " has type " ++ printTp giventp ++ "which cannot be cast to " ++ printTp casttp
-printErrorCause (IncompatiblePattern r) = 
+printErrorCause (IncompatiblePattern r) =
     "Expression at "++ printSRng r ++ " is ill-typed: the variable pattern and its type are incompatible (different number of components)"
 printErrorCause (UnknownFieldName r fn cn) =
     "Expression at "++ printSRng r ++ " is ill-typed: access to an unknown field " ++ printFieldName fn ++ " in class " ++ printClassName cn
@@ -144,7 +145,7 @@ printAssertionErr :: AssertionError -> String
 printAssertionErr (AssertionErrAE illTyped) =
   unlines (map (\(r, ec) -> "In assertion:\n" ++ printErrorCause ec) illTyped)
 
-printRuleErr :: RuleError -> String 
+printRuleErr :: RuleError -> String
 printRuleErr (RuleErrorRE illTyped) =
   unlines (map (\(r, ec) -> "In rule " ++ printSRng r ++ "\n" ++ printErrorCause ec) illTyped)
 

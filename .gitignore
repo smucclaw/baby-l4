@@ -3,5 +3,11 @@
 *~
 *.pgf
 generated
-grammars/PropTop*
-grammars/PropLexicon*
+grammars/*Top*
+grammars/*Lexicon*
+.vscode/
+src/Questions.hs
+src/Answer.hs
+src/Prop.hs
+.DS_Store
+.dev-profile*

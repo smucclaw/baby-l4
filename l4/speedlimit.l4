@@ -114,4 +114,4 @@ assert # provable
 # with maxSpCarWorkdayHighway maxSpCarWorkdayRoadNotHighway
 maxSpeed tCar tDay tRoad tSpeed1 &&
 maxSpeed tCar tDay tRoad tSpeed2
---> tSpeed1 == tSpeed2
+--> tSpeed1 = tSpeed2

@@ -32,7 +32,7 @@ import Data.Char (ord)
 import qualified Data.Bits
 import qualified Language.LSP.Types            as J
 
-import Annotation (HasLoc(..), SRng(..), Pos(..), coordFromTo, tokenRange)
+import Annotation (HasLoc(..), RealSRng(..), SRng(..), Pos(..), coordFromTo, tokenRange)
 
 
 }
@@ -42,7 +42,7 @@ import Annotation (HasLoc(..), SRng(..), Pos(..), coordFromTo, tokenRange)
 $digit = 0-9
 $alpha = [a-zA-Z]
 $eol   = [\n]
-$graphic    = $printable # $white # $eol #\n #\" 
+$graphic    = $printable # $white # $eol #\n #\"
 $inString   = [$graphic $white]
 @string     = \" ($inString)* \"
 
@@ -367,7 +367,6 @@ token t input__ len = return (t input__ len)
 ---------------------------------
 
 data Err = Err { epos :: SRng , msg :: String }
-  | StringErr {msg :: String}
   deriving (Show)
 
 -- To improve error messages, We keep the path of the file we are
@@ -530,9 +529,12 @@ alexMonadScan' = do
 
 -- Signal an error, including a commonly accepted source code position.
 alexError' :: SRng -> String -> Alex a
-alexError' p@(SRng (Pos l c) _) msg = do
+alexError' p@(RealSRng (SRng (Pos l c) _)) msg = do
   fp <- getFilePath
   alexError $ Err p (fp ++ ":" ++ show (l+1) ++ ":" ++ show (c+1) ++ ": " ++ msg)
+alexError' p@(DummySRng reason) msg = do
+  fp <- getFilePath
+  alexError $ Err p (fp ++ ":" ++ show reason ++ ": " ++ msg)
 
 -- A variant of runAlex, keeping track of the path of the file we are lexing.
 runAlex' :: Alex a -> FilePath -> String -> Either Err a
@@ -559,7 +561,7 @@ scanFile :: FilePath -> IO (Either Err [Token])
 scanFile fname = scanTokens fname <$> readFile fname
 
 alex2lspRng :: AlexPosn -> Int -> SRng
-alex2lspRng tokenPos tokenLen = SRng startPos endPos
+alex2lspRng tokenPos tokenLen = RealSRng $ SRng startPos endPos
   where
     startPos = aposToPos tokenPos
     endPos = offset tokenLen startPos
@@ -576,9 +578,6 @@ offset n (Pos l c) = Pos l (c + n)
 
 --tokenRange :: (HasLoc f, HasLoc g) => f -> g -> SRng
 --tokenRange a b = coordFromTo (getLoc a) (getLoc b)
-
-startOf :: SRng -> Pos
-startOf (SRng s _) = s
 
 instance HasLoc Token where
   getLoc = tokenPos

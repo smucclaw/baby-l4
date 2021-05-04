@@ -37,6 +37,13 @@ packages:
   original:
     hackage: lsp-types-1.1.0.0@sha256:071289b1c5e2ba8fedf846cfe1931d1cfdaac24a624abdf5dcee52562b1f3e2a,4240
 - completed:
+    hackage: lsp-test-0.13.0.0@sha256:f04ae384d6da554d83e4e396134e09f71e72dfeff3ec27d8b49ac689ac15ea37,4218
+    pantry-tree:
+      size: 906
+      sha256: 7d5be8abfeabef8fd660a5e643f7ac398f545eb3c145b6e935fae775b926d200
+  original:
+    hackage: lsp-test-0.13.0.0
+- completed:
     hackage: dependent-map-0.4.0.0@sha256:ca2b131046f4340a1c35d138c5a003fe4a5be96b14efc26291ed35fd08c62221,1657
     pantry-tree:
       size: 551
@@ -92,6 +99,13 @@ packages:
       sha256: 9bb3bb8dbb26363388e013c795e60e81f9b243ecac6e28b3e9d7079c083ebdf4
   original:
     hackage: sbv-8.9@sha256:efb0f16c671869805e57d11e269793d5e5ae512e8e626582cf76b8e46a63e9c6,28985
+- completed:
+    hackage: prettyprinter-1.7.0@sha256:6a9569e21fa61163a7f066d23d701e23e917893e8f39733d6e617ec72787ae5f,6007
+    pantry-tree:
+      size: 3194
+      sha256: d22f820a1f63497f7fd7e1f04b7d356d92de35582258f6ad55428c88b09e63ff
+  original:
+    hackage: prettyprinter-1.7.0@sha256:6a9569e21fa61163a7f066d23d701e23e917893e8f39733d6e617ec72787ae5f,6007
 snapshots:
 - completed:
     size: 532177
