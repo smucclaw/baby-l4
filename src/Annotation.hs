@@ -10,6 +10,15 @@ import Data.Data (Data, Typeable)
 -- Positions and Ranges
 ----------------------------------------------------------------------
 
+data Located a = L
+  { loc :: SRng
+  , unLoc :: a
+  }
+  deriving (Eq, Ord, Show, Read, Data, Typeable)
+
+instance HasLoc (Located a) where
+  getLoc = loc
+
 data Pos = Pos
   { line :: !Int
   , col  :: !Int

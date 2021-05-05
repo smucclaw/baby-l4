@@ -32,7 +32,7 @@ import Data.Char (ord)
 import qualified Data.Bits
 import qualified Language.LSP.Types            as J
 
-import Annotation (HasLoc(..), RealSRng(..), SRng(..), Pos(..), coordFromTo, tokenRange)
+import Annotation (Located(..),HasLoc(..), RealSRng(..), SRng(..), Pos(..), coordFromTo, tokenRange)
 
 
 }
@@ -381,10 +381,16 @@ getFilePath = liftM filePath alexGetUserState
 setFilePath :: FilePath -> Alex ()
 setFilePath = alexSetUserState . AlexUserState
 
-data Token = Token { tokenPos :: SRng, tokenKind :: TokenKind }
-  deriving (Show)
 
-getTokenKind (Token _ k) = k
+-- data Token = Token { tokenPos :: SRng, tokenKind :: TokenKind }
+--   deriving (Show)
+
+type Token = Located TokenKind
+tokenPos = loc
+tokenKind = unLoc
+
+
+getTokenKind (L _ k) = k
 
 data TokenKind
   = TokenAssert
@@ -495,12 +501,12 @@ unLex (TokenStringLit s) = show s
 alexEOF :: Alex Token
 alexEOF = do
   (p,_,_,_) <- alexGetInput
-  return $ Token (alex2lspRng p 0) TokenEOF
+  return $ L (alex2lspRng p 0) TokenEOF
 
 -- Unfortunately, we have to extract the matching bit of string
 -- ourselves...
 lex :: (String -> TokenKind) -> AlexAction Token
-lex f = \(p,_,_,s) i -> return $ Token (alex2lspRng p i) (f (take i s))
+lex f = \(p,_,_,s) i -> return $ L (alex2lspRng p i) (f (take i s))
 
 -- For constructing tokens that do not depend on
 -- the input
@@ -576,8 +582,8 @@ offset n (Pos l c) = Pos l (c + n)
 --tokenRange :: (HasLoc f, HasLoc g) => f -> g -> SRng
 --tokenRange a b = coordFromTo (getLoc a) (getLoc b)
 
-instance HasLoc Token where
-  getLoc = tokenPos
+-- instance HasLoc Token where
+--   getLoc = tokenPos
 
 -- This might be useful for looking up token locations:
 -- http://hackage.haskell.org/package/IntervalMap

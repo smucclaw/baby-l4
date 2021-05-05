@@ -25,62 +25,62 @@ import Control.Monad.Except
 
 -- Parser monad
 %monad { Alex }
-%lexer { lexwrap } { Token _ TokenEOF }
+%lexer { lexwrap } { L _ TokenEOF }
 %error { parseError }
 
 -- Token Names
 %token
-    assert  { Token _ TokenAssert }
-    class   { Token _ TokenClass }
-    decl    { Token _ TokenDecl }
-    defn    { Token _ TokenDefn }
-    extends { Token _ TokenExtends }
-    lexicon { Token _ TokenLexicon }
-    rule    { Token _ TokenRule }
-    derivable { Token _ TokenDerivable }
+    assert  { L _ TokenAssert }
+    class   { L _ TokenClass }
+    decl    { L _ TokenDecl }
+    defn    { L _ TokenDefn }
+    extends { L _ TokenExtends }
+    lexicon { L _ TokenLexicon }
+    rule    { L _ TokenRule }
+    derivable { L _ TokenDerivable }
 
-    Bool  { Token _ TokenBool }
-    Int   { Token _ TokenInt }
+    Bool  { L _ TokenBool }
+    Int   { L _ TokenInt }
 
-    let    { Token _ TokenLet }
-    in     { Token _ TokenIn }
-    not    { Token _ TokenNot }
-    forall { Token _ TokenForall }
-    exists { Token _ TokenExists }
-    if     { Token _ TokenIf }
-    then   { Token _ TokenThen }
-    else   { Token _ TokenElse }
-    for    { Token _ TokenFor }
-    true   { Token _ TokenTrue }
-    false  { Token _ TokenFalse }
+    let    { L _ TokenLet }
+    in     { L _ TokenIn }
+    not    { L _ TokenNot }
+    forall { L _ TokenForall }
+    exists { L _ TokenExists }
+    if     { L _ TokenIf }
+    then   { L _ TokenThen }
+    else   { L _ TokenElse }
+    for    { L _ TokenFor }
+    true   { L _ TokenTrue }
+    false  { L _ TokenFalse }
 
-    '\\'  { Token _ TokenLambda }
-    '->'  { Token _ TokenArrow }
-    '-->' { Token _ TokenImpl }
-    '||'  { Token _ TokenOr }
-    '&&'  { Token _ TokenAnd }
-    '='   { Token _ TokenEq }
-    '<'   { Token _ TokenLt }
-    '<='  { Token _ TokenLte }
-    '>'   { Token _ TokenGt }
-    '>='  { Token _ TokenGte }
-    '+'   { Token _ TokenAdd }
-    '-'   { Token _ TokenSub }
-    '*'   { Token _ TokenMul }
-    '/'   { Token _ TokenDiv }
-    '%'   { Token _ TokenMod }
-    '.'   { Token _ TokenDot }
-    ','   { Token _ TokenComma }
-    ':'   { Token _ TokenColon }
-    '('   { Token _ TokenLParen }
-    ')'   { Token _ TokenRParen }
-    '{'   { Token _ TokenLBrace }
-    '}'   { Token _ TokenRBrace }
+    '\\'  { L _ TokenLambda }
+    '->'  { L _ TokenArrow }
+    '-->' { L _ TokenImpl }
+    '||'  { L _ TokenOr }
+    '&&'  { L _ TokenAnd }
+    '='   { L _ TokenEq }
+    '<'   { L _ TokenLt }
+    '<='  { L _ TokenLte }
+    '>'   { L _ TokenGt }
+    '>='  { L _ TokenGte }
+    '+'   { L _ TokenAdd }
+    '-'   { L _ TokenSub }
+    '*'   { L _ TokenMul }
+    '/'   { L _ TokenDiv }
+    '%'   { L _ TokenMod }
+    '.'   { L _ TokenDot }
+    ','   { L _ TokenComma }
+    ':'   { L _ TokenColon }
+    '('   { L _ TokenLParen }
+    ')'   { L _ TokenRParen }
+    '{'   { L _ TokenLBrace }
+    '}'   { L _ TokenRBrace }
 
-    NUM   { Token pos (TokenNum $$) }
-    VAR   { Token _ (TokenSym _) }
-    STRLIT { Token _ (TokenStringLit _)}
-    STR   { Token _ (TokenString _) }
+    NUM   { L pos (TokenNum $$) }
+    VAR   { L _ (TokenSym _) }
+    STRLIT { L _ (TokenStringLit _)}
+    STR   { L _ (TokenString _) }
 
 -- Operators
 %right '->'
@@ -234,14 +234,14 @@ RuleConcl   : then Expr    { $2 }
 
 {
 
-tokenSym    (Token _ (TokenSym sym)) = sym
-tokenString (Token _ (TokenString str)) = str
-tokenStringLit (Token _ (TokenStringLit str)) = str
+tokenSym    (L _ (TokenSym sym)) = sym
+tokenString (L _ (TokenString str)) = str
+tokenStringLit (L _ (TokenStringLit str)) = str
 
 lexwrap :: (Token -> Alex a) -> Alex a
 lexwrap = (alexMonadScan' >>=)
 parseError :: Token -> Alex a
-parseError (Token p t) =
+parseError (L p t) =
   alexError' p ("parse error at token '" ++ unLex t ++ "'")
 
 -- parseError :: [Token] -> Except String a
