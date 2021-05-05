@@ -1,0 +1,90 @@
+import ParsePredicatesEng.gf
+
+
+ps "* described in section 1"
+p "described in section 1"
+ps "* detracts from dignity of legal profession"
+p "detracts from dignity of legal profession"
+ps "* incompatible with dignity of legal profession"
+p "incompatible with dignity of legal profession"
+ps "* derogates from dignity of legal profession"
+p "derogates from dignity of legal profession"
+ps "* unfair"
+p "unfair"
+ps "* described in first schedule"
+p "described in first schedule"
+ps "* prohibited"
+p "prohibited"
+ps "* involves sharing fees  with unauthorized persons for legal work performed by the legal practitioner"
+p "involves sharing fees with unauthorized persons for legal work  performed by the legal practitioner"
+ps "* involves payment of commissions for legal work with unauthorized persons performed by the legal practitioner"
+p "involves payment of commissions for legal work with unauthorized persons performed by the legal practitioner"
+
+
+ps "* associated with"
+p "associated with"
+ps "* materially interferes with availability"
+p "materially interferes with availability"
+ps "* materially interferes with practicing as lawyer"
+p "materially interferes with practicing as lawyer"
+ps "* materially interferes with representation"
+p "materially interferes with representation"
+
+
+ps "* position"
+p "position"
+ps "* provides"
+p "provides"
+
+
+ps "* listed in third schedule"
+p "listed in third schedule"
+
+
+ps "* legal"
+p "legal"
+
+
+ps "* held as representative of"
+p "held as representative of"
+ps "* entitles holder"
+p "entitles holder"
+ps "* non executive director"
+p "non executive director"
+ps "* independent director"
+p "independent director"
+
+
+ps "* must not accept"
+p "must not accept"
+ps "* may accept"
+p "may accept"
+ps "* primary occupation is practicing as lawyer"
+p "primary occupation is practicing as lawyer"
+ps "* locum solicitor"
+p "locum solicitor"
+
+
+ps "* authorized to practice law"
+p "authorized to practice law"
+ps "* awesome"
+p "awesome"
+ps "* cool"
+p "cool"
+
+ps "* owner"
+p "owner"
+ps "* legal owner"
+p "legal owner"
+ps "* beneficial owner"
+p "beneficial owner"
+ps "* partner"
+p "partner"
+ps "* sole proprietor"
+p "sole proprietor"
+ps "* director"
+p "director"
+ps "* jurisdiction is Singapore"
+p "jurisdiction is Singapore"
+ps "* member"
+p "member"
