@@ -1,6 +1,7 @@
 
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DeriveFunctor #-}
 
 module Annotation where
 
@@ -14,7 +15,11 @@ data Located a = L
   { loc :: SRng
   , unLoc :: a
   }
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
+instance Applicative Located where
+  pure = L $ DummySRng "Unknown position"
+  L lf f <*> L lx x = L (coordFromTo lf lx) $ f x
 
 instance HasLoc (Located a) where
   getLoc = loc
@@ -44,22 +49,25 @@ data RealSRng = SRng
 nullSRng :: SRng
 nullSRng = DummySRng "Empty list"
 
-realCoordFromTo :: RealSRng -> RealSRng -> RealSRng
-realCoordFromTo (SRng f1 t1) (SRng f2 t2) = SRng (min f1 f2) (max t2 t2)
+instance Semigroup RealSRng where
+  SRng f1 t1 <> SRng f2 t2 = SRng (min f1 f2) (max t2 t2)
 
+instance Semigroup SRng where
+  (<>) = coordFromTo
+
+instance Monoid SRng where
+  mempty = nullSRng
 
 coordFromTo :: SRng -> SRng -> SRng
-coordFromTo (RealSRng r) (RealSRng r1) = RealSRng $ realCoordFromTo r r1
+coordFromTo (RealSRng r) (RealSRng r1) = RealSRng $ r <> r1
 coordFromTo r (DummySRng _) = r
 coordFromTo (DummySRng _) r = r
 
 tokenRange :: (HasLoc f, HasLoc g) => f -> g -> SRng
-tokenRange a b = coordFromTo (getLoc a) (getLoc b)
+tokenRange a b = getLoc a <> getLoc b
 
 tokenRangeList :: [SRng] -> SRng
-tokenRangeList [] = nullSRng
-tokenRangeList [x] = getLoc x
-tokenRangeList (x:xs) = tokenRange x (tokenRangeList xs)
+tokenRangeList = mconcat
 
 class HasLoc a where
   getLoc :: a -> SRng
