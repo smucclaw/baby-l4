@@ -21,9 +21,6 @@ abstract Predicates =
   Construction,
   Atoms ** {
 
-flags
-  startcat = Predicate ;
-
   fun
     -- Application-specific extensions
  
@@ -43,7 +40,6 @@ flags
     MkA2 : A -> Prep -> A2 ;
 
   cat
-    Predicate ;
     Predicate1 ; Predicate2 ; GenPredicate ;
   fun
     ComplV2V : Temp -> Pol -> V2V -> NP -> Predicate1 ; -- EntitlesHolder

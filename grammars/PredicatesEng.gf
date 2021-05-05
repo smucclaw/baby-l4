@@ -31,7 +31,7 @@ lin
   IdRP = which_who_RP ;
 
   lincat
-    Predicate = MyAgr => S ;
+--    Predicate = MyAgr => S ;
     Predicate1, GenPredicate = LinGenPred ;
     Predicate2 = LinGenPred2 ;
 

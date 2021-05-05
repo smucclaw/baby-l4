@@ -1,35 +1,35 @@
 abstract ParsePredicates = Predicates, ReducedWordNet - [in_N, in_A] ** {
 
 flags
-  startcat = FullPredicate ;
+  startcat = Predicate ;
   cat
-    FullPredicate ;
-  fun
+    Predicate ;
 
+  fun
     -- Coercions to startcat
+    p0 : NP -> Predicate ; -- Owner, LegalOwner
     p1 : Predicate1 -> Predicate ;
     p2 : Predicate2 -> Predicate ;
     gp : GenPredicate -> Predicate ;
 
     -- Map to ComplNP(2)
-    PredNP : Polarity -> NP -> FullPredicate ; -- Owner, LegalOwner
-    PredNP2 : Polarity -> NP -> Prep -> FullPredicate ; -- OwnerOf (argument)
+    PredNP2 : Polarity -> NP -> Prep -> Predicate ; -- OwnerOf (argument)
 
     -- Map to ComplAP(2)
-    PredAP : Polarity -> AP -> FullPredicate ; -- Legal, AuthorizedToPracticeLaw
-    PredAP2 : Polarity -> AP -> Prep -> FullPredicate ; -- AuthorizedToPracticeLawIn (argument)
+    PredAP : Polarity -> AP -> Predicate ; -- Legal, AuthorizedToPracticeLaw
+    PredAP2 : Polarity -> AP -> Prep -> Predicate ; -- AuthorizedToPracticeLawIn (argument)
 
     -- Map to ComplVPSlash "Described in Section 1"
-    V2PartAdv : Polarity -> V2 -> Adv -> FullPredicate ;
+    V2PartAdv : Polarity -> V2 -> Adv -> Predicate ;
 
     -- Map to GenPredicate
-    PredSentence : NP -> VPS -> FullPredicate ; -- JurisdictionIsSingapore
-    PredSentence2 : NP -> VPS2 -> FullPredicate ; -- Rule 34 applies
+    PredSentence : NP -> VPS -> Predicate ; -- JurisdictionIsSingapore
+    PredSentence2 : NP -> VPS2 -> Predicate ; -- Rule 34 applies
 
     -- Internal error messages
     PartialParseAfterNTokens,
-    ParseFailedAfterNTokens : Int -> FullPredicate ;
-    NoParse : FullPredicate ;
+    ParseFailedAfterNTokens : Int -> Predicate ;
+    NoParse : Predicate ;
 
   cat
     Agreement ;
@@ -45,7 +45,7 @@ flags
     --   PPartInd,
     --   Gerund, Imperative : AgrTAM ; -- TODO see if need e.g. conditional
 
-    FullPred : Predicate -> FullPredicate ;
+    --FullPred : Predicate -> FullPredicate ;
   -- FullPred : Agreement -> Polarity -> Predicate -> Utt ;
 
 }

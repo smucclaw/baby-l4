@@ -182,11 +182,12 @@ concrEntryUserLex pr =
 -- TODO: handle this function as Gf trees to other Gf trees, not string processing
 hackyRemoveFullPred :: String -> String
 hackyRemoveFullPred str = case words $ hackyChangeIntToCard $ trim str of
-                       "FullPred":ws -> unwords ws
                        "PredAP":_pol:ws -> printf "p1 (ComplAP %s)" $ unwords ws
+                       "PredNP":_pol:ws -> printf "p1 (ComplNP %s)" $ unwords ws
+                       "p0":"(MassNP":ws -> printf "mkAtom (%s" $ unwords ws
                        "V2PartAdv":_pol:v2:adv
                          -> printf "p1 (ComplAP (AdvAP (PastPartAP (mkVPSlash %s)) %s))" v2 (unwords adv)
-                       _ -> "mkAtom business_N"
+                       _ -> str
 
 hackyChangeIntToCard :: String -> String
 hackyChangeIntToCard str = case splitOn "(Int2Card 1)" str of

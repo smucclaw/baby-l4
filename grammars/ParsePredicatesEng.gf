@@ -7,13 +7,17 @@ flags
   case_sensitive = off;
 
   lincat
-    FullPredicate = Utt ;
+    Predicate = Utt ;
     Agreement = {a : MyAgr} ; -- Agreement is redundant in all but present
     Polarity = {p : Pol ; s : Str} ;
+
+  oper
+    anyAgr = MySg | MyPl ;
   lin
 
-    p1 pred1 = \\agr => PredVPS (pred1.subj ! agr) pred1.pred ;
-    p2 pred2 = \\agr => PredVPS (pred2.subj ! agr) (ComplVPS2 pred2.pred (dummyNP ! MySg)) ;
+    p0 np = mkUtt np ;
+    gp, p1 = \pred1 -> mkUtt (PredVPS (pred1.subj ! anyAgr) pred1.pred) ;
+    p2 pred2 = mkUtt (PredVPS (pred2.subj ! anyAgr) (ComplVPS2 pred2.pred (dummyNP ! MySg))) ;
 
     PosPol = {p = positivePol ; s = ""} ;
     NegPol = {p = negativePol | UncontractedNeg ; s = "not"} ; -- a hack
@@ -30,7 +34,7 @@ flags
     PredSentence2 np vps = PredSentence np <vps : VPS> ;
 
 --    FullPred agrtam pol pred = mkUtt (UseCl agrtam.t pol.p (pred ! agrtam.a)) ;
-   FullPred pr = mkUtt (pr ! (MySg|MyPl)) ;
+--   FullPred pr = mkUtt (pr ! (MySg|MyPl)) ;
 
     PartialParseAfterNTokens n = lin Utt (cc3 (ss "partial parse after") n (ss "tokens")) ;
     ParseFailedAfterNTokens n = lin Utt (cc3 (ss "parse failed after") n (ss "tokens")) ;
