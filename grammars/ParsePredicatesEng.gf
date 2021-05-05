@@ -15,7 +15,8 @@ flags
     anyAgr = MySg | MyPl ;
   lin
 
-    p0 np = mkUtt np ;
+    p0 cn = mkUtt (mkNP cn) ; -- LegalOwner
+
     gp, p1 = \pred1 -> mkUtt (PredVPS (pred1.subj ! anyAgr) pred1.pred) ;
     p2 pred2 = mkUtt (PredVPS (pred2.subj ! anyAgr) (ComplVPS2 pred2.pred (dummyNP ! MySg))) ;
 
@@ -33,22 +34,21 @@ flags
     PredSentence np vps = mkUtt (PredVPS np vps) ;
     PredSentence2 np vps = PredSentence np <vps : VPS> ;
 
---    FullPred agrtam pol pred = mkUtt (UseCl agrtam.t pol.p (pred ! agrtam.a)) ;
---   FullPred pr = mkUtt (pr ! (MySg|MyPl)) ;
-
     PartialParseAfterNTokens n = lin Utt (cc3 (ss "partial parse after") n (ss "tokens")) ;
     ParseFailedAfterNTokens n = lin Utt (cc3 (ss "parse failed after") n (ss "tokens")) ;
     NoParse = lin Utt (ss "no parse") ;
 
 
   lin
-    --  : NP -> FullPredicate ; -- Owner, LegalOwner
-    PredNP pol np = cc2 pol (mkUtt np) ;
-    -- : NP -> Prep -> FullPredicate ; -- OwnerOf (argument)
-    PredNP2 pol np prep = cc3 pol (mkUtt np) (mkAdv prep (dummyNP ! MySg)) ;
-    --  : AP -> FullPredicate ;
+
+    -- : CN -> Prep -> Predicate ; -- OwnerOf (argument)
+    PredNP2 cn prep = 
+      let np : NP = mkNP cn|mkNP aPl_Det cn 
+       in cc2 (mkUtt np) (mkAdv prep (dummyNP ! MySg)) ;
+
+    --  : Polarity -> AP -> Predicate ;
     PredAP pol np = cc2 pol (mkUtt np) ;
-    -- : AP -> Prep -> FullPredicate ;
+    -- : Polarity -> AP -> Prep -> Predicate ;
     PredAP2 pol np prep = cc3 pol (mkUtt np) (mkAdv prep (dummyNP ! MySg)) ;
 
     V2PartAdv pol v2 adv = PredAP pol (AdvAP (PastPartAP (mkVPSlash v2)) adv) ;

@@ -1,6 +1,7 @@
 
 concrete PredicatesEng of Predicates =
-  NounEng - [PPartNP, UseN2, RelNP, DetNP, AdvNP, PossNP, PartNP, CountNP, AdvCN, ApposCN],
+  NounEng - [PPartNP, UseN2, RelNP, DetNP, AdvNP, PossNP, PartNP, CountNP, AdvCN, ApposCN,
+             IndefArt, MassNP], -- Want to parse NPs without article mainly as CNs if possible
   VerbEng - [PassV2, ReflVP, ComplVV, SlashV2V, SlashVV, SlashV2VNP, UseCopula, AdvVP, AdvVPSlash, VPSlashPrep],
   AdjectiveEng - [ReflA2, CAdvAP, UseA2, AdvAP],
   AdverbEng - [ComparAdvAdj,ComparAdvAdjS,AdnCAdv],
@@ -53,6 +54,7 @@ lin
     APInf ap vp = SentAP ap (SE.EmbedVP vp) ;
 
     MkN2 n prep = P.mkN2 n prep ;
+    MkCN2 cn prep = P.mkN2 <cn : N> prep ; -- CN and N have the same lincat, can do this
     MkV2 v prep = P.mkV2 v prep ;
     MkA2 a prep = P.mkA2 a prep ;
 

@@ -3,7 +3,7 @@
 -- * TopPredicates that uses real WordNet, and that will be used in the actual application grammar.
 
 abstract Predicates =
-  Noun - [PPartNP, UseN2, RelNP, DetNP, AdvNP, PossNP, PartNP, CountNP, ApposCN],
+  Noun - [PPartNP, UseN2, RelNP, DetNP, AdvNP, PossNP, PartNP, CountNP, ApposCN, IndefArt, MassNP],
   Verb - [PassV2, ReflVP, ComplVV, SlashVV, SlashV2V, SlashV2VNP, AdvVP],
   Adjective - [ReflA2, CAdvAP, UseA2], --AdvAP],
   Adverb - [AdnCAdv, ComparAdvAdj, ComparAdvAdjS],
@@ -48,6 +48,7 @@ abstract Predicates =
 
     -- Quick and dirty way to get rid of attachment ambiguity: all Advs attach to the closest word
     MkN2 : N -> Prep -> N2 ;
+    MkCN2 : CN -> Prep -> N2 ;
     MkV2 : V -> Prep -> V2 ;
     MkA2 : A -> Prep -> A2 ;
 

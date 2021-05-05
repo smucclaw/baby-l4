@@ -7,13 +7,14 @@ flags
 
   fun
     -- Coercions to startcat
-    p0 : NP -> Predicate ; -- Owner, LegalOwner
+    p0 : CN -> Predicate ; -- Owner, LegalOwner
+    mkAtom : N2 -> Predicate ; -- complete hack 
     p1 : Predicate1 -> Predicate ;
     p2 : Predicate2 -> Predicate ;
     gp : GenPredicate -> Predicate ;
 
     -- Map to ComplNP(2)
-    PredNP2 : Polarity -> NP -> Prep -> Predicate ; -- OwnerOf (argument)
+    PredNP2 : CN -> Prep -> Predicate ; -- OwnerOf (argument)
 
     -- Map to ComplAP(2)
     PredAP : Polarity -> AP -> Predicate ; -- Legal, AuthorizedToPracticeLaw
@@ -24,12 +25,12 @@ flags
 
     -- Map to GenPredicate
     PredSentence : NP -> VPS -> Predicate ; -- JurisdictionIsSingapore
-    PredSentence2 : NP -> VPS2 -> Predicate ; -- Rule 34 applies
+    PredSentence2 : NP -> VPS2 -> Predicate ; -- Rule 34 applies rcffa 
 
-    -- Internal error messages
-    PartialParseAfterNTokens,
-    ParseFailedAfterNTokens : Int -> Predicate ;
-    NoParse : Predicate ;
+    -- Internal errormessages
+    -- PartialParseAfterNTokens,
+    -- ParseFailedAfterNTokens : Int -> Predicate ;
+    -- NoParse : Predicate ;
 
   cat
     Agreement ;
