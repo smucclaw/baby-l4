@@ -32,6 +32,13 @@ abstract Predicates =
     CnNum : CN -> Card -> CN ; -- Section one/34
     Int2Card : Int -> Card ;
 
+    partyX : String -> CN ;
+
+
+    thereby_AdV : AdV ;
+    hereby_AdV: AdV ;
+    henceforth_AdV : AdV ;
+
     CompoundA : N -> AP -> AP ; -- owner-driven
     NegAP : AP -> AP ; -- non-executive
 --    AdvVVP : Adv -> VP -> VP ; -- allow Adv to be used like AdV: materially interferes
@@ -49,8 +56,11 @@ abstract Predicates =
   fun
 
     AddTransInf : Predicate1 -> VPI2 -> Predicate2 ; -- amounts to a waiver of rights to enforce
+    AddPreposition1 : Predicate1 -> Prep -> Predicate2 ;
+    AddPreposition2 : Predicate2 -> Prep -> Predicate2 ; -- maybe Predicate3 later?
 
     ComplV2V : Temp -> Pol -> V2V -> NP -> Predicate1 ; -- EntitlesHolder
+
 
     ComplNP : NP -> Predicate1 ; -- IsOwner,
     ComplNP2 : NP -> Prep -> Predicate2 ; -- IsOwnerOf (argument)

@@ -43,6 +43,11 @@ lin
     CnNum cn card = mkCN cn (mkNP (mkDet card)) ;
     Int2Card int =  symb (mkSymb int.s) ; -- mkSymb : Str -> Symb ;
     CnInt cn int = mkCN cn (symb int) ;
+    partyX x = mkCN (P.mkN "party") (symb x) ;
+    thereby_AdV = lin AdV (P.mkAdv "thereby") ;
+    hereby_AdV = lin AdV (P.mkAdv "hereby") ;
+    henceforth_AdV = lin AdV (P.mkAdv "henceforth") ;
+
     CompoundA n ap = mkAP (lin AdA (mkUtt n)) ap ;
 
     APInf ap vp = SentAP ap (SE.EmbedVP vp) ;
@@ -69,6 +74,14 @@ lin
                         {fin = vp.fin ;
                          inf = vp.inf ++ vpi2.s ! VVInf ! a } ;
         c2 = vpi2.c2})
+    } ;
+
+    AddPreposition1 pred1 prep = pred1 ** {
+      pred = pred1.pred ** {c2 = prep.s}
+    } ;
+
+    AddPreposition2 pred2 prep = pred2 ** {
+      pred = pred2.pred ** {c2 = pred2.pred.c2 ++ prep.s}
     } ;
 
     ComplV2V t p v2v np = headlessVP (MkVPS t p (mkVP <v2v : V2> np)) ;
@@ -131,6 +144,4 @@ lin
       vpSlash : VPS -> Prep -> VPS2 = \vps,prep -> vps ** {c2 = prep.s} ;
       } ;
 
---    myVPS : VP -> VPS = \vp -> MkVPS (mkTemp presentTense simultaneousAnt) positivePol vp ;
---    myVPS2 : VPSlash -> VPS2 = \vp -> MkVPS2 (mkTemp presentTense simultaneousAnt) positivePol vp ;
 }
