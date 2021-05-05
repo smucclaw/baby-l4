@@ -67,20 +67,20 @@ mkLexicon :: PGF -> GrName -> [Mapping t] -> [AtomWithArity] -> (Doc (), Doc ())
 mkLexicon parsepgf gname userlex atoms = (abstractLexicon gname parsedLex guessedLex, concreteLexicon gname parsedLex guessedLex)
   where
     bothLexica =
-      [ ( parsePredFromUserLex funname
-          ++ parsePredFromName funname
+      [ ( parsePredFromUserLex funname ar'
+          ++ parsePredFromName funname ar'
         , guessPOS aa)
-      | aa@(AA funname _) <- atoms
+      | aa@(AA funname ar) <- atoms
+      , let ar' = ar --max ar (length $ filter (=='>') funname) -- TODO see if these are ever different?
       ]
-    parsePredFromUserLex funname = [ pr -- only those user-defined predicates that actually parse!
+    parsePredFromUserLex funnm ar = [ pr -- only those user-defined predicates that actually parse!
                                    | Mapping _ nm value <- userlex
-                                   , nm == funname
-                                   , let pr = parsePred parsepgf nm value
-                                   , not $ null $ trees pr -- TODO: why doesn't this work?
-                                   ] -- is empty if the funname doesn't appear in user lex, or if there's no parse
-    parsePredFromName funname = [ pr
-                                | let pr = parsePred parsepgf funname ""
-                                , not $ null $ trees pr ]
+                                   , nm == funnm
+                                   , let pr = parsePred parsepgf ar nm value
+                                   , not $ null $ trees pr ] -- is empty if the funnm doesn't appear in user lex, or if there's no parse
+    parsePredFromName funnm ar = [ pr
+                                 | let pr = parsePred parsepgf ar funnm ""
+                                 , not $ null $ trees pr ]
     parsedLex = [ p | (p:_ , _) <- bothLexica] -- Use the parsed predicate. TODO filter in smart way, not just use the first one!
     guessedLex = [ posguess | ([] , posguess) <- bothLexica] -- If no result for parsePred, fall back to guessed pos
 
@@ -173,9 +173,9 @@ hackyRemoveFullPred :: String -> String
 hackyRemoveFullPred str = case words $ hackyChangeIntToCard $ trim str of
                        "PredAP":_pol:ws -> printf "p1 (ComplAP %s)" $ unwords ws
                        "PredNP":_pol:ws -> printf "p1 (ComplNP %s)" $ unwords ws
-                       "p0":"(MassNP":ws -> printf "mkAtom (%s" $ unwords ws
-                       "V2PartAdv":_pol:v2:adv
-                         -> printf "p1 (ComplAP (AdvAP (PastPartAP (mkVPSlash %s)) %s))" v2 (unwords adv)
+                       "p0":ws -> printf "mkAtom %s" $ unwords ws
+                      --  "V2PartAdv":_pol:v2:adv
+                      --    -> printf "p1 (ComplAP (AdvAP (PastPartAP (mkVPSlash %s)) %s))" v2 (unwords adv)
                        _ -> str
 
 hackyChangeIntToCard :: String -> String
