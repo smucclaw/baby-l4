@@ -97,17 +97,17 @@ import Control.Monad.Except
 %%
 
 Program : Lexicon ClassDecls GlobalVarDecls Rules Assertions
-                                   { Program (tokenRangeList [getLoc $1, getLoc $2, getLoc $3, getLoc $4, getLoc $5]) (reverse $ unLoc $1) (reverse $2)  (reverse $3) (reverse $4) (reverse $5) }
+                                   { Program (tokenRangeList [getLoc $1, getLoc $2, getLoc $3, getLoc $4, getLoc $5]) (unLoc $1) $2  $3 $4 $5 }
 
 Lexicon :                   { L (DummySRng "No lexicon") [] }
         |  lexicon Mappings { L (tokenRangeList [getLoc $1, getLoc $2]) $2 }
 
 Mappings :                   {[]}
-          | Mappings Mapping {$2 : $1 }
+          | Mapping Mappings {$1 : $2 }
 Mapping : VAR '->' STRLIT { Mapping (tokenRange $1 $3) (tokenSym $1) (tokenStringLit $3) }
 
 ClassDecls :                       { [] }
-           | ClassDecls ClassDecl  { $2 : $1 }
+           | ClassDecl ClassDecls  { $1 : $2 }
 
 ClassDecl : class VAR ClassDef     { case snd $3 of
                                        -- ClassDef is empty, so take token range of 'class VAR'
@@ -134,7 +134,7 @@ FieldDecls :                       { [] }
 FieldDecl : VAR ':' Tp             { FieldDecl (tokenRange $1 $3) (FldNm $ tokenSym $1) (unLoc $3) }
 
 GlobalVarDecls :                         { [] }
-         | GlobalVarDecls GlobalVarDecl  { $2 : $1 }
+         | GlobalVarDecl GlobalVarDecls  { $1 : $2 }
 
 GlobalVarDecl : decl VAR ':' Tp          { VarDecl (tokenRange $1 $4) (tokenSym $2) (unLoc $4) }
 
@@ -145,7 +145,7 @@ VarDecl : VAR ':' Tp                     { VarDecl (tokenRange $1 $3) (tokenSym 
 
 
 Assertions :                       { [] }
-           | Assertions Assertion  { $2 : $1 }
+           | Assertion Assertions  { $1 : $2 }
 Assertion : assert Expr            { Assertion (tokenRange $1 $2) $2 }
 
 -- Atomic type
@@ -220,7 +220,7 @@ ExprsCommaSep :                      { [] }
 
 
 Rules  :                       { [] }
-       | Rules Rule            { $2 : $1}
+       | Rule Rules            { $1 : $2}
 Rule: rule '<' VAR '>'  RuleVarDecls RulePrecond RuleConcl { Rule (tokenRange $1 $7) (tokenSym $3) $5 $6 $7 }
 
 -- RuleName: rule '<' VAR '>'     { tokenSym $3 }
