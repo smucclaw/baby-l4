@@ -176,11 +176,11 @@ instance HasLoc t => HasLoc (SomeAstNode t) where
   getLoc (SGlobalVarDecl et) = getLoc et
   getLoc (SRule et) = getLoc et
 
-selectSmallestContaining :: HasLoc t => Position -> SomeAstNode t -> SomeAstNode t
-selectSmallestContaining pos node =
+selectSmallestContaining :: HasLoc t => Position -> [SomeAstNode t] -> SomeAstNode t -> [SomeAstNode t]
+selectSmallestContaining pos parents node =
   case List.find (posInRange pos . getLoc) (getChildren node) of
-    Nothing -> node
-    Just sub -> selectSmallestContaining pos sub
+    Nothing -> node:parents
+    Just sub -> selectSmallestContaining pos (node:parents) sub
 
 getChildren :: SomeAstNode t -> [SomeAstNode t]
 getChildren (SProg Program {lexiconOfProgram, classDeclsOfProgram, globalsOfProgram, rulesOfProgram }) = 
@@ -191,8 +191,8 @@ getChildren (SClassDecl _) = []
 getChildren (SGlobalVarDecl _) = []
 getChildren (SRule _) = []
 
-findAstAtPoint :: HasLoc t => Position -> Program t -> SomeAstNode t
-findAstAtPoint pos = selectSmallestContaining pos . SProg
+findAstAtPoint :: HasLoc t => Position -> Program t -> [SomeAstNode t]
+findAstAtPoint pos = selectSmallestContaining pos [] . SProg
 
 -- | Temporary bad debugging function.
 -- Use @debugM@ instead
@@ -221,7 +221,7 @@ tokensToHover pos tokens ast = do
       tok <- extract "Couldn't find token" $ find (posInRange pos . tokenPos) tokens
       return $ tokenToHover tok astNode
 
-tokenToHover :: Token -> SomeAstNode SRng -> Hover
+tokenToHover :: Token -> [SomeAstNode SRng] -> Hover
 tokenToHover tok astNode = Hover contents range
   where
     astText = astToText astNode
@@ -232,11 +232,11 @@ tokenToHover tok astNode = Hover contents range
       Nothing -> tokenPos tok
     range = sRngToRange annRange
 
-astToText :: SomeAstNode SRng -> Maybe T.Text
-astToText (SMapping (Mapping _ from to)) = Just $ "This block maps variable " <> T.pack from <> " to GrammaticalFramework WordNet definion " <> tshow to
-astToText (SClassDecl (ClassDecl _ (ClsNm x) _)) = Just $ "Declaration of new class : " <> T.pack x
-astToText (SGlobalVarDecl (VarDecl _ n _)) = Just $ "Declaration of global variable " <> T.pack n
-astToText (SRule (Rule _ n _ _ _)) = Just $ "Declaration of rule " <> T.pack n
+astToText :: [SomeAstNode SRng] -> Maybe T.Text
+astToText (SMapping (Mapping _ from to):_) = Just $ "This block maps variable " <> T.pack from <> " to GrammaticalFramework WordNet definion " <> tshow to
+astToText (SClassDecl (ClassDecl _ (ClsNm x) _):_) = Just $ "Declaration of new class : " <> T.pack x
+astToText (SGlobalVarDecl (VarDecl _ n _):_) = Just $ "Declaration of global variable " <> T.pack n
+astToText (SRule (Rule _ n _ _ _):_) = Just $ "Declaration of rule " <> T.pack n
 astToText _ = Nothing
 
 tokenToText :: Token -> T.Text
@@ -244,7 +244,7 @@ tokenToText token =
   case tokenKind token of
     TokenLexicon -> "This is a lexicon"
     _            -> tshow token
-
+  
 lookupTokenBare' :: Position -> Uri -> ExceptT Err IO Hover
 lookupTokenBare' pos uri = do
   path <- uriToFilePath' uri

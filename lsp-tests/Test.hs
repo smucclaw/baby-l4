@@ -15,9 +15,6 @@ main = defaultMain $ testGroup "Tests" [hoverTests, example]
 hoverTests :: TestTree
 hoverTests = testGroup "Hover tests"
   [ 
-    -- TODO: fix hover highlughting; currently highlights entire block rather than line (classDecl, globalVarDecl, rule)
-    -- this test now fails because LegalPractitioner is within a rule block
-    -- testHover "mini.l4 hover LegalPractitioner"         "mini.l4" (Position 20 10) (mkRange 19 0 22 28) "TokenSym \"LegalPractitioner\"",
     testHover "mini.l4 hover the string 'lexicon'" "mini.l4" (Position 2 4)  (mkRange 2 0 2 7)    "This is a lexicon"
   , testHover "mini.l4 hover the string 'Business -> \"business_1_N\"'" "mini.l4" (Position 3 4)  (mkRange 3 0 3 26)    "This block maps variable Business to GrammaticalFramework WordNet definion \"business_1_N\""
   , testHover "cr.l4 hover the string 'class Business {'" "cr.l4" (Position 21 10)  (mkRange 21 0 24 1)    "Declaration of new class : Business" 
