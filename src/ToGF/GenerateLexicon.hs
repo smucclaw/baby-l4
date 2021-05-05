@@ -6,18 +6,15 @@
 
 module ToGF.GenerateLexicon where
 
-import qualified Data.Set as S
 import qualified GF
 import PGF (PGF, Expr, readPGF, linearizeAll, showExpr)
 import Prettyprinter
 import Prettyprinter.Render.Text (hPutDoc)
 import ToGF.ParsePred
-import ToGF.FromSCasp.SCasp as SC hiding (parens)
 import System.Environment (withArgs)
 import System.IO (IOMode (WriteMode), withFile)
 import Text.Printf (printf)
 import Data.List.Extra (splitOn, trim, intercalate)
-import Data.Set (Set)
 import Syntax (Mapping(..))
 
 ----------------------------------------------------------------------
@@ -101,14 +98,6 @@ postprocess = map (\c -> if c == '\\' then '\n' else c)
 
 -- Internal format that works for all sources
 data AtomWithArity = AA String Int deriving (Show, Eq, Ord)
-
-getAtoms :: SC.Tree s -> Set AtomWithArity
-getAtoms = SC.foldMapTree getAtom
-  where
-    getAtom :: SC.Tree a -> Set AtomWithArity
-    getAtom (EApp (A str) ts) = S.singleton $ AA str (length ts)
-    getAtom (AAtom (A str))   = S.singleton $ AA str 0
-    getAtom _                 = mempty
 
 -- POS
 type Prep = Maybe String
