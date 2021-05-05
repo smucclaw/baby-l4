@@ -8,8 +8,7 @@ import Language.LSP.Types
 import Control.Monad.IO.Class
 import qualified Data.Text as T
 import Lexer
-import Data.List (find)
-import Data.Text.IO (hPutStrLn, putStr)
+import Data.Text.IO (hPutStrLn)
 import qualified Data.Map as Map
 import System.IO (stderr)
 
@@ -31,8 +30,6 @@ import Control.Monad.Except
 -- import Syntax (Pos(..),SRng(..))
 
 import Annotation
-import Data.Maybe (fromMaybe)
-import Annotation (SRng(DummySRng))
 
 type Config = ()
 
@@ -183,7 +180,7 @@ selectSmallestContaining pos parents node =
     Just sub -> selectSmallestContaining pos (node:parents) sub
 
 getChildren :: SomeAstNode t -> [SomeAstNode t]
-getChildren (SProg Program {lexiconOfProgram, classDeclsOfProgram, globalsOfProgram, rulesOfProgram }) = 
+getChildren (SProg Program {lexiconOfProgram, classDeclsOfProgram, globalsOfProgram, rulesOfProgram }) =
   map SMapping lexiconOfProgram ++ map SClassDecl classDeclsOfProgram ++ map SGlobalVarDecl globalsOfProgram ++ map SRule rulesOfProgram -- TODO: Add other children
 getChildren (SExpr et) = SExpr <$> childExprs et
 getChildren (SMapping _) = []
@@ -215,42 +212,32 @@ extract :: Monad m => String -> Maybe a -> ExceptT Err m a
 extract errMessage = except . maybeToRight (Err (DummySRng "From lsp") errMessage)
 
 -- TODO: Add type checking as well
-tokensToHover :: Position -> [Token] -> Program SRng -> ExceptT Err IO Hover
-tokensToHover pos tokens ast = do
+tokensToHover :: Position -> Program SRng -> ExceptT Err IO Hover
+tokensToHover pos ast = do
       let astNode = findAstAtPoint pos ast
-      tok <- extract "Couldn't find token" $ find (posInRange pos . tokenPos) tokens
-      return $ tokenToHover tok astNode
+      return $ tokenToHover astNode
 
-tokenToHover :: Token -> [SomeAstNode SRng] -> Hover
-tokenToHover tok astNode = Hover contents range
+tokenToHover :: [SomeAstNode SRng] -> Hover
+tokenToHover astNode = Hover contents range
   where
     astText = astToText astNode
-    txt = fromMaybe (tokenToText tok) astText
+    txt = astText <> "\n\n" <> tshow (head astNode)
     contents = HoverContents $ markedUpContent "haskell" txt
-    annRange = case astText of
-      Just _ -> getLoc astNode
-      Nothing -> tokenPos tok
+    annRange = getLoc $ head astNode
     range = sRngToRange annRange
 
-astToText :: [SomeAstNode SRng] -> Maybe T.Text
-astToText (SMapping (Mapping _ from to):_) = Just $ "This block maps variable " <> T.pack from <> " to GrammaticalFramework WordNet definion " <> tshow to
-astToText (SClassDecl (ClassDecl _ (ClsNm x) _):_) = Just $ "Declaration of new class : " <> T.pack x
-astToText (SGlobalVarDecl (VarDecl _ n _):_) = Just $ "Declaration of global variable " <> T.pack n
-astToText (SRule (Rule _ n _ _ _):_) = Just $ "Declaration of rule " <> T.pack n
-astToText _ = Nothing
+astToText :: [SomeAstNode SRng] -> T.Text
+astToText (SMapping (Mapping _ from to):_) = "This block maps variable " <> T.pack from <> " to GrammaticalFramework WordNet definion " <> tshow to
+astToText (SClassDecl (ClassDecl _ (ClsNm x) _):_) = "Declaration of new class : " <> T.pack x
+astToText (SGlobalVarDecl (VarDecl _ n _):_) = "Declaration of global variable " <> T.pack n
+astToText (SRule (Rule _ n _ _ _):_) = "Declaration of rule " <> T.pack n
+astToText _ = ""
 
-tokenToText :: Token -> T.Text
-tokenToText token =
-  case tokenKind token of
-    TokenLexicon -> "This is a lexicon"
-    _            -> tshow token
-  
 lookupTokenBare' :: Position -> Uri -> ExceptT Err IO Hover
 lookupTokenBare' pos uri = do
   path <- uriToFilePath' uri
-  allTokens <- scanFile' path
   ast <- parseProgram' path
-  tokensToHover pos allTokens ast
+  tokensToHover pos ast
 
 syncOptions :: J.TextDocumentSyncOptions
 syncOptions = J.TextDocumentSyncOptions
