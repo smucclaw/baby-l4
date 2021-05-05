@@ -12,6 +12,7 @@ import Data.List.Split ( split, splitOn, startsWithOneOf )
 import Data.Monoid (Any (..))
 import PGF hiding (Tree)
 import Text.Printf (printf)
+import Data.Maybe (isJust)
 
 ----------------------------------------------------
 
@@ -109,13 +110,20 @@ parsePred :: PGF -> Name -> String -> Predicate
 parsePred gr funname optdesc = Pred nm (unwords desc) (filterHeuristic ts) ar
   where
     nm : _ = splitOn ":" funname
+    nm' = unwords $ splitOn "_" nm -- take care of is_participant_in style
     desc = case optdesc of -- if no description provided, parse the name, e.g. DescribedInSection1
-              [] -> map (trim . map toLower) $ split (startsWithOneOf (['A' .. 'Z']++['0'..'9'])) nm
+              [] -> map (trim . map toLower) $ split (startsWithOneOf (['A' .. 'Z']++['0'..'9'])) nm'
               _  -> words optdesc
     ar = length $ filter (== '>') funname
-    ts = parseGF gr desc
+    ts = filter (not . hasMeta) (parseGF gr desc)
 
+    hasMeta :: PGF.Expr -> Bool
+    hasMeta expr = go $ unapply expr
+      where
+        go (e, []) = isMeta e
+        go (e, es) = or $ isMeta e : map (go . unapply) es
 
+        isMeta = isJust . unMeta
 
 type MyParseOutput = [Expr]
 
@@ -137,7 +145,7 @@ parseGF gr = go
                | (ind, w:ord) <- zip [1..] ws ]
           ParseFailed 1 -> [] -- [gf GNoParse]
           ParseFailed n -> go (take (n-1) ws) ++ [gf (GParseFailedAfterNTokens (GInt n))]
-          ParseIncomplete -> go (init ws)
+          ParseIncomplete | not $ null ws -> go (init ws)
           _ -> []
 
 -- if we want [(Expr,BracketedString)]

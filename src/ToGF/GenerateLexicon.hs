@@ -8,7 +8,7 @@ module ToGF.GenerateLexicon where
 
 import qualified Data.Set as S
 import qualified GF
-import PGF (PGF, Expr, readPGF, linearizeAll, showExpr, unMeta, unapply)
+import PGF (PGF, Expr, readPGF, linearizeAll, showExpr)
 import Prettyprinter
 import Prettyprinter.Render.Text (hPutDoc)
 import ToGF.ParsePred
@@ -19,7 +19,6 @@ import Text.Printf (printf)
 import Data.List.Extra (splitOn, trim, intercalate)
 import Data.Set (Set)
 import Syntax (Mapping(..))
-import Data.Maybe (isJust)
 
 ----------------------------------------------------------------------
 -- Generate GF code
@@ -68,7 +67,7 @@ writeDoc :: FilePath -> Doc () -> IO ()
 writeDoc nm doc = withFile nm WriteMode $ \h -> hPutDoc h doc
 
 mkLexicon :: PGF -> GrName -> [Mapping t] -> [AtomWithArity] -> (Doc (), Doc ())
-mkLexicon parsepgf gname userlex atoms = (abstractLexicon gname userlexicon lexicon, concreteLexicon gname userlexicon lexicon)
+mkLexicon parsepgf gname userlex atoms = (abstractLexicon gname parsedLex guessedLex, concreteLexicon gname parsedLex guessedLex)
   where
     bothLexica =
       [ ( parsePredFromUserLex funname
@@ -76,18 +75,17 @@ mkLexicon parsepgf gname userlex atoms = (abstractLexicon gname userlexicon lexi
         , guessPOS aa)
       | aa@(AA funname _) <- atoms
       ]
-    parsePredFromUserLex funname = [ pr {trees = onlyNonMeta} -- only those user-defined predicates that actually parse!
+    parsePredFromUserLex funname = [ pr -- only those user-defined predicates that actually parse!
                                    | Mapping _ nm value <- userlex
                                    , nm == funname
                                    , let pr = parsePred parsepgf nm value
-                                   , let onlyNonMeta = filter (not . hasMeta) (trees pr)
-                                   , not $ null onlyNonMeta -- TODO: why doesn't this work?
+                                   , not $ null $ trees pr -- TODO: why doesn't this work?
                                    ] -- is empty if the funname doesn't appear in user lex, or if there's no parse
     parsePredFromName funname = [ pr
                                 | let pr = parsePred parsepgf funname ""
-                                , not $ null $ trees pr]
-    userlexicon = [ p | (p:_ , _) <- bothLexica] -- Use the parsed predicate. TODO filter in smart way, not just use the first one!
-    lexicon = [ posguess | ([] , posguess) <- bothLexica] -- If no result for parsePred, fall back to guessed pos
+                                , not $ null $ trees pr ]
+    parsedLex = [ p | (p:_ , _) <- bothLexica] -- Use the parsed predicate. TODO filter in smart way, not just use the first one!
+    guessedLex = [ posguess | ([] , posguess) <- bothLexica] -- If no result for parsePred, fall back to guessed pos
 
 printGF' :: PGF -> Expr -> IO ()
 printGF' gr expr = do
@@ -97,13 +95,6 @@ printGF' gr expr = do
 postprocess :: String -> String
 postprocess = map (\c -> if c == '\\' then '\n' else c)
 
-hasMeta :: PGF.Expr -> Bool
-hasMeta expr = go $ unapply expr
-  where
-    go (e, []) = isMeta e
-    go (e, es) = or $ isMeta e : map (go . unapply) es
-
-    isMeta = isJust . unMeta
 
 ----------------------------------------------------------------------
 -- If there is no lexicon available, we parse the predicates and use GF smart paradigms
@@ -122,9 +113,9 @@ getAtoms = SC.foldMapTree getAtom
 -- POS
 type Prep = Maybe String
 
-data POS = POS {origName :: String, pos :: InnerPOS}
+data POS = POS {origName :: String, pos :: InnerPOS} deriving (Show, Eq)
 
-data InnerPOS = PN2 String Prep | PN String | PV2 String Prep | PV String | PGuess String
+data InnerPOS = PN2 String Prep | PN String | PV2 String Prep | PV String | PGuess String deriving (Show,Eq)
 
 guessPOS :: AtomWithArity -> POS
 guessPOS (AA str int) = POS str $
