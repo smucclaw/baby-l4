@@ -7,7 +7,7 @@ abstract Predicates =
   Verb - [PassV2, ReflVP, ComplVV, SlashVV, SlashV2V, SlashV2VNP, AdvVP],
   Adjective - [ReflA2, CAdvAP, UseA2], --AdvAP],
   Adverb - [AdnCAdv, ComparAdvAdj, ComparAdvAdjS],
-  Sentence - [EmbedVP],
+  Sentence,
   Question,
   Relative,
   Conjunction,
@@ -17,13 +17,18 @@ abstract Predicates =
   Tense,
   Extend [
     GerundCN,PresPartAP,PastPartAP,PastPartAgentAP,CompoundN,PositAdVAdj,
-    VPS, VPS2, MkVPS, MkVPS2, PredVPS,  A2VPSlash, N2VPSlash],
+    VPS, ListVPS, ConjVPS2, BaseVPS, ConsVPS,
+    VPS2, ListVPS2,ConjVPS2, BaseVPS, ConsVPS,
+    VPI, ListVPI, ConjVPI2, BaseVPI, ConsVPI,
+    VPI2, ListVPI2,ConjVPI2, BaseVPI, ConsVPI,
+    MkVPS, MkVPS2, MkVPI, MkVPI2, PredVPS,
+    A2VPSlash, N2VPSlash],
   Construction,
   Atoms ** {
 
   fun
     -- Application-specific extensions
- 
+
     CnNum : CN -> Card -> CN ; -- Section one/34
     Int2Card : Int -> Card ;
 
@@ -42,6 +47,9 @@ abstract Predicates =
   cat
     Predicate1 ; Predicate2 ; GenPredicate ;
   fun
+
+    AddTransInf : Predicate1 -> VPI2 -> Predicate2 ; -- amounts to a waiver of rights to enforce
+
     ComplV2V : Temp -> Pol -> V2V -> NP -> Predicate1 ; -- EntitlesHolder
 
     ComplNP : NP -> Predicate1 ; -- IsOwner,
@@ -57,5 +65,5 @@ abstract Predicates =
     ComplVPSlash2 : VPS2 -> Predicate2 ; -- Approves
 
     ComplSentence : NP -> VPS -> GenPredicate ; -- (the company's) jurisdiction is Singapore
-    ComplSentence2 : NP -> VPS2 -> GenPredicate ; -- rule 34 applies 
+    ComplSentence2 : NP -> VPS2 -> GenPredicate ; -- rule 34 applies
 }

@@ -4,7 +4,7 @@ concrete PredicatesEng of Predicates =
   VerbEng - [PassV2, ReflVP, ComplVV, SlashV2V, SlashVV, SlashV2VNP, UseCopula, AdvVP, AdvVPSlash, VPSlashPrep],
   AdjectiveEng - [ReflA2, CAdvAP, UseA2, AdvAP],
   AdverbEng - [ComparAdvAdj,ComparAdvAdjS,AdnCAdv],
-  SentenceEng - [UseCl, EmbedVP],
+  SentenceEng - [UseCl],
   QuestionEng,
   RelativeEng - [IdRP],
   ConjunctionEng,
@@ -13,7 +13,11 @@ concrete PredicatesEng of Predicates =
   NumeralEng,
   ExtendEng [
     GerundCN,PresPartAP,PastPartAP,PastPartAgentAP,CompoundN,PositAdVAdj,
-    VPS, VPS2, MkVPS, MkVPS2, PredVPS, A2VPSlash, N2VPSlash],
+    VPS, ListVPS, ConjVPS2, BaseVPS, ConsVPS,
+    VPS2, ListVPS2,ConjVPS2, BaseVPS, ConsVPS,
+    VPI, ListVPI, ConjVPI2, BaseVPI, ConsVPI,
+    VPI2, ListVPI2,ConjVPI2, BaseVPI, ConsVPI,
+    MkVPS, MkVPS2, MkVPI, MkVPI2, PredVPS, A2VPSlash, N2VPSlash],
   TenseX - [Pol,PPos,PNeg,SC,CAdv],
   ConstructionEng,
   AtomsEng
@@ -58,6 +62,15 @@ lin
   --     mkCl (dummyNP ! agr) (ComplVV vv (mkVP vps (dummyNP ! agr))) ;
 
   lin
+    --  : Predicate1 -> VPI2 -> Predicate2 ; -- amounts to a waiver of rights to enforce
+    AddTransInf pred1 vpi2 = pred1 ** {
+      pred = lin VPS2 (
+        {s = \\o,a => let vp = pred1.pred.s ! o ! a in
+                        {fin = vp.fin ;
+                         inf = vp.inf ++ vpi2.s ! VVInf ! a } ;
+        c2 = vpi2.c2})
+    } ;
+
     ComplV2V t p v2v np = headlessVP (MkVPS t p (mkVP <v2v : V2> np)) ;
 
     ComplNP np = headlessVP np ;
@@ -94,7 +107,7 @@ lin
     LinGenPred : Type = {
       subj : MyAgr => NP ; -- dummyNP for all but GenPredicate
       pred : VPS
-      } ; 
+      } ;
 
     headlessVP = overload {
       headlessVP : AP -> LinGenPred = \np -> {subj = dummyNP ; pred = myVPS (mkVP np)} ;
@@ -116,7 +129,7 @@ lin
       vpSlash : NP -> Prep -> VPS2 = \np,prep -> myVPS2 (VE.VPSlashPrep (mkVP np) prep) ;
       vpSlash : AP -> Prep -> VPS2 = \ap,prep -> myVPS2 (VE.VPSlashPrep (mkVP ap) prep) ;
       vpSlash : VPS -> Prep -> VPS2 = \vps,prep -> vps ** {c2 = prep.s} ;
-      } ; 
+      } ;
 
 --    myVPS : VP -> VPS = \vp -> MkVPS (mkTemp presentTense simultaneousAnt) positivePol vp ;
 --    myVPS2 : VPSlash -> VPS2 = \vp -> MkVPS2 (mkTemp presentTense simultaneousAnt) positivePol vp ;
