@@ -221,7 +221,10 @@ tokenToHover :: [SomeAstNode SRng] -> Hover
 tokenToHover astNode = Hover contents range
   where
     astText = astToText astNode
-    txt = astText <> "\n\n" <> tshow (head astNode)
+    dbgInfo = case head astNode of
+      ast@SProg{} -> T.take 80 $ tshow ast
+      ast         -> tshow ast
+    txt = astText <> "\n\n" <> dbgInfo
     contents = HoverContents $ markedUpContent "haskell" txt
     annRange = getLoc $ head astNode
     range = sRngToRange annRange
@@ -231,7 +234,7 @@ astToText (SMapping (Mapping _ from to):_) = "This block maps variable " <> T.pa
 astToText (SClassDecl (ClassDecl _ (ClsNm x) _):_) = "Declaration of new class : " <> T.pack x
 astToText (SGlobalVarDecl (VarDecl _ n _):_) = "Declaration of global variable " <> T.pack n
 astToText (SRule (Rule _ n _ _ _):_) = "Declaration of rule " <> T.pack n
-astToText _ = ""
+astToText _ = "No hover info found"
 
 lookupTokenBare' :: Position -> Uri -> ExceptT Err IO Hover
 lookupTokenBare' pos uri = do
