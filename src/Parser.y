@@ -25,63 +25,63 @@ import Control.Monad.Except
 
 -- Parser monad
 %monad { Alex }
-%lexer { lexwrap } { Token _ TokenEOF }
+%lexer { lexwrap } { L _ TokenEOF }
 %error { parseError }
 
 -- Token Names
 %token
-    assert  { Token _ TokenAssert }
-    class   { Token _ TokenClass }
-    decl    { Token _ TokenDecl }
-    defn    { Token _ TokenDefn }
-    extends { Token _ TokenExtends }
-    lexicon { Token _ TokenLexicon }
-    fact    { Token _ TokenFact }
-    rule    { Token _ TokenRule }
-    derivable { Token _ TokenDerivable }
+    assert  { L _ TokenAssert }
+    class   { L _ TokenClass }
+    decl    { L _ TokenDecl }
+    defn    { L _ TokenDefn }
+    extends { L _ TokenExtends }
+    lexicon { L _ TokenLexicon }
+    fact    { L _ TokenFact }
+    rule    { L _ TokenRule }
+    derivable { L _ TokenDerivable }
 
-    Bool  { Token _ TokenBool }
-    Int   { Token _ TokenInt }
+    Bool  { L _ TokenBool }
+    Int   { L _ TokenInt }
 
-    let    { Token _ TokenLet }
-    in     { Token _ TokenIn }
-    not    { Token _ TokenNot }
-    forall { Token _ TokenForall }
-    exists { Token _ TokenExists }
-    if     { Token _ TokenIf }
-    then   { Token _ TokenThen }
-    else   { Token _ TokenElse }
-    for    { Token _ TokenFor }
-    true   { Token _ TokenTrue }
-    false  { Token _ TokenFalse }
+    let    { L _ TokenLet }
+    in     { L _ TokenIn }
+    not    { L _ TokenNot }
+    forall { L _ TokenForall }
+    exists { L _ TokenExists }
+    if     { L _ TokenIf }
+    then   { L _ TokenThen }
+    else   { L _ TokenElse }
+    for    { L _ TokenFor }
+    true   { L _ TokenTrue }
+    false  { L _ TokenFalse }
 
-    '\\'  { Token _ TokenLambda }
-    '->'  { Token _ TokenArrow }
-    '-->' { Token _ TokenImpl }
-    '||'  { Token _ TokenOr }
-    '&&'  { Token _ TokenAnd }
-    '='   { Token _ TokenEq }
-    '<'   { Token _ TokenLt }
-    '<='  { Token _ TokenLte }
-    '>'   { Token _ TokenGt }
-    '>='  { Token _ TokenGte }
-    '+'   { Token _ TokenAdd }
-    '-'   { Token _ TokenSub }
-    '*'   { Token _ TokenMul }
-    '/'   { Token _ TokenDiv }
-    '%'   { Token _ TokenMod }
-    '.'   { Token _ TokenDot }
-    ','   { Token _ TokenComma }
-    ':'   { Token _ TokenColon }
-    '('   { Token _ TokenLParen }
-    ')'   { Token _ TokenRParen }
-    '{'   { Token _ TokenLBrace }
-    '}'   { Token _ TokenRBrace }
+    '\\'  { L _ TokenLambda }
+    '->'  { L _ TokenArrow }
+    '-->' { L _ TokenImpl }
+    '||'  { L _ TokenOr }
+    '&&'  { L _ TokenAnd }
+    '='   { L _ TokenEq }
+    '<'   { L _ TokenLt }
+    '<='  { L _ TokenLte }
+    '>'   { L _ TokenGt }
+    '>='  { L _ TokenGte }
+    '+'   { L _ TokenAdd }
+    '-'   { L _ TokenSub }
+    '*'   { L _ TokenMul }
+    '/'   { L _ TokenDiv }
+    '%'   { L _ TokenMod }
+    '.'   { L _ TokenDot }
+    ','   { L _ TokenComma }
+    ':'   { L _ TokenColon }
+    '('   { L _ TokenLParen }
+    ')'   { L _ TokenRParen }
+    '{'   { L _ TokenLBrace }
+    '}'   { L _ TokenRBrace }
 
-    NUM   { Token pos (TokenNum $$) }
-    VAR   { Token _ (TokenSym _) }
-    STRLIT { Token _ (TokenStringLit _)}
-    STR   { Token _ (TokenString _) }
+    NUM   { L pos (TokenNum $$) }
+    VAR   { L _ (TokenSym _) }
+    STRLIT { L _ (TokenStringLit _)}
+    STR   { L _ (TokenString _) }
 
 -- Operators
 %right '->'
@@ -97,11 +97,11 @@ import Control.Monad.Except
 %left AMINUS
 %%
 
-Program : Lexicon  ClassDecls GlobalVarDecls Rules Assertions
-                                   { Program (tokenRangeList [getLoc $1, getLoc $2, getLoc $3, getLoc $4, getLoc $5]) (reverse $1) (reverse $2)  (reverse $3) (reverse $4) (reverse $5) }
+Program : Lexicon ClassDecls GlobalVarDecls Rules Assertions
+                                   { Program (tokenRangeList [getLoc $1, getLoc $2, getLoc $3, getLoc $4, getLoc $5]) (reverse $ unLoc $1) (reverse $2)  (reverse $3) (reverse $4) (reverse $5) }
 
-Lexicon :                   { [] }
-        |  lexicon Mappings { $2 }
+Lexicon :                   { L (DummySRng "No lexicon") [] }
+        |  lexicon Mappings { L (tokenRangeList [getLoc $1, getLoc $2]) $2 }
 
 Mappings :  Mapping          { [$1] }
           | Mappings Mapping { $2 : $1 }
@@ -132,20 +132,17 @@ Fields  :                          { ([], Nothing) }
 FieldDecls :                       { [] }
            | FieldDecls FieldDecl  { $2 : $1 }
 
--- TODO: tokenRange not correct (currently no range info available for types)
-FieldDecl : VAR ':' Tp             { FieldDecl (tokenRange $1 $2) (FldNm $ tokenSym $1) $3 }
+FieldDecl : VAR ':' Tp             { FieldDecl (tokenRange $1 $3) (FldNm $ tokenSym $1) (unLoc $3) }
 
 GlobalVarDecls :                         { [] }
          | GlobalVarDecls GlobalVarDecl  { $2 : $1 }
 
--- TODO: tokenRange not correct (currently no range info available for types)
-GlobalVarDecl : decl VAR ':' Tp          { VarDecl (tokenRange $1 $3) (tokenSym $2) $4 }
+GlobalVarDecl : decl VAR ':' Tp          { VarDecl (tokenRange $1 $4) (tokenSym $2) (unLoc $4) }
 
 VarDeclsCommaSep :  VarDecl              { [$1] }
          | VarDeclsCommaSep  ',' VarDecl { $3 : $1 }
 
--- TODO: tokenRange not correct (currently no range info available for types)
-VarDecl : VAR ':' Tp                     { VarDecl (tokenRange $1 $2) (tokenSym $1) $3 }
+VarDecl : VAR ':' Tp                     { VarDecl (tokenRange $1 $3) (tokenSym $1) (unLoc $3) }
 
 
 Assertions :                       { [] }
@@ -153,17 +150,19 @@ Assertions :                       { [] }
 Assertion : assert Expr            { Assertion (tokenRange $1 $2) $2 }
 
 -- Atomic type
-ATp  : Bool                       { BoolT }
-     | Int                        { IntT }
-     | VAR                        { ClassT (ClsNm $ tokenSym $1) }
-     | '(' TpsCommaSep ')'        { let tcs = $2 in if length tcs == 1 then head tcs else TupleT (reverse tcs) }
+-- Used to resolve ambigouity of     \x : A -> B -> x
+-- and force the use of parenthesis: \x : (A -> B) -> x
+ATp  : Bool                       { L (getLoc $1) BoolT }
+     | Int                        { L (getLoc $1) IntT }
+     | VAR                        { L (getLoc $1) $ ClassT (ClsNm $ tokenSym $1) }
+     | '(' TpsCommaSep ')'        { L (getLoc $2) $ case $2 of [t] -> unLoc t; tcs -> TupleT (map unLoc $ reverse tcs) }
 
 TpsCommaSep :                      { [] }
             | Tp                   { [$1] }
             | TpsCommaSep ',' Tp   { $3 : $1 }
 
 Tp   : ATp                        { $1 }
-     | Tp '->' Tp                 { FunT $1 $3 }
+     | Tp '->' Tp                 { L (tokenRange $1 $3) $ FunT (unLoc $1) (unLoc $3) }
 
 
 Pattern : VAR                      { VarP $ tokenSym $1 }
@@ -173,9 +172,9 @@ VarsCommaSep :                      { [] }
             | VAR                   { [tokenSym $1] }
             | VarsCommaSep ',' VAR  { tokenSym $3 : $1 }
 
-Expr : '\\' Pattern ':' ATp '->' Expr  { FunE (tokenRange $1 $6) $2 $4 $6 }
-     | forall VAR ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) All (tokenSym $2) $4 $6 }
-     | exists VAR ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) Ex (tokenSym $2) $4 $6 }
+Expr : '\\' Pattern ':' ATp '->' Expr  { FunE (tokenRange $1 $6) $2 (unLoc $4) $6 }
+     | forall VAR ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) All (tokenSym $2) (unLoc $4) $6 }
+     | exists VAR ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) Ex  (tokenSym $2) (unLoc $4) $6 }
      | Expr '-->' Expr             { BinOpE (tokenRange $1 $3) (BBool BBimpl) $1 $3 }
      | Expr '||' Expr              { BinOpE (tokenRange $1 $3) (BBool BBor) $1 $3 }
      | Expr '&&' Expr              { BinOpE (tokenRange $1 $3) (BBool BBand) $1 $3 }
@@ -237,14 +236,14 @@ RuleConcl   : then Expr    { $2 }
 
 {
 
-tokenSym    (Token _ (TokenSym sym)) = sym
-tokenString (Token _ (TokenString str)) = str
-tokenStringLit (Token _ (TokenStringLit str)) = str
+tokenSym    (L _ (TokenSym sym)) = sym
+tokenString (L _ (TokenString str)) = str
+tokenStringLit (L _ (TokenStringLit str)) = str
 
 lexwrap :: (Token -> Alex a) -> Alex a
 lexwrap = (alexMonadScan' >>=)
 parseError :: Token -> Alex a
-parseError (Token p t) =
+parseError (L p t) =
   alexError' p ("parse error at token '" ++ unLex t ++ "'")
 
 -- parseError :: [Token] -> Except String a
