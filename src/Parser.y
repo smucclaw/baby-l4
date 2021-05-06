@@ -102,7 +102,7 @@ Program : Lexicon ClassDecls GlobalVarDecls Rules Assertions
                                    { loc2Ann $ Program mempty <&> fmap reverse $1 <*> lrev $2 <*> lrev $3 <*> lrev $4 <*> lrev $5 }
 
 Lexicon :                   { L (DummySRng "No lexicon") [] }
-        |  lexicon Mappings { $1 *> mkLocated $2 }
+        |  lexicon Mappings { L (tokenRange $1 $2) $2 }
 
 Mappings :                   {[]}
           | Mappings Mapping {$2 : $1 }
@@ -117,7 +117,7 @@ ClassDecl : class VAR ClassDef     { -- special treatment: create Object class w
                                    }
 
 ClassDef :   Fields                { ClassDef [ClsNm "Class"] <&> fmap reverse $1 }
-         |   extends VAR Fields    { ClassDef <$ $1 <*> fmap ((:[]) . ClsNm . tokenSym') $2 <*> fmap reverse $3 }
+         |   extends VAR Fields    { ClassDef <$ $1 <*> L (loc $2) [ClsNm $ tokenSym $2] <*> fmap reverse $3 }
 
 Fields  :                          { mkLocated [] }
         | '{' FieldDecls '}'       { L (tokenRange $1 $3) $2 }
