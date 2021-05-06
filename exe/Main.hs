@@ -7,6 +7,8 @@ module Main where
 import Parser (parseProgram)
 import Syntax (Program, ClassName)
 import Typing ( checkError )
+--import SmtSBV (proveProgram)
+import Smt (proveProgram)
 import System.Environment ( getEnv )
 import Options.Applicative
 import qualified ToGF.FromL4.ToProp as GF
@@ -16,8 +18,8 @@ import Control.Exception (catch, SomeException (SomeException))
 import Control.Monad ( when, unless )
 import ToSCASP (createSCasp)
 import ToGF.FromSCasp.SCasp ( parseModel )
-import ToGF.FromSCasp.AnswerToGF ( nlgModels )
-import ToGF.FromL4.ToQuestions
+import ToGF.FromSCasp.ToAnswer ( nlgModels )
+import ToGF.FromL4.ToQuestions ( createQuestions )
 import ToGF.NormalizeSyntax
 import Annotation ( SRng, LocTypeAnnot (typeAnnot) )
 import Paths_baby_l4 (getDataFileName)
@@ -50,17 +52,25 @@ process args input = do
     Right ast -> do
       preludeAst <- readPrelude
 
-      case checkError preludeAst (normalizeProg ast) of
-        Left err -> putStrLn ("Type Error: " ++ printError err)
+      case checkError preludeAst ast of
+        Left err -> putStrLn (printError err)
         Right tpAst -> do
           let tpAstNoSrc = fmap typeAnnot tpAst
+          
 
           case format args of
             Fast                     ->  pPrint tpAst
             (Fgf GFOpts { gflang = gfl, showast = True } ) -> GF.nlgAST gfl tpAstNoSrc
             (Fgf GFOpts { gflang = gfl, showast = False} ) -> GF.nlg    gfl tpAstNoSrc
-            Fscasp -> do createSCasp tpAstNoSrc
+            Fsmt -> proveProgram tpAst
+            Fscasp ->
+              do
+                let normalizedProg = normalizeProg tpAstNoSrc
+                createSCasp normalizedProg
             Fyaml -> do createDSyaml tpAstNoSrc
+                        putStrLn "---------------"
+                        createQuestions tpAstNoSrc
+
 
           -- Just a test for creating natural language from s(CASP) models.
           when (testModels args) $ do
@@ -72,7 +82,8 @@ process args input = do
       putStrLn "Parser Error:"
       print err
 
-data Format   = Fast | Fgf GFOpts | Fscasp | Fyaml
+
+data Format   = Fast | Fgf GFOpts | Fscasp | Fsmt | Fyaml
  deriving Show
 
 --  l4 gf en          output english only
@@ -99,6 +110,7 @@ optsParse = InputOpts <$>
                 ( command "gf"   (info gfSubparser gfHelper)
                <> command "ast"  (info (pure Fast) (progDesc "Show the AST in Haskell"))
                <> command "scasp" (info (pure Fscasp) (progDesc "output to sCASP for DocAssemble purposes"))
+               <> command "smt"   (info (pure Fsmt) (progDesc "Check assertion with SMT solver"))
                <> command "yaml" (info (pure Fyaml) (progDesc "output to YAML for DocAssemble purposes"))
                )
             <*> switch (long "testModels" <> help "Demo of NLG from sCASP models")

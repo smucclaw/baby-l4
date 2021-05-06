@@ -1,0 +1,123 @@
+### The speedlimit example as one formula.
+### The translations have been done manually that will ultimately be automated.
+
+### Specific for this file:
+## Classes flattened (there is only a sort Class)
+## Check provability that maxSpeed is functional
+## on the basis of corrected rules 
+
+
+### Classes (not used any more)
+
+class Vehicle
+class Car extends Vehicle
+class Truck extends Vehicle
+
+class Day
+class Workday extends Day
+class Holiday extends Day
+
+class Road
+class Highway extends Road
+
+### Predicates 
+
+## uninteresting (the is... predicates should be generated)
+decl isVehicle : Class -> Boolean
+decl isCar : Class -> Boolean
+decl isTruck : Class -> Boolean
+
+decl isDay : Class -> Boolean
+decl isWorkday : Class -> Boolean
+decl isHoliday : Class -> Boolean
+
+decl isRoad : Class -> Boolean
+decl isHighway : Class -> Boolean
+## The file speedlimit.l4 squashed into one assertion statement.
+
+# >>> Translation of declaration by wiping out class information
+#     and adding typing predicates in the assertion
+
+decl maxSpeed : Class -> Class -> Class -> Integer -> Boolean
+
+# typical representatives of their class
+decl tCar : Class
+decl tDay : Class
+decl tRoad : Class
+decl tSpeed1: Integer
+decl tSpeed2: Integer
+
+### Facts and rules
+# all converted into preconditions of assertion
+
+### Assertion
+## to prove: Rules --> Assertion
+## show: unsat (Rules && (not Assertion))
+
+assert
+isCar tCar
+&&
+isDay tDay
+&&
+isRoad tRoad
+&&
+
+## Class inclusions:
+# >>> rules translated as universally quantified implications
+
+# fact <CarClassIncl>
+(forall c: Class. isCar c --> isVehicle c)
+&&
+# fact <TruckClassIncl>
+(forall c: Class. isTruck c --> isVehicle c)
+&& 
+# fact <WorkdayClassIncl>
+(forall c: Class. isWorkday c --> isDay c)
+&&
+# fact <HolidayClassIncl>
+(forall c: Class. isHoliday c --> isDay c)
+&& 
+# fact <HighwayClassIncl>
+(forall c: Class. isHighway c --> isRoad c)
+&&
+
+## Class disjointness (possible to automate)
+
+# fact <WdHdDistinct>
+(forall c: Class. not (isWorkday c && isHoliday c))
+&&
+# fact <CarTrDistinct>
+(forall c: Class. not (isCar c && isTruck c))
+&&
+
+## Domain rules
+
+# rule <maxSpCarWorkdayHighway>
+(forall v: Class. forall d: Class. forall r: Class. forall s: Integer.
+    isCar v && isWorkday d && isHighway r && s = 130
+--> maxSpeed v d r s)
+&&
+# rule <maxSpCarWorkdayRoad>   # corrected, assuming in addition that not (isHighway r)
+(forall v: Class. forall d: Class. forall r: Class. forall s: Integer.
+    isCar v && isWorkday d && isRoad r && s = 90
+    && not (isHighway r)
+--> maxSpeed v d r s)
+
+&&
+# rule <maxSpClosure>
+(forall v: Class. forall d: Class. forall r: Class. forall s: Integer.
+ maxSpeed v d r s
+--> 
+ (isCar v && isWorkday d && isHighway r && s = 130) ||
+ (isCar v && isWorkday d && isHighway r && s =  90 && not (isHighway r)))
+
+
+# Prove the functionality of relation maxSpeed with the corrected rule
+# assert
+
+&&
+not 
+(maxSpeed tCar tDay tRoad tSpeed1 &&
+maxSpeed tCar tDay tRoad tSpeed2
+--> tSpeed1 = tSpeed2)
+

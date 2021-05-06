@@ -28,11 +28,11 @@ type RuleName = String
 -- newtype RuleName = RuleName String
 --   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-newtype ClassName = ClsNm String
+newtype ClassName = ClsNm {stringOfClassName :: String}
   deriving (Eq, Ord, Show, Read, Data, Typeable)
-newtype FieldName = FldNm String
+newtype FieldName = FldNm {stringOfFieldName :: String}
   deriving (Eq, Ord, Show, Read, Data, Typeable)
-newtype PartyName = PtNm String
+newtype PartyName = PtNm {stringOfPartyName :: String}
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 
@@ -114,7 +114,9 @@ data FieldDecl t = FieldDecl {annotOfFieldDecl ::t
 instance HasLoc t => HasLoc (FieldDecl t) where
   getLoc = getLoc . annotOfFieldDecl
 
--- superclass, list of field declarations
+-- superclasses, list of field declarations
+-- After parsing, the list of superclasses is a singleton (i.e., the declared superclass).
+-- After type checking, the list of superclasses consists of the list of non-strict superclasses
 -- TODO: ClassDef currently without annotation as ClassDef may be empty
 --       and it is unclear how to define position information of empty elements
 data ClassDef t = ClassDef { supersOfClassDef :: [ClassName]
@@ -178,8 +180,11 @@ data Val
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 data Var
-    = GlobalVar VarName             -- global variable only known by its name
-    | LocalVar VarName Int          -- local variable known by its provisional name and deBruijn index.
+      -- global variable only known by its name
+    = GlobalVar { nameOfVar :: VarName }
+    -- local variable known by its provisional name and deBruijn index.
+    | LocalVar { nameOfVar :: VarName
+               , indexOfVar :: Int }
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 -- unary arithmetic operators
