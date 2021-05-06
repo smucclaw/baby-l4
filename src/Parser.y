@@ -78,7 +78,7 @@ import Control.Monad.Except
     '{'   { L _ TokenLBrace }
     '}'   { L _ TokenRBrace }
 
-    NUM   { L pos (TokenNum $$) }
+    NUM   { L _ (TokenNum _) }
     VAR   { L _ (TokenSym _) }
     STRLIT { L _ (TokenStringLit _)}
     STR   { L _ (TokenString _) }
@@ -204,11 +204,11 @@ Atom : '(' ExprsCommaSep ')'       { let ecs = $2
                                         if length ecs == 1
                                         then updAnnotOfExpr (const (tokenRange $1 $3)) (head ecs)
                                         else TupleE (tokenRange $1 $3) (reverse ecs) }
-     | NUM                         { ValE (pos) (IntV $1) }
-     | STR                         { ValE (tokenPos $1) (StringV (tokenString $1)) }
-     | VAR                         { VarE (tokenPos $1) (GlobalVar $ tokenSym $1) }
-     | true                        { ValE (tokenPos $1) (BoolV True) }
-     | false                       { ValE (tokenPos $1) (BoolV False) }
+     | NUM                         { numVE $1 }
+     | STR                         { strVE $1 }
+     | VAR                         { varE $1 }
+     | true                        { boolVE True  $1 }
+     | false                       { boolVE False $1 }
 
 ExprsCommaSep :                      { [] }
             | Expr                   { [$1] }
