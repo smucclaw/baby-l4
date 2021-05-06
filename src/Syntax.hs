@@ -141,6 +141,10 @@ data ClassDecl t = ClassDecl { annotOfClassDecl :: t
 instance HasLoc t => HasLoc (ClassDecl t) where
   getLoc = getLoc . annotOfClassDecl
 
+instance HasAnnot ClassDecl where
+  getAnnot = annotOfClassDecl
+  updateAnnot f p = p { annotOfClassDecl = f (annotOfClassDecl p)}
+
 
 -- Custom Classes and Preable Module
 -- some custom classes - should eventually go into a prelude and not be hard-wired
