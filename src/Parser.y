@@ -10,6 +10,7 @@ module Parser (
 import Lexer
 import Annotation
 import Syntax
+import Parser.SmartConstructors
 
 import Prelude
 import Control.Monad.Except
@@ -174,32 +175,32 @@ VarsCommaSep :                      { [] }
             | VAR                   { [tokenSym $1] }
             | VarsCommaSep ',' VAR  { tokenSym $3 : $1 }
 
-Expr : '\\' Pattern ':' ATp '->' Expr  { FunE        (tokenRange $1 $6) $2               (unLoc $4)     $6 }
-     | forall VAR ':' Tp '.' Expr      { QuantifE    (tokenRange $1 $6) All              (tokenSym $2)  (unLoc $4) $6 }
-     | exists VAR ':' Tp '.' Expr      { QuantifE    (tokenRange $1 $6) Ex               (tokenSym $2)  (unLoc $4) $6 }
-     | Expr '-->' Expr                 { BinOpE      (tokenRange $1 $3) (BBool BBimpl)   $1 $3 }
-     | Expr '||' Expr                  { BinOpE      (tokenRange $1 $3) (BBool BBor)     $1 $3 }
-     | Expr '&&' Expr                  { BinOpE      (tokenRange $1 $3) (BBool BBand)    $1 $3 }
-     | if Expr then Expr else Expr     { IfThenElseE (tokenRange $1 $6) $2               $4 $6 }
-     | not Expr                        { UnaOpE      (tokenRange $1 $2) (UBool UBneg)    $2 }
-     | not derivable VAR               { NotDeriv    (tokenRange $1 $3) True             (VarE (tokenPos $3) (GlobalVar $ tokenSym $3))     }
-     | not derivable not VAR           { NotDeriv    (tokenRange $1 $4) False            (VarE (tokenPos $4) (GlobalVar $ tokenSym $4))     }
-     | not derivable VAR Atom          { NotDeriv    (tokenRange $1 $4) True             (AppE (tokenRange $3 $4) (VarE (tokenPos $3) (GlobalVar $ tokenSym $3)) $4)     }
-     | not derivable not VAR Atom      { NotDeriv    (tokenRange $1 $5) False            (AppE (tokenRange $4 $5) (VarE (tokenPos $4) (GlobalVar $ tokenSym $4)) $5)     }
-     | Expr '<' Expr                   { BinOpE      (tokenRange $1 $3) (BCompar BClt)   $1 $3 }
-     | Expr '<=' Expr                  { BinOpE      (tokenRange $1 $3) (BCompar BClte)  $1 $3 }
-     | Expr '>' Expr                   { BinOpE      (tokenRange $1 $3) (BCompar BCgt)   $1 $3 }
-     | Expr '>=' Expr                  { BinOpE      (tokenRange $1 $3) (BCompar BCgte)  $1 $3 }
-     | Expr '=' Expr                   { BinOpE      (tokenRange $1 $3) (BCompar BCeq)   $1 $3 }
-     | Expr '+' Expr                   { BinOpE      (tokenRange $1 $3) (BArith BAadd)   $1 $3 }
-     | Expr '-' Expr                   { BinOpE      (tokenRange $1 $3) (BArith BAsub)   $1 $3 }
-     | '-' Expr %prec AMINUS           { UnaOpE      (tokenRange $1 $2) (UArith UAminus) $2 }
-     | Expr '*' Expr                   { BinOpE      (tokenRange $1 $3) (BArith BAmul)   $1 $3 }
-     | Expr '/' Expr                   { BinOpE      (tokenRange $1 $3) (BArith BAdiv)   $1 $3 }
-     | Expr '%' Expr                   { BinOpE      (tokenRange $1 $3) (BArith BAmod)   $1 $3 }
+Expr : '\\' Pattern ':' ATp '->' Expr  { funE $1              $2 $4 $6 }
+     | forall VAR ':' Tp '.' Expr      { quantifE All $1      $2 $4 $6 }
+     | exists VAR ':' Tp '.' Expr      { quantifE Ex  $1      $2 $4 $6 }
+     | Expr '-->' Expr                 { binOpE (BBool BBimpl)   $1 $3 }
+     | Expr '||' Expr                  { binOpE (BBool BBor)     $1 $3 }
+     | Expr '&&' Expr                  { binOpE (BBool BBand)    $1 $3 }
+     | if Expr then Expr else Expr     { ifThenElseE $1       $2 $4 $6 }
+     | not Expr                        { unaOpE (UBool UBneg)    $1 $2 }
+     | not derivable VAR               { notDeriv True  $1 (varE $3)   }
+     | not derivable not VAR           { notDeriv False $1 (varE $4)   }
+     | not derivable VAR Atom          { notDeriv True  $1 (appE (varE $3) $4) }
+     | not derivable not VAR Atom      { notDeriv False $1 (appE (varE $4) $5) }
+     | Expr '<' Expr                   { binOpE (BCompar BClt)   $1 $3 }
+     | Expr '<=' Expr                  { binOpE (BCompar BClte)  $1 $3 }
+     | Expr '>' Expr                   { binOpE (BCompar BCgt)   $1 $3 }
+     | Expr '>=' Expr                  { binOpE (BCompar BCgte)  $1 $3 }
+     | Expr '=' Expr                   { binOpE (BCompar BCeq)   $1 $3 }
+     | Expr '+' Expr                   { binOpE (BArith BAadd)   $1 $3 }
+     | Expr '-' Expr                   { binOpE (BArith BAsub)   $1 $3 }
+     | '-' Expr %prec AMINUS           { unaOpE (UArith UAminus) $1 $2 }
+     | Expr '*' Expr                   { binOpE (BArith BAmul)   $1 $3 }
+     | Expr '/' Expr                   { binOpE (BArith BAdiv)   $1 $3 }
+     | Expr '%' Expr                   { binOpE (BArith BAmod)   $1 $3 }
      | App                             { $1 }
 
-App : App Acc                     { AppE (tokenRange $1 $2) $1 $2 }
+App : App Acc                      { appE $1 $2 }
     | Acc                          { $1 }
 
 -- field access
@@ -244,15 +245,6 @@ infixl 4 <&>
 
 lrev :: HasLoc a => [a] -> Located [a]
 lrev = mkLocated . reverse
-
-tokenSym'    (TokenSym sym) = sym
-tokenString' (TokenString str) = str
-tokenStringLit' (TokenStringLit str) = str
-
--- tokenSym    = tokenSym' . unLoc)
-tokenSym    (L _ (TokenSym sym)) = sym
-tokenString (L _ (TokenString str)) = str
-tokenStringLit (L _ (TokenStringLit str)) = str
 
 lexwrap :: (Token -> Alex a) -> Alex a
 lexwrap = (alexMonadScan' >>=)

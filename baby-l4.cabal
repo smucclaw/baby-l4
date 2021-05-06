@@ -39,6 +39,7 @@ library
                   Annotation
                   Error
                   Syntax
+                  Parser.SmartConstructors
 
                   --ToYaml
                   ToGF.FromL4.ToProp
