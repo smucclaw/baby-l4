@@ -111,24 +111,16 @@ Mapping : VAR '->' STRLIT { loc2Ann $ Mapping mempty <&> (fmap tokenSym' $1) <*
 ClassDecls :                       { [] }
            | ClassDecls ClassDecl  { $2 : $1 }
 
-ClassDecl : class VAR ClassDef     { case snd $3 of
-                                       -- ClassDef is empty, so take token range of 'class VAR'
-                                       Nothing ->  if tokenSym $2 == "Object"
-                                                   -- special treatment: create Object class without superclass
-                                                   then ClassDecl (tokenRange $1 $2) (ClsNm $ tokenSym $2) (ClassDef [] [])
-                                                   -- take default class created in first component of $3
-                                                   else ClassDecl (tokenRange $1 $2) (ClsNm $ tokenSym $2) (fst $3)
-                                       -- ClassDef is non-empty, but the data type ClassDef has no position annotation,
-                                       -- so retrieve position info from production ClassDef
-                                       Just rng -> ClassDecl (coordFromTo (getLoc $1) rng) (ClsNm $ tokenSym $2) (fst $3) }
+ClassDecl : class VAR ClassDef     { -- special treatment: create Object class without superclass
+                                     let defClass = if tokenSym $2 == "Object" then L mempty (ClassDef [] []) else $3
+                                     in loc2Ann $ ClassDecl mempty <$ $1 <*> fmap (ClsNm . tokenSym') $2 <*> defClass
+                                   }
 
-ClassDef :   Fields                { (ClassDef [ClsNm "Class"] (reverse (fst $1)), (snd $1)) }
-         |   extends VAR Fields    { case snd $3 of
-                 Nothing -> (ClassDef [ClsNm $ tokenSym $2] (reverse (fst $3)), Just (tokenRange $1 $2))
-                 Just rng -> (ClassDef [ClsNm $ tokenSym $2] (reverse (fst $3)), Just (coordFromTo (getLoc $1) rng )) }
+ClassDef :   Fields                { ClassDef [ClsNm "Class"] <&> fmap reverse $1 }
+         |   extends VAR Fields    { ClassDef <$ $1 <*> fmap ((:[]) . ClsNm . tokenSym') $2 <*> fmap reverse $3 }
 
-Fields  :                          { ([], Nothing) }
-        | '{' FieldDecls '}'       { ($2, Just (tokenRange $1 $3)) }
+Fields  :                          { mkLocated [] }
+        | '{' FieldDecls '}'       { L (tokenRange $1 $3) $2 }
 
 FieldDecls :                       { [] }
            | FieldDecls FieldDecl  { $2 : $1 }
