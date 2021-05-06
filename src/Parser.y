@@ -97,14 +97,15 @@ import Control.Monad.Except
 %%
 
 Program : Lexicon ClassDecls GlobalVarDecls Rules Assertions
-                                   { Program (tokenRangeList [getLoc $1, getLoc $2, getLoc $3, getLoc $4, getLoc $5]) (reverse $ unLoc $1) (reverse $2)  (reverse $3) (reverse $4) (reverse $5) }
+                                  --  { Program (tokenRangeList [getLoc $1, getLoc $2, getLoc $3, getLoc $4, getLoc $5]) (reverse $ unLoc $1) (reverse $2)  (reverse $3) (reverse $4) (reverse $5) }
+                                   { loc2Ann $ Program mempty <&> fmap reverse $1 <*> lrev $2 <*> lrev $3 <*> lrev $4 <*> lrev $5 }
 
 Lexicon :                   { L (DummySRng "No lexicon") [] }
-        |  lexicon Mappings { L (tokenRangeList [getLoc $1, getLoc $2]) $2 }
+        |  lexicon Mappings { $1 *> mkLocated $2 }
 
 Mappings :                   {[]}
           | Mappings Mapping {$2 : $1 }
-Mapping : VAR '->' STRLIT { Mapping (tokenRange $1 $3) (tokenSym $1) (tokenStringLit $3) }
+Mapping : VAR '->' STRLIT { loc2Ann $ Mapping mempty <&> (fmap tokenSym' $1) <*> (fmap tokenStringLit' $3) }
 
 ClassDecls :                       { [] }
            | ClassDecls ClassDecl  { $2 : $1 }
@@ -151,9 +152,10 @@ Assertion : assert Expr            { Assertion (tokenRange $1 $2) $2 }
 -- Atomic type
 -- Used to resolve ambigouity of     \x : A -> B -> x
 -- and force the use of parenthesis: \x : (A -> B) -> x
-ATp  : Bool                       { L (getLoc $1) BoolT }
-     | Int                        { L (getLoc $1) IntT }
-     | VAR                        { L (getLoc $1) $ ClassT (ClsNm $ tokenSym $1) }
+ATp  : Bool                       { BoolT <$ $1 }
+     | Int                        { IntT <$ $1 }
+     | VAR                        { ClassT . ClsNm . tokenSym' <&> $1 }
+    --  | VAR                        { L (getLoc $1) $ ClassT (ClsNm $ tokenSym $1) }
      | '(' TpsCommaSep ')'        { L (getLoc $2) $ case $2 of [t] -> unLoc t; tcs -> TupleT (map unLoc $ reverse tcs) }
 
 TpsCommaSep :                      { [] }
@@ -161,7 +163,8 @@ TpsCommaSep :                      { [] }
             | TpsCommaSep ',' Tp   { $3 : $1 }
 
 Tp   : ATp                        { $1 }
-     | Tp '->' Tp                 { L (tokenRange $1 $3) $ FunT (unLoc $1) (unLoc $3) }
+ --  | Tp '->' Tp                 { L (tokenRange $1 $3) $ FunT (unLoc $1) (unLoc $3) }
+     | Tp '->' Tp                 { FunT <&> $1 <*> $3 }
 
 
 Pattern : VAR                      { VarP $ tokenSym $1 }
@@ -171,30 +174,30 @@ VarsCommaSep :                      { [] }
             | VAR                   { [tokenSym $1] }
             | VarsCommaSep ',' VAR  { tokenSym $3 : $1 }
 
-Expr : '\\' Pattern ':' ATp '->' Expr  { FunE (tokenRange $1 $6) $2 (unLoc $4) $6 }
-     | forall VAR ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) All (tokenSym $2) (unLoc $4) $6 }
-     | exists VAR ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) Ex  (tokenSym $2) (unLoc $4) $6 }
-     | Expr '-->' Expr             { BinOpE (tokenRange $1 $3) (BBool BBimpl) $1 $3 }
-     | Expr '||' Expr              { BinOpE (tokenRange $1 $3) (BBool BBor) $1 $3 }
-     | Expr '&&' Expr              { BinOpE (tokenRange $1 $3) (BBool BBand) $1 $3 }
-     | if Expr then Expr else Expr { IfThenElseE (tokenRange $1 $6) $2 $4 $6 }
-     | not Expr                    { UnaOpE (tokenRange $1 $2) (UBool UBneg) $2 }
-     | not derivable VAR           { NotDeriv (tokenRange $1 $3) True (VarE (tokenPos $3) (GlobalVar $ tokenSym $3)) }
-     | not derivable not VAR       { NotDeriv (tokenRange $1 $4) False (VarE (tokenPos $4) (GlobalVar $ tokenSym $4)) }
-     | not derivable VAR Atom      { NotDeriv (tokenRange $1 $4) True (AppE (tokenRange $3 $4)  (VarE (tokenPos $3) (GlobalVar $ tokenSym $3)) $4) }
-     | not derivable not VAR Atom  { NotDeriv (tokenRange $1 $5) False (AppE (tokenRange $4 $5) (VarE (tokenPos $4) (GlobalVar $ tokenSym $4)) $5) }
-     | Expr '<' Expr               { BinOpE (tokenRange $1 $3) (BCompar BClt) $1 $3 }
-     | Expr '<=' Expr              { BinOpE (tokenRange $1 $3) (BCompar BClte) $1 $3 }
-     | Expr '>' Expr               { BinOpE (tokenRange $1 $3) (BCompar BCgt) $1 $3 }
-     | Expr '>=' Expr              { BinOpE (tokenRange $1 $3) (BCompar BCgte) $1 $3 }
-     | Expr '=' Expr               { BinOpE (tokenRange $1 $3) (BCompar BCeq) $1 $3 }
-     | Expr '+' Expr               { BinOpE (tokenRange $1 $3) (BArith BAadd) $1 $3 }
-     | Expr '-' Expr               { BinOpE (tokenRange $1 $3) (BArith BAsub) $1 $3 }
-     | '-' Expr %prec AMINUS       { UnaOpE (tokenRange $1 $2) (UArith UAminus) $2 }
-     | Expr '*' Expr               { BinOpE (tokenRange $1 $3) (BArith BAmul) $1 $3 }
-     | Expr '/' Expr               { BinOpE (tokenRange $1 $3) (BArith BAdiv) $1 $3 }
-     | Expr '%' Expr               { BinOpE (tokenRange $1 $3) (BArith BAmod) $1 $3 }
-     | App                         { $1 }
+Expr : '\\' Pattern ':' ATp '->' Expr  { FunE        (tokenRange $1 $6) $2               (unLoc $4)     $6 }
+     | forall VAR ':' Tp '.' Expr      { QuantifE    (tokenRange $1 $6) All              (tokenSym $2)  (unLoc $4) $6 }
+     | exists VAR ':' Tp '.' Expr      { QuantifE    (tokenRange $1 $6) Ex               (tokenSym $2)  (unLoc $4) $6 }
+     | Expr '-->' Expr                 { BinOpE      (tokenRange $1 $3) (BBool BBimpl)   $1 $3 }
+     | Expr '||' Expr                  { BinOpE      (tokenRange $1 $3) (BBool BBor)     $1 $3 }
+     | Expr '&&' Expr                  { BinOpE      (tokenRange $1 $3) (BBool BBand)    $1 $3 }
+     | if Expr then Expr else Expr     { IfThenElseE (tokenRange $1 $6) $2               $4 $6 }
+     | not Expr                        { UnaOpE      (tokenRange $1 $2) (UBool UBneg)    $2 }
+     | not derivable VAR               { NotDeriv    (tokenRange $1 $3) True             (VarE (tokenPos $3) (GlobalVar $ tokenSym $3))     }
+     | not derivable not VAR           { NotDeriv    (tokenRange $1 $4) False            (VarE (tokenPos $4) (GlobalVar $ tokenSym $4))     }
+     | not derivable VAR Atom          { NotDeriv    (tokenRange $1 $4) True             (AppE (tokenRange $3 $4) (VarE (tokenPos $3) (GlobalVar $ tokenSym $3)) $4)     }
+     | not derivable not VAR Atom      { NotDeriv    (tokenRange $1 $5) False            (AppE (tokenRange $4 $5) (VarE (tokenPos $4) (GlobalVar $ tokenSym $4)) $5)     }
+     | Expr '<' Expr                   { BinOpE      (tokenRange $1 $3) (BCompar BClt)   $1 $3 }
+     | Expr '<=' Expr                  { BinOpE      (tokenRange $1 $3) (BCompar BClte)  $1 $3 }
+     | Expr '>' Expr                   { BinOpE      (tokenRange $1 $3) (BCompar BCgt)   $1 $3 }
+     | Expr '>=' Expr                  { BinOpE      (tokenRange $1 $3) (BCompar BCgte)  $1 $3 }
+     | Expr '=' Expr                   { BinOpE      (tokenRange $1 $3) (BCompar BCeq)   $1 $3 }
+     | Expr '+' Expr                   { BinOpE      (tokenRange $1 $3) (BArith BAadd)   $1 $3 }
+     | Expr '-' Expr                   { BinOpE      (tokenRange $1 $3) (BArith BAsub)   $1 $3 }
+     | '-' Expr %prec AMINUS           { UnaOpE      (tokenRange $1 $2) (UArith UAminus) $2 }
+     | Expr '*' Expr                   { BinOpE      (tokenRange $1 $3) (BArith BAmul)   $1 $3 }
+     | Expr '/' Expr                   { BinOpE      (tokenRange $1 $3) (BArith BAdiv)   $1 $3 }
+     | Expr '%' Expr                   { BinOpE      (tokenRange $1 $3) (BArith BAmod)   $1 $3 }
+     | App                             { $1 }
 
 App : App Acc                     { AppE (tokenRange $1 $2) $1 $2 }
     | Acc                          { $1 }
@@ -233,6 +236,20 @@ RuleConcl   : then Expr    { $2 }
 
 {
 
+
+-- Alias for <$> because the happy parser is being silly
+(<&>) :: Functor f => (a -> b) -> f a -> f b
+(<&>) = fmap
+infixl 4 <&>
+
+lrev :: HasLoc a => [a] -> Located [a]
+lrev = mkLocated . reverse
+
+tokenSym'    (TokenSym sym) = sym
+tokenString' (TokenString str) = str
+tokenStringLit' (TokenStringLit str) = str
+
+-- tokenSym    = tokenSym' . unLoc)
 tokenSym    (L _ (TokenSym sym)) = sym
 tokenString (L _ (TokenString str)) = str
 tokenStringLit (L _ (TokenStringLit str)) = str

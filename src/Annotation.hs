@@ -38,6 +38,10 @@ setAnnot = updateAnnot . const
 loc2Ann :: HasAnnot f => Located (f SRng) -> f SRng
 loc2Ann (L loc p) = setAnnot loc p
 
+-- | Annotate an ast from wrapping located, but keep the wrapper
+loc2Ann' :: HasAnnot f => Located (f SRng) -> Located (f SRng)
+loc2Ann' (L loc p) = L loc $ setAnnot loc p
+
 data Pos = Pos
   { line :: !Int
   , col  :: !Int
