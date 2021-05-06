@@ -64,6 +64,7 @@ tokens :-
   defn                          { lex' TokenDefn }
   extends                       { lex' TokenExtends }
   lexicon                       { lex' TokenLexicon }
+  fact                          { lex' TokenFact }
   rule                          { lex' TokenRule }
   derivable                     { lex' TokenDerivable }
   -- Types
@@ -393,6 +394,7 @@ data TokenKind
   | TokenDefn
   | TokenExtends
   | TokenLexicon
+  | TokenFact
   | TokenRule
   | TokenDerivable
 
@@ -449,6 +451,7 @@ unLex TokenDecl      = "decl"
 unLex TokenDefn      = "defn"
 unLex TokenExtends   = "extends"
 unLex TokenLexicon   = "lexicon"
+unLex TokenFact      = "fact"
 unLex TokenRule      = "rule"
 unLex TokenDerivable = "derivable"
 unLex TokenBool      = "Bool"

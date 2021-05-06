@@ -57,6 +57,8 @@ library
                   InterfaceNunchaku
                   --RuleToTa
                   --TaToUppaal
+                  Smt
+                  SmtSBV
                   Typing
   other-modules: Paths_baby_l4
   hs-source-dirs:
@@ -86,6 +88,9 @@ library
                      -- Required for lexer/lsp interop
                      , lsp-types
                      , MissingH
+                     -- required for SMT interaction
+                     , simple-smt
+                     , sbv
   build-tools:         alex, happy, gf
   -- build-tools-depends:         alex:alex, happy:happy, gf:gf
   default-language: Haskell2010
@@ -98,6 +103,7 @@ executable l4
   build-depends:       base >= 4.7 && < 5
                      , baby-l4
                      , array
+                     , containers
                      , haskeline  >= 0.7
                      , mtl        >= 2.2 && <2.4
                      , pretty-simple

@@ -36,6 +36,7 @@ import Control.Monad.Except
     defn    { Token _ TokenDefn }
     extends { Token _ TokenExtends }
     lexicon { Token _ TokenLexicon }
+    fact    { Token _ TokenFact }
     rule    { Token _ TokenRule }
     derivable { Token _ TokenDerivable }
 
@@ -102,8 +103,8 @@ Program : Lexicon  ClassDecls GlobalVarDecls Rules Assertions
 Lexicon :                   { [] }
         |  lexicon Mappings { $2 }
 
-Mappings :                   {[]}
-          | Mappings Mapping {$2 : $1 }
+Mappings :  Mapping          { [$1] }
+          | Mappings Mapping { $2 : $1 }
 Mapping : VAR '->' STRLIT { Mapping (tokenRange $1 $3) (tokenSym $1) (tokenStringLit $3) }
 
 ClassDecls :                       { [] }
@@ -222,9 +223,11 @@ ExprsCommaSep :                      { [] }
 
 Rules  :                       { [] }
        | Rules Rule            { $2 : $1}
-Rule: rule '<' VAR '>'  RuleVarDecls RulePrecond RuleConcl { Rule (tokenRange $1 $7) (tokenSym $3) $5 $6 $7 }
+       | Rules Fact            { $2 : $1}
 
--- RuleName: rule '<' VAR '>'     { tokenSym $3 }
+Rule: rule '<' VAR '>'  RuleVarDecls RulePrecond RuleConcl { Rule (tokenRange $1 $7) (tokenSym $3) $5 $6 $7 }
+Fact: fact '<' VAR '>'  RuleVarDecls Expr { Rule (tokenRange $1 $6) (tokenSym $3) $5
+                                                 (ValE (nullSRng) (BoolV True)) $6 }
 
 RuleVarDecls :                       { [] }
              | for VarDeclsCommaSep  { reverse $2 }
