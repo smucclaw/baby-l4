@@ -1,5 +1,7 @@
 #+TITLE: Core Abstract Syntax
 
+[[https://github.com/smucclaw/baby-l4/actions/workflows/nix-based-build.yaml][https://github.com/smucclaw/baby-l4/actions/workflows/nix-based-build.yaml/badge.svg]]
+
 * Overview
 
 Abstract syntax for core L4 concepts.
@@ -23,7 +25,7 @@ The file =Test.hs= is for testing only and can be discarded.
 - with lexicon :: =Business -> business_2=
 - wordnet annotations in classes :: e.g. =class Business (132) {=
 - classes :: e.g. =class Business...=
-- rule expressions :: 
+- rule expressions ::
 
 ** 0.3.4
 
@@ -97,7 +99,7 @@ Suppose Rule X says:
 question: do we deal with Y_rule (outer) or Y_inner?
 
 rule 34.5 says: despite rule 34.1.B
-hence: 
+hence:
     overrides(r34_5
              ,may(LP,accept,EA)
              ,r34_1
@@ -167,6 +169,52 @@ We should have a test suite that creates this dashboard. See issue #4.
 ** To s(CASP)
 
 Work started in branch toSCASP
+
+
+
+** To SMT solvers
+
+*** Prerequisite and setup
+
+Model checking of L4 assertions can in principle be done with several model
+checking tools. It should eventually be possible to configure them on the fly,
+but currently, the Z3 prover is hardwired. Thus, to run the SMT backend, you
+currently have to install Z3 on your machine. 
+
+Some information about Z3 is available here:
+- [[http://z3prover.github.io/][On github.io]]
+- [[http://theory.stanford.edu/~nikolaj/programmingz3.html][Tutorial description]]
+
+Z3 is avaible in several package managers.
+
+After installation, the =z3= command should be in your path:
+#+BEGIN_SRC
+> which z3
+/usr/bin/z3
+#+END_SRC
+
+Most SMT solvers use the common input format [[http://smtlib.cs.uiowa.edu/][SMT-LIB]]; the output format is not
+yet entirely standardized, which makes model interpretation more delicate.
+
+Interfacing is currently done with the [[https://github.com/yav/simple-smt/blob/master/SimpleSMT.hs][SimpleSMT]] library, which sends commands
+to the SMT solver and receives acknowledgements and / or results. This
+communication is currently logged (can easily be switched off).
+
+When invoking an SMT solver on an L4 file, the first assert statement in the file is
+currently checked for /satisfiability/. The result is either
+- =unsat=: formula unsatisfiable
+- =sat=: formula satifiable. In this case, the model is displayed (currently
+  rather unreadable)
+
+To prove the /validity/ of a formula, check its negation for
+satisfiability. If the result of checking the negation is =unsat=, then the
+original formula is valid.
+
+Example of invoking the SMT checker:
+#+BEGIN_SRC
+stack exec -- l4 smt l4/speedlimit_flat_consistent.l4
+#+END_SRC
+
 
 ** To GF via PGF
 

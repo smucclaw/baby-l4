@@ -29,10 +29,9 @@
             # pkgs.graphviz
             # pkgs.emacs
           ];
-          # export NIX_PATH=nixpkgs=${nixpkgs};
-          # export GF_LIB_PATH=$GF_LIB_PATH''${GF_LIB_PATH:+':'}${gf-pkgs.gf-wordnet}
           shellHook = ''
-            export GF_LIB_PATH=${gf-pkgs.gf-rgl}/rgl:${gf-pkgs.gf-wordnet}
+            export NIX_PATH=nixpkgs=${nixpkgs};
+            export GF_LIB_PATH=$GF_LIB_PATH''${GF_LIB_PATH:+':'}${gf-pkgs.gf-rgl}/rgl:${gf-pkgs.gf-wordnet}
           '';
         })
       nixpkgs.legacyPackages;

@@ -130,6 +130,16 @@ isStrictSubclassOf env subcl supercl = supercl `elem` strictSuperClassesOf env s
 isSubclassOf :: Environment t -> ClassName -> ClassName -> Bool
 isSubclassOf env subcl supercl = supercl `elem` superClassesOf env subcl
 
+-- TODO: determining the sub- / superclasses does not require an environment after elaboration of superclasses.
+-- Maybe some of the above functions become redundant.
+
+superClassesOfClassDecl :: ClassDecl t -> [ClassName]
+superClassesOfClassDecl = supersOfClassDef . defOfClassDecl
+
+strictSuperClassesOfClassDecl :: ClassDecl t -> [ClassName]
+strictSuperClassesOfClassDecl = tail . superClassesOfClassDecl
+
+
 -- Get all the fields (direct and inherited) associated with a class name in an environment
 -- function should only be called with a class name known in the environment 
 fieldsOf :: Environment t -> ClassName -> [FieldDecl t]
@@ -195,6 +205,14 @@ isBooleanTp _ = False
 isNumberTp :: Environment t -> Tp -> Bool
 isNumberTp env (ClassT t) = isSubclassOf env t (ClsNm "Number")
 isNumberTp _ _ = False
+
+isIntegerTp :: Tp -> Bool
+isIntegerTp (ClassT (ClsNm "Integer")) = True 
+isIntegerTp _ = False
+
+isFloatTp :: Tp -> Bool
+isFloatTp (ClassT (ClsNm "Float")) = True 
+isFloatTp _ = False
 
 isScalarTp :: Tp -> Bool
 isScalarTp BoolT = True
