@@ -20,7 +20,7 @@ import Data.Maybe (listToMaybe)
 import Control.Applicative ((<|>))
 import Paths_baby_l4 (getDataFileName)
 import qualified UDAnnotations as UDA
-import System.Directory.Extra (createDirectoryIfMissing)
+import System.Directory.Extra (createDirectoryIfMissing, copyFile)
 
 ----------------------------------------------------------------------
 -- Generate GF code
@@ -72,6 +72,9 @@ createGF' gname userlexicon model = do
   udenv <- UDA.getEnv parsepgfName "Eng" "Predicate"
   let (absS, cncS) = mkLexicon udenv gname userlexicon model
   createDirectoryIfMissing False generatedFileDir
+  -- Hack to make sure a modern version of RGL exists
+  dataDir <- getDataFileName "grammars"
+  copyFile (dataDir <> "/ExtendEng.gfo") (mkGeneratedFileName "ExtendEng.gfo")
   writeGenerated (mkAbsName lName) absS
   writeGenerated (mkCncName lName) cncS
   writeGenerated (mkAbsName tName) $

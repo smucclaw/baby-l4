@@ -33,6 +33,7 @@ data-files:          l4/Prelude.l4
                    , grammars/ReducedWordNetEng.gf
                    , grammars/ParsePredicates.labels
                    , grammars/ParsePredicatesEng.labels
+                   , grammars/ExtendEng.gfo
 -- data-files: LICENSE
 -- data-files: Prop.pgf
 
@@ -53,7 +54,7 @@ library l4-generated
   build-depends:       base >= 4.7 && < 5
                      , gf
                      , mtl        >= 2.2 && <2.4
-  ghc-options: -Wno-all 
+  ghc-options: -Wno-all
   build-tools:         gf
   -- build-tools-depends: gf:gf
   hs-source-dirs:
