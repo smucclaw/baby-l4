@@ -12,11 +12,15 @@ import Data.List.Split ( split, splitOn, startsWithOneOf, startsWith )
 import Data.Monoid (Any (..))
 import PGF hiding (Tree)
 import Text.Printf (printf)
-import Data.Maybe (isJust)
-import UDConcepts ( UDSentence, prUDSentence )
+import Data.Maybe (isJust, mapMaybe)
+import UDConcepts ( UDSentence, prUDSentence, prReducedUDSentence, prQuickUDSentence )
 import UDAnnotations (getEnv, initUDEnv, UDEnv (..))
 import GF2UD
 import Debug.Trace (trace)
+import qualified Data.Map as M
+import Control.Arrow (second)
+import Data.Tuple (swap)
+import qualified Data.Bifunctor as Bifunctor
 
 -- trace :: p1 -> p2 -> p2
 -- trace s a = a
@@ -53,18 +57,97 @@ fromLexicalNode (LexV2Q str) = Just str
 fromLexicalNode (GString str) = Just str
 fromLexicalNode _ = Nothing
 
+data Some f = forall a. Some (f a)
+
+toLexicalNode :: String -> Maybe (Some Tree)
+toLexicalNode str =
+  case last $ splitOn "_" str of
+    "A"      -> Just $ Some $ LexA str
+    "A2"     -> Just $ Some $ LexA2 str
+    "AdV"    -> Just $ Some $ LexAdV str
+    "Adv"    -> Just $ Some $ LexAdv str
+    "Card"   -> Just $ Some $ LexCard str
+    "Det"    -> Just $ Some $ LexDet str
+    "N"      -> Just $ Some $ LexN str
+    "N2"     -> Just $ Some $ LexN2 str
+    "PN"     -> Just $ Some $ LexPN str
+    "Predet" -> Just $ Some $ LexPredet str
+    "Prep"   -> Just $ Some $ LexPrep str
+    "Pron"   -> Just $ Some $ LexPron str
+    "Quant"  -> Just $ Some $ LexQuant str
+    "Subj"   -> Just $ Some $ LexSubj str
+    "V"      -> Just $ Some $ LexV str
+    "V2"     -> Just $ Some $ LexV2 str
+    "V2A"    -> Just $ Some $ LexV2A str
+    "V2S"    -> Just $ Some $ LexV2S str
+    "V2V"    -> Just $ Some $ LexV2V str
+    "V3"     -> Just $ Some $ LexV3 str
+    "VA"     -> Just $ Some $ LexVA str
+    "VS"     -> Just $ Some $ LexVS str
+    "VV"     -> Just $ Some $ LexVV str
+    "N3"     -> Just $ Some $ LexN3 str
+    "Text"   -> Just $ Some $ LexText str
+    "V2Q"    -> Just $ Some $ LexV2Q str
+    _ -> Nothing
 ----------------------------------------------------
 
 type Arity = Int
 
-data Predicate = Pred {name :: String, description :: String, trees :: [MyParseOutput], arity :: Arity}
+-- | 
+data Predicate
+  = Pred
+      { name :: String              -- ^ DetractsFromDignity
+      , description :: String       -- ^ "detracts from dignity of legal profession"
+      , trees :: [MyParseOutput]    -- ^ A list of all possible parses
+      , reducedUDmap :: M.Map (ReducedUDSentence String) [Expr]
+      , arity :: Arity              -- ^ Arity of the predicate, e.g. DetractsFromDignity : Business -> Bool, arity=1
+      }
+
+type ReducedUDSentence a = [ReducedUDWord a]
+data ReducedUDWord a = RUDW Int String a -- where a is an instance of Gf
+  deriving (Eq, Ord)
+
+instance Show a => Show (ReducedUDWord a) where
+  show (RUDW i s fun) = printf "%s      %s      %s" i s (show fun)
+
+parseRUDW :: UDSentence -> ReducedUDSentence String
+parseRUDW uds = parseUDW <$> lines str
+  where
+    str = prReducedUDSentence "xx_______x" uds
+    parseUDW wrd =
+      case splitOn "\t" wrd of
+        [n,nm,'F':'U':'N':'=':fun] -> RUDW (read n) nm fun
+
 
 showMPO :: MyParseOutput -> String
-showMPO (t,udt) = unlines [showExpr [] t, prUDSentence 1 udt]
+showMPO (t,udt) = unlines [showExpr [] t, prReducedUDSentence "xx_______x" udt]
+
+{--- TODO:
+* Print out these into a .l4lex file
+* Ask user about individual words, filter out trees based on answers
+
+Plan:
+
+Given a list of constraints
+Take list of ReducedUDSentences with GfTrees
+Filter out those that matches the constraints
+
+Choose an arbitrary word (or the one with the most choices) (or the first)
+Filter out unique choices for that word (possibly saving a map to what sentences each choice belongs to)
+if it has at least two choices:
+  Ask the user which of the word variants to use
+  Save that variant to the set of constraints
+if all are unique
+  Get the parse from the map
+  (Optional: Save the inferred words in constraints file)
+
+
+-}
+
 
 instance Show Predicate where
-  show (Pred nm _ [] ar) = printf "%s\narity %d, no parses" nm ar
-  show (Pred nm _ ts ar) = printf "%s\narity %d\nparses\n%s" nm ar exprs
+  show (Pred nm _ [] _ ar) = printf "%s\narity %d, no parses" nm ar
+  show (Pred nm _ ts _ ar) = printf "%s\narity %d\nparses\n%s" nm ar exprs
     where
       exprs = unlines $ map showMPO ts
 
@@ -72,11 +155,18 @@ type Name = String
 type Description = [String]
 
 parsePred :: UDEnv -> Arity -> Name -> String -> Predicate
-parsePred udenv ar funname optdesc = trace 
+parsePred udenv ar funname optdesc = trace
    ("ts pre-filter: " ++ unlines (map showMPO ts) ++ "\n" ++
-    "arity: " ++ show ar ++ ", ts post-filter: " ++ unlines (map showMPO (filterHeuristic ar ts))) 
-    $ Pred nm (unwords desc) (filterHeuristic ar ts) ar
+    "arity: " ++ show ar ++ ", ts post-filter: " ++ unlines (map showMPO mpo))
+    $
+    Pred
+      nm
+      (unwords desc)
+      mpo
+      (mkMap $ (map.second) parseRUDW mpo)
+      ar
   where
+    mpo = filterHeuristic ar ts
     nm : _ = splitOn ":" funname
     nm' = unwords $ splitOn "_" nm -- take care of is_participant_in style
     desc = case optdesc of -- if no description provided, parse the name, e.g. DescribedInSection1
@@ -98,10 +188,13 @@ parsePred udenv ar funname optdesc = trace
                     then str
                     else map toLower str
 
+mkMap :: (Ord k) => [(v, k)] -> M.Map k [v]
+mkMap = M.fromListWith (<>) . map (second pure . swap)
+
 {- HLINT ignore expr2ud "Eta reduce" -}
-expr2ud :: UDEnv -> Expr -> UDSentence 
+expr2ud :: UDEnv -> Expr -> UDSentence
 expr2ud udenv expr = gf2ud udenv lang expr
-  where 
+  where
     lang = head $ languages $ pgfGrammar udenv
 
 type MyParseOutput = (Expr, UDSentence)
@@ -165,14 +258,14 @@ filterHeuristic ar ts_udts = [ (extractLex t, udt)
                    _ -> 1
 
 extractLex :: Expr -> Expr
-extractLex e = 
+extractLex e =
   case (fg e :: GPredicate) of
     GPredNP2 cn prep -> gf $ GmkAtom $ GMkCN2 cn prep
     GPredAP2 _ ap prep -> gf $ Gp2 $ GComplAP2 ap prep
     GV2PartAdv pol v2 adv -> gf $ Gp1 $ GComplAP (GAdvAP (GPastPartAP (GSlashV2a v2)) adv)
 --    Gp0 cn -> gf $ Gp0 cn
     _ -> e
-    
+
 -- TODO only remove apposition, keep compound noun
 
 
