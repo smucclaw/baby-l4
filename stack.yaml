@@ -6,6 +6,8 @@ packages:
 extra-deps:
   - github: GrammaticalFramework/gf-core
     commit: 7dc6717b5e95122a810d3b580981fc4ce0c9744b
+  - github: GrammaticalFramework/gf-ud
+    commit: 4b0760e02f9efdb8fbdd47ed2258e9b89f15a14d
   - json-0.10@sha256:d9fc6b07ce92b8894825a17d2cf14799856767eb30c8bf55962baa579207d799,3210
   - lsp-1.1.1.0@sha256:c8856e5fc71bc9834301731b5ba8786159e1d7e2d2d8ee07aec4f5421f2cf847,5568
   - lsp-types-1.1.0.0@sha256:071289b1c5e2ba8fedf846cfe1931d1cfdaac24a624abdf5dcee52562b1f3e2a,4240

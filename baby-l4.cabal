@@ -110,6 +110,7 @@ library
                      , mtl        >= 2.2 && <2.4
                      -- required for GF
                      , gf
+                     , gf-ud
                      -- required for SCasp abs.syn.
                      , megaparsec
                      -- Required for lexer/lsp interop

@@ -190,7 +190,7 @@ concrEntryUserLex :: Predicate -> Doc ()
 concrEntryUserLex pr =
   case trees pr of
     [] -> mempty
-    t:_ -> hsep $ map pretty [name pr, "=", hackyRemoveFullPred $ showExpr [] t, ";"]
+    t:_ -> hsep $ map pretty [name pr, "=", hackyRemoveFullPred $ showExpr [] $ fst t, ";"]
 
 -- TODO: handle this function as Gf trees to other Gf trees, not string processing
 hackyRemoveFullPred :: String -> String

@@ -13,10 +13,13 @@ import Data.Monoid (Any (..))
 import PGF hiding (Tree)
 import Text.Printf (printf)
 import Data.Maybe (isJust)
---import Debug.Trace (trace)
+import UDConcepts ( UDSentence, prUDSentence )
+import UDAnnotations (getEnv, initUDEnv, UDEnv (..))
+import GF2UD
+import Debug.Trace (trace)
 
-trace :: p1 -> p2 -> p2
-trace s a = a
+-- trace :: p1 -> p2 -> p2
+-- trace s a = a
 
 ----------------------------------------------------
 
@@ -54,21 +57,24 @@ fromLexicalNode _ = Nothing
 
 type Arity = Int
 
-data Predicate = Pred {name :: String, description :: String, trees :: MyParseOutput, arity :: Arity}
+data Predicate = Pred {name :: String, description :: String, trees :: [MyParseOutput], arity :: Arity}
+
+showMPO :: MyParseOutput -> String
+showMPO (t,udt) = unlines [showExpr [] t, prUDSentence 1 udt]
 
 instance Show Predicate where
   show (Pred nm _ [] ar) = printf "%s\narity %d, no parses" nm ar
   show (Pred nm _ ts ar) = printf "%s\narity %d\nparses\n%s" nm ar exprs
     where
-      exprs = unlines $ map (showExpr []) ts
+      exprs = unlines $ map showMPO ts
 
 type Name = String
 type Description = [String]
 
 parsePred :: PGF -> Arity -> Name -> String -> Predicate
 parsePred gr ar funname optdesc = trace 
-   ("ts pre-filter: " ++ unlines (map (showExpr []) ts) ++ "\n" ++
-    "arity: " ++ show ar ++ ", ts post-filter: " ++ unlines (map (showExpr []) (filterHeuristic ar ts))) 
+   ("ts pre-filter: " ++ unlines (map showMPO ts) ++ "\n" ++
+    "arity: " ++ show ar ++ ", ts post-filter: " ++ unlines (map showMPO (filterHeuristic ar ts))) 
     $ Pred nm (unwords desc) (filterHeuristic ar ts) ar
   where
     nm : _ = splitOn ":" funname
@@ -76,7 +82,7 @@ parsePred gr ar funname optdesc = trace
     desc = case optdesc of -- if no description provided, parse the name, e.g. DescribedInSection1
               [] -> map (trim . lower) $ split capsOrDigits nm'
               _  -> words optdesc
-    ts = filter (not . hasMeta) (parseGF gr desc)
+    ts = filter (not . hasMeta . fst) (parseGF gr desc)
     capsOrDigits = startsWithOneOf $ ['A'..'Z']++['0'..'9']
 
     hasMeta :: PGF.Expr -> Bool
@@ -92,19 +98,26 @@ parsePred gr ar funname optdesc = trace
                     then str
                     else map toLower str
 
-type MyParseOutput = [Expr]
+{- HLINT ignore expr2ud "Eta reduce" -}
+expr2ud :: PGF -> Expr -> UDSentence 
+expr2ud pgf expr = gf2ud udenv lang expr
+  where 
+    lang = head $ languages pgf
+    udenv = initUDEnv { pgfGrammar = pgf, actLanguage = lang, startCategory = startCat pgf }
 
-parseGF :: PGF -> Description -> MyParseOutput
+type MyParseOutput = (Expr, UDSentence)
+
+parseGF :: PGF -> Description -> [MyParseOutput]
 parseGF gr = go
   where
     lang = head $ languages gr
     cat = startCat gr
-    go :: Description -> MyParseOutput
+    go :: Description -> [MyParseOutput]
     go ws = finalParse
       where
         (output, bstring) = parse_ gr lang cat Nothing (unwords ws)
         finalParse = case output of
-          ParseOk ts -> ts
+          ParseOk ts -> [(t, expr2ud gr t) | t <- ts]
           -- TODO figure out why this doesn't work (anymore or did it ever work properly?)
           -- ParseFailed n | n>1 && all isLower (ws !! (n-1)) ->
           --   go [ if ind==n   -- Try capitalising the word where parse failed
@@ -117,16 +130,17 @@ parseGF gr = go
           _ -> []
 
 -- if we want [(Expr,BracketedString)]
--- filterHeuristic' :: MyParseOutput -> MyParseOutput
+-- filterHeuristic' :: [MyParseOutput] -> [MyParseOutput]
 -- filterHeuristic' ps = [(t,b) | (t,b) <- ps, not $ ppBeforeAP t]
 
-filterHeuristic :: Arity -> [Expr] -> [Expr]
-filterHeuristic ar ts = [ extractLex t
-                        | t <- ts
+filterHeuristic :: Arity -> [MyParseOutput] -> [MyParseOutput]
+filterHeuristic ar ts_udts = [ (extractLex t, udt)
+                        | (t, udt) <- ts_udts
                         , not $ ppBeforeAP t
                         , filterGerund t
                         , filterArity t ]
   where
+    ts = map fst ts_udts
     filterGerund
       | any hasGerund ts &&  -- "practicing as lawyer": progressive, pres. part. or gerund
         any hasProgr ts &&
