@@ -19,6 +19,7 @@ import Syntax (Mapping(..))
 import Data.Maybe (listToMaybe)
 import Control.Applicative ((<|>))
 import Paths_baby_l4 (getDataFileName)
+import qualified UDAnnotations as UDA
 
 ----------------------------------------------------------------------
 -- Generate GF code
@@ -41,7 +42,7 @@ mkGeneratedFileName d = generatedFileDir <> "/" <> d
 mkAbsName, mkCncName, mkPGFName :: String -> String
 mkAbsName d = d <> ".gf"
 mkCncName d = d <> "Eng.gf"
-mkPGFName d = generatedFileDir <> "/" <> d <> ".pgf"
+mkPGFName d = d <> ".pgf"
 
 createPGF :: String -> IO PGF.PGF
 createPGF nm = do
@@ -52,8 +53,8 @@ createPGF nm = do
   withArgs
     [ "-make",
       "--gf-lib-path=" <> libPath,
-      "--output-dir="<> generatedFileDir <> "",
-      "--gfo-dir="<> generatedFileDir <> "",
+      "--output-dir="<> generatedFileDir,
+      "--gfo-dir="<> generatedFileDir,
       "-v=0",
       mkCncName nm
     ]
@@ -66,22 +67,23 @@ createGF' gname userlexicon model = do
       tName = topName gname
       grName = pretty gname
       writeGenerated = writeDoc . mkGeneratedFileName
-  parsepgf <- readPGF =<< getDataFileName "ParsePredicates.pgf"
-  let (absS, cncS) = mkLexicon parsepgf gname userlexicon model
+  parsepgfName <- getDataFileName "grammars/ParsePredicates"
+  udenv <- UDA.getEnv parsepgfName "Eng" "Predicate"
+  let (absS, cncS) = mkLexicon udenv gname userlexicon model
   writeGenerated (mkAbsName lName) absS
   writeGenerated (mkCncName lName) cncS
   writeGenerated (mkAbsName tName) $ 
     "abstract" <+> pretty tName <+> "=" <+> grName <> "," <+> pretty lName <+> "** {flags startcat = Statement ;}"
   writeGenerated (mkCncName tName) $ 
     "concrete" <+> pretty tName <> "Eng of " <> pretty tName <+> "=" <+> grName <> "Eng," <+> pretty lName <> "Eng ;"
-  createPGF tName
+  createPGF $ mkGeneratedFileName tName
 
 -- TODO: Mkdir .l4-generated
 writeDoc :: FilePath -> Doc ann -> IO ()
 writeDoc nm doc = withFile nm WriteMode $ \h -> hPutDoc h doc
 
-mkLexicon :: PGF -> GrName -> [Mapping t] -> [AtomWithArity] -> (Doc (), Doc ())
-mkLexicon parsepgf gname userlex atoms = 
+mkLexicon :: UDA.UDEnv -> GrName -> [Mapping t] -> [AtomWithArity] -> (Doc (), Doc ())
+mkLexicon udenv gname userlex atoms = 
   (abstractLexicon gname parsedLex guessedLex, 
    concreteLexicon gname parsedLex guessedLex)
   where
@@ -95,10 +97,10 @@ mkLexicon parsepgf gname userlex atoms =
     parsePredFromUserLex funnm ar = listToMaybe [ pr
                                    | Mapping _ nm value <- userlex
                                    , nm == funnm
-                                   , let pr = parsePred parsepgf ar nm value
+                                   , let pr = parsePred udenv ar nm value
                                    , not $ null $ trees pr ] -- is empty if the funnm doesn't appear in user lex, or if there's no parse
     parsePredFromName funnm ar = listToMaybe [ pr
-                                 | let pr = parsePred parsepgf ar funnm ""
+                                 | let pr = parsePred udenv ar funnm ""
                                  , not $ null $ trees pr ]
     parsedLex = [ parsed | (Just parsed , _) <- bothLexica] -- Use the parsed predicate.
     guessedLex = [ guess | (Nothing , guess) <- bothLexica] -- If no result for parsePred, fall back to guessed pos

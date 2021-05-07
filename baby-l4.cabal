@@ -31,6 +31,8 @@ data-files:          l4/Prelude.l4
                    , grammars/PredicatesEng.gf
                    , grammars/ReducedWordNet.gf
                    , grammars/ReducedWordNetEng.gf
+                   , grammars/ParsePredicates.labels
+                   , grammars/ParsePredicatesEng.labels
 -- data-files: LICENSE
 -- data-files: Prop.pgf
 

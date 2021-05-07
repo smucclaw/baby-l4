@@ -71,8 +71,8 @@ instance Show Predicate where
 type Name = String
 type Description = [String]
 
-parsePred :: PGF -> Arity -> Name -> String -> Predicate
-parsePred gr ar funname optdesc = trace 
+parsePred :: UDEnv -> Arity -> Name -> String -> Predicate
+parsePred udenv ar funname optdesc = trace 
    ("ts pre-filter: " ++ unlines (map showMPO ts) ++ "\n" ++
     "arity: " ++ show ar ++ ", ts post-filter: " ++ unlines (map showMPO (filterHeuristic ar ts))) 
     $ Pred nm (unwords desc) (filterHeuristic ar ts) ar
@@ -82,7 +82,7 @@ parsePred gr ar funname optdesc = trace
     desc = case optdesc of -- if no description provided, parse the name, e.g. DescribedInSection1
               [] -> map (trim . lower) $ split capsOrDigits nm'
               _  -> words optdesc
-    ts = filter (not . hasMeta . fst) (parseGF gr desc)
+    ts = filter (not . hasMeta . fst) (parseGF udenv desc)
     capsOrDigits = startsWithOneOf $ ['A'..'Z']++['0'..'9']
 
     hasMeta :: PGF.Expr -> Bool
@@ -99,17 +99,17 @@ parsePred gr ar funname optdesc = trace
                     else map toLower str
 
 {- HLINT ignore expr2ud "Eta reduce" -}
-expr2ud :: PGF -> Expr -> UDSentence 
-expr2ud pgf expr = gf2ud udenv lang expr
+expr2ud :: UDEnv -> Expr -> UDSentence 
+expr2ud udenv expr = gf2ud udenv lang expr
   where 
-    lang = head $ languages pgf
-    udenv = initUDEnv { pgfGrammar = pgf, actLanguage = lang, startCategory = startCat pgf }
+    lang = head $ languages $ pgfGrammar udenv
 
 type MyParseOutput = (Expr, UDSentence)
 
-parseGF :: PGF -> Description -> [MyParseOutput]
-parseGF gr = go
+parseGF :: UDEnv -> Description -> [MyParseOutput]
+parseGF udenv = go
   where
+    gr = pgfGrammar udenv
     lang = head $ languages gr
     cat = startCat gr
     go :: Description -> [MyParseOutput]
@@ -117,7 +117,7 @@ parseGF gr = go
       where
         (output, bstring) = parse_ gr lang cat Nothing (unwords ws)
         finalParse = case output of
-          ParseOk ts -> [(t, expr2ud gr t) | t <- ts]
+          ParseOk ts -> [(t, expr2ud udenv t) | t <- ts]
           -- TODO figure out why this doesn't work (anymore or did it ever work properly?)
           -- ParseFailed n | n>1 && all isLower (ws !! (n-1)) ->
           --   go [ if ind==n   -- Try capitalising the word where parse failed
