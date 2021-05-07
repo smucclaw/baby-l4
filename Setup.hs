@@ -22,6 +22,17 @@ main = defaultMainWithHooks userHooks
 userHooks :: UserHooks
 userHooks = simpleUserHooks {
     hookedPreProcessors = gfPPSuffix : knownSuffixHandlers
+  , postCopy = \args insF pDesc lbi -> do
+        -- print $ buildDir lbi
+        let cdest = fromFlag $ copyDest insF
+        let dDir = datadir $ absoluteComponentInstallDirs pDesc lbi (localUnitId lbi) cdest
+        let verbosity = fromFlag $ copyVerbosity insF
+        let src = buildDir lbi </> "l4-generated" </> "ParsePredicates.pgf"
+        let dst = dDir </> "ParsePredicates.pgf"
+        -- print dDir
+        createDirectoryIfMissingVerbose verbosity True dDir
+        installOrdinaryFile verbosity src dst
+        return ()
 }
 
 gfPPSuffix :: PPSuffixHandler

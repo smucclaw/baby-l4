@@ -6,7 +6,6 @@ module ToGF.ParsePred where
 
 import ParsePredicates as PP
 import qualified Predicates as P
-import Paths_baby_l4 ( getDataFileName )
 import Data.Char (toLower, toUpper, isLower, isUpper)
 import Data.List.Extra (trim, sort, transpose, allSame)
 import Data.List.Split ( split, splitOn, startsWithOneOf, startsWith )
@@ -50,17 +49,6 @@ fromLexicalNode (LexText str) = Just str
 fromLexicalNode (LexV2Q str) = Just str
 fromLexicalNode (GString str) = Just str
 fromLexicalNode _ = Nothing
-
-
---- >>> getPGF
-
-getPGF :: IO PGF
-getPGF = do
-  pgf <- getDataFileName "ParsePredicates.pgf"
-  --readPGF pgf
-  print pgf
-  readPGF "generated/ParsePredicates.pgf"
-
 
 ----------------------------------------------------
 

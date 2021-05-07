@@ -18,6 +18,7 @@ import Data.List.Extra (splitOn, trim, intercalate)
 import Syntax (Mapping(..))
 import Data.Maybe (listToMaybe)
 import Control.Applicative ((<|>))
+import Paths_baby_l4 (getDataFileName)
 
 ----------------------------------------------------------------------
 -- Generate GF code
@@ -53,8 +54,7 @@ createGF' gname userlexicon model = do
   let lName = lexName gname
       tName = topName gname
       grName = pretty gname
---  parsepgf <- readPGF =<< getDataFileName "ParsePredicates.pgf"
-  parsepgf <- readPGF "generated/ParsePredicates.pgf"
+  parsepgf <- readPGF =<< getDataFileName "ParsePredicates.pgf"
   let (absS, cncS) = mkLexicon parsepgf gname userlexicon model
   writeDoc (mkAbsName lName) absS
   writeDoc (mkCncName lName) cncS
