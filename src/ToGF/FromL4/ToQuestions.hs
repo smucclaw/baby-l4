@@ -61,8 +61,7 @@ toPred (Pred2 name arg1 arg2) = GMkPred2 (LexAtom name) (LexAtom arg1) (LexAtom 
 toPred (VarDecl _ nm tp) = error $  "The VarDecl '" ++ nm ++ " : " ++ show tp ++ "' is not a predicate :("
 
 isPred :: VarDecl t -> Bool
-isPred _ = True
---isPred = isPred' . tpOfVarDecl
+isPred = isPred' . tpOfVarDecl
 
 isPred' :: Tp -> Bool
 isPred' (FunT _ BoolT) = True

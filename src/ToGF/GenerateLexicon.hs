@@ -96,6 +96,11 @@ printGF' gr expr = do
 postprocess :: String -> String
 postprocess = map (\c -> if c == '\\' then '\n' else c)
 
+-- TODO
+-- Generating & copying PGF file to right place
+-- more filtering of new GF funs
+-- generalise subject in PredSentence*
+-- Remove int2card, replace with custom digits, incl. decimals
 
 ----------------------------------------------------------------------
 -- If there is no lexicon available, we parse the predicates and use GF smart paradigms

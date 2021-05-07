@@ -14,7 +14,10 @@ import Data.Monoid (Any (..))
 import PGF hiding (Tree)
 import Text.Printf (printf)
 import Data.Maybe (isJust)
-import Debug.Trace (trace)
+--import Debug.Trace (trace)
+
+trace :: p1 -> p2 -> p2
+trace s a = a
 
 ----------------------------------------------------
 
