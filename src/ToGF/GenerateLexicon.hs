@@ -20,6 +20,7 @@ import Data.Maybe (listToMaybe)
 import Control.Applicative ((<|>))
 import Paths_baby_l4 (getDataFileName)
 import qualified UDAnnotations as UDA
+import System.Directory.Extra (createDirectoryIfMissing)
 
 ----------------------------------------------------------------------
 -- Generate GF code
@@ -49,7 +50,7 @@ createPGF nm = do
   oldLibPath <- getEnv "GF_LIB_PATH"
   grammarsDir <- getDataFileName "grammars"
   let libPath = grammarsDir <> ":" <> oldLibPath
-  
+
   withArgs
     [ "-make",
       "--gf-lib-path=" <> libPath,
@@ -70,21 +71,21 @@ createGF' gname userlexicon model = do
   parsepgfName <- getDataFileName "grammars/ParsePredicates"
   udenv <- UDA.getEnv parsepgfName "Eng" "Predicate"
   let (absS, cncS) = mkLexicon udenv gname userlexicon model
+  createDirectoryIfMissing False generatedFileDir
   writeGenerated (mkAbsName lName) absS
   writeGenerated (mkCncName lName) cncS
-  writeGenerated (mkAbsName tName) $ 
+  writeGenerated (mkAbsName tName) $
     "abstract" <+> pretty tName <+> "=" <+> grName <> "," <+> pretty lName <+> "** {flags startcat = Statement ;}"
-  writeGenerated (mkCncName tName) $ 
+  writeGenerated (mkCncName tName) $
     "concrete" <+> pretty tName <> "Eng of " <> pretty tName <+> "=" <+> grName <> "Eng," <+> pretty lName <> "Eng ;"
   createPGF $ mkGeneratedFileName tName
 
--- TODO: Mkdir .l4-generated
 writeDoc :: FilePath -> Doc ann -> IO ()
 writeDoc nm doc = withFile nm WriteMode $ \h -> hPutDoc h doc
 
 mkLexicon :: UDA.UDEnv -> GrName -> [Mapping t] -> [AtomWithArity] -> (Doc (), Doc ())
-mkLexicon udenv gname userlex atoms = 
-  (abstractLexicon gname parsedLex guessedLex, 
+mkLexicon udenv gname userlex atoms =
+  (abstractLexicon gname parsedLex guessedLex,
    concreteLexicon gname parsedLex guessedLex)
   where
     bothLexica =
