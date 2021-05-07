@@ -5,14 +5,14 @@ UnauthorizedSharingFees -> "involves sharing fees with unauthorized persons for 
 DetractsFromDignity -> "detracts from dignity of legal profession"
 DerogatesFromDignity -> "derogates from dignity of legal profession"
 IncompatibleWithDignity -> "incompatible with dignity of legal profession"
-#r34_1_a_applies -> "rule 341 applies"
+# r34_1_a_applies -> "rule 341 applies"
 
 class Business {
     DetractsFromDignity: Bool         # has lexicon entry
     IncompatibleWithDignity: Bool     # has lexicon entry
     DerogatesFromDignity: Bool        # has lexicon entry
     UnauthorizedSharingFees : Bool    # has lexicon entry
-    DescribedInSection1: Bool         # rest parsed from the predicate name
+    DescribedInSectionOne : Bool         # rest parsed from the predicate name
     Unfair: Bool
     DescribedInFirstSchedule: Bool
     Prohibited: Bool
@@ -23,8 +23,8 @@ decl r34_1_a_applies: Business -> Bool
 rule <r34_1_a>
 for b: Business
 if (
-    DetractsFromDignity b ||
-    IncompatibleWithDignity b ||
-    DerogatesFromDignity b
+    b.DetractsFromDignity ||
+    b.IncompatibleWithDignity  ||
+    b.DerogatesFromDignity 
 )
-then DescribedInSection1 b && r34_1_a_applies b
+then b.DescribedInSectionOne && r34_1_a_applies b
