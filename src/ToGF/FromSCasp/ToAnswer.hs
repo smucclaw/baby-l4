@@ -7,7 +7,7 @@
 module ToGF.FromSCasp.ToAnswer where
 
 import GHC.Exts (the)
-import Data.Set (Set(..), toList)
+import Data.Set (Set, toList)
 import qualified Data.Set as S
 import PGF (PGF)
 import Answer

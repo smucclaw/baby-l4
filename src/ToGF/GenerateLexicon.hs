@@ -16,6 +16,8 @@ import System.IO (IOMode (WriteMode), withFile)
 import Text.Printf (printf)
 import Data.List.Extra (splitOn, trim, intercalate)
 import Syntax (Mapping(..))
+import Data.Maybe (listToMaybe)
+import Control.Applicative ((<|>))
 
 ----------------------------------------------------------------------
 -- Generate GF code
@@ -60,29 +62,31 @@ createGF' gname userlexicon model = do
   writeDoc (mkCncName tName) $ "concrete" <+> tName <> "Eng of " <> tName <+> "=" <+> grName <> "Eng," <+> lName <> "Eng ;"
   createPGF tName
 
-writeDoc :: FilePath -> Doc () -> IO ()
+writeDoc :: FilePath -> Doc ann -> IO ()
 writeDoc nm doc = withFile nm WriteMode $ \h -> hPutDoc h doc
 
 mkLexicon :: PGF -> GrName -> [Mapping t] -> [AtomWithArity] -> (Doc (), Doc ())
-mkLexicon parsepgf gname userlex atoms = (abstractLexicon gname parsedLex guessedLex, concreteLexicon gname parsedLex guessedLex)
+mkLexicon parsepgf gname userlex atoms = 
+  (abstractLexicon gname parsedLex guessedLex, 
+   concreteLexicon gname parsedLex guessedLex)
   where
     bothLexica =
       [ ( parsePredFromUserLex funname ar'
-          ++ parsePredFromName funname ar'
+          <|> parsePredFromName funname ar'
         , guessPOS aa)
       | aa@(AA funname ar) <- atoms
       , let ar' = ar --max ar (length $ filter (=='>') funname) -- TODO see if these are ever different?
       ]
-    parsePredFromUserLex funnm ar = [ pr -- only those user-defined predicates that actually parse!
+    parsePredFromUserLex funnm ar = listToMaybe [ pr
                                    | Mapping _ nm value <- userlex
                                    , nm == funnm
                                    , let pr = parsePred parsepgf ar nm value
                                    , not $ null $ trees pr ] -- is empty if the funnm doesn't appear in user lex, or if there's no parse
-    parsePredFromName funnm ar = [ pr
+    parsePredFromName funnm ar = listToMaybe [ pr
                                  | let pr = parsePred parsepgf ar funnm ""
                                  , not $ null $ trees pr ]
-    parsedLex = [ p | (p:_ , _) <- bothLexica] -- Use the parsed predicate. TODO filter in smart way, not just use the first one!
-    guessedLex = [ posguess | ([] , posguess) <- bothLexica] -- If no result for parsePred, fall back to guessed pos
+    parsedLex = [ parsed | (Just parsed , _) <- bothLexica] -- Use the parsed predicate.
+    guessedLex = [ guess | (Nothing , guess) <- bothLexica] -- If no result for parsePred, fall back to guessed pos
 
 printGF' :: PGF -> Expr -> IO ()
 printGF' gr expr = do
