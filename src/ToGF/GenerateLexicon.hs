@@ -11,7 +11,7 @@ import PGF (PGF, Expr, readPGF, linearizeAll, showExpr)
 import Prettyprinter
 import Prettyprinter.Render.Text (hPutDoc)
 import ToGF.ParsePred
-import System.Environment (withArgs)
+import System.Environment (withArgs, getEnv)
 import System.IO (IOMode (WriteMode), withFile)
 import Text.Printf (printf)
 import Data.List.Extra (splitOn, trim, intercalate)
@@ -28,21 +28,32 @@ indent' = indent 4
 
 type GrName = String
 
-topName, lexName :: GrName -> Doc () --String
-topName grName = pretty grName <> "Top"
-lexName grName = pretty grName <> "Lexicon"
+generatedFileDir :: String
+generatedFileDir = ".l4-generated"
 
-mkAbsName, mkCncName, mkPGFName :: Doc () -> String
-mkAbsName d = printf "grammars/%s.gf" (show d)
-mkCncName d = printf "grammars/%sEng.gf" (show d)
-mkPGFName d = printf "generated/%s.pgf" (show d)
+topName, lexName :: GrName -> String
+topName grName = grName <> "Top"
+lexName grName = grName <> "Lexicon"
 
-createPGF :: Doc () -> IO PGF.PGF
+mkGeneratedFileName :: String -> String
+mkGeneratedFileName d = generatedFileDir <> "/" <> d
+
+mkAbsName, mkCncName, mkPGFName :: String -> String
+mkAbsName d = d <> ".gf"
+mkCncName d = d <> "Eng.gf"
+mkPGFName d = generatedFileDir <> "/" <> d <> ".pgf"
+
+createPGF :: String -> IO PGF.PGF
 createPGF nm = do
+  oldLibPath <- getEnv "GF_LIB_PATH"
+  grammarsDir <- getDataFileName "grammars"
+  let libPath = grammarsDir <> ":" <> oldLibPath
+  
   withArgs
     [ "-make",
-      "--output-dir=generated",
-      "--gfo-dir=generated",
+      "--gf-lib-path=" <> libPath,
+      "--output-dir="<> generatedFileDir <> "",
+      "--gfo-dir="<> generatedFileDir <> "",
       "-v=0",
       mkCncName nm
     ]
@@ -54,14 +65,18 @@ createGF' gname userlexicon model = do
   let lName = lexName gname
       tName = topName gname
       grName = pretty gname
+      writeGenerated = writeDoc . mkGeneratedFileName
   parsepgf <- readPGF =<< getDataFileName "ParsePredicates.pgf"
   let (absS, cncS) = mkLexicon parsepgf gname userlexicon model
-  writeDoc (mkAbsName lName) absS
-  writeDoc (mkCncName lName) cncS
-  writeDoc (mkAbsName tName) $ "abstract" <+> tName <+> "=" <+> grName <> "," <+> lName <+> "** {flags startcat = Statement ;}"
-  writeDoc (mkCncName tName) $ "concrete" <+> tName <> "Eng of " <> tName <+> "=" <+> grName <> "Eng," <+> lName <> "Eng ;"
+  writeGenerated (mkAbsName lName) absS
+  writeGenerated (mkCncName lName) cncS
+  writeGenerated (mkAbsName tName) $ 
+    "abstract" <+> pretty tName <+> "=" <+> grName <> "," <+> pretty lName <+> "** {flags startcat = Statement ;}"
+  writeGenerated (mkCncName tName) $ 
+    "concrete" <+> pretty tName <> "Eng of " <> pretty tName <+> "=" <+> grName <> "Eng," <+> pretty lName <> "Eng ;"
   createPGF tName
 
+-- TODO: Mkdir .l4-generated
 writeDoc :: FilePath -> Doc ann -> IO ()
 writeDoc nm doc = withFile nm WriteMode $ \h -> hPutDoc h doc
 
@@ -130,7 +145,7 @@ guessPOS (AA str int) = POS str $
 
 
 concreteLexicon :: GrName -> [Predicate] -> [POS] -> Doc ()
-concreteLexicon gname userlexicon poses = let lName = lexName gname in
+concreteLexicon gname userlexicon poses = let lName = pretty $ lexName gname in
   vsep
     [ "concrete" <+> lName <> "Eng of" <+> lName <+> "=" <+> "AtomsEng ** open PredicatesEng, SyntaxEng, ParadigmsEng, AdjectiveEng, ReducedWordNetEng in {",
       "lin",
@@ -145,7 +160,7 @@ concreteLexicon gname userlexicon poses = let lName = lexName gname in
 abstractLexicon :: GrName -> [Predicate] -> [POS] -> Doc ()
 abstractLexicon gname userlexicon poses =
   vsep
-    [ "abstract" <+> lexName gname <+> "=" <+> "Atoms ** {",
+    [ "abstract" <+> pretty (lexName gname) <+> "=" <+> "Atoms ** {",
       "fun",
       indent' $ sep $ punctuate "," $ map pretty
         (map origName poses ++ map name userlexicon),

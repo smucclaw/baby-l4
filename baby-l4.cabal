@@ -19,7 +19,18 @@ extra-source-files:  README.org
                    , grammars/Predicates.gf
                    , grammars/ParsePredicates.gf
 data-files:          l4/Prelude.l4
-
+                   , grammars/Prop.gf
+                   , grammars/PropEng.gf
+                   , grammars/Atoms.gf
+                   , grammars/AtomsEng.gf
+                   , grammars/Answer.gf
+                   , grammars/AnswerEng.gf
+                   , grammars/Questions.gf
+                   , grammars/QuestionsEng.gf
+                   , grammars/Predicates.gf
+                   , grammars/PredicatesEng.gf
+                   , grammars/ReducedWordNet.gf
+                   , grammars/ReducedWordNetEng.gf
 -- data-files: LICENSE
 -- data-files: Prop.pgf
 
