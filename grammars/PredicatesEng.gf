@@ -1,7 +1,7 @@
 
 concrete PredicatesEng of Predicates =
-  NounEng - [PPartNP, UseN2, RelNP, DetNP, AdvNP, PossNP, PartNP, CountNP, AdvCN, ApposCN,
-             IndefArt, MassNP], -- Want to parse NPs without article mainly as CNs if possible
+  NounEng - [PPartNP, UseN2, RelNP, DetNP, AdvNP, PossNP, PartNP, CountNP, AdvCN, ApposCN],
+--             IndefArt, MassNP], -- Want to parse NPs without article mainly as CNs if possible
   VerbEng - [PassV2, ReflVP, ComplVV, SlashV2V, SlashVV, SlashV2VNP, UseCopula, AdvVP, AdvVPSlash, VPSlashPrep],
   AdjectiveEng - [ReflA2, CAdvAP, UseA2, AdvAP],
   AdverbEng - [ComparAdvAdj,ComparAdvAdjS,AdnCAdv],
@@ -13,7 +13,7 @@ concrete PredicatesEng of Predicates =
   IdiomEng,
   NumeralEng,
   ExtendEng [
-    GerundCN,PresPartAP,PastPartAP,PastPartAgentAP,CompoundN,PositAdVAdj,
+    PrepCN, GerundCN,PresPartAP,PastPartAP,PastPartAgentAP,CompoundN,PositAdVAdj,
     VPS, ListVPS, ConjVPS2, BaseVPS, ConsVPS,
     VPS2, ListVPS2,ConjVPS2, BaseVPS, ConsVPS,
     VPI, ListVPI, ConjVPI2, BaseVPI, ConsVPI,

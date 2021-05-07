@@ -8,7 +8,7 @@ flags
   fun
     -- Coercions to startcat
     p0 : CN -> Predicate ; -- Owner, LegalOwner
-    mkAtom : N2 -> Predicate ; -- complete hack 
+    mkAtom : N2 -> Predicate ; -- complete hack asdaffdasfsafa
     p1 : Predicate1 -> Predicate ;
     p2 : Predicate2 -> Predicate ;
     gp : GenPredicate -> Predicate ;

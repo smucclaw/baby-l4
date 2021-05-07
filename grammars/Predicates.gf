@@ -3,7 +3,7 @@
 -- * TopPredicates that uses real WordNet, and that will be used in the actual application grammar.
 
 abstract Predicates =
-  Noun - [PPartNP, UseN2, RelNP, DetNP, AdvNP, PossNP, PartNP, CountNP, ApposCN, IndefArt, MassNP],
+  Noun - [PPartNP, UseN2, RelNP, DetNP, AdvNP, PossNP, PartNP, CountNP, ApposCN], --IndefArt, MassNP], -- stupidest idea ever
   Verb - [PassV2, ReflVP, ComplVV, SlashVV, SlashV2V, SlashV2VNP, AdvVP],
   Adjective - [ReflA2, CAdvAP, UseA2], --AdvAP],
   Adverb - [AdnCAdv, ComparAdvAdj, ComparAdvAdjS],
@@ -16,7 +16,7 @@ abstract Predicates =
   Numeral,
   Tense,
   Extend [
-    GerundCN,PresPartAP,PastPartAP,PastPartAgentAP,CompoundN,PositAdVAdj,
+    PrepCN,GerundCN,PresPartAP,PastPartAP,PastPartAgentAP,CompoundN,PositAdVAdj,
     VPS, ListVPS, ConjVPS2, BaseVPS, ConsVPS,
     VPS2, ListVPS2,ConjVPS2, BaseVPS, ConsVPS,
     VPI, ListVPI, ConjVPI2, BaseVPI, ConsVPI,
@@ -48,7 +48,7 @@ abstract Predicates =
 
     -- Quick and dirty way to get rid of attachment ambiguity: all Advs attach to the closest word
     MkN2 : N -> Prep -> N2 ;
-    MkCN2 : CN -> Prep -> N2 ;
+    MkCN2 : CN -> Prep -> N2 ; -- TODO: get rid of this again, creates ambiguity
     MkV2 : V -> Prep -> V2 ;
     MkA2 : A -> Prep -> A2 ;
 
@@ -75,6 +75,7 @@ abstract Predicates =
     ComplVPSlash1 : VPS2 -> Predicate1 ; -- DescribedInSection1
     ComplVPSlash2 : VPS2 -> Predicate2 ; -- Approves
 
+    -- TODO: make these into NP -> Predicate{n} -> GenPredicate
     ComplSentence : NP -> VPS -> GenPredicate ; -- (the company's) jurisdiction is Singapore
     ComplSentence2 : NP -> VPS2 -> GenPredicate ; -- rule 34 applies
 }
