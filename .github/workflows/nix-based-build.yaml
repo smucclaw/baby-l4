@@ -32,7 +32,7 @@ jobs:
         # TODO: Don't use --nix. Use actions/haskell instead
         # Or just do it without nix and let stack install ghc
         # but then we don't get other fancieness from haskell actions
-        run: nix develop --profile .dev-profile -c sh -c 'stack build --nix --test --no-run-tests || echo "::warning file=app.js,line=1,col=5::Failure"'
+        run: nix develop --profile .dev-profile -c sh -c 'stack build --nix --test --no-run-tests || echo "::warning file=app.js,line=1,col=5::Failure"'
       - name: stack test
         # if: ${{ false }}
-        run: nix develop --profile .dev-profile -c sh -c 'stack test --nix || echo "::warning file=app.js,line=1,col=5::Failure"'
+        run: nix develop --profile .dev-profile -c sh -c 'stack test --nix || echo "::warning file=app.js,line=1,col=5::Failure"'
