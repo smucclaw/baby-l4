@@ -8,6 +8,7 @@ import Distribution.Simple.Utils (createDirectoryIfMissingVerbose, installOrdina
 import Distribution.Simple.Setup (installDest, InstallFlags (installVerbosity), CopyFlags (copyDest, copyVerbosity))
 import Distribution.Simple.Flag
 import Distribution.Verbosity
+import System.Environment (lookupEnv)
 
 -- Custom preprocessor for GF files
 
@@ -43,20 +44,22 @@ gfPP bi lbi clbi = PreProcessor {
     platformIndependent = True,
     runPreProcessor = \(inDir,inFile) (outDir,outFile) verbosity -> do
         -- putStrLn $ "hello world! " ++ show ((inDir,inFile), (outDir,outFile), verbosity)
+        gfLibPath <- lookupEnv "GF_LIB_PATH"
+        putStrLn gfLibPath
         let lexical = getLexCategories inFile
-            concrete = case inFile of 
+            concrete = case inFile of
                          "ParsePredicates.gf" -> [inDir </> "ParsePredicatesEng.gf"]
                          _ -> []
         let args =
                 [ "-make"
-                , "-v=0"
+                , "-v=3"
                 , "-f", "haskell"
-                , "--haskell=gadt" ] 
+                , "--haskell=gadt" ]
                 ++ lexical
                 ++ ["--output-dir=" ++ outDir
                 , inDir </> inFile
                 ] ++ concrete
-                
+
         print args
         (gfProg, _) <- requireProgram verbosity gfProgram (withPrograms lbi)
         -- runDbProgram verbosity gfProgram (withPrograms lbi) args
@@ -67,7 +70,7 @@ gfPP bi lbi clbi = PreProcessor {
 gfProgram :: Program
 gfProgram = simpleProgram "gf"
 
-getLexCategories fname = case fname of 
+getLexCategories fname = case fname of
     "Prop.gf"
         -> lexPrefix "Noun,Noun2,Adj,Adj2,Verb,Verb2"
     "Atoms.gf"
