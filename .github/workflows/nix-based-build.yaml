@@ -39,10 +39,10 @@ jobs:
       - name: Initial nix develop
         run: nix develop --profile .dev-profile -c sh -c 'which stack; which gf; which ghc; echo $GF_LIB_PATH'
       - name: stack deps
-        run: nix develop --profile .dev-profile -c stack build --nix --only-dependencies
+        run: nix develop --profile .dev-profile -c stack build --nix --no-nix-pure --only-dependencies
       - name: stack build
         # if: ${{ false }}
-        run: nix develop --profile .dev-profile -c sh -c 'stack build --nix --test --no-run-tests || echo "::warning file=app.js,line=1,col=5::Failure"'
+        run: nix develop --profile .dev-profile -c sh -c 'stack build --nix --no-nix-pure --test --no-run-tests || echo "::warning file=app.js,line=1,col=5::Failure"'
       - name: stack test
         # if: ${{ false }}
-        run: nix develop --profile .dev-profile -c sh -c 'stack test --nix || echo "::warning file=app.js,line=1,col=5::Failure"'
+        run: nix develop --profile .dev-profile -c sh -c 'stack test --nix --no-nix-pure || echo "::warning file=app.js,line=1,col=5::Failure"'
