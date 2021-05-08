@@ -45,7 +45,7 @@ gfPP bi lbi clbi = PreProcessor {
     runPreProcessor = \(inDir,inFile) (outDir,outFile) verbosity -> do
         -- putStrLn $ "hello world! " ++ show ((inDir,inFile), (outDir,outFile), verbosity)
         gfLibPath <- lookupEnv "GF_LIB_PATH"
-        putStrLn gfLibPath
+        print gfLibPath
         let lexical = getLexCategories inFile
             concrete = case inFile of
                          "ParsePredicates.gf" -> [inDir </> "ParsePredicatesEng.gf"]
