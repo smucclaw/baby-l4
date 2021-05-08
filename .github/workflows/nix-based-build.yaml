@@ -28,21 +28,21 @@ jobs:
           ghc-version: '8.8.4' # Exact version of ghc to use
           # cabal-version: 'latest'. Omitted, but defaults to 'latest'
           enable-stack: true
-          stack-version: 'latest'
+          stack-version: '2.7.1'
       - uses: actions/cache@v2.1.5
         name: Cache ~/.stack
         with:
           path: ~/.stack
-          key: ${{ runner.os }}-${{ matrix.ghc }}-non-nix-stack-${{ hashFiles('stack.yaml.lock') }}
+          key: ${{ runner.os }}-${{ matrix.ghc }}-stack-${{ hashFiles('stack.yaml.lock') }}
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.ghc }}-non-nix-stack
+            ${{ runner.os }}-${{ matrix.ghc }}-stack
       - name: Initial nix develop
-        run: nix develop --profile .dev-profile -c sh -c 'which stack; which gf; echo $GF_LIB_PATH'
+        run: nix develop --profile .dev-profile -c sh -c 'which stack; which gf; which ghc; echo $GF_LIB_PATH'
       - name: stack deps
-        run: nix develop --profile .dev-profile -c stack build --system-ghc --only-dependencies
+        run: nix develop --profile .dev-profile -c stack build --nix --only-dependencies
       - name: stack build
         # if: ${{ false }}
-        run: nix develop --profile .dev-profile -c sh -c 'stack build --system-ghc --test --no-run-tests || echo "::warning file=app.js,line=1,col=5::Failure"'
+        run: nix develop --profile .dev-profile -c sh -c 'stack build --nix --test --no-run-tests || echo "::warning file=app.js,line=1,col=5::Failure"'
       - name: stack test
         # if: ${{ false }}
-        run: nix develop --profile .dev-profile -c sh -c 'stack test --system-ghc || echo "::warning file=app.js,line=1,col=5::Failure"'
+        run: nix develop --profile .dev-profile -c sh -c 'stack test --nix || echo "::warning file=app.js,line=1,col=5::Failure"'
