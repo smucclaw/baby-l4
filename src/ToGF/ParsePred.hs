@@ -153,17 +153,17 @@ tryReadFile fp = do
   result <- try $ readFile fp :: IO (Either IOError String)
   pure $ either (const Nothing) Just result
 
-matchesConstraint :: ReducedUDWord String -> Constraint -> Maybe Bool
+matchesConstraint :: ReducedUDWord String -> Constraint -> Bool
 matchesConstraint (RUDW i wf fun) (RUDW i' wf' fun')
-  | i==i' && wf==wf' = Just $ matches fun fun'
-  | otherwise        = Nothing
+  | i==i' && wf==wf' = matches fun fun'
+  | otherwise        = error $ show wf ++ " is not the same word as " ++ show wf'
 
-matchesConstraints :: ReducedUDSentence String -> Constraints -> Maybe Bool
-matchesConstraints s c = and <$> zipWithM matchesConstraint (unRUDS s) (unRUDS c)
+-- TODO: Use zipWithExact instead
+matchesConstraints :: ReducedUDSentence String -> Constraints -> Bool
+matchesConstraints s c = and $ zipWith matchesConstraint (unRUDS s) (unRUDS c)
 
--- TODO: Handle incorrect files in a much better way
 filterMatching :: Constraints -> UDSentenceMap -> UDSentenceMap
-filterMatching constrs = M.filterWithKey (\ k _ -> fromMaybe (error $ show constrs ++ " doesnt't match " ++ show k) $ matchesConstraints k constrs)
+filterMatching constrs = M.filterWithKey (\ k _ -> matchesConstraints k constrs)
 
 createEmptyConstraints :: UDSentenceMap -> Constraints
 createEmptyConstraints = (Whatever <$) . head . M.keys
