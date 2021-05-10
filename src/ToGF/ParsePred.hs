@@ -162,10 +162,10 @@ matchesConstraints :: ReducedUDSentence String -> Constraints -> Maybe Bool
 matchesConstraints s c = and <$> zipWithM matchesConstraint (unRUDS s) (unRUDS c)
 
 -- TODO: Handle incorrect files in a much better way
-filterMatching :: Constraints -> M.Map (ReducedUDSentence String) [Expr] -> M.Map (ReducedUDSentence String) [Expr]
+filterMatching :: Constraints -> UDSentenceMap -> UDSentenceMap
 filterMatching constrs = M.filterWithKey (\ k _ -> fromMaybe (error $ show constrs ++ " doesnt't match " ++ show k) $ matchesConstraints k constrs)
 
-createEmptyConstraints :: M.Map (ReducedUDSentence String) [Expr] -> Constraints
+createEmptyConstraints :: UDSentenceMap -> Constraints
 createEmptyConstraints = (Whatever <$) . head . M.keys
 
 parseRUDW :: UDSentence -> ReducedUDSentence String
@@ -205,13 +205,13 @@ if all are unique
 
 type Arity = Int
 
--- | 
+-- |
 data Predicate
   = Pred
       { name :: String              -- ^ DetractsFromDignity
       , description :: String       -- ^ "detracts from dignity of legal profession"
       , trees :: [MyParseOutput]    -- ^ A list of all possible parses
-      , reducedUDmap :: M.Map (ReducedUDSentence String) [Expr]
+      , reducedUDmap :: UDSentenceMap
       , arity :: Arity              -- ^ Arity of the predicate, e.g. DetractsFromDignity : Business -> Bool, arity=1
       }
 
