@@ -23,7 +23,9 @@ import Control.Arrow (Arrow (first, second))
 import Data.Tuple (swap)
 import qualified Data.Bifunctor as Bifunctor
 import Control.Exception (try)
-import Control.Monad (zipWithM)
+import Control.Monad (zipWithM, mfilter)
+import qualified Data.List as L
+import qualified Data.Set as Set
 
 -- trace :: p1 -> p2 -> p2
 -- trace s a = a
@@ -103,6 +105,9 @@ unRUDS (RUDS x) = x
 
 data ReducedUDWord a = RUDW Int String a -- where a is an instance of Gf
   deriving (Eq, Ord, Show, Read, Functor)
+
+unRUDW :: ReducedUDWord a -> a
+unRUDW (RUDW _ _ x) = x
 
 forgetContents :: Functor f => f a -> f ()
 forgetContents x = () <$ x
@@ -201,6 +206,71 @@ if all are unique
 
 
 -}
+
+validateConstraints :: UDSentenceMap -> Constraints -> Bool
+validateConstraints = sameSentence . head . M.keys
+
+-- TODO: This throws away all old data if the sentence has changed at all
+-- Do we want to try to preserve some data so the user won't have to answer the
+-- same questions again and again regardless of how small the change?
+getAndValidateConstraints :: Predicate -> FilePath -> IO (Maybe Constraints)
+getAndValidateConstraints pred filePrefix = do
+  ctrs <- readConstraints $ filePrefix ++ name pred ++ "lex"
+  pure $ mfilter (validateConstraints (reducedUDmap pred)) ctrs
+
+-- TODO: Put multiple predicates in a single file.
+saveConstraints :: Predicate -> FilePath -> Constraints -> IO ()
+saveConstraints pred filePrefix ctrs = do
+  writeConstraints (filePrefix ++ name pred ++ "lex") ctrs
+
+askConstraint :: Predicate -> Constraints -> IO (Maybe Constraints)
+askConstraint pred ctrs = do
+  let relevantUDs = filterMatching ctrs (reducedUDmap pred)
+  let nextQuestion = getNextQuestion $ M.keys relevantUDs
+  case nextQuestion of
+    Nothing -> pure Nothing
+    Just q -> do
+      putStrLn $ "Which one: " ++ show q
+      putStr "> "
+      -- TODO: Make this more flexible
+      x <- getLine
+      let matching = fmap (<$ q) $ L.find (== x) $ unRUDW q
+      let ctrs' = fmap (`updateCtrs` ctrs) matching
+      pure ctrs'
+
+updateCtrs :: ReducedUDWord String -> Constraints -> Constraints
+updateCtrs val = RUDS . map updateCtr . unRUDS
+  where
+    updateCtr :: Constraint -> Constraint
+    updateCtr ctr | sameWord val ctr = Exactly (unRUDW val) <$ ctr
+
+getNextQuestion :: [ReducedUDSentence String] -> Maybe (ReducedUDWord [String])
+getNextQuestion = firstAmbigous . fmap sortNub . transposeSentence
+  where
+
+  -- | Given a list of sentences, match up the corresponding ones with each other
+  transposeSentence :: [ReducedUDSentence String] -> ReducedUDSentence [String]
+  transposeSentence = RUDS . map transposeWord . transpose . map unRUDS
+  -- transposeSentence = sequenceA
+
+  -- | Given a list of words, check that they all have the same key and merge them1
+  transposeWord :: [ReducedUDWord String] -> ReducedUDWord [String]
+  transposeWord wds
+    | allSameWord wds = map unRUDW wds <$ head wds
+    | otherwise = error $ "Mismatch between words: " ++ show wds
+
+  allSameWord :: [ReducedUDWord a] -> Bool
+  allSameWord = allSame . map forgetContents
+
+  firstAmbigous :: ReducedUDSentence [a] -> Maybe (ReducedUDWord [a])
+  firstAmbigous = L.find ((>= 2) . length . unRUDW) . unRUDS
+
+untransposeWord :: ReducedUDWord [a] -> [ReducedUDWord a]
+untransposeWord (RUDW i w x) = RUDW i w <$> x
+-- untransposeWord = sequenceA
+
+
+
 ----------------------------------------------------
 
 type Arity = Int
@@ -361,3 +431,10 @@ ppBeforeAP = getAny . ppBeforeAP' . (fg :: Expr -> GPredicate)
     ppBeforeAP' (GAdjCN (GPastPartAP _) (GAdjCN _ _)) = Any True
     ppBeforeAP' (GAdjCN (GPastPartAgentAP _ _) (GAdjCN _ _)) = Any True
     ppBeforeAP' x = composOpMonoid ppBeforeAP' x
+
+--------
+
+-- Misc helpers
+
+sortNub :: Ord a => [a] -> [a]
+sortNub = Set.toList . Set.fromList
