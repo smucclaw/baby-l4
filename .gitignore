@@ -4,8 +4,6 @@
 *.pgf
 generated
 .l4-generated
-grammars/*Top*
-grammars/*Lexicon*
 .vscode/
 src/Questions.hs
 src/Answer.hs
