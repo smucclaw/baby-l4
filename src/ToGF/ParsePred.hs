@@ -95,18 +95,34 @@ toLexicalNode str =
 
 ----------------------------------------------------
 
-type ReducedUDSentence a = [ReducedUDWord a]
+newtype ReducedUDSentence a = RUDS [ReducedUDWord a]
+  deriving (Eq, Ord, Show, Read, Functor)
+
+unRUDS :: ReducedUDSentence a -> [ReducedUDWord a]
+unRUDS (RUDS x) = x
+
 data ReducedUDWord a = RUDW Int String a -- where a is an instance of Gf
   deriving (Eq, Ord, Show, Read, Functor)
+
+forgetContents :: Functor f => f a -> f ()
+forgetContents x = () <$ x
+
+sameStructure :: (Eq (f ()), Functor f) => f a -> f b -> Bool
+sameStructure a b = forgetContents a == forgetContents b
 
 -- INVARIANT: All ReducedUDSentences must correspond to the same sentence
 type UDSentenceMap = M.Map (ReducedUDSentence String) [Expr]
 
 validUDSentenceMap :: UDSentenceMap -> Bool
-validUDSentenceMap = allSame . (map . map) (()<$) . M.keys
+validUDSentenceMap = allSame . map forgetContents . M.keys
 
+-- | sameSentence a b returns true if both corresponds to (potentially different interpretations of) the same sentence
 sameSentence :: ReducedUDSentence a -> ReducedUDSentence b -> Bool
-sameSentence a b = map (()<$) a == map (()<$) b
+sameSentence a b = forgetContents a == forgetContents b
+
+-- | sameSentence a b returns true if both corresponds to (potentially different interpretations of) the same word
+sameWord :: ReducedUDWord a -> ReducedUDWord b -> Bool
+sameWord a b = forgetContents a == forgetContents b
 
 data Choice a = Whatever | Exactly a
   deriving (Eq, Ord, Show, Read)
@@ -121,10 +137,10 @@ type Constraints = ReducedUDSentence (Choice String)
 
 -- TODO: Proper error handling and prettier format
 parseConstraints :: String -> Constraints
-parseConstraints = map read . lines
+parseConstraints = RUDS . map read . lines
 
 serializeConstraints :: Constraints -> String
-serializeConstraints = unlines . map show
+serializeConstraints = unlines . map show . unRUDS
 
 writeConstraints :: FilePath -> Constraints -> IO ()
 writeConstraints fp = writeFile fp . serializeConstraints
@@ -143,17 +159,17 @@ matchesConstraint (RUDW i wf fun) (RUDW i' wf' fun')
   | otherwise        = Nothing
 
 matchesConstraints :: ReducedUDSentence String -> Constraints -> Maybe Bool
-matchesConstraints s c = and <$> zipWithM matchesConstraint s c
+matchesConstraints s c = and <$> zipWithM matchesConstraint (unRUDS s) (unRUDS c)
 
 -- TODO: Handle incorrect files in a much better way
 filterMatching :: Constraints -> M.Map (ReducedUDSentence String) [Expr] -> M.Map (ReducedUDSentence String) [Expr]
-filterMatching constrs = M.filterWithKey (\ k _ -> fromMaybe (error $ show constrs ++ " doesnt't match " ++ show k) $ matchesConstraints k constrs)
+filterMatching constrs = M.filterWithKey (\ k _ -> fromMaybe (error $ show constrs ++ " doesnt't match " ++ show k) $ matchesConstraints k constrs)
 
 createEmptyConstraints :: M.Map (ReducedUDSentence String) [Expr] -> Constraints
-createEmptyConstraints = map (Whatever <$) . head . M.keys
+createEmptyConstraints = (Whatever <$) . head . M.keys
 
 parseRUDW :: UDSentence -> ReducedUDSentence String
-parseRUDW uds = parseUDW <$> lines str
+parseRUDW uds = RUDS $ parseUDW <$> lines str
   where
     str = prReducedUDSentence "xx_______x" uds
     parseUDW wrd =
