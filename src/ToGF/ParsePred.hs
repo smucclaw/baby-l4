@@ -1,6 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE GADTs #-}
 
+{-# LANGUAGE DeriveFunctor #-}
 module ToGF.ParsePred where
 
 
@@ -12,7 +13,7 @@ import Data.List.Split ( split, splitOn, startsWithOneOf, startsWith )
 import Data.Monoid (Any (..))
 import PGF hiding (Tree)
 import Text.Printf (printf)
-import Data.Maybe (isJust, mapMaybe)
+import Data.Maybe (isJust, mapMaybe, fromMaybe)
 import UDConcepts ( UDSentence, prUDSentence, prReducedUDSentence, prQuickUDSentence )
 import UDAnnotations (getEnv, initUDEnv, UDEnv (..))
 import GF2UD
@@ -96,7 +97,16 @@ toLexicalNode str =
 
 type ReducedUDSentence a = [ReducedUDWord a]
 data ReducedUDWord a = RUDW Int String a -- where a is an instance of Gf
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Functor)
+
+-- INVARIANT: All ReducedUDSentences must correspond to the same sentence
+type UDSentenceMap = M.Map (ReducedUDSentence String) [Expr]
+
+validUDSentenceMap :: UDSentenceMap -> Bool
+validUDSentenceMap = allSame . (map . map) (()<$) . M.keys
+
+sameSentence :: ReducedUDSentence a -> ReducedUDSentence b -> Bool
+sameSentence a b = map (()<$) a == map (()<$) b
 
 data Choice a = Whatever | Exactly a
   deriving (Eq, Ord, Show, Read)
@@ -134,6 +144,13 @@ matchesConstraint (RUDW i wf fun) (RUDW i' wf' fun')
 
 matchesConstraints :: ReducedUDSentence String -> Constraints -> Maybe Bool
 matchesConstraints s c = and <$> zipWithM matchesConstraint s c
+
+-- TODO: Handle incorrect files in a much better way
+filterMatching :: Constraints -> M.Map (ReducedUDSentence String) [Expr] -> M.Map (ReducedUDSentence String) [Expr]
+filterMatching constrs = M.filterWithKey (\ k _ -> fromMaybe (error $ show constrs ++ " doesnt't match " ++ show k) $ matchesConstraints k constrs)
+
+createEmptyConstraints :: M.Map (ReducedUDSentence String) [Expr] -> Constraints
+createEmptyConstraints = map (Whatever <$) . head . M.keys
 
 parseRUDW :: UDSentence -> ReducedUDSentence String
 parseRUDW uds = parseUDW <$> lines str
