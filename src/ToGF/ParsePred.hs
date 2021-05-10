@@ -18,7 +18,7 @@ import UDAnnotations (getEnv, initUDEnv, UDEnv (..))
 import GF2UD
 import Debug.Trace (trace)
 import qualified Data.Map as M
-import Control.Arrow (second)
+import Control.Arrow (Arrow (first, second))
 import Data.Tuple (swap)
 import qualified Data.Bifunctor as Bifunctor
 
@@ -120,7 +120,7 @@ parseRUDW uds = parseUDW <$> lines str
 
 
 showMPO :: MyParseOutput -> String
-showMPO (t,udt) = unlines [showExpr [] t, prReducedUDSentence "xx_______x" udt]
+showMPO (udt,t) = unlines [showExpr [] t, prReducedUDSentence "xx_______x" udt]
 
 {--- TODO:
 * Print out these into a .l4lex file
@@ -163,7 +163,7 @@ parsePred udenv ar funname optdesc = trace
       nm
       (unwords desc)
       mpo
-      (mkMap $ (map.second) parseRUDW mpo)
+      (mkMap $ (map.first) parseRUDW mpo)
       ar
   where
     mpo = filterHeuristic ar ts
@@ -172,7 +172,7 @@ parsePred udenv ar funname optdesc = trace
     desc = case optdesc of -- if no description provided, parse the name, e.g. DescribedInSection1
               [] -> map (trim . lower) $ split capsOrDigits nm'
               _  -> words optdesc
-    ts = filter (not . hasMeta . fst) (parseGF udenv desc)
+    ts = filter (not . hasMeta . snd) (parseGF udenv desc)
     capsOrDigits = startsWithOneOf $ ['A'..'Z']++['0'..'9']
 
     hasMeta :: PGF.Expr -> Bool
@@ -188,8 +188,8 @@ parsePred udenv ar funname optdesc = trace
                     then str
                     else map toLower str
 
-mkMap :: (Ord k) => [(v, k)] -> M.Map k [v]
-mkMap = M.fromListWith (<>) . map (second pure . swap)
+mkMap :: (Ord k) => [(k, v)] -> M.Map k [v]
+mkMap = M.fromListWith (<>) . map (second pure)
 
 {- HLINT ignore expr2ud "Eta reduce" -}
 expr2ud :: UDEnv -> Expr -> UDSentence
@@ -197,7 +197,7 @@ expr2ud udenv expr = gf2ud udenv lang expr
   where
     lang = head $ languages $ pgfGrammar udenv
 
-type MyParseOutput = (Expr, UDSentence)
+type MyParseOutput = (UDSentence, Expr)
 
 parseGF :: UDEnv -> Description -> [MyParseOutput]
 parseGF udenv = go
@@ -210,7 +210,7 @@ parseGF udenv = go
       where
         (output, bstring) = parse_ gr lang cat Nothing (unwords ws)
         finalParse = case output of
-          ParseOk ts -> [(t, expr2ud udenv t) | t <- ts]
+          ParseOk ts -> [(expr2ud udenv t, t) | t <- ts]
           -- TODO figure out why this doesn't work (anymore or did it ever work properly?)
           -- ParseFailed n | n>1 && all isLower (ws !! (n-1)) ->
           --   go [ if ind==n   -- Try capitalising the word where parse failed
@@ -227,13 +227,13 @@ parseGF udenv = go
 -- filterHeuristic' ps = [(t,b) | (t,b) <- ps, not $ ppBeforeAP t]
 
 filterHeuristic :: Arity -> [MyParseOutput] -> [MyParseOutput]
-filterHeuristic ar ts_udts = [ (extractLex t, udt)
-                        | (t, udt) <- ts_udts
+filterHeuristic ar ts_udts = [ (udt, extractLex t)
+                        | (udt, t) <- ts_udts
                         , not $ ppBeforeAP t
                         , filterGerund t
                         , filterArity t ]
   where
-    ts = map fst ts_udts
+    ts = map snd ts_udts
     filterGerund
       | any hasGerund ts &&  -- "practicing as lawyer": progressive, pres. part. or gerund
         any hasProgr ts &&
