@@ -21,6 +21,8 @@ import qualified Data.Map as M
 import Control.Arrow (Arrow (first, second))
 import Data.Tuple (swap)
 import qualified Data.Bifunctor as Bifunctor
+import Control.Exception (try)
+import Control.Monad (zipWithM)
 
 -- trace :: p1 -> p2 -> p2
 -- trace s a = a
@@ -89,26 +91,49 @@ toLexicalNode str =
     "Text"   -> Just $ Some $ LexText str
     "V2Q"    -> Just $ Some $ LexV2Q str
     _ -> Nothing
+
 ----------------------------------------------------
-
-type Arity = Int
-
--- | 
-data Predicate
-  = Pred
-      { name :: String              -- ^ DetractsFromDignity
-      , description :: String       -- ^ "detracts from dignity of legal profession"
-      , trees :: [MyParseOutput]    -- ^ A list of all possible parses
-      , reducedUDmap :: M.Map (ReducedUDSentence String) [Expr]
-      , arity :: Arity              -- ^ Arity of the predicate, e.g. DetractsFromDignity : Business -> Bool, arity=1
-      }
 
 type ReducedUDSentence a = [ReducedUDWord a]
 data ReducedUDWord a = RUDW Int String a -- where a is an instance of Gf
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Show, Read)
 
-instance Show a => Show (ReducedUDWord a) where
-  show (RUDW i s fun) = printf "%s      %s      %s" i s (show fun)
+data Choice a = Whatever | Exactly a
+  deriving (Eq, Ord, Show, Read)
+
+matches :: Eq a => a -> Choice a -> Bool
+matches a Whatever = True
+matches a (Exactly b) = a == b
+
+-- | A partial disambiguation of a sentence
+type Constraint = ReducedUDWord (Choice String)
+type Constraints = ReducedUDSentence (Choice String)
+
+-- TODO: Proper error handling and prettier format
+parseConstraints :: String -> Constraints
+parseConstraints = map read . lines
+
+serializeConstraints :: Constraints -> String
+serializeConstraints = unlines . map show
+
+writeConstraints :: FilePath -> Constraints -> IO ()
+writeConstraints fp = writeFile fp . serializeConstraints
+
+readConstraints :: FilePath  -> IO (Maybe Constraints)
+readConstraints = (fmap.fmap) parseConstraints . tryReadFile
+
+tryReadFile :: FilePath -> IO (Maybe String)
+tryReadFile fp = do
+  result <- try $ readFile fp :: IO (Either IOError String)
+  pure $ either (const Nothing) Just result
+
+matchesConstraint :: ReducedUDWord String -> Constraint -> Maybe Bool
+matchesConstraint (RUDW i wf fun) (RUDW i' wf' fun')
+  | i==i' && wf==wf' = Just $ matches fun fun'
+  | otherwise        = Nothing
+
+matchesConstraints :: ReducedUDSentence String -> Constraints -> Maybe Bool
+matchesConstraints s c = and <$> zipWithM matchesConstraint s c
 
 parseRUDW :: UDSentence -> ReducedUDSentence String
 parseRUDW uds = parseUDW <$> lines str
@@ -143,7 +168,19 @@ if all are unique
 
 
 -}
+----------------------------------------------------
 
+type Arity = Int
+
+-- | 
+data Predicate
+  = Pred
+      { name :: String              -- ^ DetractsFromDignity
+      , description :: String       -- ^ "detracts from dignity of legal profession"
+      , trees :: [MyParseOutput]    -- ^ A list of all possible parses
+      , reducedUDmap :: M.Map (ReducedUDSentence String) [Expr]
+      , arity :: Arity              -- ^ Arity of the predicate, e.g. DetractsFromDignity : Business -> Bool, arity=1
+      }
 
 instance Show Predicate where
   show (Pred nm _ [] _ ar) = printf "%s\narity %d, no parses" nm ar
