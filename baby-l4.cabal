@@ -124,6 +124,7 @@ library
                      , simple-smt
                      , sbv
   default-language: Haskell2010
+  ghc-options: -Wall
 
 executable l4
   hs-source-dirs:      exe
