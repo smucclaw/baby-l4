@@ -16,7 +16,6 @@ import UDConcepts ( UDSentence, prReducedUDSentence )
 import UDAnnotations (UDEnv (..))
 import GF2UD
 import ToGF.Disambiguate
-import Debug.Trace (trace)
 import qualified Data.Map as M
 import Control.Arrow (Arrow (first, second))
 import Control.Exception (try)
@@ -25,8 +24,10 @@ import qualified Data.List as L
 import qualified Data.Set as Set
 import Data.Foldable (for_)
 
--- trace :: p1 -> p2 -> p2
--- trace s a = a
+--import Debug.Trace (trace)
+
+trace :: p1 -> p2 -> p2
+trace s a = a
 
 ----------------------------------------------------
 
@@ -312,10 +313,11 @@ filterPredicate udenv filePrefix prd = do
 type QuestionMap = M.Map String [Expr]
 
 linearizeQuestion :: UDEnv -> Question -> String
-linearizeQuestion udenv = linearize gr lang
+linearizeQuestion udenv = removeBind . linearize gr lang
   where
     gr = pgfGrammar udenv
     lang = head $ languages gr
+    removeBind = unwords . splitOn " &+ "
 
 -- TODO: use ReaderT or something
 mkQuestionMap :: UDEnv -> [(Question,Expr)] -> QuestionMap
@@ -325,7 +327,8 @@ showQuestionMap :: QuestionMap -> String
 showQuestionMap = unlines . map showQuestionExpr . M.toList
 
 showQuestionExpr :: (String,[Expr]) -> String
-showQuestionExpr (s,e) = unlines $ s : map (showExpr []) e
+showQuestionExpr ("higher education", es) = showQuestionExpr ("NO QUESTIONS YET", es) -- TODO: have it print out something else than "higher education" :-D
+showQuestionExpr (s,es) = unlines $ s : map (showExpr []) es
 
 ----------------------------------------------------
 
