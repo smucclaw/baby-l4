@@ -123,11 +123,11 @@ validUDSentenceMap = allSame . map forgetContents . M.keys
 
 -- | sameSentence a b returns true if both corresponds to (potentially different interpretations of) the same sentence
 sameSentence :: ReducedUDSentence a -> ReducedUDSentence b -> Bool
-sameSentence a b = forgetContents a == forgetContents b
+sameSentence = sameStructure
 
 -- | sameSentence a b returns true if both corresponds to (potentially different interpretations of) the same word
 sameWord :: ReducedUDWord a -> ReducedUDWord b -> Bool
-sameWord a b = forgetContents a == forgetContents b
+sameWord = sameStructure
 
 data Choice a = Whatever | Exactly a
   deriving (Eq, Ord, Show, Read)
@@ -152,11 +152,6 @@ writeConstraints fp = writeFile fp . serializeConstraints
 
 readConstraints :: FilePath  -> IO (Maybe Constraints)
 readConstraints = (fmap.fmap) parseConstraints . tryReadFile
-
-tryReadFile :: FilePath -> IO (Maybe String)
-tryReadFile fp = do
-  result <- try $ readFile fp :: IO (Either IOError String)
-  pure $ either (const Nothing) Just result
 
 matchesConstraint :: ReducedUDWord String -> Constraint -> Bool
 matchesConstraint (RUDW i wf fun) (RUDW i' wf' fun')
@@ -436,5 +431,12 @@ ppBeforeAP = getAny . ppBeforeAP' . (fg :: Expr -> GPredicate)
 
 -- Misc helpers
 
+-- | Sort a list and throw away duplicates
 sortNub :: Ord a => [a] -> [a]
 sortNub = Set.toList . Set.fromList
+
+-- | Read a file and catch any thrown errors
+tryReadFile :: FilePath -> IO (Maybe String)
+tryReadFile fp = do
+  result <- try $ readFile fp :: IO (Either IOError String)
+  pure $ either (const Nothing) Just result
