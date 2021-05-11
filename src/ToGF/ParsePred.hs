@@ -266,7 +266,15 @@ untransposeWord :: ReducedUDWord [a] -> [ReducedUDWord a]
 untransposeWord (RUDW i w x) = RUDW i w <$> x
 -- untransposeWord = sequenceA
 
+-- | Read constraints from a file, ask about new constraints and save the changes.
+askAboutPredicate :: Predicate -> FilePath -> IO Constraints
+askAboutPredicate prd filePrefix = do
+  mbCtrs <- getAndValidateConstraints prd filePrefix
+  let ctrs = fromMaybe (createEmptyConstraints $ reducedUDmap prd) mbCtrs
 
+  newCtrs <- askConstraint prd ctrs
+  whenJust_ newCtrs $ saveConstraints prd filePrefix
+  pure $ fromMaybe ctrs newCtrs
 
 ----------------------------------------------------
 
