@@ -2,6 +2,7 @@
 {-# LANGUAGE GADTs #-}
 
 {-# LANGUAGE DeriveTraversable #-}
+{-# OPTIONS_GHC -Wall #-}
 module ToGF.ParsePred where
 
 
@@ -107,11 +108,17 @@ data ReducedUDWord a = RUDW Int String a -- where a is an instance of Gf
 unRUDW :: ReducedUDWord a -> a
 unRUDW (RUDW _ _ x) = x
 
+rudwWord :: ReducedUDWord a -> String
+rudwWord (RUDW _ wrd _) = wrd
+
 forgetContents :: Functor f => f a -> f ()
 forgetContents x = () <$ x
 
 sameStructure :: (Eq (f ()), Functor f) => f a -> f b -> Bool
 sameStructure a b = forgetContents a == forgetContents b
+
+linearizeRUDS :: ReducedUDSentence a -> String
+linearizeRUDS = unwords . map rudwWord . unRUDS
 
 -- INVARIANT: All ReducedUDSentences must correspond to the same sentence
 type UDSentenceMap = M.Map (ReducedUDSentence String) [Expr]
@@ -321,8 +328,19 @@ instance Show Predicate where
 type Name = String
 type Description = [String]
 
+filterValidRuds :: [String] -> [(ReducedUDSentence String, Expr)] -> [(ReducedUDSentence String, Expr)]
+filterValidRuds desc = filter $ (== unwords desc) . linearizeRUDS . fst
+
+validatePredicate :: Predicate -> Predicate
+validatePredicate prd
+  | Just rud <- L.find ((/= description prd) . linearizeRUDS) $ pred2rudss prd  = error $ "Error: " ++ show rud ++ " doesn't match " ++ show (description prd)
+  | otherwise = prd
+
+pred2rudss :: Predicate -> [ReducedUDSentence String]
+pred2rudss = M.keys . reducedUDmap
+
 parsePred :: UDEnv -> Arity -> Name -> String -> Predicate
-parsePred udenv ar funname optdesc = trace
+parsePred udenv ar funname optdesc = validatePredicate $ trace
    ("ts pre-filter: " ++ unlines (map showMPO ts) ++ "\n" ++
     "arity: " ++ show ar ++ ", ts post-filter: " ++ unlines (map showMPO mpo))
     $
@@ -330,7 +348,7 @@ parsePred udenv ar funname optdesc = trace
       nm
       (unwords desc)
       (map snd mpo)
-      (mkMap $ (map.first) parseRUDW mpo)
+      (mkMap $ filterValidRuds desc $ (map.first) parseRUDW mpo)
       ar
   where
     mpo = filterHeuristic ar ts
@@ -394,8 +412,8 @@ filterHeuristic :: Arity -> [MyParseOutput] -> [MyParseOutput]
 filterHeuristic ar ts_udts = [ (udt, extractLex t)
                         | (udt, t) <- ts_udts
                         , not $ ppBeforeAP t
-                        , filterGerund t
-                        , filterArity t ]
+                        , filterGerund t ]
+                        --, filterArity t ]
   where
     ts = map snd ts_udts
     filterGerund
@@ -405,21 +423,21 @@ filterHeuristic ar ts_udts = [ (udt, extractLex t)
 --      | any hasGerund ts && not (all hasGerund ts) = hasGerund
       | otherwise = const True
 
-    filterArity
-      | any arityMatches ts = arityMatches
-      | otherwise = const True
+    -- filterArity
+    --   | any arityMatches ts = arityMatches
+    --   | otherwise = const True
 
-    arityMatches t = getArity t == ar
+    -- arityMatches t = getArity t == ar
 
 
-    getArity :: Expr -> Arity
-    getArity e = case (fg e :: GPredicate) of
-                   Gp2 {} -> 2
-                   GPredNP2 {} -> 2
-                   GPredAP2 {} -> 2
-                   GV2PartAdv {} -> 2
-                   Gp0 {} -> 0
-                   _ -> 1
+    -- getArity :: Expr -> Arity
+    -- getArity e = case (fg e :: GPredicate) of
+    --                Gp2 {} -> 2
+    --                GPredNP2 {} -> 2
+    --                GPredAP2 {} -> 2
+    --                GV2PartAdv {} -> 2
+    --                Gp0 {} -> 0
+    --                _ -> 1
 
 extractLex :: Expr -> Expr
 extractLex e =
