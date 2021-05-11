@@ -100,30 +100,14 @@ toLexicalNode str =
 newtype ReducedUDSentence a = RUDS [ReducedUDWord a]
   deriving (Eq, Ord, Show, Read, Functor)
 
--- instance Show a => Show (ReducedUDSentence a) where
---   show = unlines . map show . unRUDS
-
--- instance Read a => Read (ReducedUDSentence a) where
---   readsPrec _ =  map (first RUDS) . mapM reads . lines
-
 unRUDS :: ReducedUDSentence a -> [ReducedUDWord a]
 unRUDS (RUDS x) = x
-
--- instance Applicative ReducedUDSentence where
---   pure = _
---   (<*>) = _
 
 data ReducedUDWord a = RUDW Int String a -- where a is an instance of Gf
   deriving (Eq, Ord, Show, Read, Functor)
 
 unRUDW :: ReducedUDWord a -> a
 unRUDW (RUDW _ _ x) = x
-
--- instance Applicative ReducedUDWord where
---   pure = error "Please don't use pure with ReducedUDWord!"
---   f@(RUDW _ _ fab) <*> x
---     | sameWord f x = fab <$> x
---     | otherwise = error $ show (forgetContents f) ++ " doesn't match" ++ show (forgetContents x)
 
 forgetContents :: Functor f => f a -> f ()
 forgetContents x = () <$ x
@@ -182,7 +166,6 @@ matchesConstraint (RUDW i wf fun) (RUDW i' wf' fun')
 -- TODO: Use zipWithExact instead
 matchesConstraints :: ReducedUDSentence String -> Constraints -> Bool
 matchesConstraints s c = and $ zipWith matchesConstraint (unRUDS s) (unRUDS c)
--- matchesConstraints s c = and $ matches <$> s <*> c
 
 filterMatching :: Constraints -> UDSentenceMap -> UDSentenceMap
 filterMatching constrs = M.filterWithKey (\ k _ -> matchesConstraints k constrs)
