@@ -7,6 +7,10 @@ module ToGF.Disambiguate where
 import ParsePredicates as PP
 import PGF hiding (Tree)
 import Data.Maybe (isJust, fromMaybe, listToMaybe, mapMaybe, catMaybes)
+import Data.Monoid (Any (..))
+
+-------------------------------------------------------
+-- Interactive disambiguation questions
 
 type Question = Expr
 
@@ -79,3 +83,69 @@ removeAdjuncts t = case t of
   _ -> composOp removeAdjuncts t
 
 ----------------------------------------------------
+
+filterHeuristic :: Int -> [(a,Expr)] -> [(a,Expr)]
+filterHeuristic ar ts_udts = [ (udt, extractLex t)
+                        | (udt, t) <- ts_udts
+                        , not $ ppBeforeAP t
+                        , filterGerund t ]
+                        --, filterArity t ]
+  where
+    ts = map snd ts_udts
+    filterGerund
+      | any hasGerund ts &&  -- "practicing as lawyer": progressive, pres. part. or gerund
+        any hasProgr ts &&
+        not (all hasGerund ts) = not . hasProgr
+--      | any hasGerund ts && not (all hasGerund ts) = hasGerund
+      | otherwise = const True
+
+    -- filterArity
+    --   | any arityMatches ts = arityMatches
+    --   | otherwise = const True
+
+    -- arityMatches t = getArity t == ar
+
+
+    -- getArity :: Expr -> Arity
+    -- getArity e = case (fg e :: GPredicate) of
+    --                Gp2 {} -> 2
+    --                GPredNP2 {} -> 2
+    --                GPredAP2 {} -> 2
+    --                GV2PartAdv {} -> 2
+    --                Gp0 {} -> 0
+    --                _ -> 1
+
+extractLex :: Expr -> Expr
+extractLex e =
+  case (fg e :: GPredicate) of
+--    GPredNP2 cn prep -> gf $ GmkAtom $ GMkCN2 cn prep
+    GPredAP2 _ ap prep -> gf $ Gp2 $ GComplAP2 ap prep
+    GV2PartAdv pol v2 adv -> gf $ Gp1 $ GComplAP (GAdvAP (GPastPartAP (GSlashV2a v2)) adv)
+--    Gp0 cn -> gf $ Gp0 cn
+    _ -> e
+
+-- TODO only remove apposition, keep compound noun
+
+
+hasGerund :: Expr -> Bool
+hasGerund = getAny . hasGerund' . (fg :: Expr -> GPredicate)
+  where
+    hasGerund' :: Tree a -> Any
+    hasGerund' (GGerundCN _) = Any True
+    hasGerund' x = composOpMonoid hasGerund' x
+
+hasProgr :: Expr -> Bool
+hasProgr = getAny . hasProgr' . (fg :: Expr -> GPredicate)
+  where
+    hasProgr' :: Tree a -> Any
+    hasProgr' (GProgrVP _) = Any True
+    hasProgr' (GUseComp (GCompAP (GPresPartAP _))) = Any True
+    hasProgr' x = composOpMonoid hasProgr' x
+
+ppBeforeAP :: Expr -> Bool
+ppBeforeAP = getAny . ppBeforeAP' . (fg :: Expr -> GPredicate)
+  where
+    ppBeforeAP' :: Tree a -> Any
+    ppBeforeAP' (GAdjCN (GPastPartAP _) (GAdjCN _ _)) = Any True
+    ppBeforeAP' (GAdjCN (GPastPartAgentAP _ _) (GAdjCN _ _)) = Any True
+    ppBeforeAP' x = composOpMonoid ppBeforeAP' x
