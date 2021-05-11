@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE GADTs #-}
 
-{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveTraversable #-}
 module ToGF.ParsePred where
 
 
@@ -104,7 +104,7 @@ unRUDS :: ReducedUDSentence a -> [ReducedUDWord a]
 unRUDS (RUDS x) = x
 
 data ReducedUDWord a = RUDW Int String a -- where a is an instance of Gf
-  deriving (Eq, Ord, Show, Read, Functor)
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
 
 unRUDW :: ReducedUDWord a -> a
 unRUDW (RUDW _ _ x) = x
@@ -204,6 +204,7 @@ if all are unique
 
 -}
 
+-- | Check that constraints are for the current sentence
 validateConstraints :: UDSentenceMap -> Constraints -> Bool
 validateConstraints = sameSentence . head . M.keys
 
@@ -222,6 +223,7 @@ saveConstraints pred filePrefix ctrs = do
 
 askConstraint :: Predicate -> Constraints -> IO (Maybe Constraints)
 askConstraint pred ctrs = do
+  -- TODO: Extract pure code
   let relevantUDs = filterMatching ctrs (reducedUDmap pred)
   let nextQuestion = getNextQuestion $ M.keys relevantUDs
   case nextQuestion of
@@ -231,7 +233,7 @@ askConstraint pred ctrs = do
       putStr "> "
       -- TODO: Make this more flexible
       x <- getLine
-      let matching = fmap (<$ q) $ L.find (== x) $ unRUDW q
+      let matching = traverse (L.find (== x)) q
       let ctrs' = fmap (`updateCtrs` ctrs) matching
       pure ctrs'
 
