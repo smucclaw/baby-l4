@@ -49,4 +49,10 @@ flags
     --FullPred : Predicate -> FullPredicate ;
   -- FullPred : Agreement -> Polarity -> Predicate -> Utt ;
 
+  -- Extensions for disambiguation questions
+
+  VerbalComplement : (subj : NP) -> VPS -> Utt ; -- the business shares fees
+  CompoundNoun : (subj : NP) -> VPS -> Utt ; -- the business involves sharing-fees
+
+  CompoundNHyphen : N -> N -> N ; -- Replace CompoundN with this to make explicit
 }
