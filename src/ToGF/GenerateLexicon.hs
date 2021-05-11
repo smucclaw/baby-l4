@@ -62,15 +62,15 @@ createPGF nm = do
     GF.main
   PGF.readPGF $ mkPGFName nm
 
-createGF' :: GrName -> [Mapping t] -> [AtomWithArity] -> IO PGF.PGF
-createGF' gname userlexicon model = do
+createGF' :: FilePath -> GrName -> [Mapping t] -> [AtomWithArity] -> IO PGF.PGF
+createGF' fname gname userlexicon model = do
   let lName = lexName gname
       tName = topName gname
       grName = pretty gname
       writeGenerated = writeDoc . mkGeneratedFileName
   parsepgfName <- getDataFileName "grammars/ParsePredicates"
   udenv <- UDA.getEnv parsepgfName "Eng" "Predicate"
-  let (absS, cncS) = mkLexicon udenv gname userlexicon model
+  (absS, cncS) <- mkLexicon fname udenv gname userlexicon model
   createDirectoryIfMissing False generatedFileDir
   -- Hack to make sure a modern version of RGL exists
   dataDir <- getDataFileName "grammars"
@@ -86,10 +86,12 @@ createGF' gname userlexicon model = do
 writeDoc :: FilePath -> Doc ann -> IO ()
 writeDoc nm doc = withFile nm WriteMode $ \h -> hPutDoc h doc
 
-mkLexicon :: UDA.UDEnv -> GrName -> [Mapping t] -> [AtomWithArity] -> (Doc (), Doc ())
-mkLexicon udenv gname userlex atoms =
-  (abstractLexicon gname parsedLex guessedLex,
-   concreteLexicon gname parsedLex guessedLex)
+mkLexicon :: FilePath -> UDA.UDEnv -> GrName -> [Mapping t] -> [AtomWithArity] -> IO (Doc (), Doc ())
+mkLexicon fname udenv gname userlex atoms = do
+  filteredLex <- mapM (filterPredicate fname) parsedLex
+  pure
+    (abstractLexicon gname filteredLex guessedLex,
+    concreteLexicon gname filteredLex guessedLex)
   where
     bothLexica =
       [ ( parsePredFromUserLex funname ar'
@@ -196,7 +198,7 @@ concrEntryUserLex :: Predicate -> Doc ()
 concrEntryUserLex pr =
   case trees pr of
     [] -> mempty
-    t:_ -> hsep $ map pretty [name pr, "=", hackyRemoveFullPred $ showExpr [] $ snd t, ";"]
+    t:_ -> hsep $ map pretty [name pr, "=", hackyRemoveFullPred $ showExpr [] t, ";"]
 
 -- TODO: handle this function as Gf trees to other Gf trees, not string processing
 hackyRemoveFullPred :: String -> String

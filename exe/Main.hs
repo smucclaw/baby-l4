@@ -66,7 +66,7 @@ process args input = do
             Fscasp -> createSCasp normalAst
             Fyaml -> do createDSyaml tpAstNoSrc
                         putStrLn "---------------"
-                        createQuestions normalAst
+                        createQuestions fpath normalAst
 
 
           -- Just a test for creating natural language from s(CASP) models.
@@ -114,8 +114,8 @@ optsParse = InputOpts <$>
             <*> argument str (metavar "Filename")
             <**> helper
         where
-          gfSubparser = fmap Fgf $ GFOpts <$> 
-                          subparser 
+          gfSubparser = fmap Fgf $ GFOpts <$>
+                          subparser
                              ( command "all" (info (pure GF.GFall) (progDesc "tell GF to output all languages"))
                             <> command "en"  (info (pure GF.GFeng) (progDesc "tell GF to output english"))
                             <> command "swe" (info (pure GF.GFswe) (progDesc "tell GF to output swedish"))

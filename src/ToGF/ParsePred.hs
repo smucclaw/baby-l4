@@ -206,18 +206,21 @@ if all are unique
 validateConstraints :: UDSentenceMap -> Constraints -> Bool
 validateConstraints = sameSentence . head . M.keys
 
+mkFilename :: Predicate -> FilePath -> FilePath
+mkFilename prd filePrefix = filePrefix ++ name prd ++ ".l4lex"
+
 -- TODO: This throws away all old data if the sentence has changed at all
 -- Do we want to try to preserve some data so the user won't have to answer the
 -- same questions again and again regardless of how small the change?
 getAndValidateConstraints :: Predicate -> FilePath -> IO (Maybe Constraints)
 getAndValidateConstraints prd filePrefix = do
-  ctrs <- readConstraints $ filePrefix ++ name prd ++ "lex"
+  ctrs <- readConstraints $ mkFilename prd filePrefix
   pure $ mfilter (validateConstraints (reducedUDmap prd)) ctrs
 
 -- TODO: Put multiple predicates in a single file.
 saveConstraints :: Predicate -> FilePath -> Constraints -> IO ()
 saveConstraints prd filePrefix ctrs = do
-  writeConstraints (filePrefix ++ name prd ++ "lex") ctrs
+  writeConstraints (mkFilename prd filePrefix) ctrs
 
 askConstraint :: Predicate -> Constraints -> IO (Maybe Constraints)
 askConstraint prd ctrs = do
@@ -239,7 +242,7 @@ updateCtrs val = RUDS . map updateCtr . unRUDS
     updateCtr :: Constraint -> Constraint
     updateCtr ctr
       | sameWord val ctr = Exactly (unRUDW val) <$ ctr
-      | otherwise = error $ "Trying to update " ++ show ctr ++ " to " ++ show val
+      | otherwise = ctr
 
 getNextQuestion :: [ReducedUDSentence String] -> Maybe (ReducedUDWord [String])
 getNextQuestion = firstAmbigous . fmap sortNub . transposeSentence
@@ -276,6 +279,25 @@ askAboutPredicate prd filePrefix = do
   whenJust_ newCtrs $ saveConstraints prd filePrefix
   pure $ fromMaybe ctrs newCtrs
 
+askUntilUnambigous :: Predicate -> FilePath -> IO [Expr]
+askUntilUnambigous prd filePrefix = do
+  ctrs <- askAboutPredicate prd filePrefix
+  case M.toList $ filterMatching ctrs (reducedUDmap prd) of
+    [] -> error "BUG: Couldn't find any possibilities"
+    [(_,exprs)] -> pure exprs
+    _ -> askUntilUnambigous prd filePrefix
+
+-- createQuestiosn :: MyParseOutput -> Map Question MyParseOutput
+-- Creates questions using another grammar based on MyparseOutput
+
+-- askStuff :: Map Question MyParseOutput -> IO MyParseOutput
+-- less trees than in the original MPO
+
+filterPredicate :: FilePath -> Predicate -> IO Predicate
+filterPredicate filePrefix prd = do
+  exprs <- askUntilUnambigous prd filePrefix
+  pure $ prd { trees = exprs}
+
 ----------------------------------------------------
 
 type Arity = Int
@@ -285,7 +307,7 @@ data Predicate
   = Pred
       { name :: String              -- ^ DetractsFromDignity
       , description :: String       -- ^ "detracts from dignity of legal profession"
-      , trees :: [MyParseOutput]    -- ^ A list of all possible parses
+      , trees :: [Expr]   -- ^ A list of all possible parses
       , reducedUDmap :: UDSentenceMap
       , arity :: Arity              -- ^ Arity of the predicate, e.g. DetractsFromDignity : Business -> Bool, arity=1
       }
@@ -294,7 +316,7 @@ instance Show Predicate where
   show (Pred nm _ [] _ ar) = printf "%s\narity %d, no parses" nm ar
   show (Pred nm _ ts _ ar) = printf "%s\narity %d\nparses\n%s" nm ar exprs
     where
-      exprs = unlines $ map showMPO ts
+      exprs = unlines $ map (showExpr []) ts
 
 type Name = String
 type Description = [String]
@@ -307,7 +329,7 @@ parsePred udenv ar funname optdesc = trace
     Pred
       nm
       (unwords desc)
-      mpo
+      (map snd mpo)
       (mkMap $ (map.first) parseRUDW mpo)
       ar
   where
@@ -332,9 +354,6 @@ parsePred udenv ar funname optdesc = trace
     lower str = if all isUpper str
                     then str
                     else map toLower str
-
-mkMap :: (Ord k) => [(k, v)] -> M.Map k [v]
-mkMap = M.fromListWith (<>) . map (second pure)
 
 {- HLINT ignore expr2ud "Eta reduce" -}
 expr2ud :: UDEnv -> Expr -> UDSentence
@@ -458,3 +477,7 @@ whenJust :: Applicative f => Maybe t -> (t -> f (Maybe a)) -> f (Maybe a)
 whenJust a f = case a of
   Nothing -> pure Nothing
   Just q -> f q
+
+-- | Make a Map where entries with colliding keys are collected into a list
+mkMap :: (Ord k) => [(k, v)] -> M.Map k [v]
+mkMap = M.fromListWith (<>) . map (second pure)
