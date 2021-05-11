@@ -6,26 +6,24 @@ module ToGF.ParsePred where
 
 
 import ParsePredicates as PP
-import qualified Predicates as P
-import Data.Char (toLower, toUpper, isLower, isUpper)
-import Data.List.Extra (trim, sort, transpose, allSame)
-import Data.List.Split ( split, splitOn, startsWithOneOf, startsWith )
+import Data.Char (toLower, isUpper)
+import Data.List.Extra (trim, transpose, allSame)
+import Data.List.Split ( split, splitOn, startsWithOneOf )
 import Data.Monoid (Any (..))
 import PGF hiding (Tree)
 import Text.Printf (printf)
-import Data.Maybe (isJust, mapMaybe, fromMaybe)
-import UDConcepts ( UDSentence, prUDSentence, prReducedUDSentence, prQuickUDSentence )
-import UDAnnotations (getEnv, initUDEnv, UDEnv (..))
+import Data.Maybe (isJust, fromMaybe)
+import UDConcepts ( UDSentence, prReducedUDSentence )
+import UDAnnotations (UDEnv (..))
 import GF2UD
 import Debug.Trace (trace)
 import qualified Data.Map as M
 import Control.Arrow (Arrow (first, second))
-import Data.Tuple (swap)
-import qualified Data.Bifunctor as Bifunctor
 import Control.Exception (try)
-import Control.Monad (zipWithM, mfilter)
+import Control.Monad (mfilter)
 import qualified Data.List as L
 import qualified Data.Set as Set
+import Data.Foldable (for_)
 
 -- trace :: p1 -> p2 -> p2
 -- trace s a = a
@@ -212,23 +210,21 @@ validateConstraints = sameSentence . head . M.keys
 -- Do we want to try to preserve some data so the user won't have to answer the
 -- same questions again and again regardless of how small the change?
 getAndValidateConstraints :: Predicate -> FilePath -> IO (Maybe Constraints)
-getAndValidateConstraints pred filePrefix = do
-  ctrs <- readConstraints $ filePrefix ++ name pred ++ "lex"
-  pure $ mfilter (validateConstraints (reducedUDmap pred)) ctrs
+getAndValidateConstraints prd filePrefix = do
+  ctrs <- readConstraints $ filePrefix ++ name prd ++ "lex"
+  pure $ mfilter (validateConstraints (reducedUDmap prd)) ctrs
 
 -- TODO: Put multiple predicates in a single file.
 saveConstraints :: Predicate -> FilePath -> Constraints -> IO ()
-saveConstraints pred filePrefix ctrs = do
-  writeConstraints (filePrefix ++ name pred ++ "lex") ctrs
+saveConstraints prd filePrefix ctrs = do
+  writeConstraints (filePrefix ++ name prd ++ "lex") ctrs
 
 askConstraint :: Predicate -> Constraints -> IO (Maybe Constraints)
-askConstraint pred ctrs = do
+askConstraint prd ctrs = do
   -- TODO: Extract pure code
-  let relevantUDs = filterMatching ctrs (reducedUDmap pred)
+  let relevantUDs = filterMatching ctrs (reducedUDmap prd)
   let nextQuestion = getNextQuestion $ M.keys relevantUDs
-  case nextQuestion of
-    Nothing -> pure Nothing
-    Just q -> do
+  whenJust nextQuestion $ \ q -> do
       putStrLn $ "Which one: " ++ show q
       putStr "> "
       -- TODO: Make this more flexible
@@ -241,7 +237,9 @@ updateCtrs :: ReducedUDWord String -> Constraints -> Constraints
 updateCtrs val = RUDS . map updateCtr . unRUDS
   where
     updateCtr :: Constraint -> Constraint
-    updateCtr ctr | sameWord val ctr = Exactly (unRUDW val) <$ ctr
+    updateCtr ctr
+      | sameWord val ctr = Exactly (unRUDW val) <$ ctr
+      | otherwise = error $ "Trying to update " ++ show ctr ++ " to " ++ show val
 
 getNextQuestion :: [ReducedUDSentence String] -> Maybe (ReducedUDWord [String])
 getNextQuestion = firstAmbigous . fmap sortNub . transposeSentence
@@ -444,3 +442,11 @@ tryReadFile :: FilePath -> IO (Maybe String)
 tryReadFile fp = do
   result <- try $ readFile fp :: IO (Either IOError String)
   pure $ either (const Nothing) Just result
+
+whenJust_ :: Applicative f => Maybe t -> (t -> f ()) -> f ()
+whenJust_ = for_
+
+whenJust :: Applicative f => Maybe t -> (t -> f (Maybe a)) -> f (Maybe a)
+whenJust a f = case a of
+  Nothing -> pure Nothing
+  Just q -> f q
