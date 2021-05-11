@@ -3,8 +3,8 @@
 -- * TopPredicates that uses real WordNet, and that will be used in the actual application grammar.
 
 abstract Predicates =
-  Noun - [PPartNP, UseN2, RelNP, DetNP, AdvNP, PossNP, PartNP, CountNP, ApposCN], --IndefArt, MassNP], -- stupidest idea ever
-  Verb - [PassV2, ReflVP, ComplVV, SlashVV, SlashV2V, SlashV2VNP, AdvVP],
+  Noun - [PPartNP, UseN2, RelNP, DetNP, PossNP, PartNP, CountNP, ApposCN], --IndefArt, MassNP], -- stupidest idea ever
+  Verb - [PassV2, ReflVP, ComplVV, SlashVV, SlashV2V, SlashV2VNP],
   Adjective - [ReflA2, CAdvAP, UseA2], --AdvAP],
   Adverb - [AdnCAdv, ComparAdvAdj, ComparAdvAdjS],
   Sentence,
@@ -47,10 +47,10 @@ abstract Predicates =
     APInf : AP -> VP -> AP ; -- authorized to practice law
 
     -- Quick and dirty way to get rid of attachment ambiguity: all Advs attach to the closest word
-    MkN2 : N -> Prep -> N2 ;
-    MkCN2 : CN -> Prep -> N2 ; -- TODO: get rid of this again, creates ambiguity
-    MkV2 : V -> Prep -> V2 ;
-    MkA2 : A -> Prep -> A2 ;
+    -- MkN2 : N -> Prep -> N2 ;
+    -- MkCN2 : CN -> Prep -> N2 ; -- TODO: get rid of this again, creates ambiguity
+    -- MkV2 : V -> Prep -> V2 ;
+    -- MkA2 : A -> Prep -> A2 ;
 
   cat
     Predicate1 ; Predicate2 ; GenPredicate ;

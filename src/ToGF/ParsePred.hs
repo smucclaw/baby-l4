@@ -442,7 +442,7 @@ filterHeuristic ar ts_udts = [ (udt, extractLex t)
 extractLex :: Expr -> Expr
 extractLex e =
   case (fg e :: GPredicate) of
-    GPredNP2 cn prep -> gf $ GmkAtom $ GMkCN2 cn prep
+--    GPredNP2 cn prep -> gf $ GmkAtom $ GMkCN2 cn prep
     GPredAP2 _ ap prep -> gf $ Gp2 $ GComplAP2 ap prep
     GV2PartAdv pol v2 adv -> gf $ Gp1 $ GComplAP (GAdvAP (GPastPartAP (GSlashV2a v2)) adv)
 --    Gp0 cn -> gf $ Gp0 cn
