@@ -28,12 +28,17 @@ mkQuestions es = [
   ]
 
 questions :: [Tree a -> Maybe GUtt]
-questions = (listToMaybe .) <$> [toVerbalComplement, toCompoundNoun]
+questions = (listToMaybe .) <$> [
+    toVerbalComplement
+  , askCompoundNoun
+  , askVPSlash
+  ]
 
 -- TODO: replace with the subject from L4 file.
 -- UnauthorizedSharingFees : Business -> Bool, make Business the subject.
-dummySubj :: GNP
+dummySubj, dummyObj :: GNP
 dummySubj = GMassNP (GpartyX (GString "X"))
+dummyObj = GMassNP (GpartyX (GString "Y"))
 
 presIndVPS :: GVP -> GVPS
 presIndVPS = GMkVPS (GTTAnt GTPres GASimul) GPPos
@@ -43,21 +48,40 @@ toVerbalComplement t = case t of
   Gerund vp -> [GVerbalComplement dummySubj (presIndVPS vp)]
   _ -> composOpMonoid toVerbalComplement t
 
-toCompoundNoun :: PP.Tree a -> [GUtt]
-toCompoundNoun t = case t of
-  CompoundNoun vpslash np -> [GCompoundNoun dummySubj (presIndVPS (GComplSlash vpslash np))]
-  _ -> composOpMonoid toCompoundNoun t
-
 pattern Gerund :: GVP -> PP.Tree a
 pattern Gerund vp <- GComplSlash (GSlashV2a _) (GMassNP (GGerundCN vp))
+
+
+askCompoundNoun :: PP.Tree a -> [GUtt]
+askCompoundNoun t = case t of
+  CompoundNoun vpslash np -> [GCompoundNoun dummySubj (presIndVPS (GComplSlash vpslash np))]
+  GAdjCN ap cn -> [GCompoundNoun dummySubj (presIndVPS (GUseComp (GCompNP (mkNP t))))]
+
+  _ -> composOpMonoid askCompoundNoun t
 
 pattern CompoundNoun :: GVPSlash -> GNP -> PP.Tree a
 pattern CompoundNoun vpslash np <- GComplSlash vpslash (getCompoundNoun -> [np]) 
 
+-- Different VPSlashes
+askVPSlash :: PP.Tree a -> [GUtt]
+askVPSlash t = case t of
+  VPSlashTrans vpslash -> [GVerbalComplement dummySubj (presIndVPS (GComplSlash vpslash dummyObj))]
+  VPSlashIntrans vpslash -> [GVerbalComplement dummySubj (presIndVPS (GComplSlash vpslash dummyObj))]
+  GPastPartAP _ -> [GVerbalComplement dummySubj (presIndVPS (GUseComp (GCompAP t)))]
+  _ -> composOpMonoid askVPSlash t
+
+-- TODO: custom GF function to verbalise transitive verb used intransitively. Also use arity heuristic smarter.
+
+pattern VPSlashTrans vpslash <- GComplVPSlash2 (GMkVPS2 _ _ vpslash)
+pattern VPSlashIntrans vpslash <- GComplVPSlash1 (GMkVPS2 _ _ vpslash)
+
 getCompoundNoun :: PP.Tree a -> [GNP]
 getCompoundNoun t = case t of
-  GCompoundN n cn -> [GMassNP (GUseN (GCompoundNHyphen n cn))]
+  GCompoundN n cn -> [mkNP (GUseN (GCompoundNHyphen n cn))]
   _ -> composOpMonoid getCompoundNoun t  
+
+mkNP :: GCN -> GNP
+mkNP = GDetCN (GDetQuant (LexQuant "IndefArt") GNumSg)
 
 getObj :: PP.Tree a -> GNP
 getObj vp = case vp of
@@ -82,6 +106,7 @@ removeAdjuncts t = case t of
   GAdAP _ ap -> removeAdjuncts ap
   GAdjCN _ cn -> removeAdjuncts cn
   GAdvCN cn _ -> removeAdjuncts cn
+  GAdvNP np _ -> removeAdjuncts np
   GExtAdvNP np _ -> removeAdjuncts np
   _ -> composOp removeAdjuncts t
 
