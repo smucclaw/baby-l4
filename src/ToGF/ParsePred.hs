@@ -156,11 +156,13 @@ readConstraints = (fmap.fmap) parseConstraints . tryReadFile
 matchesConstraint :: ReducedUDWord String -> Constraint -> Bool
 matchesConstraint (RUDW i wf fun) (RUDW i' wf' fun')
   | i==i' && wf==wf' = matches fun fun'
-  | otherwise        = error $ show wf ++ " is not the same word as " ++ show wf'
+  | otherwise        = error $ "BUG: " ++ show wf ++ " is not the same word as " ++ show wf'
+-- matchesConstraint = unRUDW $ liftA2 matches
 
 -- TODO: Use zipWithExact instead
 matchesConstraints :: ReducedUDSentence String -> Constraints -> Bool
 matchesConstraints s c = and $ zipWith matchesConstraint (unRUDS s) (unRUDS c)
+-- matchesConstraints = unRUDS $ liftA2 matches
 
 filterMatching :: Constraints -> UDSentenceMap -> UDSentenceMap
 filterMatching constrs = M.filterWithKey (\ k _ -> matchesConstraints k constrs)
