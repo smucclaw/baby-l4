@@ -88,7 +88,7 @@ writeDoc nm doc = withFile nm WriteMode $ \h -> hPutDoc h doc
 
 mkLexicon :: FilePath -> UDA.UDEnv -> GrName -> [Mapping t] -> [AtomWithArity] -> IO (Doc (), Doc ())
 mkLexicon fname udenv gname userlex atoms = do
-  filteredLex <- mapM (filterPredicate fname) parsedLex
+  filteredLex <- mapM (filterPredicate udenv fname) parsedLex
   pure
     (abstractLexicon gname filteredLex guessedLex,
     concreteLexicon gname filteredLex guessedLex)

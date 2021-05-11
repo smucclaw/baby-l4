@@ -2,7 +2,6 @@
 {-# LANGUAGE GADTs #-}
 
 {-# LANGUAGE DeriveTraversable #-}
-{-# OPTIONS_GHC -Wall #-}
 module ToGF.ParsePred where
 
 
@@ -10,13 +9,13 @@ import ParsePredicates as PP
 import Data.Char (toLower, isUpper)
 import Data.List.Extra (trim, transpose, allSame)
 import Data.List.Split ( split, splitOn, startsWithOneOf )
-import Data.Monoid (Any (..))
 import PGF hiding (Tree)
 import Text.Printf (printf)
 import Data.Maybe (isJust, fromMaybe)
 import UDConcepts ( UDSentence, prReducedUDSentence )
 import UDAnnotations (UDEnv (..))
 import GF2UD
+import ToGF.Disambiguate
 import Debug.Trace (trace)
 import qualified Data.Map as M
 import Control.Arrow (Arrow (first, second))
@@ -300,10 +299,33 @@ askUntilUnambigous prd filePrefix = do
 -- askStuff :: Map Question MyParseOutput -> IO MyParseOutput
 -- less trees than in the original MPO
 
-filterPredicate :: FilePath -> Predicate -> IO Predicate
-filterPredicate filePrefix prd = do
+filterPredicate :: UDEnv -> FilePath -> Predicate -> IO Predicate
+filterPredicate udenv filePrefix prd = do
+  let qmap = mkQuestionMap udenv $ mkQuestions (trees prd)
+  putStrLn $ showQuestionMap qmap
   exprs <- askUntilUnambigous prd filePrefix
   pure $ prd { trees = exprs}
+
+----------------------------------------------------
+-- Questions
+
+type QuestionMap = M.Map String [Expr]
+
+linearizeQuestion :: UDEnv -> Question -> String
+linearizeQuestion udenv = linearize gr lang
+  where
+    gr = pgfGrammar udenv
+    lang = head $ languages gr
+
+-- TODO: use ReaderT or something
+mkQuestionMap :: UDEnv -> [(Question,Expr)] -> QuestionMap
+mkQuestionMap udenv qs_es = mkMap [(linearizeQuestion udenv q, e) | (q,e) <- qs_es]
+
+showQuestionMap :: QuestionMap -> String
+showQuestionMap = unlines . map showQuestionExpr . M.toList
+
+showQuestionExpr :: (String,[Expr]) -> String
+showQuestionExpr (s,e) = unlines $ s : map (showExpr []) e
 
 ----------------------------------------------------
 
@@ -341,23 +363,23 @@ pred2rudss = M.keys . reducedUDmap
 
 parsePred :: UDEnv -> Arity -> Name -> String -> Predicate
 parsePred udenv ar funname optdesc = validatePredicate $ trace
-   ("ts pre-filter: " ++ unlines (map showMPO ts) ++ "\n" ++
-    "arity: " ++ show ar ++ ", ts post-filter: " ++ unlines (map showMPO mpo))
+   ("ts pre-filter: " ++ unlines (map showMPO uds_ts) ++ "\n" ++
+    "arity: " ++ show ar ++ ", ts post-filter: " ++ unlines (map showMPO filtered_uds_ts))
     $
     Pred
       nm
       (unwords desc)
-      (map snd mpo)
-      (mkMap $ filterValidRuds desc $ (map.first) parseRUDW mpo)
+      (map snd filtered_uds_ts)
+      (mkMap $ filterValidRuds desc $ (map.first) parseRUDW filtered_uds_ts)
       ar
   where
-    mpo = filterHeuristic ar ts
+    filtered_uds_ts = filterHeuristic ar uds_ts
     nm : _ = splitOn ":" funname
     nm' = unwords $ splitOn "_" nm -- take care of is_participant_in style
     desc = case optdesc of -- if no description provided, parse the name, e.g. DescribedInSection1
               [] -> map (trim . lower) $ split capsOrDigits nm'
               _  -> words optdesc
-    ts = filter (not . hasMeta . snd) (parseGF udenv desc)
+    uds_ts = filter (not . hasMeta . snd) (parseGF udenv desc)
     capsOrDigits = startsWithOneOf $ ['A'..'Z']++['0'..'9']
 
     hasMeta :: PGF.Expr -> Bool

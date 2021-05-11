@@ -6,7 +6,7 @@ module ToGF.Disambiguate where
 
 import ParsePredicates as PP
 import PGF hiding (Tree)
-import Data.Maybe (isJust, fromMaybe, listToMaybe, mapMaybe, catMaybes)
+import Data.Maybe (listToMaybe, catMaybes)
 import Data.Monoid (Any (..))
 
 -------------------------------------------------------
@@ -21,7 +21,10 @@ mkQuestions es = [
   (gf q, e)
   | e <- es -- es come from ParsePredicate, they are all parsed into start category. TODO newtypes or something for extra safety?
   , let prd = fg e :: GPredicate
-  , let [q] = catMaybes $ questions <*> [prd] -- unsafe assumption
+  , let q = case catMaybes $ questions <*> [removeAdjuncts prd] of -- unsafe assumption
+              x:_ -> x
+              [] -> GUttCN Ghigher_education_CN 
+
   ]
 
 questions :: [Tree a -> Maybe GUtt]

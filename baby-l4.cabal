@@ -80,6 +80,7 @@ library
                   ToGF.GenerateLexicon
                   ToGF.NormalizeSyntax
                   ToGF.ParsePred
+                  ToGF.Disambiguate
                   ToGF.TreeTransform
                   ToGF.FromSCasp.SCasp
                   ToGF.FromSCasp.ToAnswer
