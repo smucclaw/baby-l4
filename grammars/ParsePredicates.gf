@@ -25,7 +25,7 @@ flags
 
     -- Map to GenPredicate
     PredSentence : NP -> VPS -> Predicate ; -- JurisdictionIsSingapore
-    PredSentence2 : NP -> VPS2 -> Predicate ; -- Rule 34 applies 
+    PredSentence2 : NP -> VPS2 -> Predicate ; -- Rule 34 applies
 
     -- Internal errormessages
     -- PartialParseAfterNTokens,
@@ -52,4 +52,5 @@ flags
 
   -- Extensions for disambiguation questions
   CompoundNHyphen : N -> N -> N ; -- Replace CompoundN with this to make explicit
+  CompoundAHyphen : N -> AP -> AP ; -- Replace CompoundA with this to make explicit
 }

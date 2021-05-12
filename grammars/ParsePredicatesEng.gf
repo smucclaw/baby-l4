@@ -1,6 +1,6 @@
 
 concrete ParsePredicatesEng of ParsePredicates =
-  ReducedWordNetEng - [in_N, in_A], 
+  ReducedWordNetEng - [in_N, in_A],
   PredicatesEng ** open ResEng, ExtraEng, (V=VerbEng), (P=ParadigmsEng), ExtendEng, SyntaxEng, Prelude in {
 
 flags
@@ -42,8 +42,8 @@ flags
   lin
 
     -- : CN -> Prep -> Predicate ; -- OwnerOf (argument)
-    PredNP2 cn prep = 
-      let np : NP = mkNP cn|mkNP aPl_Det cn 
+    PredNP2 cn prep =
+      let np : NP = mkNP cn|mkNP aPl_Det cn
        in cc2 (mkUtt np) (mkAdv prep (dummyNP ! MySg)) ;
 
     --  : Polarity -> AP -> Predicate ;
@@ -59,4 +59,8 @@ flags
   CompoundNHyphen noun cn = cn ** {
     s = \\n,c => noun.s ! Sg ! Nom ++ BIND++"-"++BIND ++ cn.s ! n ! c} ;
 
+  -- : N -> AP -> AP ; -- Replace CompoundN with this to make explicit
+  CompoundAHyphen n ap =
+    let prefix : AdA = lin AdA {s = (mkUtt n).s ++ BIND ++ "-" ++ BIND} ;
+     in mkAP prefix ap ;
 } ;
