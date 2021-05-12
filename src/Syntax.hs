@@ -86,7 +86,7 @@ data Tp
   = BoolT
   | IntT
   | ClassT ClassName
-  | FunT Tp Tp
+  | FunT {funTp :: Tp, argTp :: Tp}
   | TupleT [Tp]
   | ErrT ErrorCause
   | OkT                    -- fake type appearing in constructs (classes, rules etc.) that do not have a genuine type
@@ -229,6 +229,10 @@ data Pattern
     | VarListP [String]
     deriving (Eq, Ord, Show, Read, Data, Typeable)
 
+patternLength :: Pattern -> Int
+patternLength (VarP _) = 1
+patternLength (VarListP vs) = length vs
+
 data Quantif = All | Ex
     deriving (Eq, Ord, Show, Read, Data, Typeable)
 
@@ -332,14 +336,22 @@ instance HasLoc t => HasLoc (Rule t) where
   getLoc e = getLoc (annotOfRule e)
 
 data Assertion t = Assertion { annotOfAssertion :: t
+                             , modifOfAssertion :: KVMap
                              , exprOfAssertion :: Expr t}
-
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 instance HasLoc t => HasLoc (Assertion t) where
   getLoc e = getLoc (annotOfAssertion e)
 
-
+type KeyKVM = String
+data ValueKVM
+  = EmptyVM
+  | IdVM String 
+  | BoolVM Bool 
+  | IntVM Integer
+  | MapVM KVMap
+  deriving (Eq, Ord, Show, Read, Data, Typeable)
+type KVMap = [(KeyKVM, ValueKVM)]
 
 ----------------------------------------------------------------------
 -- Definition of Timed Automata

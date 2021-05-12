@@ -3,13 +3,14 @@
 module Smt(proveProgram) where
 
 import Syntax
-import Annotation (TypeAnnot)
-import Typing (getTypeOfExpr, isBooleanTp, isIntegerTp, isFloatTp, superClassesOfClassDecl)
+import Annotation (TypeAnnot (getType), LocTypeAnnot (typeAnnot))
+import Typing (getTypeOfExpr, isBooleanTp, isIntegerTp, isFloatTp, superClassesOfClassDecl, spine)
 
 import SimpleSMT as SMT
 import qualified Data.Maybe
 import Control.Monad ( when, unless )
 import Text.Pretty.Simple (pPrint, pPrintString)
+import RuleTransfo ( prenexForm, ruleImplR, liftDecompRule, repeatDecomp, ruleAllR, clarify, ruleAbstrInstances, ruleExL, ruleExLInv )
 
 
 -------------------------------------------------------------
@@ -25,6 +26,18 @@ getModel  :: Solver -> IO SExpr --[(SExpr, Value)]
 getModel proc =
   command proc $ List [ Atom "get-model" ]
 
+
+-------------------------------------------------------------
+-- Conversion functions from L4 Expr to SExpr
+-------------------------------------------------------------
+
+-- mapping class names to sorts
+type SMTSortEnv = [(ClassName, SExpr)]
+-- mapping variable names to their sorts
+type SMTFunEnv = [(VarName, SExpr)]
+data SMTEnv = SMTEnv { sortEnv :: SMTSortEnv,
+                       funEnv  :: SMTFunEnv }
+
 quantifToSMT :: Quantif -> String
 quantifToSMT All = "forall"
 quantifToSMT Ex = "exists"
@@ -36,18 +49,6 @@ quantif q vds e = fun (quantifToSMT q) [vds, e]
 localVarRef :: VarName -> SExpr
 localVarRef = Atom
 
--- mapping class names to sorts
-type SMTSortEnv = [(ClassName, SExpr)]
--- mapping variable names to their sorts
-type SMTFunEnv = [(VarName, SExpr)]
-data SMTEnv = SMTEnv { sortEnv :: SMTSortEnv,
-                       funEnv  :: SMTFunEnv }
-
--- decomposes a function type T1 -> T2 ... -> Tn -> Tres
--- into ([T1, ... Tn], Tres)
-spine :: [Tp] -> Tp -> ([Tp], Tp)
-spine acc (FunT t1 t2) = spine (t1:acc) t2
-spine acc t = (reverse acc, t)
 
 -- TODO: distinction between ideal mathematical numbers (tInt, tReal)
 -- vs their implementation (integer words, floats)
@@ -143,7 +144,7 @@ transBinOp (BArith ba) = transBArithOp ba
 transBinOp (BCompar bc) = transBComparOp bc
 transBinOp (BBool bb) = transBBoolOp bb
 
-sExprApply :: SExpr -> SExpr -> SExpr 
+sExprApply :: SExpr -> SExpr -> SExpr
 sExprApply f a = case f of
   Atom _ -> List [f, a]
   List es -> List (es ++ [a])
@@ -161,6 +162,10 @@ exprToSExpr env e = error ("exprToSExpr: term " ++ show e ++ " not translatable"
 -- TODO: still incomplete
 
 
+-------------------------------------------------------------
+-- Launching the solver and retrieving results
+-------------------------------------------------------------
+
 proveExpr :: Show t => [ClassDecl t] -> [VarDecl t] -> Expr t ->IO ()
 proveExpr cds vds e = do
   l <- newLogger 0
@@ -170,30 +175,30 @@ proveExpr cds vds e = do
   sEnv <- classDeclsToSortEnv s cds
   fEnv <- varDeclsToFunEnv s sEnv vds
   assert s (exprToSExpr (SMTEnv sEnv fEnv) e)
-  checkRes <- check s 
+  checkRes <- check s
   print checkRes
   when (checkRes == Sat) $ do
-    pPrint =<< getModel s 
+    pPrint =<< getModel s
 -- print =<< check s
 --  print =<< getExprs s (map snd fEnv)
 
+proveExprTest  :: Show t => [ClassDecl t] -> [VarDecl t] -> Expr t ->IO ()
+proveExprTest cds vds e =
+  pPrint $ () <$ prenexForm e
 
-proveProgram :: Show t => Program t -> IO ()
-proveProgram p =
+proveProgramCorrect :: Show t => Program t -> IO ()
+proveProgramCorrect p =
     case assertionsOfProgram p of
         [] -> error "in proveProgram: at least one assertion required"
         a:_ -> do
             putStrLn "Launching SMT solver"
             proveExpr (classDeclsOfProgram p) (globalsOfProgram p) (exprOfAssertion a)
 
-proveProgramTest :: Show t => Program t -> IO ()
-proveProgramTest p =  do
-  l <- newLogger 0
-  -- s <- newSolver "cvc4" ["--lang=smt2"] (Just l)
-  s <- newSolver "z3" ["-in"] Nothing
-  setLogic s "QF_LIA"
-  x <- declare s "x" tInt
-  assert s (add x (int 2) `eq` int 5)
-  print =<< check s
-  print =<< getExprs s [x]
+-- this is only a test version, the definite version is proveProgramCorrect
+proveProgram :: Program (LocTypeAnnot Tp) -> IO ()
+proveProgram p =
+  case rulesOfProgram p of
+      [] -> error "in proveProgram: at least one rule required"
+      r:_ -> do
+        pPrint (ruleExL [fmap typeAnnot r])
 

@@ -124,7 +124,7 @@ instance SCasp (Rule Tp) where
 -- Only assertions like `assert Beats Rock Scissors` become facts.
 -- Other assertions become rules.
 instance SCasp (Assertion Tp) where
-  showSingle (Assertion ann query) =
+  showSingle (Assertion ann _ query) =
     vsep
         [ pretty "?-",
           endDot $ indent' $ commaList [showSingle query],

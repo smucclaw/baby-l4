@@ -207,11 +207,11 @@ isNumberTp env (ClassT t) = isSubclassOf env t (ClsNm "Number")
 isNumberTp _ _ = False
 
 isIntegerTp :: Tp -> Bool
-isIntegerTp (ClassT (ClsNm "Integer")) = True 
+isIntegerTp (ClassT (ClsNm "Integer")) = True
 isIntegerTp _ = False
 
 isFloatTp :: Tp -> Bool
-isFloatTp (ClassT (ClsNm "Float")) = True 
+isFloatTp (ClassT (ClsNm "Float")) = True
 isFloatTp _ = False
 
 isScalarTp :: Tp -> Bool
@@ -230,6 +230,31 @@ isErrTp _ = False
 isClassTp :: Tp -> Bool
 isClassTp (ClassT _) = True
 isClassTp _ = False
+
+
+----------------------------------------------------------------------
+-- Utility functions
+----------------------------------------------------------------------
+
+-- decomposes a function type T1 -> T2 ... -> Tn -> Tres
+-- into ([T1, ... Tn], Tres)
+spine :: [Tp] -> Tp -> ([Tp], Tp)
+spine acc (FunT t1 t2) = spine (t1:acc) t2
+spine acc t = (reverse acc, t)
+
+
+-- decompose application (f a1 .. an) into (f, [a1 .. an])
+appToFunArgs :: [Expr t] -> Expr t -> (Expr t, [Expr t])
+appToFunArgs acc (AppE _ f a) = appToFunArgs (a:acc) f
+appToFunArgs acc t = (t, acc)
+
+forceArgTp :: Tp -> Tp
+forceArgTp (FunT ftp atp) = atp
+forceArgTp _ = ErrT Unspecified
+
+-- compose (f, [a1 .. an]) to (f a1 .. an)
+funArgsToApp :: Expr Tp -> [Expr Tp] -> Expr Tp
+funArgsToApp = foldl (\ f -> AppE (forceArgTp (annotOfExpr f)) f)
 
 
 ----------------------------------------------------------------------
@@ -505,14 +530,14 @@ tpRule env (Rule annot rn vds precond postcond) =
   in Rule (updType annot restp) rn tpdVds teprecond tepostcond
 
 tpAssertion :: (TypeAnnot f, HasLoc (f a)) => Environment t -> Assertion (f a) -> Assertion (f Tp)
-tpAssertion env (Assertion annot e) =
+tpAssertion env (Assertion annot md e) =
   let te = tpExpr env e
       t  = getTypeOfExpr te
       restp = propagateError [t]
               (if isBooleanTp t
                then t
                else ErrT (IllTypedSubExpr [getLoc annot, getLoc e] [t] [ExpectedExactTp (ClassT (ClsNm "Boolean"))]))
-  in Assertion (updType annot restp) te
+  in Assertion (updType annot restp) md te
 
 
 ----------------------------------------------------------------------
@@ -635,7 +660,7 @@ checkRuleError prg =
     case errs of
       [] -> Right (prg {rulesOfProgram = tpdRules})
       _ ->  Left (RuleErrorRE  errs)
-    
+
 
 extractAssertionErrors :: (TypeAnnot f, HasLoc (f Tp)) => Assertion (f Tp) -> [(SRng, ErrorCause)]
 extractAssertionErrors ass =

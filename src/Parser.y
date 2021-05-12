@@ -150,7 +150,7 @@ VarDecl : VAR ':' Tp                     { VarDecl (tokenRange $1 $2) (tokenSym 
 
 Assertions :                       { [] }
            | Assertions Assertion  { $2 : $1 }
-Assertion : assert Expr            { Assertion (tokenRange $1 $2) $2 }
+Assertion : assert KVMap Expr      { Assertion (tokenRange $1 $3) $2 $3 }
 
 -- Atomic type
 ATp  : Bool                       { BoolT }
@@ -234,6 +234,20 @@ RuleVarDecls :                       { [] }
 
 RulePrecond : if Expr      { $2 }
 RuleConcl   : then Expr    { $2 }
+
+KVMap :                        { [] }
+| '{' KVMapListCommaSep  '}'   { $2 }
+
+KVMapListCommaSep :                      { [] }
+            | KVPair                   { [$1] }
+            | KVMapListCommaSep ',' KVPair  { $3 : $1 }
+
+KVPair : VAR             { (tokenSym $1, EmptyVM) }
+       | VAR ':' VAR     { (tokenSym $1, IdVM $ tokenSym $3) }
+       | VAR ':' true    { (tokenSym $1, BoolVM True) }
+       | VAR ':' false   { (tokenSym $1, BoolVM False) }
+       | VAR ':' NUM     { (tokenSym $1, IntVM $3) }
+       | VAR ':' KVMap   { (tokenSym $1, MapVM $3) }
 
 {
 

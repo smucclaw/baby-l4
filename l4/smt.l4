@@ -5,7 +5,21 @@
 # decl a: Boolean
 # decl b: Boolean
 decl x: Integer
+decl R: Integer -> Integer -> Boolean
+decl P: Integer -> Boolean
+decl glob: Integer
+
+rule <foo>
+for x: Integer, z: Integer
+if (exists y: Integer. exists v: Integer. forall u: Integer. R x y && R y v)
+then R x x #--> forall x: Integer. (P x --> R x z) && R z x
+
+
+# rule <foo>
+# for x: Integer, v: Integer
+# if R x x && R x v
+# then R x ((\w:Integer -> w + v) v)
 
 # assert exists y : Integer. 2 + x < 2 * x  &&  2 * (x - y ) < 10 
 
-assert (exists y: Integer. x < y && y < 2 * x)
+assert (exists n: Integer.  (\ (v1, v2): (Integer, Integer) -> v1 <= n) (2, n)) --> (forall z : Integer. exists y : Integer. y < 2 * z)

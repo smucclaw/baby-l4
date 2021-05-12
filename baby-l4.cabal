@@ -57,8 +57,9 @@ library
                   InterfaceNunchaku
                   --RuleToTa
                   --TaToUppaal
+                  RuleTransfo
                   Smt
-                  SmtSBV
+                  -- SmtSBV
                   Typing
   other-modules: Paths_baby_l4
   hs-source-dirs:
