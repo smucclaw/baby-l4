@@ -6,7 +6,6 @@ module ToGF.Disambiguate where
 
 import ParsePredicates as PP
 import PGF hiding (Tree)
-import Data.Maybe (listToMaybe, catMaybes)
 import Data.Monoid (Any (..))
 import Data.List.Split ( splitOn )
 import qualified Data.Map as M
@@ -43,24 +42,31 @@ linearizeQuestion gr = removeBind . linearize gr lang
 
 type Subject = String
 
+fg' :: PGF.Expr -> GPredicate
+fg' = fg
+
+mkQuestions :: [Expr] -> [(Question, Expr)]
+mkQuestions es = [ (head $ concat qs, e) | (qs,e) <- mkQuestions' es]
 -- assuming for now that all Exprs can be turned into a unique question.
 -- TODO: don't assume that, it's not true!
-mkQuestions :: [Expr] -> [(Question, PGF.Expr)]
-mkQuestions es = [
-  (gf q, e)
+mkQuestions' :: [Expr] -> [([[Question]], PGF.Expr)]
+mkQuestions' es = [
+  -- ((map.fmap) gf qs, gf $ removeAdjuncts $ fg' e)
+  ((map.fmap) gf qs, e)
   | e <- es -- es come from ParsePredicate, they are all parsed into start category. TODO newtypes or something for extra safety?
-  , let prd = fg e :: GPredicate
-  , let q = case catMaybes $ questions <*> [removeAdjuncts prd] of -- unsafe assumption
-              x:_ -> x
-              [] -> Gp0 Ghigher_education_CN
-
+  , let prd = removeAdjuncts $ fg e :: GPredicate
+  , let qs = case  [f $ hyphenateCompoundNouns prd | f <- questions] of -- unsafe assumption
+              -- [] -> [Just $ Gp0 Ghigher_education_CN]
+              [[],[],[],[]] -> [pure $ Gp0 Ghigher_education_CN]
+              xs -> xs
   ]
 
-questions :: [Tree a -> Maybe GPredicate]
-questions = (listToMaybe .) <$> [
+questions :: [Tree a -> [GPredicate]]
+questions = [
     toVerbalComplement
   , askCompoundNoun
   , askVPSlash
+  , askAdjCN
   ]
 
 -- TODO: replace with the subject from L4 file.
@@ -89,9 +95,13 @@ pattern Gerund vp <- GComplSlash (GSlashV2a _) (GMassNP (GGerundCN vp))
 askCompoundNoun :: PP.Tree a -> [GPredicate]
 askCompoundNoun t = case t of
   CompoundNoun vpslash np -> [disambQ (GComplSlash vpslash np)]
-  GAdjCN _ap _cn -> [disambQ (GUseComp (GCompNP (mkNP t)))]
-
+  GPrepNP prep (getCompoundNoun -> [np]) -> [disambQ (GUseComp (GCompAdv (GPrepNP prep np)))]
   _ -> composOpMonoid askCompoundNoun t
+
+askAdjCN :: PP.Tree a -> [GPredicate]
+askAdjCN t = case t of
+  GAdjCN _ap _cn -> [disambQ (GUseComp (GCompNP (mkNP t)))]
+  _ -> composOpMonoid askAdjCN t
 
 pattern CompoundNoun :: GVPSlash -> GNP -> PP.Tree a
 pattern CompoundNoun vpslash np <- GComplSlash vpslash (getCompoundNoun -> [np])
@@ -112,9 +122,17 @@ pattern VPSlashIntrans :: GVPSlash -> Tree a
 pattern VPSlashIntrans vpslash <- GComplVPSlash1 (GMkVPS2 _ _ vpslash)
 
 getCompoundNoun :: PP.Tree a -> [GNP]
-getCompoundNoun t = case t of
-  GCompoundN n cn -> [mkNP (GUseN (GCompoundNHyphen n cn))]
-  _ -> composOpMonoid getCompoundNoun t
+getCompoundNoun t = case removeAdjuncts t of
+  e@(GMassNP (GUseN (GCompoundNHyphen _ _))) -> [e]
+  e@(GDetCN _ (GUseN (GCompoundNHyphen _ _))) -> [e]
+  _ -> []
+  -- _ -> composOpMonoid getCompoundNoun t
+
+hyphenateCompoundNouns :: PP.Tree a -> PP.Tree a
+hyphenateCompoundNouns t = case t of
+  GCompoundN n cn -> GCompoundNHyphen (hyphenateCompoundNouns n) (hyphenateCompoundNouns cn)
+  _ -> composOp hyphenateCompoundNouns t
+
 
 mkNP :: GCN -> GNP
 mkNP = GDetCN (GDetQuant (LexQuant "IndefArt") GNumSg)
@@ -140,7 +158,7 @@ removeAdjuncts t = case t of
  -- GAdvVP
   GAdvVPSlash vpslash _ -> removeAdjuncts vpslash
   GAdAP _ ap -> removeAdjuncts ap
-  GAdjCN _ cn -> removeAdjuncts cn
+  --GAdjCN _ cn -> removeAdjuncts cn
   GAdvCN cn _ -> removeAdjuncts cn
   GAdvNP np _ -> removeAdjuncts np
   GExtAdvNP np _ -> removeAdjuncts np
@@ -153,19 +171,19 @@ filterHeuristic _ar ts_udts = [ (udt, extractLex t)
                         | (udt, t) <- ts_udts
                         , not $ ppBeforeAP t
                         , filterGerund t
-                        , filterAdvNP t 
+                        , filterAdvNP t
                         , filterAdvGerund t
                         , filterAdvAPPP t ]
                         --, filterArity t ]
   where
     ts = map snd ts_udts
 
-    mayFilter f 
+    mayFilter f
       | any f ts && not (all f ts) = not . f
       | otherwise = const True
 
     -- "practicing as lawyer": progressive, pres. part. or gerund
-    filterGerund 
+    filterGerund
       | any hasGerund ts &&  -- "practicing as lawyer": progressive, pres. part. or gerund
         any hasProgr ts &&
         not (all hasGerund ts) = not . hasProgr
@@ -204,14 +222,14 @@ extractLex e =
 -- Match specific GF constructors
 -- Lot of boilerplate here, feel free to suggest improvements :-P
 hasGerund :: PGF.Expr -> Bool
-hasGerund = getAny . hasGerund' . (fg :: PGF.Expr -> GPredicate)
+hasGerund = getAny . hasGerund' . fg'
   where
     hasGerund' :: Tree a -> Any
     hasGerund' (GGerundCN _) = Any True
     hasGerund' x = composOpMonoid hasGerund' x
 
 hasProgr :: PGF.Expr -> Bool
-hasProgr = getAny . hasProgr' . (fg :: PGF.Expr -> GPredicate)
+hasProgr = getAny . hasProgr' . fg'
   where
     hasProgr' :: Tree a -> Any
     hasProgr' (GProgrVP _) = Any True
@@ -219,7 +237,7 @@ hasProgr = getAny . hasProgr' . (fg :: PGF.Expr -> GPredicate)
     hasProgr' x = composOpMonoid hasProgr' x
 
 ppBeforeAP :: PGF.Expr -> Bool
-ppBeforeAP = getAny . ppBeforeAP' . (fg :: PGF.Expr -> GPredicate)
+ppBeforeAP = getAny . ppBeforeAP' . fg'
   where
     ppBeforeAP' :: Tree a -> Any
     ppBeforeAP' (GAdjCN (GPastPartAP _) (GAdjCN _ _)) = Any True
@@ -227,28 +245,28 @@ ppBeforeAP = getAny . ppBeforeAP' . (fg :: PGF.Expr -> GPredicate)
     ppBeforeAP' x = composOpMonoid ppBeforeAP' x
 
 advAttachesToGerundCN :: PGF.Expr -> Bool
-advAttachesToGerundCN = getAny . advGerund' . (fg :: PGF.Expr -> GPredicate)
+advAttachesToGerundCN = getAny . advGerund' . fg'
   where
     advGerund' :: Tree a -> Any
     advGerund' (GAdvCN (GGerundCN _) _) = Any True
     advGerund' x = composOpMonoid advGerund' x
 
 hasAdvNP :: PGF.Expr -> Bool
-hasAdvNP = getAny . hasAdvNP' . (fg :: PGF.Expr -> GPredicate)
+hasAdvNP = getAny . hasAdvNP' . fg'
   where
     hasAdvNP' :: Tree a -> Any
     hasAdvNP' (GAdvNP _ _) = Any True
     hasAdvNP' x = composOpMonoid hasAdvNP' x
 
 hasPastPartAdvAPBy :: PGF.Expr -> Bool
-hasPastPartAdvAPBy =  getAny . hasPastPartAdvAPBy' . (fg :: PGF.Expr -> GPredicate)
+hasPastPartAdvAPBy =  getAny . hasPastPartAdvAPBy' . fg'
   where
     hasPastPartAdvAPBy' :: Tree a -> Any
     hasPastPartAdvAPBy' (GAdvAP (GPastPartAP _) (GPrepNP (LexPrep "by_Prep") _)) = Any True
     hasPastPartAdvAPBy' x = composOpMonoid hasPastPartAdvAPBy' x
 
 hasAdvCN :: PGF.Expr -> Bool
-hasAdvCN = getAny . hasAdvCN' . (fg :: PGF.Expr -> GPredicate)
+hasAdvCN = getAny . hasAdvCN' . fg'
   where
     hasAdvCN' :: Tree a -> Any
     hasAdvCN' (GAdvCN _ _) = Any True
@@ -256,7 +274,7 @@ hasAdvCN = getAny . hasAdvCN' . (fg :: PGF.Expr -> GPredicate)
 
 
 hasNAV2 :: PGF.Expr -> Bool
-hasNAV2 = getAny . hasNAV2' . (fg :: PGF.Expr -> GPredicate)
+hasNAV2 = getAny . hasNAV2' . fg'
   where
     hasNAV2' :: Tree a -> Any
     hasNAV2' (GComplN2 _ _) = Any True

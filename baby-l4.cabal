@@ -146,6 +146,7 @@ test-suite unit-tests
     , gf
     , l4-generated
     , split
+    , safe
     , tasty
     , tasty-expected-failure
     , tasty-golden

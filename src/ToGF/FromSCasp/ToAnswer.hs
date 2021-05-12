@@ -81,7 +81,7 @@ nlgModels' :: Verbosity -> [Model] -> IO ()
 nlgModels' verbose models = do
   gr <- createGF (dumpModels models) -- We need all models together just to create lexicon
   let gfModels = toGF <$> models
-  when verbose $ do 
+  when verbose $ do
       putStrLn "\nRaw translation of the model"
       mapM_ (printGF gr) gfModels
 
