@@ -302,33 +302,10 @@ askUntilUnambigous prd filePrefix = do
 
 filterPredicate :: UDEnv -> FilePath -> Predicate -> IO Predicate
 filterPredicate udenv filePrefix prd = do
-  let qmap = mkQuestionMap udenv $ mkQuestions (trees prd)
+  let qmap = mkQuestionMap (pgfGrammar udenv) $ mkQuestions (trees prd)
   putStrLn $ showQuestionMap qmap
   exprs <- askUntilUnambigous prd filePrefix
   pure $ prd { trees = exprs}
-
-----------------------------------------------------
--- Questions
-
-type QuestionMap = M.Map String [Expr]
-
-linearizeQuestion :: UDEnv -> Question -> String
-linearizeQuestion udenv = removeBind . linearize gr lang
-  where
-    gr = pgfGrammar udenv
-    lang = head $ languages gr
-    removeBind = unwords . splitOn " &+ "
-
--- TODO: use ReaderT or something
-mkQuestionMap :: UDEnv -> [(Question,Expr)] -> QuestionMap
-mkQuestionMap udenv qs_es = mkMap [(linearizeQuestion udenv q, e) | (q,e) <- qs_es]
-
-showQuestionMap :: QuestionMap -> String
-showQuestionMap = unlines . map showQuestionExpr . M.toList
-
-showQuestionExpr :: (String,[Expr]) -> String
-showQuestionExpr ("higher education", es) = showQuestionExpr ("NO QUESTIONS YET", es) -- TODO: have it print out something else than "higher education" :-D
-showQuestionExpr (s,es) = unlines $ s : map (showExpr []) es
 
 ----------------------------------------------------
 
@@ -450,7 +427,3 @@ whenJust :: Applicative f => Maybe t -> (t -> f (Maybe a)) -> f (Maybe a)
 whenJust a f = case a of
   Nothing -> pure Nothing
   Just q -> f q
-
--- | Make a Map where entries with colliding keys are collected into a list
-mkMap :: (Ord k) => [(k, v)] -> M.Map k [v]
-mkMap = M.fromListWith (<>) . map (second pure)

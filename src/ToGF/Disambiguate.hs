@@ -8,22 +8,51 @@ import ParsePredicates as PP
 import PGF hiding (Tree)
 import Data.Maybe (listToMaybe, catMaybes)
 import Data.Monoid (Any (..))
+import Data.List.Split ( splitOn )
+import qualified Data.Map as M
+import Control.Arrow (second)
 
 -------------------------------------------------------
 -- Interactive disambiguation questions
 
-type Question = Expr
+type Question = PGF.Expr
+
+-- Questions
+
+type QuestionMap = M.Map String [Expr]
+
+-- TODO: use ReaderT or something
+mkQuestionMap :: PGF -> [(Question,Expr)] -> QuestionMap
+mkQuestionMap pgf qs_es = mkMap [(linearizeQuestion pgf q, e) | (q,e) <- qs_es]
+
+showQuestionMap :: QuestionMap -> String
+showQuestionMap = unlines . map showQuestionExpr . M.toList
+
+showQuestionExpr :: (String,[Expr]) -> String
+showQuestionExpr ("higher education", es) = showQuestionExpr ("NO QUESTIONS YET", es) -- TODO: have it print out something else than "higher education" :-D
+showQuestionExpr (s,es) = unlines $ s : map (showExpr []) es
+
+----------------------------------------------------
+
+
+linearizeQuestion :: PGF -> Question -> String
+linearizeQuestion gr = removeBind . linearize gr lang
+  where
+    lang = head $ languages gr
+    removeBind = concat . splitOn " &+ "
+
+type Subject = String
 
 -- assuming for now that all Exprs can be turned into a unique question.
 -- TODO: don't assume that, it's not true!
-mkQuestions :: [Expr] -> [(Question, Expr)]
+mkQuestions :: [Expr] -> [(Question, PGF.Expr)]
 mkQuestions es = [
   (gf q, e)
   | e <- es -- es come from ParsePredicate, they are all parsed into start category. TODO newtypes or something for extra safety?
   , let prd = fg e :: GPredicate
   , let q = case catMaybes $ questions <*> [removeAdjuncts prd] of -- unsafe assumption
               x:_ -> x
-              [] -> GUttCN Ghigher_education_CN 
+              [] -> GUttCN Ghigher_education_CN
 
   ]
 
@@ -55,12 +84,12 @@ pattern Gerund vp <- GComplSlash (GSlashV2a _) (GMassNP (GGerundCN vp))
 askCompoundNoun :: PP.Tree a -> [GUtt]
 askCompoundNoun t = case t of
   CompoundNoun vpslash np -> [GCompoundNoun dummySubj (presIndVPS (GComplSlash vpslash np))]
-  GAdjCN ap cn -> [GCompoundNoun dummySubj (presIndVPS (GUseComp (GCompNP (mkNP t))))]
+  GAdjCN _ap _cn -> [GCompoundNoun dummySubj (presIndVPS (GUseComp (GCompNP (mkNP t))))]
 
   _ -> composOpMonoid askCompoundNoun t
 
 pattern CompoundNoun :: GVPSlash -> GNP -> PP.Tree a
-pattern CompoundNoun vpslash np <- GComplSlash vpslash (getCompoundNoun -> [np]) 
+pattern CompoundNoun vpslash np <- GComplSlash vpslash (getCompoundNoun -> [np])
 
 -- Different VPSlashes
 askVPSlash :: PP.Tree a -> [GUtt]
@@ -72,22 +101,24 @@ askVPSlash t = case t of
 
 -- TODO: custom GF function to verbalise transitive verb used intransitively. Also use arity heuristic smarter.
 
+pattern VPSlashTrans :: GVPSlash -> Tree a
 pattern VPSlashTrans vpslash <- GComplVPSlash2 (GMkVPS2 _ _ vpslash)
+pattern VPSlashIntrans :: GVPSlash -> Tree a
 pattern VPSlashIntrans vpslash <- GComplVPSlash1 (GMkVPS2 _ _ vpslash)
 
 getCompoundNoun :: PP.Tree a -> [GNP]
 getCompoundNoun t = case t of
   GCompoundN n cn -> [mkNP (GUseN (GCompoundNHyphen n cn))]
-  _ -> composOpMonoid getCompoundNoun t  
+  _ -> composOpMonoid getCompoundNoun t
 
 mkNP :: GCN -> GNP
 mkNP = GDetCN (GDetQuant (LexQuant "IndefArt") GNumSg)
 
 getObj :: PP.Tree a -> GNP
-getObj vp = case vp of
+getObj t = case t of
   GComplSlash _ np -> np
-  GAdVVP adv vp -> getObj vp
-  GAdvVP vp adv -> getObj vp
+  GAdVVP _adv vp -> getObj vp
+  GAdvVP vp _adv -> getObj vp
   GComplA2 _ np -> np
   GComplN2 _ np -> np
   _ -> error "Not a transitive phrase"
@@ -97,7 +128,7 @@ getObj vp = case vp of
 
 -- TODO: fix grammar, bring back ambiguity, add smarter filters before reaching this point
 removeAdjuncts :: PP.Tree a -> PP.Tree a
-removeAdjuncts t = case t of 
+removeAdjuncts t = case t of
   GAdVVP _ vp -> removeAdjuncts vp
   GAdvVP vp _ -> removeAdjuncts vp
   GAdVVPSlash _ vpslash -> removeAdjuncts vpslash
@@ -113,7 +144,7 @@ removeAdjuncts t = case t of
 ----------------------------------------------------
 
 filterHeuristic :: Int -> [(a,Expr)] -> [(a,Expr)]
-filterHeuristic ar ts_udts = [ (udt, extractLex t)
+filterHeuristic _ar ts_udts = [ (udt, extractLex t)
                         | (udt, t) <- ts_udts
                         , not $ ppBeforeAP t
                         , filterGerund t ]
@@ -134,7 +165,7 @@ filterHeuristic ar ts_udts = [ (udt, extractLex t)
     -- arityMatches t = getArity t == ar
 
 
-    -- getArity :: Expr -> Arity
+    -- getArity :: PGF.Expr -> Arity
     -- getArity e = case (fg e :: GPredicate) of
     --                Gp2 {} -> 2
     --                GPredNP2 {} -> 2
@@ -143,37 +174,42 @@ filterHeuristic ar ts_udts = [ (udt, extractLex t)
     --                Gp0 {} -> 0
     --                _ -> 1
 
-extractLex :: Expr -> Expr
+extractLex :: PGF.Expr -> PGF.Expr
 extractLex e =
   case (fg e :: GPredicate) of
 --    GPredNP2 cn prep -> gf $ GmkAtom $ GMkCN2 cn prep
     GPredAP2 _ ap prep -> gf $ Gp2 $ GComplAP2 ap prep
-    GV2PartAdv pol v2 adv -> gf $ Gp1 $ GComplAP (GAdvAP (GPastPartAP (GSlashV2a v2)) adv)
+    GV2PartAdv _pol v2 adv -> gf $ Gp1 $ GComplAP (GAdvAP (GPastPartAP (GSlashV2a v2)) adv)
 --    Gp0 cn -> gf $ Gp0 cn
     _ -> e
 
 -- TODO only remove apposition, keep compound noun
 
 
-hasGerund :: Expr -> Bool
-hasGerund = getAny . hasGerund' . (fg :: Expr -> GPredicate)
+hasGerund :: PGF.Expr -> Bool
+hasGerund = getAny . hasGerund' . (fg :: PGF.Expr -> GPredicate)
   where
     hasGerund' :: Tree a -> Any
     hasGerund' (GGerundCN _) = Any True
     hasGerund' x = composOpMonoid hasGerund' x
 
-hasProgr :: Expr -> Bool
-hasProgr = getAny . hasProgr' . (fg :: Expr -> GPredicate)
+hasProgr :: PGF.Expr -> Bool
+hasProgr = getAny . hasProgr' . (fg :: PGF.Expr -> GPredicate)
   where
     hasProgr' :: Tree a -> Any
     hasProgr' (GProgrVP _) = Any True
     hasProgr' (GUseComp (GCompAP (GPresPartAP _))) = Any True
     hasProgr' x = composOpMonoid hasProgr' x
 
-ppBeforeAP :: Expr -> Bool
-ppBeforeAP = getAny . ppBeforeAP' . (fg :: Expr -> GPredicate)
+ppBeforeAP :: PGF.Expr -> Bool
+ppBeforeAP = getAny . ppBeforeAP' . (fg :: PGF.Expr -> GPredicate)
   where
     ppBeforeAP' :: Tree a -> Any
     ppBeforeAP' (GAdjCN (GPastPartAP _) (GAdjCN _ _)) = Any True
     ppBeforeAP' (GAdjCN (GPastPartAgentAP _ _) (GAdjCN _ _)) = Any True
     ppBeforeAP' x = composOpMonoid ppBeforeAP' x
+
+
+-- | Make a Map where entries with colliding keys are collected into a list
+mkMap :: (Ord k) => [(k, v)] -> M.Map k [v]
+mkMap = M.fromListWith (<>) . map (second pure)
