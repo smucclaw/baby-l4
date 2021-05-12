@@ -147,20 +147,28 @@ filterHeuristic :: Int -> [(a,Expr)] -> [(a,Expr)]
 filterHeuristic _ar ts_udts = [ (udt, extractLex t)
                         | (udt, t) <- ts_udts
                         , not $ ppBeforeAP t
-                        , filterGerund t ]
+                        , filterGerund t
+                        , filterAdvNP t 
+                        , filterAdvGerund t ]
                         --, filterArity t ]
   where
     ts = map snd ts_udts
-    filterGerund
+
+    mayFilter f 
+      | any f ts && not (all f ts) = not . f
+      | otherwise = const True
+
+    -- "practicing as lawyer": progressive, pres. part. or gerund
+    filterGerund 
       | any hasGerund ts &&  -- "practicing as lawyer": progressive, pres. part. or gerund
         any hasProgr ts &&
         not (all hasGerund ts) = not . hasProgr
---      | any hasGerund ts && not (all hasGerund ts) = hasGerund
       | otherwise = const True
 
-    -- filterArity
-    --   | any arityMatches ts = arityMatches
-    --   | otherwise = const True
+    filterAdvNP = mayFilter hasAdvNP
+    filterAdvGerund = mayFilter advAttachesToGerundCN
+
+    -- filterArity = mayFilter arityMatches
 
     -- arityMatches t = getArity t == ar
 
@@ -186,6 +194,8 @@ extractLex e =
 -- TODO only remove apposition, keep compound noun
 
 
+-- Match specific GF constructors
+-- Lot of boilerplate here, feel free to suggest improvements :-P
 hasGerund :: PGF.Expr -> Bool
 hasGerund = getAny . hasGerund' . (fg :: PGF.Expr -> GPredicate)
   where
@@ -208,6 +218,38 @@ ppBeforeAP = getAny . ppBeforeAP' . (fg :: PGF.Expr -> GPredicate)
     ppBeforeAP' (GAdjCN (GPastPartAP _) (GAdjCN _ _)) = Any True
     ppBeforeAP' (GAdjCN (GPastPartAgentAP _ _) (GAdjCN _ _)) = Any True
     ppBeforeAP' x = composOpMonoid ppBeforeAP' x
+
+advAttachesToGerundCN :: PGF.Expr -> Bool
+advAttachesToGerundCN = getAny . advGerund' . (fg :: PGF.Expr -> GPredicate)
+  where
+    advGerund' :: Tree a -> Any
+    advGerund' (GAdvCN (GGerundCN _) _) = Any True
+    advGerund' x = composOpMonoid advGerund' x
+
+hasAdvNP :: PGF.Expr -> Bool
+hasAdvNP = getAny . hasAdvNP' . (fg :: PGF.Expr -> GPredicate)
+  where
+    hasAdvNP' :: Tree a -> Any
+    hasAdvNP' (GAdvNP _ _) = Any True
+    hasAdvNP' x = composOpMonoid hasAdvNP' x
+
+hasAdvCN :: PGF.Expr -> Bool
+hasAdvCN = getAny . hasAdvCN' . (fg :: PGF.Expr -> GPredicate)
+  where
+    hasAdvCN' :: Tree a -> Any
+    hasAdvCN' (GAdvCN _ _) = Any True
+    hasAdvCN' x = composOpMonoid hasAdvCN' x
+
+
+hasNAV2 :: PGF.Expr -> Bool
+hasNAV2 = getAny . hasNAV2' . (fg :: PGF.Expr -> GPredicate)
+  where
+    hasNAV2' :: Tree a -> Any
+    hasNAV2' (GComplN2 _ _) = Any True
+    hasNAV2' (GComplA2 _ _) = Any True
+    hasNAV2' x = composOpMonoid hasNAV2' x
+
+--hasAdjunct :: PGF.Expr -> Bool
 
 
 -- | Make a Map where entries with colliding keys are collected into a list
