@@ -17,7 +17,7 @@ import UDAnnotations (UDEnv (..))
 import GF2UD
 import ToGF.Disambiguate
 import qualified Data.Map as M
-import Control.Arrow (Arrow (first, second))
+import Control.Arrow (Arrow (first))
 import Control.Exception (try)
 import Control.Monad (mfilter)
 import qualified Data.List as L
@@ -138,7 +138,7 @@ data Choice a = Whatever | Exactly a
   deriving (Eq, Ord, Show, Read)
 
 matches :: Eq a => a -> Choice a -> Bool
-matches a Whatever = True
+matches _ Whatever = True
 matches a (Exactly b) = a == b
 
 -- | A partial disambiguation of a sentence
@@ -182,6 +182,7 @@ parseRUDW uds = RUDS $ parseUDW <$> lines str
     parseUDW wrd =
       case splitOn "\t" wrd of
         [n,nm,'F':'U':'N':'=':fun] -> RUDW (read n) nm fun
+        _ -> error $ wrd ++ " doesn't match expected shape"
 
 
 showMPO :: MyParseOutput -> String
@@ -392,7 +393,7 @@ parseGF udenv = go
     go :: Description -> [MyParseOutput]
     go ws = finalParse
       where
-        (output, bstring) = parse_ gr lang cat Nothing (unwords ws)
+        (output, _bstring) = parse_ gr lang cat Nothing (unwords ws)
         finalParse = case output of
           ParseOk ts -> [(expr2ud udenv t, t) | t <- ts]
           -- TODO figure out why this doesn't work (anymore or did it ever work properly?)
