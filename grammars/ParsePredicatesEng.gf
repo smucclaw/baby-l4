@@ -54,11 +54,6 @@ flags
     V2PartAdv pol v2 adv = PredAP pol (AdvAP (PastPartAP (mkVPSlash v2)) adv) ;
 
   -- Extensions for disambiguation questions
-  -- : (subj : NP) -> VPS -> Utt ; -- the business shares fees
-  VerbalComplement subj pred = mkUtt (PredVPS subj pred) ;
-
-  -- (subj : NP) -> VPS -> Utt ; -- the business involves sharing-fees
-  CompoundNoun subj pred = mkUtt (PredVPS subj pred) ;
 
   -- : N -> N -> N ; -- Replace CompoundN with this to make explicit
   CompoundNHyphen noun cn = cn ** {

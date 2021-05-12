@@ -52,11 +52,11 @@ mkQuestions es = [
   , let prd = fg e :: GPredicate
   , let q = case catMaybes $ questions <*> [removeAdjuncts prd] of -- unsafe assumption
               x:_ -> x
-              [] -> GUttCN Ghigher_education_CN
+              [] -> Gp0 Ghigher_education_CN
 
   ]
 
-questions :: [Tree a -> Maybe GUtt]
+questions :: [Tree a -> Maybe GPredicate]
 questions = (listToMaybe .) <$> [
     toVerbalComplement
   , askCompoundNoun
@@ -69,22 +69,27 @@ dummySubj, dummyObj :: GNP
 dummySubj = GMassNP (GpartyX (GString "X"))
 dummyObj = GMassNP (GpartyX (GString "Y"))
 
+disambQ :: GVP -> GPredicate
+disambQ = GPredSentence dummySubj . presIndVPS
+
 presIndVPS :: GVP -> GVPS
 presIndVPS = GMkVPS (GTTAnt GTPres GASimul) GPPos
+presIndVPS2 :: GVPSlash -> GVPS2
+presIndVPS2 = GMkVPS2 (GTTAnt GTPres GASimul) GPPos
 
-toVerbalComplement :: PP.Tree a -> [GUtt]
+toVerbalComplement :: PP.Tree a -> [GPredicate]
 toVerbalComplement t = case t of
-  Gerund vp -> [GVerbalComplement dummySubj (presIndVPS vp)]
+  Gerund vp -> [disambQ vp]
   _ -> composOpMonoid toVerbalComplement t
 
 pattern Gerund :: GVP -> PP.Tree a
 pattern Gerund vp <- GComplSlash (GSlashV2a _) (GMassNP (GGerundCN vp))
 
 
-askCompoundNoun :: PP.Tree a -> [GUtt]
+askCompoundNoun :: PP.Tree a -> [GPredicate]
 askCompoundNoun t = case t of
-  CompoundNoun vpslash np -> [GCompoundNoun dummySubj (presIndVPS (GComplSlash vpslash np))]
-  GAdjCN _ap _cn -> [GCompoundNoun dummySubj (presIndVPS (GUseComp (GCompNP (mkNP t))))]
+  CompoundNoun vpslash np -> [disambQ (GComplSlash vpslash np)]
+  GAdjCN _ap _cn -> [disambQ (GUseComp (GCompNP (mkNP t)))]
 
   _ -> composOpMonoid askCompoundNoun t
 
@@ -92,11 +97,11 @@ pattern CompoundNoun :: GVPSlash -> GNP -> PP.Tree a
 pattern CompoundNoun vpslash np <- GComplSlash vpslash (getCompoundNoun -> [np])
 
 -- Different VPSlashes
-askVPSlash :: PP.Tree a -> [GUtt]
+askVPSlash :: PP.Tree a -> [GPredicate]
 askVPSlash t = case t of
-  VPSlashTrans vpslash -> [GVerbalComplement dummySubj (presIndVPS (GComplSlash vpslash dummyObj))]
-  VPSlashIntrans vpslash -> [GVerbalComplement dummySubj (presIndVPS (GComplSlash vpslash dummyObj))]
-  GPastPartAP _ -> [GVerbalComplement dummySubj (presIndVPS (GUseComp (GCompAP t)))]
+  VPSlashTrans vpslash -> [disambQ (GComplSlash vpslash dummyObj)]
+  VPSlashIntrans vpslash -> [GPredSentence2 dummySubj (presIndVPS2 vpslash)]
+  GPastPartAP _ -> [disambQ (GUseComp (GCompAP t))]
   _ -> composOpMonoid askVPSlash t
 
 -- TODO: custom GF function to verbalise transitive verb used intransitively. Also use arity heuristic smarter.
@@ -149,7 +154,8 @@ filterHeuristic _ar ts_udts = [ (udt, extractLex t)
                         , not $ ppBeforeAP t
                         , filterGerund t
                         , filterAdvNP t 
-                        , filterAdvGerund t ]
+                        , filterAdvGerund t
+                        , filterAdvAPPP t ]
                         --, filterArity t ]
   where
     ts = map snd ts_udts
@@ -167,6 +173,7 @@ filterHeuristic _ar ts_udts = [ (udt, extractLex t)
 
     filterAdvNP = mayFilter hasAdvNP
     filterAdvGerund = mayFilter advAttachesToGerundCN
+    filterAdvAPPP = mayFilter hasPastPartAdvAPBy
 
     -- filterArity = mayFilter arityMatches
 
@@ -232,6 +239,13 @@ hasAdvNP = getAny . hasAdvNP' . (fg :: PGF.Expr -> GPredicate)
     hasAdvNP' :: Tree a -> Any
     hasAdvNP' (GAdvNP _ _) = Any True
     hasAdvNP' x = composOpMonoid hasAdvNP' x
+
+hasPastPartAdvAPBy :: PGF.Expr -> Bool
+hasPastPartAdvAPBy =  getAny . hasPastPartAdvAPBy' . (fg :: PGF.Expr -> GPredicate)
+  where
+    hasPastPartAdvAPBy' :: Tree a -> Any
+    hasPastPartAdvAPBy' (GAdvAP (GPastPartAP _) (GPrepNP (LexPrep "by_Prep") _)) = Any True
+    hasPastPartAdvAPBy' x = composOpMonoid hasPastPartAdvAPBy' x
 
 hasAdvCN :: PGF.Expr -> Bool
 hasAdvCN = getAny . hasAdvCN' . (fg :: PGF.Expr -> GPredicate)

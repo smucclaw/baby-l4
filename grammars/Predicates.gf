@@ -5,7 +5,7 @@
 abstract Predicates =
   Noun - [PPartNP, UseN2, RelNP, DetNP, PossNP, PartNP, CountNP, ApposCN], --IndefArt, MassNP], -- stupidest idea ever
   Verb - [PassV2, ReflVP, ComplVV, SlashVV, SlashV2V, SlashV2VNP],
-  Adjective - [ReflA2, CAdvAP, UseA2], --AdvAP],
+  Adjective - [ReflA2, CAdvAP, UseA2],
   Adverb - [AdnCAdv, ComparAdvAdj, ComparAdvAdjS],
   Sentence,
   Question,
