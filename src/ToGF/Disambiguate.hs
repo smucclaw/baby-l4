@@ -174,7 +174,8 @@ filterHeuristic _ar ts_udts = [ (udt, extractLex t)
                         , filterGerund prd
                         , filterAdvNP prd
                         , filterAdvGerund prd
-                        , filterAdvAPPP prd ]
+                        , filterAdvAPPP prd
+                        , filterAPBeforeAdv prd ]
                         --, filterArity t ]
   where
     ts = map (fg' . snd) ts_udts
@@ -193,6 +194,7 @@ filterHeuristic _ar ts_udts = [ (udt, extractLex t)
     filterAdvNP = mayFilter hasAdvNP
     filterAdvGerund = mayFilter advAttachesToGerundCN
     filterAdvAPPP = mayFilter hasPastPartAdvAPBy
+    filterAPBeforeAdv = mayFilter hasAdjBeforeAdv
 
     -- filterArity = mayFilter arityMatches
 
@@ -236,6 +238,14 @@ hasProgr = getAny . hasProgr'
     hasProgr' (GProgrVP _) = Any True
     hasProgr' (GUseComp (GCompAP (GPresPartAP _))) = Any True
     hasProgr' x = composOpMonoid hasProgr' x
+
+hasAdjBeforeAdv :: GPredicate -> Bool
+hasAdjBeforeAdv = getAny . hasAdjBeforeAdv'
+  where
+    hasAdjBeforeAdv' :: Tree a -> Any
+    hasAdjBeforeAdv' (GAdjCN _ (GAdvCN _ _)) = Any True
+    hasAdjBeforeAdv' x = composOpMonoid hasAdjBeforeAdv' x
+
 
 ppBeforeAP :: GPredicate -> Bool
 ppBeforeAP = getAny . ppBeforeAP'
