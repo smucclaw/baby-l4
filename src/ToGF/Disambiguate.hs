@@ -169,14 +169,15 @@ removeAdjuncts t = case t of
 filterHeuristic :: Int -> [(a,Expr)] -> [(a,Expr)]
 filterHeuristic _ar ts_udts = [ (udt, extractLex t)
                         | (udt, t) <- ts_udts
-                        , not $ ppBeforeAP t
-                        , filterGerund t
-                        , filterAdvNP t
-                        , filterAdvGerund t
-                        , filterAdvAPPP t ]
+                        , let prd = fg' t
+                        , not $ ppBeforeAP prd
+                        , filterGerund prd
+                        , filterAdvNP prd
+                        , filterAdvGerund prd
+                        , filterAdvAPPP prd ]
                         --, filterArity t ]
   where
-    ts = map snd ts_udts
+    ts = map (fg' . snd) ts_udts
 
     mayFilter f
       | any f ts && not (all f ts) = not . f
@@ -221,60 +222,60 @@ extractLex e =
 
 -- Match specific GF constructors
 -- Lot of boilerplate here, feel free to suggest improvements :-P
-hasGerund :: PGF.Expr -> Bool
-hasGerund = getAny . hasGerund' . fg'
+hasGerund :: GPredicate -> Bool
+hasGerund = getAny . hasGerund'
   where
     hasGerund' :: Tree a -> Any
     hasGerund' (GGerundCN _) = Any True
     hasGerund' x = composOpMonoid hasGerund' x
 
-hasProgr :: PGF.Expr -> Bool
-hasProgr = getAny . hasProgr' . fg'
+hasProgr :: GPredicate -> Bool
+hasProgr = getAny . hasProgr'
   where
     hasProgr' :: Tree a -> Any
     hasProgr' (GProgrVP _) = Any True
     hasProgr' (GUseComp (GCompAP (GPresPartAP _))) = Any True
     hasProgr' x = composOpMonoid hasProgr' x
 
-ppBeforeAP :: PGF.Expr -> Bool
-ppBeforeAP = getAny . ppBeforeAP' . fg'
+ppBeforeAP :: GPredicate -> Bool
+ppBeforeAP = getAny . ppBeforeAP'
   where
     ppBeforeAP' :: Tree a -> Any
     ppBeforeAP' (GAdjCN (GPastPartAP _) (GAdjCN _ _)) = Any True
     ppBeforeAP' (GAdjCN (GPastPartAgentAP _ _) (GAdjCN _ _)) = Any True
     ppBeforeAP' x = composOpMonoid ppBeforeAP' x
 
-advAttachesToGerundCN :: PGF.Expr -> Bool
-advAttachesToGerundCN = getAny . advGerund' . fg'
+advAttachesToGerundCN :: GPredicate -> Bool
+advAttachesToGerundCN = getAny . advGerund'
   where
     advGerund' :: Tree a -> Any
     advGerund' (GAdvCN (GGerundCN _) _) = Any True
     advGerund' x = composOpMonoid advGerund' x
 
-hasAdvNP :: PGF.Expr -> Bool
-hasAdvNP = getAny . hasAdvNP' . fg'
+hasAdvNP :: GPredicate -> Bool
+hasAdvNP = getAny . hasAdvNP'
   where
     hasAdvNP' :: Tree a -> Any
     hasAdvNP' (GAdvNP _ _) = Any True
     hasAdvNP' x = composOpMonoid hasAdvNP' x
 
-hasPastPartAdvAPBy :: PGF.Expr -> Bool
-hasPastPartAdvAPBy =  getAny . hasPastPartAdvAPBy' . fg'
+hasPastPartAdvAPBy :: GPredicate -> Bool
+hasPastPartAdvAPBy =  getAny . hasPastPartAdvAPBy'
   where
     hasPastPartAdvAPBy' :: Tree a -> Any
     hasPastPartAdvAPBy' (GAdvAP (GPastPartAP _) (GPrepNP (LexPrep "by_Prep") _)) = Any True
     hasPastPartAdvAPBy' x = composOpMonoid hasPastPartAdvAPBy' x
 
-hasAdvCN :: PGF.Expr -> Bool
-hasAdvCN = getAny . hasAdvCN' . fg'
+hasAdvCN :: GPredicate -> Bool
+hasAdvCN = getAny . hasAdvCN'
   where
     hasAdvCN' :: Tree a -> Any
     hasAdvCN' (GAdvCN _ _) = Any True
     hasAdvCN' x = composOpMonoid hasAdvCN' x
 
 
-hasNAV2 :: PGF.Expr -> Bool
-hasNAV2 = getAny . hasNAV2' . fg'
+hasNAV2 :: GPredicate -> Bool
+hasNAV2 = getAny . hasNAV2'
   where
     hasNAV2' :: Tree a -> Any
     hasNAV2' (GComplN2 _ _) = Any True
