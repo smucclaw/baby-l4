@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 module DisambiguateTest where
 
 import Test.Tasty
@@ -19,9 +20,35 @@ disambiguateTests pgf = testGroup "Disambiguation questions"
     , "involves sharing fees with unauthorized persons" `shouldDisambiguateTo` ["party X involves sharing-fees", "party X shares fees"]
     -- , longSharingFees
     , "sole independent proprietor" `shouldDisambiguateTo` ["higher education","party X is a sole independent proprietor","party X is a sole independent-proprietor","party X is an independent proprietor","party X soles independent-proprietor"] -- Triple compound or soles
+    , "walks in legal work at home" `shouldDisambiguateTo` ["higher education"]
+    , findAdjunctsTest
     ]
   where
 
+  findAdjunctsTest = testGroup "Find adjuncts"
+    [ testCase "Basic tests" $ do
+        let ex1 = parseStr "walks in legal work"
+        map (showExpr []) ex1 @?= ["p1 (ComplVP (MkVPS (TTAnt TPres ASimul) PPos (AdvVP (UseV walk_V) (PrepNP in_Prep (MassNP (AdjCN (PositA legal_A) (UseN work_N)))))))"]
+        fmap (map show . findAdjuncts . fg') ex1 @?= [["PrepNP in_Prep (MassNP (AdjCN (PositA legal_A) (UseN work_N)))"]]
+
+        let ex2 = map snd $ filterHeuristic 0 $ map ((),) $ parseStr "walks in legal work at home"
+        map (showExpr []) ex2 @?=
+            ["p1 (ComplVP (MkVPS (TTAnt TPres ASimul) PPos (AdvVP (UseV walk_V) (PrepNP in_Prep (MassNP (AdjCN (PositA legal_A) (UseN (CompoundN work_N at_home_N))))))))"
+            ,"p1 (ComplVP (MkVPS (TTAnt TPres ASimul) PPos (AdvVP (UseV walk_V) (PrepNP in_Prep (MassNP (AdvCN (AdjCN (PositA legal_A) (UseN work_N)) at_home_Adv))))))"
+            ,"p1 (ComplVP (MkVPS (TTAnt TPres ASimul) PPos (AdvVP (AdvVP (UseV walk_V) (PrepNP in_Prep (MassNP (AdjCN (PositA legal_A) (UseN work_N))))) at_home_Adv)))"]
+        fmap (map show . findAdjuncts . fg') ex2 @?=
+            [["PrepNP in_Prep (MassNP (AdjCN (PositA legal_A) (UseN (CompoundN work_N at_home_N))))"]
+            ,["PrepNP in_Prep (MassNP (AdvCN (AdjCN (PositA legal_A) (UseN work_N)) at_home_Adv))","at_home_Adv"]
+            ,["at_home_Adv","PrepNP in_Prep (MassNP (AdjCN (PositA legal_A) (UseN work_N)))"]]
+            -- [["PrepNP in_Prep (AdvNP (MassNP (AdjCN (PositA legal_A) (UseN work_N))) at_home_Adv)","at_home_Adv"]
+            -- ,["PrepNP in_Prep (MassNP (AdjCN (PositA legal_A) (AdvCN (UseN work_N) at_home_Adv)))","at_home_Adv"]
+            -- ,["PrepNP in_Prep (MassNP (AdjCN (PositA legal_A) (UseN (CompoundN work_N at_home_N))))"]
+            -- ,["PrepNP in_Prep (MassNP (AdvCN (AdjCN (PositA legal_A) (UseN work_N)) at_home_Adv))","at_home_Adv"]
+            -- ,["at_home_Adv","PrepNP in_Prep (MassNP (AdjCN (PositA legal_A) (UseN work_N)))"]]
+        pure ()
+    ]
+-- walks
+--   in legal (work at home)
   prohibited :: TestTree
   prohibited = testCase "Prohibited" $ do
       [_,_,_] <- "prohibited" `strShouldDisambiguateTo` ["party X is prohibited","party X prohibits", -- Business : Bool
@@ -51,11 +78,12 @@ disambiguateTests pgf = testGroup "Disambiguation questions"
   shouldDisambiguateTo :: Partial => String -> [String] -> TestTree
   shouldDisambiguateTo input expected = testCase input $ void $ input `strShouldDisambiguateTo` expected
 
+  parseStr = parse pgf lang (startCat pgf)
+      where lang = head $ languages pgf
+
   strShouldDisambiguateTo :: Partial => String -> [String] -> IO [[Expr]]
   strShouldDisambiguateTo input expected = do
-      let lang = head $ languages pgf
-          exprs = parse pgf lang (startCat pgf) input
-      exprs `exprsShouldDisambiguateTo` expected
+      parseStr input `exprsShouldDisambiguateTo` expected
 
   exprsShouldDisambiguateTo :: Partial => [Expr] -> [String] -> IO [[Expr]]
   exprsShouldDisambiguateTo input expected = do

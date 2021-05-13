@@ -1,3 +1,5 @@
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE GADTs #-}
@@ -163,6 +165,54 @@ removeAdjuncts t = case t of
   GAdvNP np _ -> removeAdjuncts np
   GExtAdvNP np _ -> removeAdjuncts np
   _ -> composOp removeAdjuncts t
+
+data Some f = forall a. Some (f a)
+
+data SomeGf f = forall a. Gf (f a) => SomeGf (f a)
+
+instance Eq (SomeGf f) where
+  SomeGf a == SomeGf b = gf a == gf b
+
+instance Show (SomeGf f) where
+  show = withSomeGf $ showExpr [] . gf
+
+withSomeGf :: (forall a. Gf (f a) => f a -> b) -> SomeGf f -> b
+withSomeGf f (SomeGf fa) = f fa
+
+withSome :: (forall a. f a -> b) -> Some f -> b
+withSome f (Some fa) = f fa
+
+someGf2Some :: SomeGf f -> Some f
+someGf2Some = withSomeGf Some
+
+findAdjuncts :: PP.Tree a -> [SomeGf PP.Tree]
+findAdjuncts t = case t of
+  GAdVVP adV _ -> SomeGf adV : composOpMonoid findAdjuncts t
+  GAdvVP _ adv -> SomeGf adv : composOpMonoid findAdjuncts t
+--   GAdVVPSlash _ vpslash -> findAdjuncts vpslash
+--  -- GAdvVP
+--   GAdvVPSlash vpslash _ -> findAdjuncts vpslash
+--   GAdAP _ ap -> findAdjuncts ap
+--   --GAdjCN _ cn -> findAdjuncts cn
+  GAdvCN _ adv -> SomeGf adv : composOpMonoid findAdjuncts t
+  GAdvNP _ adv -> SomeGf adv : composOpMonoid findAdjuncts t
+--   GExtAdvNP np _ -> findAdjuncts np
+  _ -> composOpMonoid findAdjuncts t
+
+makeSnippet :: PP.Tree a -> PP.Tree a -> GPredicate
+makeSnippet t = \case
+  GAdvVP vp adv | SomeGf t == SomeGf adv -> GPredSentence2 dummySubj (presIndVPS2 (GAdvVPSlash (removeObject vp) (removeAdjuncts adv)))
+  _ -> Gp0 Ghigher_education_CN
+
+
+
+removeObject :: GVP -> GVPSlash
+removeObject = \case
+  GComplSlash vpslash _ -> vpslash
+  --GAdvVP vp _ -> removeObject vp
+  GAdvVP vp adv -> GAdvVPSlash (removeObject vp) adv
+  _ -> GSlashV2a (LexV2 "eat_V2")
+
 
 ----------------------------------------------------
 

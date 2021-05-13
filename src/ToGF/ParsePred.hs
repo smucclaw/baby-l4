@@ -27,7 +27,7 @@ import Data.Foldable (for_)
 --import Debug.Trace (trace)
 
 trace :: p1 -> p2 -> p2
-trace s a = a
+trace _ a = a
 
 ----------------------------------------------------
 
@@ -60,8 +60,6 @@ fromLexicalNode (LexText str) = Just str
 fromLexicalNode (LexV2Q str) = Just str
 fromLexicalNode (GString str) = Just str
 fromLexicalNode _ = Nothing
-
-data Some f = forall a. Some (f a)
 
 toLexicalNode :: String -> Maybe (Some Tree)
 toLexicalNode str =
