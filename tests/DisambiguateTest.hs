@@ -40,11 +40,31 @@ disambiguateTests pgf = testGroup "Disambiguation questions"
             [["PrepNP in_Prep (MassNP (AdjCN (PositA legal_A) (UseN (CompoundN work_N at_home_N))))"]
             ,["PrepNP in_Prep (MassNP (AdvCN (AdjCN (PositA legal_A) (UseN work_N)) at_home_Adv))","at_home_Adv"]
             ,["at_home_Adv","PrepNP in_Prep (MassNP (AdjCN (PositA legal_A) (UseN work_N)))"]]
-            -- [["PrepNP in_Prep (AdvNP (MassNP (AdjCN (PositA legal_A) (UseN work_N))) at_home_Adv)","at_home_Adv"]
-            -- ,["PrepNP in_Prep (MassNP (AdjCN (PositA legal_A) (AdvCN (UseN work_N) at_home_Adv)))","at_home_Adv"]
-            -- ,["PrepNP in_Prep (MassNP (AdjCN (PositA legal_A) (UseN (CompoundN work_N at_home_N))))"]
-            -- ,["PrepNP in_Prep (MassNP (AdvCN (AdjCN (PositA legal_A) (UseN work_N)) at_home_Adv))","at_home_Adv"]
-            -- ,["at_home_Adv","PrepNP in_Prep (MassNP (AdjCN (PositA legal_A) (UseN work_N)))"]]
+
+        let ex3 = map snd $ filterHeuristic 0 $ map ((),) $ parseStr "involves sharing fees with sole proprietors"
+        map (showExpr []) ex3 @?=
+            ["p1 (ComplVP (MkVPS (TTAnt TPres ASimul) PPos (AdvVP (ComplSlash (SlashV2a involve_V2) (MassNP (GerundCN (ComplSlash (SlashV2a share_V2) (DetCN (DetQuant IndefArt NumPl) (UseN fee_N)))))) (PrepNP with_Prep (DetCN (DetQuant IndefArt NumPl) (AdjCN (PositA sole_A) (UseN proprietor_N)))))))"
+            ,"p1 (ComplVP (MkVPS (TTAnt TPres ASimul) PPos (AdvVP (ComplSlash (SlashV2a involve_V2) (MassNP (GerundCN (ComplSlash (SlashV2a share_V2) (DetCN (DetQuant IndefArt NumPl) (UseN fee_N)))))) (PrepNP with_Prep (DetCN (DetQuant IndefArt NumPl) (UseN (CompoundN sole_N proprietor_N)))))))"
+            ,"p1 (ComplVP (MkVPS (TTAnt TPres ASimul) PPos (AdvVP (ComplSlash (SlashV2a involve_V2) (DetCN (DetQuant IndefArt NumPl) (UseN (CompoundN sharing_N fee_N)))) (PrepNP with_Prep (DetCN (DetQuant IndefArt NumPl) (AdjCN (PositA sole_A) (UseN proprietor_N)))))))"
+            ,"p1 (ComplVP (MkVPS (TTAnt TPres ASimul) PPos (AdvVP (ComplSlash (SlashV2a involve_V2) (DetCN (DetQuant IndefArt NumPl) (UseN (CompoundN sharing_N fee_N)))) (PrepNP with_Prep (DetCN (DetQuant IndefArt NumPl) (UseN (CompoundN sole_N proprietor_N)))))))"
+            ,"p1 (ComplVP (MkVPS (TTAnt TPres ASimul) PPos (ComplSlash (SlashV2a involve_V2) (MassNP (GerundCN (AdvVP (ComplSlash (SlashV2a share_V2) (DetCN (DetQuant IndefArt NumPl) (UseN fee_N))) (PrepNP with_Prep (DetCN (DetQuant IndefArt NumPl) (AdjCN (PositA sole_A) (UseN proprietor_N))))))))))"
+            ,"p1 (ComplVP (MkVPS (TTAnt TPres ASimul) PPos (ComplSlash (SlashV2a involve_V2) (MassNP (GerundCN (AdvVP (ComplSlash (SlashV2a share_V2) (DetCN (DetQuant IndefArt NumPl) (UseN fee_N))) (PrepNP with_Prep (DetCN (DetQuant IndefArt NumPl) (UseN (CompoundN sole_N proprietor_N))))))))))"
+            ,"p1 (ComplVP (MkVPS (TTAnt TPres ASimul) PPos (ComplSlash (SlashV2a involve_V2) (MassNP (GerundCN (ComplSlash (SlashV2a share_V2) (DetCN (DetQuant IndefArt NumPl) (AdvCN (UseN fee_N) (PrepNP with_Prep (DetCN (DetQuant IndefArt NumPl) (AdjCN (PositA sole_A) (UseN proprietor_N))))))))))))"
+            ,"p1 (ComplVP (MkVPS (TTAnt TPres ASimul) PPos (ComplSlash (SlashV2a involve_V2) (MassNP (GerundCN (ComplSlash (SlashV2a share_V2) (DetCN (DetQuant IndefArt NumPl) (AdvCN (UseN fee_N) (PrepNP with_Prep (DetCN (DetQuant IndefArt NumPl) (UseN (CompoundN sole_N proprietor_N))))))))))))"
+            ,"p1 (ComplVP (MkVPS (TTAnt TPres ASimul) PPos (ComplSlash (SlashV2a involve_V2) (DetCN (DetQuant IndefArt NumPl) (AdvCN (UseN (CompoundN sharing_N fee_N)) (PrepNP with_Prep (DetCN (DetQuant IndefArt NumPl) (AdjCN (PositA sole_A) (UseN proprietor_N)))))))))"
+            ,"p1 (ComplVP (MkVPS (TTAnt TPres ASimul) PPos (ComplSlash (SlashV2a involve_V2) (DetCN (DetQuant IndefArt NumPl) (AdvCN (UseN (CompoundN sharing_N fee_N)) (PrepNP with_Prep (DetCN (DetQuant IndefArt NumPl) (UseN (CompoundN sole_N proprietor_N)))))))))"]
+        fmap (map show . findAdjuncts . fg') ex3 @?=
+            [["PrepNP with_Prep (DetCN (DetQuant IndefArt NumPl) (AdjCN (PositA sole_A) (UseN proprietor_N)))"]
+            ,["PrepNP with_Prep (DetCN (DetQuant IndefArt NumPl) (UseN (CompoundN sole_N proprietor_N)))"]
+            ,["PrepNP with_Prep (DetCN (DetQuant IndefArt NumPl) (AdjCN (PositA sole_A) (UseN proprietor_N)))"]
+            ,["PrepNP with_Prep (DetCN (DetQuant IndefArt NumPl) (UseN (CompoundN sole_N proprietor_N)))"]
+            ,["PrepNP with_Prep (DetCN (DetQuant IndefArt NumPl) (AdjCN (PositA sole_A) (UseN proprietor_N)))"]
+            ,["PrepNP with_Prep (DetCN (DetQuant IndefArt NumPl) (UseN (CompoundN sole_N proprietor_N)))"]
+            ,["PrepNP with_Prep (DetCN (DetQuant IndefArt NumPl) (AdjCN (PositA sole_A) (UseN proprietor_N)))"]
+            ,["PrepNP with_Prep (DetCN (DetQuant IndefArt NumPl) (UseN (CompoundN sole_N proprietor_N)))"]
+            ,["PrepNP with_Prep (DetCN (DetQuant IndefArt NumPl) (AdjCN (PositA sole_A) (UseN proprietor_N)))"]
+            ,["PrepNP with_Prep (DetCN (DetQuant IndefArt NumPl) (UseN (CompoundN sole_N proprietor_N)))"]]
+
         pure ()
     ]
 -- walks
