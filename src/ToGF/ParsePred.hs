@@ -342,8 +342,9 @@ pred2rudss = M.keys . reducedUDmap
 
 parsePred :: UDEnv -> Arity -> Name -> String -> Predicate
 parsePred udenv ar funname optdesc = validatePredicate $ trace
-   ("ts pre-filter: " ++ unlines (map showMPO uds_ts) ++ "\n" ++
-    "arity: " ++ show ar ++ ", ts post-filter: " ++ unlines (map showMPO filtered_uds_ts))
+   ("arity: " ++ show ar ++
+    "\nts pre-filter: " ++ unlines pre_filter ++
+    "\nts post-filter: " ++ unlines (map showMPO filtered_uds_ts))
     $
     Pred
       nm
@@ -352,6 +353,7 @@ parsePred udenv ar funname optdesc = validatePredicate $ trace
       (mkMap $ filterValidRuds desc $ (map.first) parseRUDW filtered_uds_ts)
       ar
   where
+    pre_filter = map showMPO uds_ts L.\\ map showMPO filtered_uds_ts
     filtered_uds_ts = filterHeuristic ar uds_ts
     nm : _ = splitOn ":" funname
     nm' = unwords $ splitOn "_" nm -- take care of is_participant_in style

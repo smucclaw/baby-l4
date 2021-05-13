@@ -217,7 +217,7 @@ removeObject = \case
 ----------------------------------------------------
 
 filterHeuristic :: Int -> [(a,Expr)] -> [(a,Expr)]
-filterHeuristic _ar ts_udts = [ (udt, extractLex t)
+filterHeuristic ar ts_udts = [ (udt, extractLex t)
                         | (udt, t) <- ts_udts
                         , let prd = fg' t
                         , not $ ppBeforeAP prd
@@ -225,8 +225,8 @@ filterHeuristic _ar ts_udts = [ (udt, extractLex t)
                         , filterAdvNP prd
                         , filterAdvGerund prd
                         , filterAdvAPPP prd
-                        , filterAPBeforeAdv prd ]
-                        --, filterArity t ]
+                        , filterAPBeforeAdv prd
+                        , filterArity prd ]
   where
     ts = map (fg' . snd) ts_udts
 
@@ -246,19 +246,20 @@ filterHeuristic _ar ts_udts = [ (udt, extractLex t)
     filterAdvAPPP = mayFilter hasPastPartAdvAPBy
     filterAPBeforeAdv = mayFilter hasAdjBeforeAdv
 
-    -- filterArity = mayFilter arityMatches
+    filterArity = mayFilter (not . arityMatches)
 
-    -- arityMatches t = getArity t == ar
+    arityMatches (Gp0 _) | ar == 1 = True -- special case: p0 can also be acceptable for arity 1
+    arityMatches t = getArity t == ar
 
 
-    -- getArity :: PGF.Expr -> Arity
-    -- getArity e = case (fg e :: GPredicate) of
-    --                Gp2 {} -> 2
-    --                GPredNP2 {} -> 2
-    --                GPredAP2 {} -> 2
-    --                GV2PartAdv {} -> 2
-    --                Gp0 {} -> 0
-    --                _ -> 1
+    getArity :: PP.Tree a -> Int
+    getArity = \case
+      Gp2 {} -> 2
+      GPredNP2 {} -> 2
+      GPredAP2 {} -> 2
+      GV2PartAdv {} -> 2
+      Gp0 {} -> 0
+      _ -> 1
 
 extractLex :: PGF.Expr -> PGF.Expr
 extractLex e =
