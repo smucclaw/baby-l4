@@ -10,7 +10,7 @@ import SimpleSMT as SMT
 import qualified Data.Maybe
 import Control.Monad ( when, unless )
 import Text.Pretty.Simple (pPrint, pPrintString)
-import RuleTransfo ( prenexForm, ruleImplR, liftDecompRule, repeatDecomp, ruleAllR, clarify, ruleAbstrInstances, ruleExL, ruleExLInv )
+import RuleTransfo ( prenexForm, ruleImplR, liftDecompRule, repeatDecomp, ruleAllR, clarify, ruleAbstrInstances, ruleExL, ruleExLInv, ruleNormalizeVarOrder, rulesInversion, normalize )
 
 
 -------------------------------------------------------------
@@ -199,6 +199,6 @@ proveProgram :: Program (LocTypeAnnot Tp) -> IO ()
 proveProgram p =
   case rulesOfProgram p of
       [] -> error "in proveProgram: at least one rule required"
-      r:_ -> do
-        pPrint (ruleExL [fmap typeAnnot r])
+      r1: r2: _ -> do
+        pPrint ((rulesInversion . normalize)  [fmap typeAnnot r1, fmap typeAnnot r2])
 

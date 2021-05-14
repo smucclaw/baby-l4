@@ -6,13 +6,27 @@
 # decl b: Boolean
 decl x: Integer
 decl R: Integer -> Integer -> Boolean
+decl S: Integer -> Integer -> Integer -> Boolean
 decl P: Integer -> Boolean
 decl glob: Integer
+decl f: Integer -> Integer
 
-rule <foo>
-for x: Integer, z: Integer
-if (exists y: Integer. exists v: Integer. forall u: Integer. R x y && R y v)
-then R x x #--> forall x: Integer. (P x --> R x z) && R z x
+# rule <foo>
+# for x: Integer, z: Integer
+# if (exists y: Integer. exists v: Integer. forall u: Integer. R x y && R y v)
+# then R x x #--> forall x: Integer. (P x --> R x z) && R z x
+
+rule <foo1>
+for x: Integer, y: Integer
+if R x 3
+then R x y
+
+
+rule <foo2>
+for x: Integer, y: Integer
+if R x (f y)
+then R x y
+
 
 
 # rule <foo>
