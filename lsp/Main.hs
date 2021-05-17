@@ -9,6 +9,7 @@ import Control.Monad.IO.Class
 import qualified Data.Text as T
 import Lexer
 import Data.Text.IO (hPutStrLn)
+import qualified Data.Text.IO as TIO
 import qualified Data.Map as Map
 import System.IO (stderr)
 
@@ -24,16 +25,20 @@ import qualified Data.List as List
 import Syntax
 import Control.Lens.Extras (template)
 import Data.Data (Data)
-import Data.Either.Combinators (rightToMaybe, maybeToRight)
+import Data.Either.Combinators (maybeToRight)
 import Control.Monad.Trans.Except (except)
 import Control.Monad.Except
 -- import Syntax (Pos(..),SRng(..))
 
 import Annotation
+import Language.LSP.VFS
+import qualified Data.Rope.UTF16 as Rope
+import Control.Monad.Morph (hoist)
+import Data.Bifunctor (first)
 
 type Config = ()
 
-handlers :: Handlers (LspM ())
+handlers :: Handlers (LspM Config)
 handlers = mconcat
   [ notificationHandler SInitialized $ \_not -> do
       elog "Hello world!"
@@ -41,9 +46,10 @@ handlers = mconcat
   , requestHandler STextDocumentHover $ \req responder -> do
       let RequestMessage _ _ _ (HoverParams doc pos _workDone) = req
       let (TextDocumentIdentifier uri) = doc
-      exceptHover <- liftIO $ runExceptT $ lookupTokenBare' pos uri
-      sendDiagnosticsOnLeft uri exceptHover
-      responder (Right $ rightToMaybe exceptHover)
+      exceptHover <- runExceptT $ lookupTokenBare' pos uri
+      -- sendDiagnosticsOnLeft uri exceptHover
+      let mkResponseErr e = ResponseError ParseError (tshow e) Nothing
+      responder (first mkResponseErr exceptHover)
   , notificationHandler J.STextDocumentDidOpen $ \msg -> do
     let doc  = msg ^. J.params . J.textDocument . J.uri
         fileName =  J.uriToFilePath doc
@@ -58,7 +64,40 @@ handlers = mconcat
     for_ fileName $ \fn -> do
       contents <- liftIO $ readFile fn
       parseAndSendErrors doc $ T.pack contents
+  , notificationHandler J.STextDocumentDidChange $ \msg -> do
+    let doc  = msg ^. J.params
+                    . J.textDocument
+                    . J.uri
+                    . to J.toNormalizedUri
+    liftIO $ debugM "reactor.handle" $ "Processing DidChangeTextDocument for: " ++ show doc
+    mdoc <- getVirtualFile doc
+    case mdoc of
+      Just (VirtualFile _version str vf) -> do
+        liftIO $ debugM "reactor.handle" $ "Found the virtual file: " ++ show str
+        elog $ "Found the virtual file: " ++ show str ++ ", " ++ show vf
+        _ <- parseAndSendErrors (fromNormalizedUri doc) (Rope.toText vf)
+        pure ()
+      Nothing -> do
+        elog $ "Didn't find anything in the VFS for: " ++ show doc
   ]
+
+getVirtualOrRealFile :: Uri -> ExceptT Err (LspM Config) T.Text
+getVirtualOrRealFile uri = do
+    mdoc <- lift . getVirtualFile $ J.toNormalizedUri uri
+    case mdoc of
+      Just (VirtualFile _version fileVersion vf) -> do
+        elog $ "Found the virtual file: " ++ show fileVersion ++ ", " ++ show vf
+        pure $ Rope.toText vf
+      Nothing -> do
+        elog $ "Didn't find anything in the VFS for: " ++ show uri
+        filename <- uriToFilePath' uri
+        -- TODO: Catch errors thrown by readFile
+        liftIO $ TIO.readFile filename
+
+parseVirtualOrRealFile :: Uri -> ExceptT Err (LspM Config) (Maybe (Program SRng))
+parseVirtualOrRealFile uri = do
+    contents <- getVirtualOrRealFile uri
+    lift $ parseAndSendErrors uri contents
 
 makeDiagErr :: Err -> [Diagnostic]
 makeDiagErr err = [J.Diagnostic
@@ -96,14 +135,15 @@ sendDiagnostics fileUri version = do
             ]
   publishDiagnostics 100 fileUri version (partitionBySource diags)
 
-parseAndSendErrors :: J.Uri -> T.Text -> LspM Config ()
+parseAndSendErrors :: J.Uri -> T.Text -> LspM Config (Maybe (Program SRng))
 parseAndSendErrors uri contents = do
   let Just loc = uriToFilePath uri
   let pres = parseProgram loc $ T.unpack contents
       nuri = toNormalizedUri uri
   case pres of
-    Right _ast ->
+    Right ast -> do
       publishDiagnostics 100 nuri Nothing (Map.singleton (Just "parser") mempty)
+      pure $ Just ast
     Left err -> do
       let
         diags = [J.Diagnostic
@@ -116,6 +156,7 @@ parseAndSendErrors uri contents = do
                   (Just (J.List []))
                 ]
       publishDiagnostics 100 nuri Nothing (partitionBySource diags)
+      pure Nothing
 
 
 tshow :: Show a => a -> T.Text
@@ -222,7 +263,7 @@ tokenToHover astNode = Hover contents range
   where
     astText = astToText astNode
     dbgInfo = case head astNode of
-      ast@SProg{} -> T.take 80 $ tshow ast
+      ast@SProg{} -> T.take 80 $ tshow ast
       ast         -> tshow ast
     txt = astText <> "\n\n" <> dbgInfo
     contents = HoverContents $ markedUpContent "haskell" txt
@@ -236,11 +277,14 @@ astToText (SGlobalVarDecl (VarDecl _ n _):_) = "Declaration of global variable "
 astToText (SRule (Rule _ n _ _ _):_) = "Declaration of rule " <> T.pack n
 astToText _ = "No hover info found"
 
-lookupTokenBare' :: Position -> Uri -> ExceptT Err IO Hover
+lookupTokenBare' :: Position -> Uri -> ExceptT Err (LspM Config) (Maybe Hover)
 lookupTokenBare' pos uri = do
-  path <- uriToFilePath' uri
-  ast <- parseProgram' path
-  tokensToHover pos ast
+  mbAst <- parseVirtualOrRealFile uri
+  -- If nothing, return nothing, else keep going with the result
+  forM mbAst $ \ast ->
+    -- `hoist liftIO` changes `ExceptT Err IO a` to `ExceptT Err (LspM Config) a`
+    hoist liftIO $ tokensToHover pos ast
+
 
 syncOptions :: J.TextDocumentSyncOptions
 syncOptions = J.TextDocumentSyncOptions
@@ -260,6 +304,7 @@ lspOptions = defaultOptions
 
 main :: IO Int
 main = do
+  -- TODO: Make the logging work!
   setupLogger Nothing ["lsp-demo"] minBound
   runServer $ ServerDefinition
     { onConfigurationChange = const $ pure $ Right ()

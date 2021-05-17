@@ -127,6 +127,8 @@ executable lsp-server-bl4
                      , sorted-list
                      , either
                      , transformers
+                     , rope-utf16-splay
+                     , mmorph
   ghc-options: -Wall
 
 test-suite lsp-server-tests
