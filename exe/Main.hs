@@ -56,20 +56,17 @@ process args input = do
         Left err -> putStrLn (printError err)
         Right tpAst -> do
           let tpAstNoSrc = fmap typeAnnot tpAst
-          
+          let normalAst = normalizeProg tpAstNoSrc -- Creates predicates of class fields
 
           case format args of
             Fast                     ->  pPrint tpAst
             (Fgf GFOpts { gflang = gfl, showast = True } ) -> GF.nlgAST gfl tpAstNoSrc
             (Fgf GFOpts { gflang = gfl, showast = False} ) -> GF.nlg    gfl tpAstNoSrc
             Fsmt -> proveProgram tpAst
-            Fscasp ->
-              do
-                let normalizedProg = normalizeProg tpAstNoSrc
-                createSCasp normalizedProg
+            Fscasp -> createSCasp normalAst
             Fyaml -> do createDSyaml tpAstNoSrc
                         putStrLn "---------------"
-                        createQuestions tpAstNoSrc
+                        createQuestions normalAst
 
 
           -- Just a test for creating natural language from s(CASP) models.

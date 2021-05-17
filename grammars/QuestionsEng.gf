@@ -1,4 +1,4 @@
-concrete QuestionsEng of Questions = AtomsEng - [Pred, LinPred, mkPred] ** open Prelude, SyntaxEng, (S=SyntaxEng), ParadigmsEng, WordNetEng in {
+concrete QuestionsEng of Questions = AtomsEng - [Pred, LinPred, mkPred] ** open Prelude, SyntaxEng, (S=SyntaxEng), ParadigmsEng, ExtendEng, WordNetEng in {
 
   lincat
     Question = QS ;
@@ -41,9 +41,9 @@ concrete QuestionsEng of Questions = AtomsEng - [Pred, LinPred, mkPred] ** open 
   oper
     suchThat = overload {
       suchThat : LinAtom -> CN -> RS = \atom,arg ->
-        mkRS (mkRCl which_RP (pred2 atom (mkNP a_Det arg))) ;
+        RelVPS which_RP (pred2 atom (mkNP a_Det arg)) ;
       suchThat : LinAtom -> RS = \atom ->
-        mkRS (mkRCl which_RP (pred1 atom))
+        RelVPS which_RP (pred1 atom)
       } ;
 
     areThere : Det -> CN -> QS = \det,cn -> mkQS (mkCl (mkNP det cn)) ;
@@ -89,14 +89,5 @@ concrete QuestionsEng of Questions = AtomsEng - [Pred, LinPred, mkPred] ** open 
          arg2 = a2 ;
          arity = Ar2 }
       } ;
-
-  lin
-    -- Test lexicon, to be generated dynamically later
-    Win = mkAtom win_1_V2 ;
-    Rock = mkAtom rock_1_N ;
-    Winner = mkAtom winner_1_N ;
-
-    Player = mkAtom player_1_N ;
-    Game = mkAtom game_1_N ;
 
 }

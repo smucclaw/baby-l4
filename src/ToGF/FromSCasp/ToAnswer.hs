@@ -7,7 +7,8 @@
 module ToGF.FromSCasp.ToAnswer where
 
 import GHC.Exts (the)
-import Data.Set (toList)
+import Data.Set (Set, toList)
+import qualified Data.Set as S
 import PGF (PGF)
 import Answer
 import ToGF.FromSCasp.SCasp as SC
@@ -55,10 +56,18 @@ grName :: GrName
 grName = "Answer"
 
 createGF :: Model -> IO PGF.PGF
-createGF model = createGF' grName (Data.Set.toList (getAtoms model))
+createGF model = createGF' grName [] (Data.Set.toList (getAtoms model))
 
 printGF :: Gf a => PGF -> a -> IO ()
 printGF gr expr = printGF' gr (gf expr)
+
+getAtoms :: SC.Tree s -> Set AtomWithArity
+getAtoms = SC.foldMapTree getAtom
+  where
+    getAtom :: SC.Tree a -> Set AtomWithArity
+    getAtom (EApp (A str) ts) = S.singleton $ AA str (length ts)
+    getAtom (AAtom (A str))   = S.singleton $ AA str 0
+    getAtom _                 = mempty
 
 ----------------------------------------------------------------------
 type Verbosity = Bool
@@ -109,7 +118,7 @@ nlg model = do
   let gfModel = toGF model
   putStrLn "\nRaw translation of the model"
   printGF gr gfModel
-  let aggr@(f : rest) = aggregate $ peel gfModel
+  let (f : rest) = aggregate $ peel gfModel
   -- putStrLn "\nFirst step: aggregation"
   -- printGF $ unpeel aggr
 

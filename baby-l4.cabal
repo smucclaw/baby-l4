@@ -16,6 +16,8 @@ extra-source-files:  README.org
                    , grammars/Prop.gf
                    , grammars/Answer.gf
                    , grammars/Questions.gf
+                   , grammars/Predicates.gf
+                   , grammars/ParsePredicates.gf
 data-files:          l4/Prelude.l4
 
 -- data-files: LICENSE
@@ -26,15 +28,33 @@ custom-setup
                      , Cabal >= 1.10
                      , filepath
 
+library l4-generated
+  exposed-modules:
+                  -- generated from GF grammars
+                  Prop
+                  Answer
+                  Questions
+                  ParsePredicates
+                  Predicates
+
+  build-depends:       base >= 4.7 && < 5
+                     , gf
+                     , mtl        >= 2.2 && <2.4
+  ghc-options: -Wno-all 
+  build-tools:         gf
+  -- build-tools-depends: gf:gf
+  hs-source-dirs:
+    -- src
+    -- Stack complains with this and doesn't work without it
+    -- https://github.com/commercialhaskell/stack/issues/3929
+    grammars
+  default-language: Haskell2010
+
 library
   exposed-modules:
                   -- generated
                   Lexer
                   Parser
-                  -- generated from GF grammars
-                  Prop
-                  Answer
-                  Questions
                   -- from src
                   Annotation
                   Error
@@ -45,6 +65,7 @@ library
                   ToGF.FromL4.TransProp
                   ToGF.GenerateLexicon
                   ToGF.NormalizeSyntax
+                  ToGF.ParsePred
                   ToGF.TreeTransform
                   ToGF.FromSCasp.SCasp
                   ToGF.FromSCasp.ToAnswer
@@ -63,14 +84,9 @@ library
   other-modules: Paths_baby_l4
   hs-source-dirs:
     src
-    -- generated
 
-    -- Stack complains with this and doesn't work without it
-    -- https://github.com/commercialhaskell/stack/issues/3929
-    grammars
-    --src-bnfc
-    --src-l4
   build-depends:       base >= 4.7 && < 5
+                     , l4-generated
                      , array
                      , containers
                      , pretty-simple
@@ -91,8 +107,6 @@ library
                      -- required for SMT interaction
                      , simple-smt
                      , sbv
-  build-tools:         alex, happy, gf
-  -- build-tools-depends:         alex:alex, happy:happy, gf:gf
   default-language: Haskell2010
 
 executable l4
@@ -108,7 +122,7 @@ executable l4
                      , mtl        >= 2.2 && <2.4
                      , pretty-simple
                      , optparse-applicative
-                     , prettyprinter
+
 executable lsp-server-bl4
   hs-source-dirs:      lsp
   main-is:             Main.hs

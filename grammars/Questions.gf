@@ -1,4 +1,4 @@
-abstract Questions = Atoms ** {
+abstract Questions = Atoms, Predicates ** {
 
   flags startcat = Question ;
 
@@ -13,8 +13,9 @@ abstract Questions = Atoms ** {
 
     Properties : Pred -> Question ;
 
+    -- Make preds out of atoms.
+    -- The atoms may come from user lexicon, or they may be guessed using smart paradigms.
     MkPred0 : (name : Atom)                    -> Pred ;
     MkPred1 : (name : Atom) -> (a1     : Atom) -> Pred ;
     MkPred2 : (name : Atom) -> (a1, a2 : Atom) -> Pred ;
-
 }

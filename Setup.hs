@@ -8,6 +8,7 @@ import Distribution.Simple.Utils (createDirectoryIfMissingVerbose, installOrdina
 import Distribution.Simple.Setup (installDest, InstallFlags (installVerbosity), CopyFlags (copyDest, copyVerbosity))
 import Distribution.Simple.Flag
 import Distribution.Verbosity
+import System.Environment (lookupEnv)
 
 -- Custom preprocessor for GF files
 
@@ -22,6 +23,17 @@ main = defaultMainWithHooks userHooks
 userHooks :: UserHooks
 userHooks = simpleUserHooks {
     hookedPreProcessors = gfPPSuffix : knownSuffixHandlers
+  , postCopy = \args insF pDesc lbi -> do
+        -- print $ buildDir lbi
+        let cdest = fromFlag $ copyDest insF
+        let dDir = datadir $ absoluteComponentInstallDirs pDesc lbi (localUnitId lbi) cdest
+        let verbosity = fromFlag $ copyVerbosity insF
+        let src = buildDir lbi </> "l4-generated" </> "ParsePredicates.pgf"
+        let dst = dDir </> "ParsePredicates.pgf"
+        -- print dDir
+        createDirectoryIfMissingVerbose verbosity True dDir
+        installOrdinaryFile verbosity src dst
+        return ()
 }
 
 gfPPSuffix :: PPSuffixHandler
@@ -32,24 +44,22 @@ gfPP bi lbi clbi = PreProcessor {
     platformIndependent = True,
     runPreProcessor = \(inDir,inFile) (outDir,outFile) verbosity -> do
         -- putStrLn $ "hello world! " ++ show ((inDir,inFile), (outDir,outFile), verbosity)
-        let lexical = case inFile of 
-                        "Prop.gf"
-                          -> ["--haskell=lexical", "--lexical=Noun,Noun2,Adj,Adj2,Verb,Verb2"]
-                        "Answer.gf"
-                          -> ["--haskell=lexical", "--lexical=Atom"]
-                        "Atoms.gf"
-                          -> ["--haskell=lexical", "--lexical=Atom"]
-                        "Questions.gf"
-                          -> ["--haskell=lexical", "--lexical=Atom"]
-                        _ -> []
+        gfLibPath <- lookupEnv "GF_LIB_PATH"
+        putStrLn $ "GF_LIB_PATH=" ++ show gfLibPath
+        let lexical = getLexCategories inFile
+            concrete = case inFile of
+                         "ParsePredicates.gf" -> [inDir </> "ParsePredicatesEng.gf"]
+                         _ -> []
         let args =
                 [ "-make"
+                , "-v=0"
                 , "-f", "haskell"
-                , "--haskell=gadt" ] 
+                , "--haskell=gadt" ]
                 ++ lexical
                 ++ ["--output-dir=" ++ outDir
                 , inDir </> inFile
-                ]
+                ] ++ concrete
+
         print args
         (gfProg, _) <- requireProgram verbosity gfProgram (withPrograms lbi)
         -- runDbProgram verbosity gfProgram (withPrograms lbi) args
@@ -60,3 +70,19 @@ gfPP bi lbi clbi = PreProcessor {
 gfProgram :: Program
 gfProgram = simpleProgram "gf"
 
+getLexCategories fname = case fname of
+    "Prop.gf"
+        -> lexPrefix "Noun,Noun2,Adj,Adj2,Verb,Verb2"
+    "Atoms.gf"
+        -> lexPrefix "Atom"
+    "Answer.gf"
+        -> getLexCategories "Atoms.gf"
+    "Questions.gf"
+        -> getLexCategories "Atoms.gf"
+    "Predicates.gf"
+        -> lexPrefix "N,V,A,N2,N3,V2,A2,VA,V2V,VV,V3,VS,V2A,V2S,V2Q,Adv,AdV,AdA,AdN,ACard,CAdv,Conj,Interj,PN,Prep,Pron,Quant,Det,Card,Text,Predet,Subj"
+    "ParsePredicates.gf"
+        -> getLexCategories "Predicates.gf"
+    _ -> []
+    where
+      lexPrefix x = ["--haskell=lexical", "--lexical="++x]
