@@ -1,28 +1,30 @@
 # l4version 0.3.4
 
 lexicon
-Business -> "business_1_N"
-BusinessEntity -> "CompoundN business_1_N entity_N"
-IncompatibleDignity -> "mkA2 incompatible_1_A with_Prep"
-LegalPractitioner -> "lawyer_N"
-LocumSolicitor -> "lawyer_N"
-AcceptApp -> "accept_4_V2"
-AssociatedWithApp -> "mkA2 associated_A with_Prep"
-AssociatedWithAppB -> "mkA2 associated_A with_Prep"
-AssociatedWith -> "mkA2 associated_A with_Prep"
-Appointment -> "appointment_1_N"
-LawRelatedService -> "service_1_N"
-Provides -> "provide_1_V2"
-ConditionsSecondSchedule -> "condition_3_V2"
-App -> "appoint_2_V2"
-Illegal -> "illegal_A"
+UnauthorizedSharingFees -> "involves sharing fees with unauthorized persons for legal work performed by the legal practitioner"
+DetractsFromDignity -> "detracts from dignity of legal profession"
+DerogatesFromDignity -> "derogates from dignity of legal profession"
+IncompatibleWithDignity -> "incompatible with dignity of legal profession"
+# r34_1_a_applies -> "rule 341 applies"
 
-rule <r1a>
-for lpr: LegalPractitioner, app: Appointment
-if not (exists bsn : Business. AssociatedWith bsn app)
-then not (AcceptApp lpr app)
+class Business {
+    DetractsFromDignity: Bool         # has lexicon entry
+    IncompatibleWithDignity: Bool     # has lexicon entry
+    DerogatesFromDignity: Bool        # has lexicon entry
+    UnauthorizedSharingFees : Bool    # has lexicon entry
+    DescribedInSectionOne : Bool         # rest parsed from the predicate name
+    Unfair: Bool
+    DescribedInFirstSchedule: Bool
+    Prohibited: Bool
+}
 
-rule <r1b>
-for lpr: LegalPractitioner, app: Appointment
-if  (exists bsn : Business. Illegal bsn)
-then not (AcceptApp lpr app)
+decl r34_1_a_applies: Business -> Bool
+
+rule <r34_1_a>
+for b: Business
+if (
+    b.DetractsFromDignity ||
+    b.IncompatibleWithDignity  ||
+    b.DerogatesFromDignity 
+)
+then b.DescribedInSectionOne && r34_1_a_applies b

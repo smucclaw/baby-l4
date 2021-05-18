@@ -8,8 +8,8 @@ import Language.LSP.Types
 import Control.Monad.IO.Class
 import qualified Data.Text as T
 import Lexer
-import Data.List (find)
-import Data.Text.IO (hPutStrLn, putStr)
+import Data.Text.IO (hPutStrLn)
+import qualified Data.Text.IO as TIO
 import qualified Data.Map as Map
 import System.IO (stderr)
 
@@ -25,18 +25,20 @@ import qualified Data.List as List
 import Syntax
 import Control.Lens.Extras (template)
 import Data.Data (Data)
-import Data.Either.Combinators (rightToMaybe, maybeToRight)
+import Data.Either.Combinators (maybeToRight)
 import Control.Monad.Trans.Except (except)
 import Control.Monad.Except
 -- import Syntax (Pos(..),SRng(..))
 
 import Annotation
-import Data.Maybe (fromMaybe)
-import Annotation (SRng(DummySRng))
+import Language.LSP.VFS
+import qualified Data.Rope.UTF16 as Rope
+import Control.Monad.Morph (hoist)
+import Data.Bifunctor (first)
 
 type Config = ()
 
-handlers :: Handlers (LspM ())
+handlers :: Handlers (LspM Config)
 handlers = mconcat
   [ notificationHandler SInitialized $ \_not -> do
       elog "Hello world!"
@@ -44,9 +46,10 @@ handlers = mconcat
   , requestHandler STextDocumentHover $ \req responder -> do
       let RequestMessage _ _ _ (HoverParams doc pos _workDone) = req
       let (TextDocumentIdentifier uri) = doc
-      exceptHover <- liftIO $ runExceptT $ lookupTokenBare' pos uri
-      sendDiagnosticsOnLeft uri exceptHover
-      responder (Right $ rightToMaybe exceptHover)
+      exceptHover <- runExceptT $ lookupTokenBare' pos uri
+      -- sendDiagnosticsOnLeft uri exceptHover
+      let mkResponseErr e = ResponseError ParseError (tshow e) Nothing
+      responder (first mkResponseErr exceptHover)
   , notificationHandler J.STextDocumentDidOpen $ \msg -> do
     let doc  = msg ^. J.params . J.textDocument . J.uri
         fileName =  J.uriToFilePath doc
@@ -61,7 +64,40 @@ handlers = mconcat
     for_ fileName $ \fn -> do
       contents <- liftIO $ readFile fn
       parseAndSendErrors doc $ T.pack contents
+  , notificationHandler J.STextDocumentDidChange $ \msg -> do
+    let doc  = msg ^. J.params
+                    . J.textDocument
+                    . J.uri
+                    . to J.toNormalizedUri
+    liftIO $ debugM "reactor.handle" $ "Processing DidChangeTextDocument for: " ++ show doc
+    mdoc <- getVirtualFile doc
+    case mdoc of
+      Just (VirtualFile _version str vf) -> do
+        liftIO $ debugM "reactor.handle" $ "Found the virtual file: " ++ show str
+        elog $ "Found the virtual file: " ++ show str ++ ", " ++ show vf
+        _ <- parseAndSendErrors (fromNormalizedUri doc) (Rope.toText vf)
+        pure ()
+      Nothing -> do
+        elog $ "Didn't find anything in the VFS for: " ++ show doc
   ]
+
+getVirtualOrRealFile :: Uri -> ExceptT Err (LspM Config) T.Text
+getVirtualOrRealFile uri = do
+    mdoc <- lift . getVirtualFile $ J.toNormalizedUri uri
+    case mdoc of
+      Just (VirtualFile _version fileVersion vf) -> do
+        elog $ "Found the virtual file: " ++ show fileVersion ++ ", " ++ show vf
+        pure $ Rope.toText vf
+      Nothing -> do
+        elog $ "Didn't find anything in the VFS for: " ++ show uri
+        filename <- uriToFilePath' uri
+        -- TODO: Catch errors thrown by readFile
+        liftIO $ TIO.readFile filename
+
+parseVirtualOrRealFile :: Uri -> ExceptT Err (LspM Config) (Maybe (Program SRng))
+parseVirtualOrRealFile uri = do
+    contents <- getVirtualOrRealFile uri
+    lift $ parseAndSendErrors uri contents
 
 makeDiagErr :: Err -> [Diagnostic]
 makeDiagErr err = [J.Diagnostic
@@ -99,14 +135,15 @@ sendDiagnostics fileUri version = do
             ]
   publishDiagnostics 100 fileUri version (partitionBySource diags)
 
-parseAndSendErrors :: J.Uri -> T.Text -> LspM Config ()
+parseAndSendErrors :: J.Uri -> T.Text -> LspM Config (Maybe (Program SRng))
 parseAndSendErrors uri contents = do
   let Just loc = uriToFilePath uri
   let pres = parseProgram loc $ T.unpack contents
       nuri = toNormalizedUri uri
   case pres of
-    Right _ast ->
+    Right ast -> do
       publishDiagnostics 100 nuri Nothing (Map.singleton (Just "parser") mempty)
+      pure $ Just ast
     Left err -> do
       let
         diags = [J.Diagnostic
@@ -119,6 +156,7 @@ parseAndSendErrors uri contents = do
                   (Just (J.List []))
                 ]
       publishDiagnostics 100 nuri Nothing (partitionBySource diags)
+      pure Nothing
 
 
 tshow :: Show a => a -> T.Text
@@ -164,6 +202,8 @@ data SomeAstNode t
   | SExpr (Expr t)
   | SMapping (Mapping t)
   | SClassDecl (ClassDecl t)
+  | SGlobalVarDecl (VarDecl t)
+  | SRule (Rule t)
   deriving (Show)
 
 instance HasLoc t => HasLoc (SomeAstNode t) where
@@ -171,31 +211,36 @@ instance HasLoc t => HasLoc (SomeAstNode t) where
   getLoc (SExpr et) = getLoc et
   getLoc (SMapping et) = getLoc et
   getLoc (SClassDecl et) = getLoc et
+  getLoc (SGlobalVarDecl et) = getLoc et
+  getLoc (SRule et) = getLoc et
 
-selectSmallestContaining :: HasLoc t => Position -> SomeAstNode t -> SomeAstNode t
-selectSmallestContaining pos node =
+selectSmallestContaining :: HasLoc t => Position -> [SomeAstNode t] -> SomeAstNode t -> [SomeAstNode t]
+selectSmallestContaining pos parents node =
   case List.find (posInRange pos . getLoc) (getChildren node) of
-    Nothing -> node
-    Just sub -> selectSmallestContaining pos sub
+    Nothing -> node:parents
+    Just sub -> selectSmallestContaining pos (node:parents) sub
 
 getChildren :: SomeAstNode t -> [SomeAstNode t]
-getChildren (SProg Program {lexiconOfProgram, classDeclsOfProgram}) = map SMapping lexiconOfProgram ++ map SClassDecl classDeclsOfProgram-- TODO: Add other children
+getChildren (SProg Program {lexiconOfProgram, classDeclsOfProgram, globalsOfProgram, rulesOfProgram }) =
+  map SMapping lexiconOfProgram ++ map SClassDecl classDeclsOfProgram ++ map SGlobalVarDecl globalsOfProgram ++ map SRule rulesOfProgram
 getChildren (SExpr et) = SExpr <$> childExprs et
 getChildren (SMapping _) = []
 getChildren (SClassDecl _) = []
+getChildren (SGlobalVarDecl _) = []
+getChildren (SRule _) = []
 
-findAstAtPoint :: HasLoc t => Position -> Program t -> SomeAstNode t
-findAstAtPoint pos = selectSmallestContaining pos . SProg
+findAstAtPoint :: HasLoc t => Position -> Program t -> [SomeAstNode t]
+findAstAtPoint pos = selectSmallestContaining pos [] . SProg
 
 -- | Temporary bad debugging function.
--- Use @debugM@ instead
+-- TODO #64 Use @debugM@ instead
 elog :: (MonadIO m, Show a) => a -> m ()
 elog = liftIO . hPutStrLn stderr . tshow
 
 scanFile' :: FilePath -> ExceptT Err IO [Token]
 scanFile' = ExceptT . scanFile
 
--- TODO: Accept a virtual file as well
+-- TODO: #63 Accept a virtual file as well
 parseProgram' :: FilePath -> ExceptT Err IO (Program SRng)
 parseProgram' filename = ExceptT $ parseProgram filename <$> readFile filename
 
@@ -203,45 +248,44 @@ uriToFilePath' :: Monad m => Uri -> ExceptT Err m FilePath
 uriToFilePath' uri = extract "Read token Error" $ uriToFilePath uri
 
 -- | Convert Maybe to ExceptT using string as an error message in Maybe is Nothing
--- TODO: Handle different kinds of problems differently!
+-- TODO: #67 Handle different kinds of problems differently!
+-- TODO: #66 Add custom error type for LSP
 extract :: Monad m => String -> Maybe a -> ExceptT Err m a
 extract errMessage = except . maybeToRight (Err (DummySRng "From lsp") errMessage)
 
--- TODO: Add type checking as well
-tokensToHover :: Position -> [Token] -> Program SRng -> ExceptT Err IO Hover
-tokensToHover pos tokens ast = do
+-- TODO: #65 Show type information on hover
+tokensToHover :: Position -> Program SRng -> ExceptT Err IO Hover
+tokensToHover pos ast = do
       let astNode = findAstAtPoint pos ast
-      tok <- extract "Couldn't find token" $ find (posInRange pos . tokenPos) tokens
-      return $ tokenToHover tok astNode
+      return $ tokenToHover astNode
 
-tokenToHover :: Token -> SomeAstNode SRng -> Hover
-tokenToHover tok astNode = Hover contents range
+tokenToHover :: [SomeAstNode SRng] -> Hover
+tokenToHover astNode = Hover contents range
   where
     astText = astToText astNode
-    txt = fromMaybe (tokenToText tok) astText
+    dbgInfo = case head astNode of
+      ast@SProg{} -> T.take 80 $ tshow ast
+      ast         -> tshow ast
+    txt = astText <> "\n\n" <> dbgInfo
     contents = HoverContents $ markedUpContent "haskell" txt
-    annRange = case astText of
-      Just _ -> getLoc astNode
-      Nothing -> tokenPos tok
+    annRange = getLoc $ head astNode
     range = sRngToRange annRange
 
-astToText :: SomeAstNode SRng -> Maybe T.Text
-astToText (SMapping (Mapping _ from to)) = Just $ "This block maps variable " <> T.pack from <> " to GrammaticalFramework WordNet definion " <> tshow to
-astToText (SClassDecl (ClassDecl _ (ClsNm x) _)) = Just $ "Declaration of new class : " <> T.pack x
-astToText _ = Nothing
+astToText :: [SomeAstNode SRng] -> T.Text
+astToText (SMapping (Mapping _ from to):_) = "This block maps variable " <> T.pack from <> " to GrammaticalFramework WordNet definion " <> tshow to
+astToText (SClassDecl (ClassDecl _ (ClsNm x) _):_) = "Declaration of new class : " <> T.pack x
+astToText (SGlobalVarDecl (VarDecl _ n _):_) = "Declaration of global variable " <> T.pack n
+astToText (SRule (Rule _ n _ _ _):_) = "Declaration of rule " <> T.pack n
+astToText _ = "No hover info found"
 
-tokenToText :: Token -> T.Text
-tokenToText token =
-  case tokenKind token of
-    TokenLexicon -> "This is a lexicon"
-    _            -> tshow token
-
-lookupTokenBare' :: Position -> Uri -> ExceptT Err IO Hover
+lookupTokenBare' :: Position -> Uri -> ExceptT Err (LspM Config) (Maybe Hover)
 lookupTokenBare' pos uri = do
-  path <- uriToFilePath' uri
-  allTokens <- scanFile' path
-  ast <- parseProgram' path
-  tokensToHover pos allTokens ast
+  mbAst <- parseVirtualOrRealFile uri
+  -- If nothing, return nothing, else keep going with the result
+  forM mbAst $ \ast ->
+    -- `hoist liftIO` changes `ExceptT Err IO a` to `ExceptT Err (LspM Config) a`
+    hoist liftIO $ tokensToHover pos ast
+
 
 syncOptions :: J.TextDocumentSyncOptions
 syncOptions = J.TextDocumentSyncOptions
@@ -261,6 +305,7 @@ lspOptions = defaultOptions
 
 main :: IO Int
 main = do
+  -- TODO: Make the logging work!
   setupLogger Nothing ["lsp-demo"] minBound
   runServer $ ServerDefinition
     { onConfigurationChange = const $ pure $ Right ()

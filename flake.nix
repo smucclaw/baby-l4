@@ -11,21 +11,13 @@
     devShell = builtins.mapAttrs
       (arch: pkgs:
         let
-          myStack = pkgs.haskell.lib.appendPatches
-            pkgs.haskellPackages.stack
-            [
-              (pkgs.fetchpatch {
-                url = "https://github.com/commercialhaskell/stack/pull/5490.patch";
-                sha256 = "15782z8ggkzmxs8bl9lpp598vbydhb8rr6gv42ajaadaj6q6kcxv";
-              })
-            ];
           gf-pkgs = gf-nix.packages.${arch};
           # inherit (gf-pkgs) gf-wordnet;
         in
         pkgs.mkShell {
           nativeBuildInputs = [
-            myStack
             gf-pkgs.gf-with-rgl
+            pkgs.haskell.compiler.ghc884
             # pkgs.graphviz
             # pkgs.emacs
           ];
