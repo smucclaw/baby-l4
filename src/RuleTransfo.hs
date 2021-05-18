@@ -10,8 +10,48 @@ import Data.List (sortBy)
 
 
 ----------------------------------------------------------------------
+-- Logical infrastructure: macros for simplifying formula construction
+----------------------------------------------------------------------
+
+boolT :: Tp
+boolT = ClassT (ClsNm "Boolean")
+
+trueV :: Expr Tp
+trueV = ValE boolT (BoolV True)
+
+falseV :: Expr Tp
+falseV = ValE boolT (BoolV False)
+
+-- TODO: UBneg should be renamed to UBnot
+not :: Expr Tp -> Expr Tp
+not = UnaOpE boolT (UBool UBneg)
+
+conj :: Expr Tp -> Expr Tp -> Expr Tp
+conj = BinOpE boolT (BBool BBand)
+
+disj :: Expr Tp -> Expr Tp -> Expr Tp
+disj = BinOpE boolT (BBool BBor)
+
+impl :: Expr Tp -> Expr Tp -> Expr Tp
+impl = BinOpE boolT (BBool BBimpl)
+
+conjs :: [Expr Tp] -> Expr Tp
+conjs [] = trueV
+conjs [e] = e
+conjs (e:es) = conj e (conjs es)
+
+disjs :: [Expr Tp] -> Expr Tp
+disjs [] = falseV
+disjs [e] = e
+disjs (e:es) = disj e (disjs es)
+
+eq  :: Expr Tp -> Expr Tp -> Expr Tp
+eq = BinOpE (ClassT (ClsNm "Boolean")) (BCompar BCeq)
+
+----------------------------------------------------------------------
 -- Logical infrastructure: computing normal forms
 ----------------------------------------------------------------------
+
 dropVarBy :: Int -> Var -> Var
 dropVarBy n (LocalVar vn i) = LocalVar vn (i - n)
 dropVarBy n v = v
@@ -105,43 +145,21 @@ prenexForm (QuantifE t q vn vt et) = QuantifE t q vn vt (prenexForm et)
 prenexForm e = e
 
 
+ruleToFormula :: Rule Tp -> Expr Tp
+ruleToFormula r = abstract All (varDeclsOfRule r) (impl (precondOfRule r) (postcondOfRule r))
+
+abstract :: Quantif -> [VarDecl Tp] -> Expr Tp -> Expr Tp
+abstract q vds e
+  = foldr
+      (\ vd -> QuantifE boolT q (nameOfVarDecl vd) (tpOfVarDecl vd)) e
+      vds
+
 -------------------------------------------------------------
 -- Rule transformations
 -------------------------------------------------------------
 
 type DecompRule t = Rule t -> [Rule t]
 type DecompWorklist t = [Rule t] -> [Rule t]
-
-boolT :: Tp
-boolT = ClassT (ClsNm "Boolean")
-
-trueV :: Expr Tp
-trueV = ValE boolT (BoolV True)
-
-falseV :: Expr Tp
-falseV = ValE boolT (BoolV False)
-
-neg :: Expr Tp -> Expr Tp
-neg = UnaOpE boolT (UBool UBneg)
-
-conj :: Expr Tp -> Expr Tp -> Expr Tp
-conj = BinOpE boolT (BBool BBand)
-
-disj :: Expr Tp -> Expr Tp -> Expr Tp
-disj = BinOpE boolT (BBool BBor)
-
-conjs :: [Expr Tp] -> Expr Tp
-conjs [] = trueV
-conjs [e] = e
-conjs (e:es) = conj e (conjs es)
-
-disjs :: [Expr Tp] -> Expr Tp
-disjs [] = falseV
-disjs [e] = e
-disjs (e:es) = disj e (disjs es)
-
-eq  :: Expr Tp -> Expr Tp -> Expr Tp
-eq = BinOpE (ClassT (ClsNm "Boolean")) (BCompar BCeq)
 
 ruleAllR :: DecompRule Tp
 ruleAllR r =
@@ -158,7 +176,9 @@ ruleImplR r =
 ruleConjR :: DecompRule t
 ruleConjR r =
   case postcondOfRule r of
-    BinOpE t (BBool BBand) e1 e2 -> [r{postcondOfRule = e1}, r{postcondOfRule = e2}]
+    BinOpE t (BBool BBand) e1 e2 ->
+      [ r{postcondOfRule = e1}{nameOfRule = nameOfRule r ++ "Conj1"}
+      , r{postcondOfRule = e2}{nameOfRule = nameOfRule r ++ "Conj2"}]
     _ -> [r]
 
 -- suggestion for new variable name, without guarantees that this name is unique
@@ -310,7 +330,7 @@ rulesInversion rls =
 -- - "r2 subject to r1" (as annotation of r2: r1 has precedence over r2)
 -- - "r1 despite r2" (as annotation of r1: r1 has precedence over r2)
 addNegPrecondTo :: Rule Tp -> Rule Tp -> Rule Tp
-addNegPrecondTo r1 r2 = r2{precondOfRule = conj (neg (precondOfRule r1)) (precondOfRule r2)}
+addNegPrecondTo r1 r2 = r2{precondOfRule = conj (RuleTransfo.not (precondOfRule r1)) (precondOfRule r2)}
 
 
 liftDecompRule :: DecompRule t -> DecompWorklist t
@@ -327,4 +347,4 @@ clarify :: DecompWorklist Tp
 clarify = repeatDecomp (liftDecompRule ruleConjR . liftDecompRule ruleImplR . liftDecompRule ruleAllR)
 
 normalize :: DecompWorklist Tp
-normalize = liftDecompRule ruleNormalizeVarOrder . ruleExLInv
+normalize = liftDecompRule ruleNormalizeVarOrder . liftDecompRule ruleAbstrInstances . ruleExLInv

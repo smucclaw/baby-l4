@@ -225,9 +225,9 @@ Rules  :                       { [] }
        | Rules Rule            { $2 : $1}
        | Rules Fact            { $2 : $1}
 
-Rule: rule '<' VAR '>'  RuleVarDecls RulePrecond RuleConcl { Rule (tokenRange $1 $7) (tokenSym $3) $5 $6 $7 }
-Fact: fact '<' VAR '>'  RuleVarDecls Expr { Rule (tokenRange $1 $6) (tokenSym $3) $5
-                                                 (ValE (nullSRng) (BoolV True)) $6 }
+Rule: rule '<' VAR '>'  KVMap RuleVarDecls RulePrecond RuleConcl { Rule (tokenRange $1 $8) (tokenSym $3) $6 $7 $8 }
+Fact: fact '<' VAR '>'  KVMap RuleVarDecls Expr { Rule (tokenRange $1 $7) (tokenSym $3) $6
+                                                 (ValE (nullSRng) (BoolV True)) $7 }
 
 RuleVarDecls :                       { [] }
              | for VarDeclsCommaSep  { reverse $2 }
@@ -236,13 +236,13 @@ RulePrecond : if Expr      { $2 }
 RuleConcl   : then Expr    { $2 }
 
 KVMap :                        { [] }
-| '{' KVMapListCommaSep  '}'   { $2 }
+| '{' KVMapListCommaSep  '}'   { reverse $2 }
 
 KVMapListCommaSep :                      { [] }
             | KVPair                   { [$1] }
             | KVMapListCommaSep ',' KVPair  { $3 : $1 }
 
-KVPair : VAR             { (tokenSym $1, EmptyVM) }
+KVPair : VAR             { (tokenSym $1, MapVM []) }
        | VAR ':' VAR     { (tokenSym $1, IdVM $ tokenSym $3) }
        | VAR ':' true    { (tokenSym $1, BoolVM True) }
        | VAR ':' false   { (tokenSym $1, BoolVM False) }

@@ -8,9 +8,14 @@ import Typing (getTypeOfExpr, isBooleanTp, isIntegerTp, isFloatTp, superClassesO
 
 import SimpleSMT as SMT
 import qualified Data.Maybe
-import Control.Monad ( when, unless )
+import Control.Monad ( when, unless, foldM )
 import Text.Pretty.Simple (pPrint, pPrintString)
-import RuleTransfo ( prenexForm, ruleImplR, liftDecompRule, repeatDecomp, ruleAllR, clarify, ruleAbstrInstances, ruleExL, ruleExLInv, ruleNormalizeVarOrder, rulesInversion, normalize )
+import RuleTransfo ( prenexForm, ruleImplR, liftDecompRule, repeatDecomp, ruleAllR, clarify,
+                    ruleAbstrInstances, ruleExL, ruleExLInv, ruleNormalizeVarOrder, rulesInversion, normalize,
+                    ruleToFormula,
+                    conjs, not )
+import PrintProg (printRule)
+import Data.Maybe (fromMaybe)
 
 
 -------------------------------------------------------------
@@ -110,7 +115,7 @@ varToSExpr env (GlobalVar vn) =
 varToSExpr env (LocalVar vn i) = localVarRef vn
 
 transUArithOp :: UArithOp ->  SExpr -> SExpr
-transUArithOp UAminus = neg
+transUArithOp UAminus = SMT.neg
 
 transUBoolOp :: UBoolOp ->  SExpr -> SExpr
 transUBoolOp UBneg = SMT.not
@@ -186,19 +191,110 @@ proveExprTest  :: Show t => [ClassDecl t] -> [VarDecl t] -> Expr t ->IO ()
 proveExprTest cds vds e =
   pPrint $ () <$ prenexForm e
 
-proveProgramCorrect :: Show t => Program t -> IO ()
-proveProgramCorrect p =
+selectOneOfInstr :: [String] -> ValueKVM ->  String
+selectOneOfInstr chs (IdVM s) =
+  if s `elem` chs
+  then s
+  else error ("choose exactly one of " ++ show chs)
+selectOneOfInstr chs (MapVM kvm) = case filter (\(k,_) -> k `elem` chs) kvm of
+  [kvp] -> fst kvp
+  _ -> error ("choose exactly one of " ++ show chs)
+selectOneOfInstr chs _ = error ("incorrect instruction for choice among " ++ show chs)
+
+selectAssocVal :: String -> ValueKVM -> Maybe ValueKVM
+selectAssocVal s (MapVM kvm) = case filter (\(k,_) -> k == s) kvm of
+  [kvp] -> Just (snd kvp)
+  [] -> Nothing
+  _ -> error ("several possible choices for " ++ show s)
+selectAssocVal s _ = Nothing
+
+-- TODO: to be defined in detail
+defaultRuleSet :: Program t -> [Rule t]
+defaultRuleSet = rulesOfProgram
+
+-- TODO: rule specs are here supposed to be comma separated lists of rule names inclosed in { .. } 
+-- It should also be possible to specify transformations to the rules 
+rulesOfRuleSpec :: Program t -> ValueKVM -> [Rule t]
+rulesOfRuleSpec p (MapVM kvm) = 
+  let nameRuleAssoc = map (\r -> (nameOfRule r, r)) (rulesOfProgram p)
+  in map (\(k, v) -> fromMaybe (error ("rule name " ++ k ++ " unknown in rule set")) (lookup k nameRuleAssoc)) kvm
+rulesOfRuleSpec p instr = 
+  error ("rule specification " ++ show instr ++ " should be a list (in { .. }) of rule names and transformations")
+
+-- add rules of rs2 to rs1, not adding rules already existing in rs1 as determined by name
+addToRuleSet :: [Rule t] -> [Rule t] -> [Rule t]
+addToRuleSet rs1 rs2 = rs1 ++ [r2 | r2 <- rs2 ,  Prelude.not (any (\r1 -> nameOfRule r1 == nameOfRule r2) rs1) ]
+
+-- delete from rs1 the rules in rs2 as determined by name
+delFromRuleSet :: [Rule t] -> [Rule t] -> [Rule t]
+delFromRuleSet rs1 rs2 = [r1 | r1 <- rs1 ,  Prelude.not (any (\r2 -> nameOfRule r1 == nameOfRule r2) rs2) ]
+
+
+composeApplicableRuleSet :: Program t -> Maybe ValueKVM -> Maybe ValueKVM -> Maybe ValueKVM -> [Rule t]
+composeApplicableRuleSet p mbadd mbdel mbonly =
+  case mbonly of
+    Just onlyRls -> addToRuleSet [] (rulesOfRuleSpec p onlyRls)
+    Nothing -> addToRuleSet
+                  (delFromRuleSet (defaultRuleSet p)
+                                (rulesOfRuleSpec p (fromMaybe (MapVM []) mbdel)))
+                  (rulesOfRuleSpec p (fromMaybe (MapVM []) mbadd))
+
+selectApplicableRules :: Program t -> ValueKVM -> [Rule t]
+selectApplicableRules p instr =
+  case selectAssocVal "rules" instr of
+    Nothing -> defaultRuleSet p
+    Just rulespec -> composeApplicableRuleSet p
+                      (selectAssocVal "add" rulespec)
+                      (selectAssocVal "del" rulespec)
+                      (selectAssocVal "only" rulespec)
+
+proveAssertionSMT :: Program Tp -> ValueKVM -> Assertion Tp -> IO ()
+proveAssertionSMT p instr asrt = do
+  putStrLn "Launching SMT solver"
+  let proveConsistency = selectOneOfInstr ["consistent", "valid"] instr == "consistent"
+  let applicableRules = selectApplicableRules p instr
+  let proofTarget = constrProofTarget proveConsistency asrt applicableRules
+  proveExpr (classDeclsOfProgram p) (globalsOfProgram p) proofTarget
+
+
+constrProofTarget :: Bool -> Assertion Tp -> [Rule Tp] -> Expr Tp
+constrProofTarget sat asrt rls =
+  let concl = exprOfAssertion asrt
+      forms = map ruleToFormula rls
+  in if sat
+     then conjs (concl : forms)
+     else conjs (RuleTransfo.not concl : forms)
+
+-- TODO: details to be filled in
+proveAssertionsCASP :: Show t => Program t -> ValueKVM  -> Assertion t -> IO ()
+proveAssertionsCASP p v asrt = putStrLn "No sCASP solver implemented"
+
+proveAssertion :: Program Tp -> Assertion Tp -> IO ()
+proveAssertion p asrt = foldM (\r (k,instr) ->
+            case k of
+              "SMT" -> proveAssertionSMT p instr asrt
+              "sCASP"-> proveAssertionsCASP p instr asrt
+              _ -> return ())
+          () (instrOfAssertion asrt)
+
+proveProgram :: Program (LocTypeAnnot Tp) -> IO ()
+proveProgram p = 
+  let cleanedProg = fmap typeAnnot p
+  in foldM (\r a -> proveAssertion cleanedProg a) () (assertionsOfProgram cleanedProg)
+{-
     case assertionsOfProgram p of
         [] -> error "in proveProgram: at least one assertion required"
         a:_ -> do
             putStrLn "Launching SMT solver"
             proveExpr (classDeclsOfProgram p) (globalsOfProgram p) (exprOfAssertion a)
+-}
 
 -- this is only a test version, the definite version is proveProgramCorrect
-proveProgram :: Program (LocTypeAnnot Tp) -> IO ()
-proveProgram p =
+proveProgramTest :: Program (LocTypeAnnot Tp) -> IO ()
+proveProgramTest p =
   case rulesOfProgram p of
       [] -> error "in proveProgram: at least one rule required"
       r1: r2: _ -> do
-        pPrint ((rulesInversion . normalize)  [fmap typeAnnot r1, fmap typeAnnot r2])
+        putStrLn (printRule ((rulesInversion . normalize)  [fmap typeAnnot r1, fmap typeAnnot r2]))
+        -- pPrint ((rulesInversion . normalize)  [fmap typeAnnot r1, fmap typeAnnot r2])
 

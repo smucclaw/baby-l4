@@ -336,7 +336,7 @@ instance HasLoc t => HasLoc (Rule t) where
   getLoc e = getLoc (annotOfRule e)
 
 data Assertion t = Assertion { annotOfAssertion :: t
-                             , modifOfAssertion :: KVMap
+                             , instrOfAssertion :: KVMap
                              , exprOfAssertion :: Expr t}
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
@@ -345,8 +345,7 @@ instance HasLoc t => HasLoc (Assertion t) where
 
 type KeyKVM = String
 data ValueKVM
-  = EmptyVM
-  | IdVM String 
+  = IdVM String 
   | BoolVM Bool 
   | IntVM Integer
   | MapVM KVMap

@@ -57,6 +57,7 @@ library
                   InterfaceNunchaku
                   --RuleToTa
                   --TaToUppaal
+                  PrintProg
                   RuleTransfo
                   Smt
                   -- SmtSBV
