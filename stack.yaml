@@ -5,7 +5,7 @@ packages:
 
 extra-deps:
   - github: GrammaticalFramework/gf-core
-    commit: 7dc6717b5e95122a810d3b580981fc4ce0c9744b
+    commit: eeda03e9b065ee74905b6d593aa88912c78ef8bb
   - github: GrammaticalFramework/gf-ud
     commit: 4b0760e02f9efdb8fbdd47ed2258e9b89f15a14d
   - json-0.10@sha256:d9fc6b07ce92b8894825a17d2cf14799856767eb30c8bf55962baa579207d799,3210
