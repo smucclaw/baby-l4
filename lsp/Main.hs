@@ -222,7 +222,7 @@ selectSmallestContaining pos parents node =
 
 getChildren :: SomeAstNode t -> [SomeAstNode t]
 getChildren (SProg Program {lexiconOfProgram, classDeclsOfProgram, globalsOfProgram, rulesOfProgram }) =
-  map SMapping lexiconOfProgram ++ map SClassDecl classDeclsOfProgram ++ map SGlobalVarDecl globalsOfProgram ++ map SRule rulesOfProgram -- TODO: Add other children
+  map SMapping lexiconOfProgram ++ map SClassDecl classDeclsOfProgram ++ map SGlobalVarDecl globalsOfProgram ++ map SRule rulesOfProgram
 getChildren (SExpr et) = SExpr <$> childExprs et
 getChildren (SMapping _) = []
 getChildren (SClassDecl _) = []
@@ -233,14 +233,14 @@ findAstAtPoint :: HasLoc t => Position -> Program t -> [SomeAstNode t]
 findAstAtPoint pos = selectSmallestContaining pos [] . SProg
 
 -- | Temporary bad debugging function.
--- Use @debugM@ instead
+-- TODO #64 Use @debugM@ instead
 elog :: (MonadIO m, Show a) => a -> m ()
 elog = liftIO . hPutStrLn stderr . tshow
 
 scanFile' :: FilePath -> ExceptT Err IO [Token]
 scanFile' = ExceptT . scanFile
 
--- TODO: Accept a virtual file as well
+-- TODO: #63 Accept a virtual file as well
 parseProgram' :: FilePath -> ExceptT Err IO (Program SRng)
 parseProgram' filename = ExceptT $ parseProgram filename <$> readFile filename
 
@@ -248,11 +248,12 @@ uriToFilePath' :: Monad m => Uri -> ExceptT Err m FilePath
 uriToFilePath' uri = extract "Read token Error" $ uriToFilePath uri
 
 -- | Convert Maybe to ExceptT using string as an error message in Maybe is Nothing
--- TODO: Handle different kinds of problems differently!
+-- TODO: #67 Handle different kinds of problems differently!
+-- TODO: #66 Add custom error type for LSP
 extract :: Monad m => String -> Maybe a -> ExceptT Err m a
 extract errMessage = except . maybeToRight (Err (DummySRng "From lsp") errMessage)
 
--- TODO: Add type checking as well
+-- TODO: #65 Show type information on hover
 tokensToHover :: Position -> Program SRng -> ExceptT Err IO Hover
 tokensToHover pos ast = do
       let astNode = findAstAtPoint pos ast
