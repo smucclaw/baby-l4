@@ -35,6 +35,10 @@ import Language.LSP.VFS
 import qualified Data.Rope.UTF16 as Rope
 import Control.Monad.Morph (hoist)
 import Data.Bifunctor (first)
+import Paths_baby_l4 (getDataFileName)
+import Typing (checkError)
+import ToGF.NormalizeSyntax (normalizeProg)
+import Data.Maybe (fromMaybe)
 
 type Config = ()
 
@@ -135,6 +139,18 @@ sendDiagnostics fileUri version = do
             ]
   publishDiagnostics 100 fileUri version (partitionBySource diags)
 
+readPrelude :: IO (Program SRng)
+readPrelude = do
+  l4PreludeFilepath <- getDataFileName "l4/Prelude.l4"
+  do
+    contents <- readFile l4PreludeFilepath
+    case parseProgram l4PreludeFilepath contents of
+      Right ast -> do
+        -- print ast
+        return ast
+      Left err -> do
+        error "Parser Error in Prelude"
+
 parseAndSendErrors :: J.Uri -> T.Text -> LspM Config (Maybe (Program SRng))
 parseAndSendErrors uri contents = do
   let Just loc = uriToFilePath uri
@@ -142,8 +158,26 @@ parseAndSendErrors uri contents = do
       nuri = toNormalizedUri uri
   case pres of
     Right ast -> do
-      publishDiagnostics 100 nuri Nothing (Map.singleton (Just "parser") mempty)
-      pure $ Just ast
+      preludeAst <- liftIO readPrelude
+      case checkError preludeAst ast of
+        Left tpErr -> do
+            let
+              tpDiags = [J.Diagnostic
+                        (fromMaybe (Range (Position 0 0) (Position 0 0)) $ sRngToRange (DummySRng "Type error"))
+                        (Just J.DsError)  -- severity
+                        Nothing  -- code
+                        (Just "parser") -- source
+                        (T.pack $ show tpErr)
+                        Nothing -- tags
+                        (Just (J.List []))
+                      ]
+            publishDiagnostics 100 nuri Nothing (partitionBySource tpDiags)
+            pure Nothing
+        Right tpAst -> do
+          let tpAstNoSrc = fmap typeAnnot tpAst
+          let normalAst = normalizeProg tpAstNoSrc
+          publishDiagnostics 100 nuri Nothing (Map.singleton (Just "parser") mempty)
+          pure $ Just ast
     Left err -> do
       let
         diags = [J.Diagnostic
