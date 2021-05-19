@@ -163,10 +163,10 @@ parseAndSendErrors uri contents = do
         Left tpErr -> do
             let
               tpDiags = [J.Diagnostic
-                        (fromMaybe (Range (Position 0 0) (Position 0 0)) $ sRngToRange (DummySRng "Type error"))
+                        (Range (Position 0 0) (Position 11 7)) -- hardcoded dummy range
                         (Just J.DsError)  -- severity
                         Nothing  -- code
-                        (Just "parser") -- source
+                        (Just "PARSER-TC") -- source
                         (T.pack $ show tpErr)
                         Nothing -- tags
                         (Just (J.List []))
@@ -176,7 +176,7 @@ parseAndSendErrors uri contents = do
         Right tpAst -> do
           let tpAstNoSrc = fmap typeAnnot tpAst
           let normalAst = normalizeProg tpAstNoSrc
-          publishDiagnostics 100 nuri Nothing (Map.singleton (Just "parser") mempty)
+          publishDiagnostics 100 nuri Nothing (Map.singleton (Just "PARSER-TC") mempty)
           pure $ Just ast
     Left err -> do
       let
@@ -184,14 +184,13 @@ parseAndSendErrors uri contents = do
                   (errorRange err)
                   (Just J.DsError)  -- severity
                   Nothing  -- code
-                  (Just "parser") -- source
+                  (Just "parserLeft") -- source
                   (T.pack $ msg err)
                   Nothing -- tags
                   (Just (J.List []))
                 ]
       publishDiagnostics 100 nuri Nothing (partitionBySource diags)
       pure Nothing
-
 
 tshow :: Show a => a -> T.Text
 tshow = T.pack . show
