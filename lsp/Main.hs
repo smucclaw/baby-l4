@@ -39,6 +39,8 @@ import Paths_baby_l4 (getDataFileName)
 import Typing (checkError)
 import ToGF.NormalizeSyntax (normalizeProg)
 import Data.Maybe (fromMaybe)
+import Error
+import Data.List (intercalate)
 
 type Config = ()
 
@@ -150,6 +152,41 @@ readPrelude = do
         return ast
       Left err -> do
         error "Parser Error in Prelude"
+
+errorToErrs :: Error -> [Err]
+errorToErrs e = case e of
+                  (ClassDeclsErr c) -> 
+                    case c of 
+                      DuplicateClassNamesCDE dc -> mkErrs stringOfClassName "Duplicate class names" dc
+                      UndefinedSuperclassCDE us -> mkErrs stringOfClassName "Undefined super classes" us
+                      CyclicClassHierarchyCDE cc -> mkErrs stringOfClassName "Cyclic class hierarchy" cc
+                  (VarDeclsErr v) ->
+                    case v of 
+                      DuplicateVarNamesVDE dup -> map (mkErrsVarRule "Duplicate var names") dup 
+                      UndefinedTypeVDE un      -> map (mkErrsVarRule "Duplicate var names") un
+                  (FieldDeclsErr f) ->
+                    case f of
+                      UndefinedTypeFDE uf -> mkErrs stringOfFieldName "Undefined field type" uf
+                      DuplicateFieldNamesFDE dupf -> map mkErrsField dupf
+                  (AssertionErr (AssertionErrAE ae)) -> _
+                  -- consider using printErrorCause to gen err msgs for now
+                  
+mkErr :: (b -> String) -> String -> (SRng, b) -> Err
+mkErr f msg (r, n) = Err r -- get range
+                        (((msg ++) . f) n) -- concatenate err msg with class/field/assertion name as extracted by fn f
+
+mkErrs ::(b -> String) -> String -> [(SRng, b)] ->[Err]
+mkErrs f msg = map (mkErr f msg)
+
+mkErrsVarRule :: String -> (SRng, [Char]) -> Err
+mkErrsVarRule msg (r, n) = Err r -- get range
+                            (msg ++ n)-- concatenate err msg with var/rule name
+
+mkErrsField :: (SRng, ClassName, [(SRng, FieldName)]) -> Err
+mkErrsField (range, cls, fieldLs) = Err range ("Duplicate field names in the class " ++ stringOfClassName cls ++ ": " ++ intercalate "," (map fieldErrorRange fieldLs))
+
+fieldErrorRange :: (SRng, FieldName) -> String
+fieldErrorRange (range, field) = show range ++ ": " ++ stringOfFieldName field 
 
 parseAndSendErrors :: J.Uri -> T.Text -> LspM Config (Maybe (Program SRng))
 parseAndSendErrors uri contents = do
