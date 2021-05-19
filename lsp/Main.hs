@@ -168,7 +168,7 @@ errorToErrs e = case e of
                     case f of
                       UndefinedTypeFDE uf -> mkErrs stringOfFieldName "Undefined field type" uf
                       DuplicateFieldNamesFDE dupf -> map mkErrsField dupf
-                  (AssertionErr (AssertionErrAE ae)) -> _
+                  -- (AssertionErr (AssertionErrAE ae)) -> _
                   -- consider using printErrorCause to gen err msgs for now
                   
 mkErr :: (b -> String) -> String -> (SRng, b) -> Err
