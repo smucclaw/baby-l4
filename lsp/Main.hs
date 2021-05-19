@@ -168,9 +168,14 @@ errorToErrs e = case e of
                     case f of
                       UndefinedTypeFDE uf -> mkErrs stringOfFieldName "Undefined field type" uf
                       DuplicateFieldNamesFDE dupf -> map mkErrsField dupf
-                  -- (AssertionErr (AssertionErrAE ae)) -> _
+                  (AssertionErr (AssertionErrAE ae)) -> map getErrorCause ae
+                  (RuleErr (RuleErrorRE re)) -> map getErrorCause re
+                  _ -> [Err (DummySRng "Should not get here") ""]
                   -- consider using printErrorCause to gen err msgs for now
-                  
+
+getErrorCause :: (SRng, ErrorCause) -> Err
+getErrorCause (r, ec) = Err r (printErrorCause ec)
+
 mkErr :: (b -> String) -> String -> (SRng, b) -> Err
 mkErr f msg (r, n) = Err r -- get range
                         (((msg ++) . f) n) -- concatenate err msg with class/field/assertion name as extracted by fn f
@@ -188,6 +193,9 @@ mkErrsField (range, cls, fieldLs) = Err range ("Duplicate field names in the cla
 fieldErrorRange :: (SRng, FieldName) -> String
 fieldErrorRange (range, field) = show range ++ ": " ++ stringOfFieldName field 
 
+extractTypeErrorMsg :: Err -> String
+extractTypeErrorMsg (Err _ m) = m
+
 parseAndSendErrors :: J.Uri -> T.Text -> LspM Config (Maybe (Program SRng))
 parseAndSendErrors uri contents = do
   let Just loc = uriToFilePath uri
@@ -198,13 +206,14 @@ parseAndSendErrors uri contents = do
       preludeAst <- liftIO readPrelude
       case checkError preludeAst ast of
         Left tpErr -> do
+            let firstErr = head $ errorToErrs tpErr
             let
               tpDiags = [J.Diagnostic
-                        (Range (Position 0 0) (Position 11 7)) -- hardcoded dummy range
+                        (errorRange firstErr) -- hardcoded dummy range
                         (Just J.DsError)  -- severity
                         Nothing  -- code
                         (Just "PARSER-TC") -- source
-                        (T.pack $ show tpErr)
+                        (T.pack $ extractTypeErrorMsg firstErr)
                         Nothing -- tags
                         (Just (J.List []))
                       ]
