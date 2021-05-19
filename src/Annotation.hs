@@ -37,7 +37,7 @@ type Reason = String
 
 data SRng =
   RealSRng RealSRng
-  | DummySRng Reason
+  | DummySRng Reason
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 data RealSRng = SRng

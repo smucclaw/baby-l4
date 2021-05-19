@@ -98,7 +98,7 @@ import Control.Monad.Except
 %%
 
 Program : Lexicon ClassDecls GlobalVarDecls Rules Assertions
-                                   { Program (tokenRangeList [getLoc $1, getLoc $2, getLoc $3, getLoc $4, getLoc $5]) (reverse $ unLoc $1) (reverse $2)  (reverse $3) (reverse $4) (reverse $5) }
+                                   { Program (tokenRangeList [getLoc $1, getLoc $2, getLoc $3, getLoc $4, getLoc $5]) (reverse $ unLoc $1) (reverse $2)  (reverse $3) (reverse $4) (reverse $5) }
 
 Lexicon :                   { L (DummySRng "No lexicon") [] }
         |  lexicon Mappings { L (tokenRangeList [getLoc $1, getLoc $2]) $2 }
@@ -154,8 +154,8 @@ Assertion : assert KVMap Expr      { Assertion (tokenRange $1 $3) $2 $3 }
 -- and force the use of parenthesis: \x : (A -> B) -> x
 ATp  : Bool                       { L (getLoc $1) BoolT }
      | Int                        { L (getLoc $1) IntT }
-     | VAR                        { L (getLoc $1) $ ClassT (ClsNm $ tokenSym $1) }
-     | '(' TpsCommaSep ')'        { L (getLoc $2) $ case $2 of [t] -> unLoc t; tcs -> TupleT (map unLoc $ reverse tcs) }
+     | VAR                        { L (getLoc $1) $ ClassT (ClsNm $ tokenSym $1) }
+     | '(' TpsCommaSep ')'        { L (getLoc $2) $ case $2 of [t] -> unLoc t; tcs -> TupleT (map unLoc $ reverse tcs) }
 
 TpsCommaSep :                      { [] }
             | Tp                   { [$1] }

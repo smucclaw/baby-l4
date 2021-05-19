@@ -69,7 +69,7 @@ parseModel' :: String -> IO ()
 parseModel' = parseTest pModel
 
 parseWError :: (Stream s, ShowErrorComponent e) => Parsec e s b -> String -> s -> Either String b
-parseWError p src = either (Left . errorBundlePretty) Right . parse p src
+parseWError p src = either (Left . errorBundlePretty) Right . parse p src
 
 spaceConsumer :: Parser ()
 spaceConsumer = space

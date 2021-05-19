@@ -182,11 +182,11 @@ errorRange (Err s _)
 -- TODO: Use findAllExpressions and findExprAt to extract types for hover
 -- TODO: Show type errors as diagnostics
 
--- | Use magic to find all Expressions in a program
+-- | Use magic to find all Expressions in a program
 findAllExpressions :: (Data t) => Program t -> [Expr t]
 findAllExpressions = toListOf template
 
--- | Find the smallest subexpression which contains the specified position
+-- | Find the smallest subexpression which contains the specified position
 findExprAt :: HasLoc t => J.Position -> Expr t -> Expr t
 findExprAt pos expr =
   case List.find (posInRange pos . getLoc) (childExprs expr) of
