@@ -157,16 +157,16 @@ errorToErrs :: Error -> [Err]
 errorToErrs e = case e of
                   (ClassDeclsErr c) -> 
                     case c of 
-                      DuplicateClassNamesCDE dc -> mkErrs stringOfClassName "Duplicate class names" dc
-                      UndefinedSuperclassCDE us -> mkErrs stringOfClassName "Undefined super classes" us
-                      CyclicClassHierarchyCDE cc -> mkErrs stringOfClassName "Cyclic class hierarchy" cc
+                      DuplicateClassNamesCDE dc -> mkErrs stringOfClassName "Duplicate class name: " dc
+                      UndefinedSuperclassCDE us -> mkErrs stringOfClassName "Undefined super class: " us
+                      CyclicClassHierarchyCDE cc -> mkErrs stringOfClassName "Cyclic class hierarchy: " cc
                   (VarDeclsErr v) ->
                     case v of 
-                      DuplicateVarNamesVDE dup -> map (mkErrsVarRule "Duplicate var names") dup 
-                      UndefinedTypeVDE un      -> map (mkErrsVarRule "Duplicate var names") un
+                      DuplicateVarNamesVDE dup -> map (mkErrsVarRule "Duplicate var name: ") dup 
+                      UndefinedTypeVDE un      -> map (mkErrsVarRule "Undefined type var decl: ") un
                   (FieldDeclsErr f) ->
                     case f of
-                      UndefinedTypeFDE uf -> mkErrs stringOfFieldName "Undefined field type" uf
+                      UndefinedTypeFDE uf -> mkErrs stringOfFieldName "Undefined field type: " uf
                       DuplicateFieldNamesFDE dupf -> map mkErrsField dupf
                   (AssertionErr (AssertionErrAE ae)) -> map getErrorCause ae
                   (RuleErr (RuleErrorRE re)) -> map getErrorCause re
@@ -188,7 +188,7 @@ mkErrsVarRule msg (r, n) = Err r -- get range
                             (msg ++ n)-- concatenate err msg with var/rule name
 
 mkErrsField :: (SRng, ClassName, [(SRng, FieldName)]) -> Err
-mkErrsField (range, cls, fieldLs) = Err range ("Duplicate field names in the class " ++ stringOfClassName cls ++ ": " ++ intercalate "," (map fieldErrorRange fieldLs))
+mkErrsField (range, cls, fieldLs) = Err range ("Duplicate field names in the class: " ++ stringOfClassName cls ++ ": " ++ intercalate ", " (map fieldErrorRange fieldLs))
 
 fieldErrorRange :: (SRng, FieldName) -> String
 fieldErrorRange (range, field) = show range ++ ": " ++ stringOfFieldName field 
