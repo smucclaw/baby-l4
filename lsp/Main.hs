@@ -203,26 +203,28 @@ parseAndSendErrors uri contents = do
       nuri = toNormalizedUri uri
   case pres of
     Right ast -> do
+      publishDiagnostics 100 nuri Nothing (Map.singleton (Just "parser") mempty)
       preludeAst <- liftIO readPrelude
       case checkError preludeAst ast of
         Left tpErr -> do
-            let firstErr = head $ errorToErrs tpErr
-            let
-              tpDiags = [J.Diagnostic
-                        (errorRange firstErr) -- hardcoded dummy range
+            -- put tpDiags into fn that takes firstErr
+            -- map mkDiag over errors and assign the value to tpDiags
+            let mkDiag err = 
+                        J.Diagnostic
+                        (errorRange err) -- hardcoded dummy range
                         (Just J.DsError)  -- severity
                         Nothing  -- code
-                        (Just "PARSER-TC") -- source
-                        (T.pack $ extractTypeErrorMsg firstErr)
+                        (Just "typechecking") -- source
+                        (T.pack $ extractTypeErrorMsg err)
                         Nothing -- tags
                         (Just (J.List []))
-                      ]
+            let tpDiags = map mkDiag $ errorToErrs tpErr
             publishDiagnostics 100 nuri Nothing (partitionBySource tpDiags)
             pure Nothing
         Right tpAst -> do
           let tpAstNoSrc = fmap typeAnnot tpAst
           let normalAst = normalizeProg tpAstNoSrc
-          publishDiagnostics 100 nuri Nothing (Map.singleton (Just "PARSER-TC") mempty)
+          publishDiagnostics 100 nuri Nothing (Map.singleton (Just "typechecking") mempty)
           pure $ Just ast
     Left err -> do
       let
@@ -230,7 +232,7 @@ parseAndSendErrors uri contents = do
                   (errorRange err)
                   (Just J.DsError)  -- severity
                   Nothing  -- code
-                  (Just "parserLeft") -- source
+                  (Just "parser") -- source
                   (T.pack $ msg err)
                   Nothing -- tags
                   (Just (J.List []))

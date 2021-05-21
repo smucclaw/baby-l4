@@ -8,9 +8,10 @@ import Language.LSP.Test
 import Language.LSP.Types
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import qualified Data.Text as T
+import qualified Language.LSP.Types as J
 
 main :: IO ()
-main = defaultMain $ testGroup "Tests" [hoverTests, example]
+main = defaultMain $ testGroup "Tests" [hoverTests, typeErrTests]
 
 hoverTests :: TestTree
 hoverTests = testGroup "Hover tests"
@@ -21,6 +22,12 @@ hoverTests = testGroup "Hover tests"
   ,                                             testHover "cr.l4 hover AssociatedWith type"                           "cr.l4"   (Position 38 30) (mkRange 38 0 38 64) "Declaration of global variable AssociatedWith"
   ,                                             testHover "cr.l4 hover rule r1a"                                      "cr.l4"   (Position 61 7)  (mkRange 61 0 64 29) "Declaration of rule r1a"
   , expectFail                                $ testHover "Hover over nothing"                                        "mini.l4" (Position 1 0)   (mkRange 3 0 3 8)    "This block maps variable Business to WordNet definion \"business_1_N\""
+  ]
+
+typeErrTests :: TestTree
+typeErrTests = testGroup "Type Error tests"
+  [
+    testTypeErrs "typeErr.l4 undefined variable MustNotAcceptApp" "typeErr.l4" (mkRange 64 5 64 21) "Variable MustNotAcceptApp at (64,5) .. (64,21) is undefined"
   ]
 
 -- TODO: We might want to test several hovers for a single file at once,
@@ -48,21 +55,37 @@ testHover testName filename position expectedRange containedText =
         liftIO $ assertFoundIn containedText hoverText
         pure ()
 
+-- test hwat happens if we edit a doc, fix an error & see if error is gone
+
+-- test sequence of edits
+testTypeErrs :: TestName 
+  -> FilePath -- ^ The file to test
+  -> Range -- ^ expected range of error (0 - indexed)
+  -> T.Text -- ^ expected error message
+  -> TestTree
+testTypeErrs testName fileName expectedRange containedText =
+    testCase testName $ do
+    runSession "lsp-server-bl4" fullCaps "lsp-tests/examples" $ do
+        doc <- openDoc fileName "l4"
+        diags <- waitForDiagnostics
+        liftIO $ diags @?= []
+        diags <- waitForDiagnostics
+        let J.Diagnostic
+                  range
+                  _
+                  _
+                  _
+                  errMsg
+                  _
+                  _
+                 = head diags
+        liftIO $ range @?= expectedRange
+        liftIO $ assertFoundIn containedText errMsg
+        pure ()
+
 -- | Assert that the first text should be a substring of the second
 assertFoundIn :: T.Text -> T.Text -> Assertion
 assertFoundIn part whole = assertBool
     (T.unpack $ "failed to find: `" <> part <> "` in hover message:\n" <> whole)
     (part `T.isInfixOf` whole)
 
-example =
-  testCaseSteps "Example test case" $ \step -> do
-    -- assertion no. 1 (passes)
-    step "hello"
-    2 + 2 @?= 4
-    -- assertion no. 2 (fails)
-    step "world"
-    -- assertBool "the list is not empty" $ null [1]
-    -- assertion no. 3 (would have failed, but won't be executed because
-    -- the previous assertion has already failed)
-    step "foobar"
-    -- "foo" @?= "bar"
