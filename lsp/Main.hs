@@ -37,10 +37,9 @@ import Control.Monad.Morph (hoist)
 import Data.Bifunctor (first)
 import Paths_baby_l4 (getDataFileName)
 import Typing (checkError)
-import ToGF.NormalizeSyntax (normalizeProg)
-import Data.Maybe (fromMaybe)
 import Error
 import Data.List (intercalate)
+import Control.Monad.Trans.Maybe (MaybeT(..))
 
 type Config = ()
 
@@ -105,25 +104,30 @@ parseVirtualOrRealFile uri = do
     contents <- getVirtualOrRealFile uri
     lift $ parseAndSendErrors uri contents
 
-makeDiagErr :: Err -> [Diagnostic]
-makeDiagErr err = [J.Diagnostic
-                  (errorRange err)
-                  (Just J.DsError)  -- severity
-                  Nothing  -- code
-                  (Just "lexer") -- source
-                  (T.pack $ msg err)
-                  Nothing -- tags
-                  (Just (J.List []))
-                ]
+type Source = T.Text
 
-publishError :: Uri -> Err -> LspM Config ()
-publishError uri err = publishDiagnostics 100 (toNormalizedUri uri) Nothing (partitionBySource $ makeDiagErr err)
+makeDiagErr :: Source -> Err -> Diagnostic
+makeDiagErr source err =
+  J.Diagnostic
+    (errorRange err)
+    (Just J.DsError)  -- severity
+    Nothing  -- code
+    (Just source) -- source
+    (T.pack $ msg err)
+    Nothing -- tags
+    (Just (J.List []))
 
-clearError :: Uri -> LspM Config ()
-clearError uri = publishDiagnostics 100 (toNormalizedUri uri) Nothing (Map.singleton(Just "lexer") mempty)
 
-sendDiagnosticsOnLeft :: Uri -> Either Err b -> LspM Config ()
-sendDiagnosticsOnLeft uri = either (publishError uri) (const $ clearError uri)
+publishError :: Source -> NormalizedUri -> [Err] -> LspM Config ()
+publishError src uri err = publishDiagnostics 100 uri Nothing (partitionBySource $ makeDiagErr src <$> err)
+
+clearError :: Source -> NormalizedUri -> LspM Config ()
+clearError src uri = publishDiagnostics 100 uri Nothing (Map.singleton (Just src) mempty)
+
+sendDiagnosticsOnLeft :: Source -> NormalizedUri -> Either [Err] a -> MaybeT (LspM Config) a
+-- sendDiagnosticsOnLeft uri = either (publishError uri) (const $ clearError uri)
+sendDiagnosticsOnLeft src uri (Left err) = MaybeT $ Nothing <$ publishError src uri err
+sendDiagnosticsOnLeft src uri (Right result) = MaybeT $ Just result <$ clearError src uri
 
 -- | Analyze the file and send any diagnostics to the client in a
 -- "textDocument/publishDiagnostics" notification
@@ -151,18 +155,18 @@ readPrelude = do
         -- print ast
         return ast
       Left err -> do
-        error "Parser Error in Prelude"
+        error $ "Parser Error in Prelude: " ++ show err
 
 errorToErrs :: Error -> [Err]
 errorToErrs e = case e of
-                  (ClassDeclsErr c) -> 
-                    case c of 
+                  (ClassDeclsErr c) ->
+                    case c of
                       DuplicateClassNamesCDE dc -> mkErrs stringOfClassName "Duplicate class name: " dc
                       UndefinedSuperclassCDE us -> mkErrs stringOfClassName "Undefined super class: " us
                       CyclicClassHierarchyCDE cc -> mkErrs stringOfClassName "Cyclic class hierarchy: " cc
                   (VarDeclsErr v) ->
-                    case v of 
-                      DuplicateVarNamesVDE dup -> map (mkErrsVarRule "Duplicate var name: ") dup 
+                    case v of
+                      DuplicateVarNamesVDE dup -> map (mkErrsVarRule "Duplicate var name: ") dup
                       UndefinedTypeVDE un      -> map (mkErrsVarRule "Undefined type var decl: ") un
                   (FieldDeclsErr f) ->
                     case f of
@@ -170,7 +174,6 @@ errorToErrs e = case e of
                       DuplicateFieldNamesFDE dupf -> map mkErrsField dupf
                   (AssertionErr (AssertionErrAE ae)) -> map getErrorCause ae
                   (RuleErr (RuleErrorRE re)) -> map getErrorCause re
-                  _ -> [Err (DummySRng "Should not get here") ""]
                   -- consider using printErrorCause to gen err msgs for now
 
 getErrorCause :: (SRng, ErrorCause) -> Err
@@ -191,54 +194,24 @@ mkErrsField :: (SRng, ClassName, [(SRng, FieldName)]) -> Err
 mkErrsField (range, cls, fieldLs) = Err range ("Duplicate field names in the class: " ++ stringOfClassName cls ++ ": " ++ intercalate ", " (map fieldErrorRange fieldLs))
 
 fieldErrorRange :: (SRng, FieldName) -> String
-fieldErrorRange (range, field) = show range ++ ": " ++ stringOfFieldName field 
+fieldErrorRange (range, field) = show range ++ ": " ++ stringOfFieldName field
 
 extractTypeErrorMsg :: Err -> String
 extractTypeErrorMsg (Err _ m) = m
 
 parseAndSendErrors :: J.Uri -> T.Text -> LspM Config (Maybe (Program SRng))
-parseAndSendErrors uri contents = do
+parseAndSendErrors uri contents = runMaybeT $ do
   let Just loc = uriToFilePath uri
   let pres = parseProgram loc $ T.unpack contents
       nuri = toNormalizedUri uri
-  case pres of
-    Right ast -> do
-      publishDiagnostics 100 nuri Nothing (Map.singleton (Just "parser") mempty)
-      preludeAst <- liftIO readPrelude
-      case checkError preludeAst ast of
-        Left tpErr -> do
-            -- put tpDiags into fn that takes firstErr
-            -- map mkDiag over errors and assign the value to tpDiags
-            let mkDiag err = 
-                        J.Diagnostic
-                        (errorRange err) -- hardcoded dummy range
-                        (Just J.DsError)  -- severity
-                        Nothing  -- code
-                        (Just "typechecking") -- source
-                        (T.pack $ extractTypeErrorMsg err)
-                        Nothing -- tags
-                        (Just (J.List []))
-            let tpDiags = map mkDiag $ errorToErrs tpErr
-            publishDiagnostics 100 nuri Nothing (partitionBySource tpDiags)
-            pure Nothing
-        Right tpAst -> do
-          let tpAstNoSrc = fmap typeAnnot tpAst
-          let normalAst = normalizeProg tpAstNoSrc
-          publishDiagnostics 100 nuri Nothing (Map.singleton (Just "typechecking") mempty)
-          pure $ Just ast
-    Left err -> do
-      let
-        diags = [J.Diagnostic
-                  (errorRange err)
-                  (Just J.DsError)  -- severity
-                  Nothing  -- code
-                  (Just "parser") -- source
-                  (T.pack $ msg err)
-                  Nothing -- tags
-                  (Just (J.List []))
-                ]
-      publishDiagnostics 100 nuri Nothing (partitionBySource diags)
-      pure Nothing
+  ast <- sendDiagnosticsOnLeft "parser" nuri $ first (:[]) pres
+
+  preludeAst <- liftIO readPrelude -- TOOD: Handle errors
+
+  let typedAstOrTypeError = checkError preludeAst ast
+  -- TODO: Return the type checked AST so we can show type info
+  _ <- sendDiagnosticsOnLeft "typechecking" nuri $ first errorToErrs typedAstOrTypeError
+  pure ast
 
 tshow :: Show a => a -> T.Text
 tshow = T.pack . show
@@ -263,11 +236,11 @@ errorRange (Err s _)
 -- TODO: Use findAllExpressions and findExprAt to extract types for hover
 -- TODO: Show type errors as diagnostics
 
--- | Use magic to find all Expressions in a program
+-- | Use magic to find all Expressions in a program
 findAllExpressions :: (Data t) => Program t -> [Expr t]
 findAllExpressions = toListOf template
 
--- | Find the smallest subexpression which contains the specified position
+-- | Find the smallest subexpression which contains the specified position
 findExprAt :: HasLoc t => J.Position -> Expr t -> Expr t
 findExprAt pos expr =
   case List.find (posInRange pos . getLoc) (childExprs expr) of
