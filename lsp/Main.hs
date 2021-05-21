@@ -306,12 +306,9 @@ astToText (SRule (Rule _ n _ _ _):_) = "Declaration of rule " <> T.pack n
 astToText _ = "No hover info found"
 
 lookupTokenBare' :: Position -> Uri -> ExceptT Err (LspM Config) (Maybe Hover)
-lookupTokenBare' pos uri = do
-  mbAst <- parseVirtualOrRealFile uri
-  -- If nothing, return nothing, else keep going with the result
-  forM mbAst $ \ast ->
-    -- `hoist liftIO` changes `ExceptT Err IO a` to `ExceptT Err (LspM Config) a`
-    hoist liftIO $ tokensToHover pos ast
+lookupTokenBare' pos uri = runMaybeT $ do
+  ast <- MaybeT $ parseVirtualOrRealFile uri
+  lift $ ExceptT $ liftIO $ runExceptT $ tokensToHover pos ast
 
 
 syncOptions :: J.TextDocumentSyncOptions
