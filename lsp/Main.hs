@@ -151,7 +151,7 @@ errorToErrs e = case e of
                   (VarDeclsErr v) ->
                     case v of
                       DuplicateVarNamesVDE dup -> map (mkErrsVarRule "Duplicate var name: ") dup
-                      UndefinedTypeVDE _un      -> map (mkErrsVarRule "Undefined type var decl: ") un
+                      UndefinedTypeVDE un      -> map (mkErrsVarRule "Undefined type var decl: ") un
                   (FieldDeclsErr f) ->
                     case f of
                       UndefinedTypeFDE uf -> mkErrs stringOfFieldName "Undefined field type: " uf
