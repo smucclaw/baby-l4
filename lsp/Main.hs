@@ -25,7 +25,7 @@ import qualified Data.List as List
 import Syntax
 import Control.Lens.Extras (template)
 import Data.Data (Data)
-import Data.Either.Combinators (maybeToRight)
+import Data.Either.Combinators (maybeToRight, mapLeft)
 import Control.Monad.Trans.Except (except)
 import Control.Monad.Except
 -- import Syntax (Pos(..),SRng(..))
@@ -33,7 +33,6 @@ import Control.Monad.Except
 import Annotation
 import Language.LSP.VFS
 import qualified Data.Rope.UTF16 as Rope
-import Control.Monad.Morph (hoist)
 import Data.Bifunctor (first)
 import Paths_baby_l4 (getDataFileName)
 import Typing (checkError)
@@ -185,13 +184,13 @@ parseAndSendErrors uri contents = runMaybeT $ do
   let Just loc = uriToFilePath uri
   let pres = parseProgram loc $ T.unpack contents
       nuri = toNormalizedUri uri
-  ast <- sendDiagnosticsOnLeft "parser" nuri $ first (:[]) pres
+  ast <- sendDiagnosticsOnLeft "parser" nuri $ mapLeft (:[]) pres
 
   preludeAst <- liftIO readPrelude -- TOOD: Handle errors
 
   let typedAstOrTypeError = checkError preludeAst ast
   -- TODO: Return the type checked AST so we can show type info
-  _ <- sendDiagnosticsOnLeft "typechecking" nuri $ first errorToErrs typedAstOrTypeError
+  _ <- sendDiagnosticsOnLeft "typechecking" nuri $ mapLeft errorToErrs typedAstOrTypeError
   pure ast
 
 tshow :: Show a => a -> T.Text
