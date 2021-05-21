@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-module Main where
+module Main (main) where
 
 import Language.LSP.Server
 import Language.LSP.Types
@@ -46,7 +46,7 @@ type Config = ()
 handlers :: Handlers (LspM Config)
 handlers = mconcat
   [ notificationHandler SInitialized $ \_not -> do
-      elog "Hello world!"
+      elog ("Hello world!" :: T.Text)
       pure ()
   , requestHandler STextDocumentHover $ \req responder -> do
       let RequestMessage _ _ _ (HoverParams doc pos _workDone) = req
@@ -129,22 +129,6 @@ sendDiagnosticsOnLeft :: Source -> NormalizedUri -> Either [Err] a -> MaybeT (Ls
 sendDiagnosticsOnLeft src uri (Left err) = MaybeT $ Nothing <$ publishError src uri err
 sendDiagnosticsOnLeft src uri (Right result) = MaybeT $ Just result <$ clearError src uri
 
--- | Analyze the file and send any diagnostics to the client in a
--- "textDocument/publishDiagnostics" notification
-sendDiagnostics :: J.NormalizedUri -> Maybe Int -> LspM Config ()
-sendDiagnostics fileUri version = do
-  let
-    diags = [J.Diagnostic
-              (J.Range (J.Position 0 1) (J.Position 0 5))
-              (Just J.DsWarning)  -- severity
-              Nothing  -- code
-              (Just "lsp-hello") -- source
-              "Example diagnostic message"
-              Nothing -- tags
-              (Just (J.List []))
-            ]
-  publishDiagnostics 100 fileUri version (partitionBySource diags)
-
 readPrelude :: IO (Program SRng)
 readPrelude = do
   l4PreludeFilepath <- getDataFileName "l4/Prelude.l4"
@@ -167,7 +151,7 @@ errorToErrs e = case e of
                   (VarDeclsErr v) ->
                     case v of
                       DuplicateVarNamesVDE dup -> map (mkErrsVarRule "Duplicate var name: ") dup
-                      UndefinedTypeVDE un      -> map (mkErrsVarRule "Undefined type var decl: ") un
+                      UndefinedTypeVDE _un      -> map (mkErrsVarRule "Undefined type var decl: ") un
                   (FieldDeclsErr f) ->
                     case f of
                       UndefinedTypeFDE uf -> mkErrs stringOfFieldName "Undefined field type: " uf
@@ -196,9 +180,6 @@ mkErrsField (range, cls, fieldLs) = Err range ("Duplicate field names in the cla
 fieldErrorRange :: (SRng, FieldName) -> String
 fieldErrorRange (range, field) = show range ++ ": " ++ stringOfFieldName field
 
-extractTypeErrorMsg :: Err -> String
-extractTypeErrorMsg (Err _ m) = m
-
 parseAndSendErrors :: J.Uri -> T.Text -> LspM Config (Maybe (Program SRng))
 parseAndSendErrors uri contents = runMaybeT $ do
   let Just loc = uriToFilePath uri
@@ -217,7 +198,7 @@ tshow :: Show a => a -> T.Text
 tshow = T.pack . show
 
 posInRange :: Position -> SRng -> Bool
-posInRange (Position line col) (DummySRng _) = False
+posInRange (Position _line _col) (DummySRng _) = False
 posInRange (Position line col) (RealSRng (SRng (Pos top left) (Pos bottom right))) =
   (line == top && col >= left || line > top)
   && (line == bottom && col <= right || line < bottom)
@@ -234,7 +215,6 @@ errorRange (Err s _)
   | otherwise = Range (Position 0 0) (Position 999 0)
 
 -- TODO: Use findAllExpressions and findExprAt to extract types for hover
--- TODO: Show type errors as diagnostics
 
 -- | Use magic to find all Expressions in a program
 findAllExpressions :: (Data t) => Program t -> [Expr t]
@@ -290,13 +270,6 @@ findAstAtPoint pos = selectSmallestContaining pos [] . SProg
 -- TODO #64 Use @debugM@ instead
 elog :: (MonadIO m, Show a) => a -> m ()
 elog = liftIO . hPutStrLn stderr . tshow
-
-scanFile' :: FilePath -> ExceptT Err IO [Token]
-scanFile' = ExceptT . scanFile
-
--- TODO: #63 Accept a virtual file as well
-parseProgram' :: FilePath -> ExceptT Err IO (Program SRng)
-parseProgram' filename = ExceptT $ parseProgram filename <$> readFile filename
 
 uriToFilePath' :: Monad m => Uri -> ExceptT Err m FilePath
 uriToFilePath' uri = extract "Read token Error" $ uriToFilePath uri
