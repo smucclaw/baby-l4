@@ -9,6 +9,7 @@ module Parser (
 
 import Lexer
 import Annotation
+import KeyValueMap
 import Syntax
 
 import Prelude

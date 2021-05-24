@@ -41,7 +41,7 @@ type Config = ()
 handlers :: Handlers (LspM Config)
 handlers = mconcat
   [ notificationHandler SInitialized $ \_not -> do
-      --elog "Hello world!"
+      elog "Hello world!"
       pure ()
   , requestHandler STextDocumentHover $ \req responder -> do
       let RequestMessage _ _ _ (HoverParams doc pos _workDone) = req

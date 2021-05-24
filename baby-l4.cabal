@@ -58,6 +58,8 @@ library
                   -- from src
                   Annotation
                   Error
+                  KeyValueMap
+                  Model
                   Syntax
 
                   --ToYaml
