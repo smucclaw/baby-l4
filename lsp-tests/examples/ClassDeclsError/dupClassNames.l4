@@ -1,0 +1,10 @@
+# l4version 0.3.6
+
+class Business {
+      foo: Integer
+      bar: Boolean -> (Integer,Integer)
+}
+
+class Business 
+
+# interesting issue here where if a parsing error occurs, it persists even after fixing

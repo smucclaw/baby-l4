@@ -11,7 +11,7 @@ import qualified Data.Text as T
 import qualified Language.LSP.Types as J
 
 main :: IO ()
-main = defaultMain $ testGroup "Tests" [hoverTests, typeErrTests]
+main = defaultMain $ testGroup "Tests" [hoverTests, typeCheckerTests]
 
 hoverTests :: TestTree
 hoverTests = testGroup "Hover tests"
@@ -24,10 +24,26 @@ hoverTests = testGroup "Hover tests"
   , expectFail                                $ testHover "Hover over nothing"                                        "mini.l4" (Position 1 0)   (mkRange 3 0 3 8)    "This block maps variable Business to WordNet definion \"business_1_N\""
   ]
 
-typeErrTests :: TestTree
-typeErrTests = testGroup "Type Error tests"
+typeCheckerTests :: TestTree 
+typeCheckerTests = testGroup "Type Error tests"  
   [
-    testTypeErrs "typeErr.l4 undefined variable MustNotAcceptApp" "typeErr.l4" (mkRange 64 5 64 21) "Variable MustNotAcceptApp at (64,5) .. (64,21) is undefined"
+    testGroup "ClassDeclsError"
+      [
+        testTypeErrs "dupClassNames.l4    duplicate class names Business"           "ClassDeclsError/dupClassNames.l4"    (mkRange 2 0 5 1)     "Duplicate class name: Business"
+      , testTypeErrs "undefSuperClass.l4  undefined super class LawFirm"            "ClassDeclsError/undefSuperClass.l4"  (mkRange 3 0 3 30)    "Undefined super class: LawFirm"
+      -- Note: typeErrTests only checks the first error, however, this next test in particular returns 2 errors; one for LawFirm, one for Business
+      , testTypeErrs "cyclicClass.l4      cyclic classes LawFirm & Business"        "ClassDeclsError/cyclicClass.l4"      (mkRange 0 0 0 30)    "Cyclic class hierarchy: LawFirm" 
+      ]
+  , testGroup "FieldDeclsError"
+      [
+        testTypeErrs "dupFieldNames.l4    duplicate field name for class Business"  "FieldDeclsError/dupFieldNames.l4"    (mkRange 2 0 5 1)     "Duplicate field names in the class: Business"
+      , testTypeErrs "undefFieldType.l4   undefined field type for class Business"  "FieldDeclsError/undefFieldType.l4"   (mkRange 3 6 3 17)    "Undefined field type: foo"
+      ] 
+  , testGroup "VarDeclsError"
+      [
+        testTypeErrs "undeclVar.l4        undefined variable MustNotAcceptApp"      "VarDeclsError/undeclVar.l4"          (mkRange 64 5 64 21)  "Variable MustNotAcceptApp at (64,5) .. (64,21) is undefined"
+      , testTypeErrs "undefVarType.l4     undefined variable type Entity"           "VarDeclsError/undefVarType.l4"       (mkRange 2 0 2 33)    "Undefined type var decl: WhereType"
+      ]
   ]
 
 -- TODO: We might want to test several hovers for a single file at once,

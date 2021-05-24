@@ -1,0 +1,3 @@
+class LawFirm extends Business
+
+class Business extends LawFirm

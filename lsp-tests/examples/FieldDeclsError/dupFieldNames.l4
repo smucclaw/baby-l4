@@ -1,0 +1,6 @@
+# l4version 0.3.6
+
+class Business {
+      foo: Integer
+      foo: Boolean 
+}
