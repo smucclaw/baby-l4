@@ -2,8 +2,9 @@
 
 module Smt(proveProgram) where
 
-import Syntax
 import Annotation (TypeAnnot (getType), LocTypeAnnot (typeAnnot))
+import KeyValueMap
+import Syntax
 import Typing (getTypeOfExpr, isBooleanTp, isIntegerTp, isFloatTp, superClassesOfClassDecl, spine)
 
 import SimpleSMT as SMT
@@ -16,6 +17,7 @@ import RuleTransfo ( prenexForm, ruleImplR, liftDecompRule, repeatDecomp, ruleAl
                     conjs, not )
 import PrintProg (printRule)
 import Data.Maybe (fromMaybe)
+import Model (constructModel)
 
 
 -------------------------------------------------------------
@@ -27,7 +29,7 @@ declareSort proc srt ar =
   do ackCommand proc $ fun "declare-sort" [ Atom srt, Atom (show ar) ]
      return (SMT.const srt)
 
-getModel  :: Solver -> IO SExpr --[(SExpr, Value)]
+getModel  :: Solver -> IO SExpr
 getModel proc =
   command proc $ List [ Atom "get-model" ]
 
@@ -171,42 +173,36 @@ exprToSExpr env e = error ("exprToSExpr: term " ++ show e ++ " not translatable"
 -- Launching the solver and retrieving results
 -------------------------------------------------------------
 
-proveExpr :: Show t => [ClassDecl t] -> [VarDecl t] -> Expr t ->IO ()
-proveExpr cds vds e = do
+-- Tried with the following provers:
+-- alt-ergo gets stuck in interaction (apparently only reads from file)
+-- Boolector (impossible to get compiled)
+-- cvc4 does not work, apparently problems with quantifiers
+-- mathsat terminates with an error (quantifiers not supported)
+-- yices does not support logics like LIA
+proveExpr :: Show t => Bool -> [ClassDecl t] -> [VarDecl t] -> Expr t ->IO ()
+proveExpr checkSat cds vds e = do
   l <- newLogger 0
-  -- s <- newSolver "cvc4" ["--lang=smt2"] (Just l)
   s <- newSolver "z3" ["-in"] (Just l)
-  setLogic s "LIA"
+  setLogic s "LIA"  -- for z3
   sEnv <- classDeclsToSortEnv s cds
   fEnv <- varDeclsToFunEnv s sEnv vds
   assert s (exprToSExpr (SMTEnv sEnv fEnv) e)
   checkRes <- check s
   print checkRes
   when (checkRes == Sat) $ do
-    pPrint =<< getModel s
--- print =<< check s
---  print =<< getExprs s (map snd fEnv)
+    if checkSat
+    then putStrLn "Formula satisfiable, found model."
+    else putStrLn "Formula not valid, found countermodel."
+    mdl <- getModel s
+    pPrint mdl
+    print (constructModel mdl)
+  when (checkRes == Unsat) $ do
+    if checkSat
+    then putStrLn "Formula unsatisfiable."
+    else putStrLn "Formula valid."
+  when (checkRes == Unknown) $ do
+    putStrLn "Solver produced unknown output."
 
-proveExprTest  :: Show t => [ClassDecl t] -> [VarDecl t] -> Expr t ->IO ()
-proveExprTest cds vds e =
-  pPrint $ () <$ prenexForm e
-
-selectOneOfInstr :: [String] -> ValueKVM ->  String
-selectOneOfInstr chs (IdVM s) =
-  if s `elem` chs
-  then s
-  else error ("choose exactly one of " ++ show chs)
-selectOneOfInstr chs (MapVM kvm) = case filter (\(k,_) -> k `elem` chs) kvm of
-  [kvp] -> fst kvp
-  _ -> error ("choose exactly one of " ++ show chs)
-selectOneOfInstr chs _ = error ("incorrect instruction for choice among " ++ show chs)
-
-selectAssocVal :: String -> ValueKVM -> Maybe ValueKVM
-selectAssocVal s (MapVM kvm) = case filter (\(k,_) -> k == s) kvm of
-  [kvp] -> Just (snd kvp)
-  [] -> Nothing
-  _ -> error ("several possible choices for " ++ show s)
-selectAssocVal s _ = Nothing
 
 -- TODO: to be defined in detail
 defaultRuleSet :: Program t -> [Rule t]
@@ -215,10 +211,10 @@ defaultRuleSet = rulesOfProgram
 -- TODO: rule specs are here supposed to be comma separated lists of rule names inclosed in { .. } 
 -- It should also be possible to specify transformations to the rules 
 rulesOfRuleSpec :: Program t -> ValueKVM -> [Rule t]
-rulesOfRuleSpec p (MapVM kvm) = 
+rulesOfRuleSpec p (MapVM kvm) =
   let nameRuleAssoc = map (\r -> (nameOfRule r, r)) (rulesOfProgram p)
   in map (\(k, v) -> fromMaybe (error ("rule name " ++ k ++ " unknown in rule set")) (lookup k nameRuleAssoc)) kvm
-rulesOfRuleSpec p instr = 
+rulesOfRuleSpec p instr =
   error ("rule specification " ++ show instr ++ " should be a list (in { .. }) of rule names and transformations")
 
 -- add rules of rs2 to rs1, not adding rules already existing in rs1 as determined by name
@@ -254,7 +250,7 @@ proveAssertionSMT p instr asrt = do
   let proveConsistency = selectOneOfInstr ["consistent", "valid"] instr == "consistent"
   let applicableRules = selectApplicableRules p instr
   let proofTarget = constrProofTarget proveConsistency asrt applicableRules
-  proveExpr (classDeclsOfProgram p) (globalsOfProgram p) proofTarget
+  proveExpr proveConsistency (classDeclsOfProgram p) (globalsOfProgram p) proofTarget
 
 
 constrProofTarget :: Bool -> Assertion Tp -> [Rule Tp] -> Expr Tp
@@ -278,16 +274,10 @@ proveAssertion p asrt = foldM (\r (k,instr) ->
           () (instrOfAssertion asrt)
 
 proveProgram :: Program (LocTypeAnnot Tp) -> IO ()
-proveProgram p = 
+proveProgram p =
   let cleanedProg = fmap typeAnnot p
   in foldM (\r a -> proveAssertion cleanedProg a) () (assertionsOfProgram cleanedProg)
-{-
-    case assertionsOfProgram p of
-        [] -> error "in proveProgram: at least one assertion required"
-        a:_ -> do
-            putStrLn "Launching SMT solver"
-            proveExpr (classDeclsOfProgram p) (globalsOfProgram p) (exprOfAssertion a)
--}
+
 
 -- this is only a test version, the definite version is proveProgramCorrect
 proveProgramTest :: Program (LocTypeAnnot Tp) -> IO ()

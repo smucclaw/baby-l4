@@ -13,6 +13,7 @@ import qualified Language.LSP.Types as J    -- TODO: is that used anywhere?
 import qualified Data.List as List
 import Data.Data (Data, Typeable)
 import Annotation
+import KeyValueMap
 
 
 ----------------------------------------------------------------------
@@ -343,14 +344,7 @@ data Assertion t = Assertion { annotOfAssertion :: t
 instance HasLoc t => HasLoc (Assertion t) where
   getLoc e = getLoc (annotOfAssertion e)
 
-type KeyKVM = String
-data ValueKVM
-  = IdVM String 
-  | BoolVM Bool 
-  | IntVM Integer
-  | MapVM KVMap
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
-type KVMap = [(KeyKVM, ValueKVM)]
+
 
 ----------------------------------------------------------------------
 -- Definition of Timed Automata
