@@ -182,8 +182,9 @@ exprToSExpr env e = error ("exprToSExpr: term " ++ show e ++ " not translatable"
 proveExpr :: Show t => Bool -> [ClassDecl t] -> [VarDecl t] -> Expr t ->IO ()
 proveExpr checkSat cds vds e = do
   l <- newLogger 0
-  s <- newSolver "z3" ["-in"] (Just l)
-  setLogic s "LIA"  -- for z3
+  --s <- newSolver "z3" ["-in"] (Just l)
+  s <- newSolver "cvc4" ["--lang=smt2"] (Just l)
+  setLogic s "AUFLIA"  -- for z3
   sEnv <- classDeclsToSortEnv s cds
   fEnv <- varDeclsToFunEnv s sEnv vds
   assert s (exprToSExpr (SMTEnv sEnv fEnv) e)

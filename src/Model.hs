@@ -47,13 +47,15 @@ simpSmtOr e1 e2 = if e1 == e2 then e1 else List [Atom "or", e1, e2]
 simpSmtEqual :: SMT.SExpr -> SMT.SExpr -> SMT.SExpr
 simpSmtEqual e1@(Atom a1) e2@(Atom a2)
   | a1 == a2 = smtTrue
-  | isIntString a1 || isIntString a2 = List [Atom "=", e1, e2]
+  | (isIntString a1 || isIntString a2) && Prelude.not (isIntString a1 && isIntString a2) = List [Atom "=", e1, e2]
   | otherwise = smtFalse
 simpSmtEqual e1 e2 = if e1 == e2 then smtTrue else List [Atom "=", e1, e2]
 
--- TODO: do the same as above
 simpSmtDistinct :: SMT.SExpr -> SMT.SExpr -> SMT.SExpr
-simpSmtDistinct (Atom a1) (Atom a2) = if a1 == a2 then smtFalse else smtTrue
+simpSmtDistinct e1@(Atom a1) e2@(Atom a2)
+  | a1 == a2 = smtFalse
+  | (isIntString a1 || isIntString a2) && Prelude.not (isIntString a1 && isIntString a2) = List [Atom "distinct", e1, e2]
+  | otherwise = smtTrue
 simpSmtDistinct e1 e2 = if e1 == e2 then smtFalse else List [Atom "distinct", e1, e2]
 
 simpSmtIte :: SMT.SExpr -> SMT.SExpr -> SMT.SExpr -> SMT.SExpr
@@ -96,13 +98,13 @@ simpSmtExpr argm a@(Atom x) = fromMaybe a (lookup x argm)
 simpSmtExpr argm (List [Atom "not", e]) = simpSmtNot (simpSmtExpr argm e)
 simpSmtExpr argm (List [Atom "=>", e1, e2]) = simpSmtImpl (simpSmtExpr argm e1) (simpSmtExpr argm e2)
 simpSmtExpr argm (List [Atom "and"]) = smtTrue
-simpSmtExpr argm (List [Atom "and", e1]) = simpSmtExpr argm e1
-simpSmtExpr argm (List [Atom "and", e1, e2]) = simpSmtAnd (simpSmtExpr argm e1) (simpSmtExpr argm e2)
+-- simpSmtExpr argm (List [Atom "and", e1]) = simpSmtExpr argm e1
+-- simpSmtExpr argm (List [Atom "and", e1, e2]) = simpSmtAnd (simpSmtExpr argm e1) (simpSmtExpr argm e2)
 simpSmtExpr argm (List ((Atom "and") : e1 : es)) =
     simpSmtAnd (simpSmtExpr argm e1) (simpSmtExpr argm (List (Atom "and" : es)))
 simpSmtExpr argm (List [Atom "or"]) = smtFalse
-simpSmtExpr argm (List [Atom "or", e1]) = simpSmtExpr argm e1
-simpSmtExpr argm (List [Atom "or", e1, e2]) = simpSmtOr (simpSmtExpr argm e1) (simpSmtExpr argm e2)
+-- simpSmtExpr argm (List [Atom "or", e1]) = simpSmtExpr argm e1
+-- simpSmtExpr argm (List [Atom "or", e1, e2]) = simpSmtOr (simpSmtExpr argm e1) (simpSmtExpr argm e2)
 simpSmtExpr argm (List ((Atom "or") : e1 : es)) =
     simpSmtOr (simpSmtExpr argm e1) (simpSmtExpr argm (List (Atom "or" : es)))
 simpSmtExpr argm (List [Atom "xor", e1, e2]) = simpSmtDistinct (simpSmtExpr argm e1) (simpSmtExpr argm e2)
@@ -122,19 +124,6 @@ simpSmtExpr argm (List [Atom "let", List (List [Atom vn, le]:les), e]) =
     simpSmtExpr ((vn, simpSmtExpr argm le):argm) (List [Atom "let", List les, e])
 
 
-
-foobar :: [Integer] -> [[Integer]] -> [[Integer]]
--- foobar ps pps = map  (\p -> concatMap (p :) pps)  ps
-foobar ps pps = map (:) ps <*> pps
-
-
-bindSmt :: [SMT.SExpr] -> [SMT.SExpr] -> Argmap
-bindSmt params = zip (map (\(List [ Atom vn, tp]) -> vn) params)
-
-instAndSimpFun :: [SMT.SExpr] -> SMT.SExpr -> SMT.SExpr
-instAndSimpFun args (List [Atom "define-fun" , Atom fn, List params, tp, bd]) =
-    simpSmtExpr (bindSmt params args) bd
-
 isInstance :: SMT.SExpr -> Bool
 isInstance (List [ Atom "declare-fun", Atom fn, List [], Atom tp]) = True
 isInstance _ = False
@@ -150,15 +139,20 @@ defFunDecompose (List [ Atom "define-fun", Atom fn, List params, Atom srt, bd]) 
 extractInstance :: SMT.SExpr -> (String, String)
 extractInstance (List [ Atom "declare-fun", Atom fn, List [], Atom tp]) = (fn, tp)
 
+
+fromModel :: SMT.SExpr -> [SMT.SExpr]
+fromModel (List (Atom "model" : es)) = es
+fromModel (List es) = es
+
 -- returns a list of pairs (instance name, sort)
-modelInstances :: SMT.SExpr -> [(String, String)]
-modelInstances (List (Atom "model" : es)) = map extractInstance (filter isInstance es)
+getInstances :: [SMT.SExpr] -> [(String, String)]
+getInstances = map extractInstance . filter isInstance
 
-modelPreds :: SMT.SExpr -> [(String, [SExpr], String, SExpr)]
-modelPreds (List (Atom "model" : es)) = map defFunDecompose (filter (isDefFunOfSort (== "Bool")) es)
+getPreds :: [SMT.SExpr] -> [(String, [SExpr], String, SExpr)]
+getPreds = map defFunDecompose . filter (isDefFunOfSort (== "Bool"))
 
-modelConsts :: SMT.SExpr -> [(String, [SExpr], String, SExpr)]
-modelConsts (List (Atom "model" : es)) =
+getConsts :: [SMT.SExpr] -> [(String, [SExpr], String, SExpr)]
+getConsts es =
     filter (\(fn, params, srt, bd) -> null params) (map defFunDecompose (filter (isDefFunOfSort (/= "Bool")) es))
 
 constructCurrentBinding :: [(String, [String])] -> Int -> String -> String -> [(String, SMT.SExpr)]
@@ -178,11 +172,12 @@ bindingsOfPred instsBySort (fn, params, _, bd) = (fn, constructBindings instsByS
 
 -- constructModel :: SMT.SExpr -> RelModel
 -- constructModel :: SExpr -> [(String, [Argmap])]
+constructModel :: SExpr -> [(String, [(String, SExpr)], SExpr)]
 constructModel smtmd =
-    let instances = modelInstances smtmd
+    let instances = getInstances (fromModel smtmd)
         sorts = nub (map snd instances)
         instsBySort = map (\s -> (s, map fst (filter (\(i, si) -> s == si) instances))) sorts
-        preds = modelPreds smtmd
+        preds = getPreds (fromModel smtmd)
         binds = map (bindingsOfPred instsBySort) preds
         mds = concatMap (\(fn, argms, bd) -> map (\argm -> (fn, argm, simpSmtExpr argm bd)) argms) binds
     in  mds
