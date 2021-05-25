@@ -42,7 +42,7 @@ decl AssociatedWithAppBE: Appointment -> BusinessEntity -> Boolean
 
 decl SubjectTo : LegalPractitioner -> Appointment -> Boolean
 decl MayAcceptApp : LegalPractitioner -> Appointment -> Boolean
-# decl MustNotAcceptApp : LegalPractitioner -> Appointment -> Boolean
+decl MustNotAcceptApp : LegalPractitioner -> Appointment -> Boolean
 
 decl IncompatibleDignity : Business -> Boolean
 decl MateriallyInterferes : Business -> Boolean
@@ -98,10 +98,10 @@ if not (exists bsn : Business. AssociatedWithAppB app bsn && IncompatibleDignity
    (forall bse : BusinessEntity. AssociatedWithAppBE app bse -->
                   not (exists srv : Business.  LawRelatedService srv && Provides bse srv) &&
                   ConditionsSecondSchedule lpr bse)
-then 
+then
 MayAcceptApp lpr app
 
-assert exists lpr: LegalPractitioner. exists app: Appointment. MayAcceptApp lpr app
+assert exists lpr: LegalPractitioner. exists app: Appointment. MayAcceptApp app lpr
 
 assert exists lpr: LegalPractitioner. exists app: Appointment. MustNotAcceptApp lpr app
 

@@ -156,12 +156,12 @@ errorToErrs e = case e of
                     case f of
                       UndefinedTypeFDE uf -> mkErrs stringOfFieldName "Undefined field type: " uf
                       DuplicateFieldNamesFDE dupf -> map mkErrsField dupf
-                  (AssertionErr (AssertionErrAE ae)) -> map getErrorCause ae
-                  (RuleErr (RuleErrorRE re)) -> map getErrorCause re
+                  (AssertionErr (AssertionErrAE ae)) -> getErrorCause "Assertion Error: " <$> ae
+                  (RuleErr (RuleErrorRE re)) -> getErrorCause "Rule Error: " <$> re
                   -- consider using printErrorCause to gen err msgs for now
 
-getErrorCause :: (SRng, ErrorCause) -> Err
-getErrorCause (r, ec) = Err r (printErrorCause ec)
+getErrorCause :: String -> (SRng, ErrorCause) -> Err
+getErrorCause errTp (r, ec) = Err r (errTp ++ printErrorCause ec)
 
 mkErr :: (b -> String) -> String -> (SRng, b) -> Err
 mkErr f msg (r, n) = Err r -- get range
