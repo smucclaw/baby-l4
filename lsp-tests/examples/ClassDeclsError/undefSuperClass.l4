@@ -1,0 +1,4 @@
+# l4version 0.3.6
+
+# should the error message for this point to LawFirm or Business?
+class LawFirm extends Business

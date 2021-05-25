@@ -1,0 +1,107 @@
+# l4version 0.3.6
+
+# pending: sub-conditions
+# pending: define grammars for 'subject to', 'condition', 'date' & 'time'(?)
+
+lexicon
+Business -> "business_1_N"
+BusinessEntity -> "CompoundN business_1_N entity_N"
+IncompatibleDignity -> "mkA2 incompatible_1_A with_Prep"
+LegalPractitioner -> "lawyer_N"
+LocumSolicitor -> "lawyer_N"
+AcceptApp -> "accept_4_V2"
+AssociatedWithApp -> "mkA2 associated_A with_Prep"
+AssociatedWithAppB -> "mkA2 associated_A with_Prep"
+AssociatedWith -> "mkA2 associated_A with_Prep"
+Appointment -> "appointment_1_N"
+LawRelatedService -> "service_1_N"
+Provides -> "provide_1_V2"
+App -> "accept_2_V2"
+
+
+class Business {
+      foo: Integer
+      bar: Boolean -> (Integer,Integer)
+}
+
+class LawRelatedService extends Business
+
+class BusinessEntity
+
+class Appointment
+
+class Person
+
+class LegalPractitioner extends Person
+
+class LocumSolicitor extends LegalPractitioner
+
+decl AssociatedWith: LegalPractitioner -> Appointment -> Boolean
+decl AssociatedWithAppB: Appointment -> Business -> Boolean
+decl AssociatedWithAppBE: Appointment -> BusinessEntity -> Boolean
+
+decl SubjectTo : LegalPractitioner -> Appointment -> Boolean
+decl MayAcceptApp : LegalPractitioner -> Appointment -> Boolean
+decl MustNotAcceptApp : LegalPractitioner -> Appointment -> Boolean
+
+decl IncompatibleDignity : Business -> Boolean
+decl MateriallyInterferes : Business -> Boolean
+decl UnfairAttractBusiness : Business -> Boolean
+decl ShareLPRFees : Business -> Boolean
+decl BusinessFirstSchedule : Business -> Boolean
+decl ProhibitedBusiness : Business -> Boolean
+
+decl LawRelatedService: Business -> Boolean
+decl Provides: BusinessEntity -> Business -> Boolean
+decl ConditionsSecondSchedule: LegalPractitioner -> BusinessEntity -> Boolean
+# decl LocumSolicitor: LegalPractitioner -> Boolean
+
+
+# SECTION 34
+
+rule <r1a>
+for lpr: LegalPractitioner, app: Appointment
+if (exists bsn : Business. AssociatedWithAppB app bsn && IncompatibleDignity bsn)
+then MustNotAcceptApp lpr app
+
+rule <r1b>
+for lpr: LegalPractitioner, app: Appointment
+if (exists bsn : Business. AssociatedWithAppB app bsn && MateriallyInterferes bsn)
+then MustNotAcceptApp lpr app
+
+rule <r1c>
+for lpr: LegalPractitioner, app: Appointment
+if (exists bsn : Business. AssociatedWithAppB app bsn && UnfairAttractBusiness bsn)
+then MustNotAcceptApp lpr app
+
+rule <r1d>
+for lpr: LegalPractitioner, app: Appointment
+if (exists bsn : Business. AssociatedWithAppB app bsn && ShareLPRFees bsn)
+then MustNotAcceptApp lpr app
+
+rule <r1e>
+for lpr: LegalPractitioner, app: Appointment
+if (exists bsn : Business. AssociatedWithAppB app bsn && BusinessFirstSchedule bsn)
+then MustNotAcceptApp lpr app
+
+rule <r1f>
+for lpr: LegalPractitioner, app: Appointment
+if (exists bsn : Business. AssociatedWithAppB app bsn && ProhibitedBusiness bsn)
+then MustNotAcceptApp lpr app
+
+# first condition of IF: neg. of precond of rule 1a
+rule <r5>
+# for lpr: LegalPractitioner, app: Appointment
+# Integrated the fact LocumSolicitor lpr in the declaration
+for lpr: LocumSolicitor, app: Appointment
+if not (exists bsn : Business. AssociatedWithAppB app bsn && IncompatibleDignity bsn) &&
+   (forall bse : BusinessEntity. AssociatedWithAppBE app bse -->
+                  not (exists srv : Business.  LawRelatedService srv && Provides bse srv) &&
+                  ConditionsSecondSchedule lpr bse)
+then
+MayAcceptApp lpr app
+
+assert exists lpr: LegalPractitioner. exists app: Appointment. MayAcceptApp app lpr
+
+assert exists lpr: LegalPractitioner. exists app: Appointment. MustNotAcceptApp lpr app
+

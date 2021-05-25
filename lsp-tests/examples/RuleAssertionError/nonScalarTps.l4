@@ -1,0 +1,9 @@
+rule <r1a>
+# TODO: make the error messages for non-scalar types much more helpful
+#       - include which expression is non-scalar, for example
+#       - maybe "functions are not comparable" or something like that
+if (1 > \x:Int -> x)
+then True 
+
+
+
