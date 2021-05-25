@@ -325,7 +325,6 @@ lspOptions = defaultOptions
 
 main :: IO Int
 main = do
-  -- TODO: Make the logging work!
   setupLogger Nothing ["initialize.handle", "reactor.handle"] DEBUG
   runServer $ ServerDefinition
     { onConfigurationChange = const $ pure $ Right ()
