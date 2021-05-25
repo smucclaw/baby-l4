@@ -46,10 +46,13 @@ handlers :: Handlers (LspM Config)
 handlers = mconcat
   [ notificationHandler SInitialized $ \_not -> do
       elog ("Hello world!" :: T.Text)
+      liftIO $ debugM "initialize.handle" "Initialization successful!"
       pure ()
   , requestHandler STextDocumentHover $ \req responder -> do
       let RequestMessage _ _ _ (HoverParams doc pos _workDone) = req
       let (TextDocumentIdentifier uri) = doc
+      let fileName =  J.uriToFilePath uri
+      liftIO $ debugM "reactor.handle" $ "Processing HoverRequest for: " ++ show fileName
       exceptHover <- runExceptT $ lookupTokenBare' pos uri
       -- sendDiagnosticsOnLeft uri exceptHover
       let mkResponseErr e = ResponseError ParseError (tshow e) Nothing
@@ -329,7 +332,7 @@ lspOptions = defaultOptions
 main :: IO Int
 main = do
   -- TODO: Make the logging work!
-  setupLogger Nothing ["lsp-demo"] minBound
+  setupLogger Nothing ["initialize.handle", "reactor.handle"] DEBUG
   runServer $ ServerDefinition
     { onConfigurationChange = const $ pure $ Right ()
     , doInitialize = \env _req -> pure $ Right env
