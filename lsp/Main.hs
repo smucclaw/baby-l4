@@ -45,7 +45,7 @@ type Config = ()
 handlers :: Handlers (LspM Config)
 handlers = mconcat
   [ notificationHandler SInitialized $ \_not -> do
-      elog ("Hello world!" :: T.Text)
+      liftIO $ debugM "initialize.handle" "Hello World!"
       liftIO $ debugM "initialize.handle" "Initialization successful!"
       pure ()
   , requestHandler STextDocumentHover $ \req responder -> do
@@ -80,12 +80,11 @@ handlers = mconcat
     mdoc <- getVirtualFile doc
     case mdoc of
       Just (VirtualFile _version str vf) -> do
-        liftIO $ debugM "reactor.handle" $ "Found the virtual file: " ++ show str
-        elog $ "Found the virtual file: " ++ show str ++ ", " ++ show vf
+        liftIO $ debugM "reactor.handle" $ "Found the virtual file: " ++ show str  ++ ", " ++ show vf
         _ <- parseAndSendErrors (fromNormalizedUri doc) (Rope.toText vf)
         pure ()
       Nothing -> do
-        elog $ "Didn't find anything in the VFS for: " ++ show doc
+        liftIO $ debugM "reactor.handle" $ "Didn't find anything in the VFS for: " ++ show doc
   ]
 
 getVirtualOrRealFile :: Uri -> ExceptT Err (LspM Config) T.Text
@@ -93,10 +92,10 @@ getVirtualOrRealFile uri = do
     mdoc <- lift . getVirtualFile $ J.toNormalizedUri uri
     case mdoc of
       Just (VirtualFile _version fileVersion vf) -> do
-        elog $ "Found the virtual file: " ++ show fileVersion ++ ", " ++ show vf
+        liftIO $ debugM "reactor.handle" $ "Found the virtual file: " ++ show fileVersion ++ ", " ++ show vf
         pure $ Rope.toText vf
       Nothing -> do
-        elog $ "Didn't find anything in the VFS for: " ++ show uri
+        liftIO $ debugM "reactor.handle" $ "Didn't find anything in the VFS for: " ++ show uri
         filename <- uriToFilePath' uri
         -- TODO: Catch errors thrown by readFile
         liftIO $ TIO.readFile filename
@@ -267,11 +266,6 @@ getChildren (SRule _) = []
 
 findAstAtPoint :: HasLoc t => Position -> Program t -> [SomeAstNode t]
 findAstAtPoint pos = selectSmallestContaining pos [] . SProg
-
--- | Temporary bad debugging function.
--- TODO #64 Use @debugM@ instead
-elog :: (MonadIO m, Show a) => a -> m ()
-elog = liftIO . hPutStrLn stderr . tshow
 
 uriToFilePath' :: Monad m => Uri -> ExceptT Err m FilePath
 uriToFilePath' uri = extract "Read token Error" $ uriToFilePath uri
