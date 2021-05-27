@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-module Main where
+module Main (main) where
 
 import Language.LSP.Server
 import Language.LSP.Types
@@ -25,7 +25,7 @@ import qualified Data.List as List
 import Syntax
 import Control.Lens.Extras (template)
 import Data.Data (Data)
-import Data.Either.Combinators (maybeToRight)
+import Data.Either.Combinators (maybeToRight, mapLeft)
 import Control.Monad.Trans.Except (except)
 import Control.Monad.Except
 -- import Syntax (Pos(..),SRng(..))
@@ -33,15 +33,19 @@ import Control.Monad.Except
 import Annotation
 import Language.LSP.VFS
 import qualified Data.Rope.UTF16 as Rope
-import Control.Monad.Morph (hoist)
 import Data.Bifunctor (first)
+import Paths_baby_l4 (getDataFileName)
+import Typing (checkError)
+import Error
+import Data.List (intercalate)
+import Control.Monad.Trans.Maybe (MaybeT(..))
 
 type Config = ()
 
 handlers :: Handlers (LspM Config)
 handlers = mconcat
   [ notificationHandler SInitialized $ \_not -> do
-      -- elog "Hello world!"
+      elog ("Hello world!" :: T.Text)
       pure ()
   , requestHandler STextDocumentHover $ \req responder -> do
       let RequestMessage _ _ _ (HoverParams doc pos _workDone) = req
@@ -99,71 +103,101 @@ parseVirtualOrRealFile uri = do
     contents <- getVirtualOrRealFile uri
     lift $ parseAndSendErrors uri contents
 
-makeDiagErr :: Err -> [Diagnostic]
-makeDiagErr err = [J.Diagnostic
-                  (errorRange err)
-                  (Just J.DsError)  -- severity
-                  Nothing  -- code
-                  (Just "lexer") -- source
-                  (T.pack $ msg err)
-                  Nothing -- tags
-                  (Just (J.List []))
-                ]
+type Source = T.Text
 
-publishError :: Uri -> Err -> LspM Config ()
-publishError uri err = publishDiagnostics 100 (toNormalizedUri uri) Nothing (partitionBySource $ makeDiagErr err)
+makeDiagErr :: Source -> Err -> Diagnostic
+makeDiagErr source err =
+  J.Diagnostic
+    (errorRange err)
+    (Just J.DsError)  -- severity
+    Nothing  -- code
+    (Just source) -- source
+    (T.pack $ msg err)
+    Nothing -- tags
+    (Just (J.List []))
 
-clearError :: Uri -> LspM Config ()
-clearError uri = publishDiagnostics 100 (toNormalizedUri uri) Nothing (Map.singleton(Just "lexer") mempty)
 
-sendDiagnosticsOnLeft :: Uri -> Either Err b -> LspM Config ()
-sendDiagnosticsOnLeft uri = either (publishError uri) (const $ clearError uri)
+publishError :: Source -> NormalizedUri -> [Err] -> LspM Config ()
+publishError src uri err = publishDiagnostics 100 uri Nothing (partitionBySource $ makeDiagErr src <$> err)
 
--- | Analyze the file and send any diagnostics to the client in a
--- "textDocument/publishDiagnostics" notification
-sendDiagnostics :: J.NormalizedUri -> Maybe Int -> LspM Config ()
-sendDiagnostics fileUri version = do
-  let
-    diags = [J.Diagnostic
-              (J.Range (J.Position 0 1) (J.Position 0 5))
-              (Just J.DsWarning)  -- severity
-              Nothing  -- code
-              (Just "lsp-hello") -- source
-              "Example diagnostic message"
-              Nothing -- tags
-              (Just (J.List []))
-            ]
-  publishDiagnostics 100 fileUri version (partitionBySource diags)
+clearError :: Source -> NormalizedUri -> LspM Config ()
+clearError src uri = publishDiagnostics 100 uri Nothing (Map.singleton (Just src) mempty)
+
+sendDiagnosticsOnLeft :: Source -> NormalizedUri -> Either [Err] a -> MaybeT (LspM Config) a
+-- sendDiagnosticsOnLeft uri = either (publishError uri) (const $ clearError uri)
+sendDiagnosticsOnLeft src uri (Left err) = MaybeT $ Nothing <$ publishError src uri err
+sendDiagnosticsOnLeft src uri (Right result) = MaybeT $ Just result <$ clearError src uri
+
+readPrelude :: IO (Program SRng)
+readPrelude = do
+  l4PreludeFilepath <- getDataFileName "l4/Prelude.l4"
+  do
+    contents <- readFile l4PreludeFilepath
+    case parseProgram l4PreludeFilepath contents of
+      Right ast -> do
+        -- print ast
+        return ast
+      Left err -> do
+        error $ "Parser Error in Prelude: " ++ show err
+
+errorToErrs :: Error -> [Err]
+errorToErrs e = case e of
+                  (ClassDeclsErr c) ->
+                    case c of
+                      DuplicateClassNamesCDE dc -> mkErrs stringOfClassName "Duplicate class name: " dc
+                      UndefinedSuperclassCDE us -> mkErrs stringOfClassName "Undefined super class: " us
+                      CyclicClassHierarchyCDE cc -> mkErrs stringOfClassName "Cyclic class hierarchy: " cc
+                  (VarDeclsErr v) ->
+                    case v of
+                      DuplicateVarNamesVDE dup -> map (mkErrsVarRule "Duplicate var name: ") dup
+                      UndefinedTypeVDE un      -> map (mkErrsVarRule "Undefined type var decl: ") un
+                  (FieldDeclsErr f) ->
+                    case f of
+                      UndefinedTypeFDE uf -> mkErrs stringOfFieldName "Undefined field type: " uf
+                      DuplicateFieldNamesFDE dupf -> map mkErrsField dupf
+                  (AssertionErr (AssertionErrAE ae)) -> getErrorCause "Assertion Error: " <$> ae
+                  (RuleErr (RuleErrorRE re)) -> getErrorCause "Rule Error: " <$> re
+                  -- consider using printErrorCause to gen err msgs for now
+
+getErrorCause :: String -> (SRng, ErrorCause) -> Err
+getErrorCause errTp (r, ec) = Err r (errTp ++ printErrorCause ec)
+
+mkErr :: (b -> String) -> String -> (SRng, b) -> Err
+mkErr f msg (r, n) = Err r -- get range
+                        (((msg ++) . f) n) -- concatenate err msg with class/field/assertion name as extracted by fn f
+
+mkErrs ::(b -> String) -> String -> [(SRng, b)] ->[Err]
+mkErrs f msg = map (mkErr f msg)
+
+mkErrsVarRule :: String -> (SRng, [Char]) -> Err
+mkErrsVarRule msg (r, n) = Err r -- get range
+                            (msg ++ n)-- concatenate err msg with var/rule name
+
+mkErrsField :: (SRng, ClassName, [(SRng, FieldName)]) -> Err
+mkErrsField (range, cls, fieldLs) = Err range ("Duplicate field names in the class: " ++ stringOfClassName cls ++ ": " ++ intercalate ", " (map fieldErrorRange fieldLs))
+
+fieldErrorRange :: (SRng, FieldName) -> String
+fieldErrorRange (range, field) = show range ++ ": " ++ stringOfFieldName field
 
 parseAndSendErrors :: J.Uri -> T.Text -> LspM Config (Maybe (Program SRng))
-parseAndSendErrors uri contents = do
+parseAndSendErrors uri contents = runMaybeT $ do
   let Just loc = uriToFilePath uri
   let pres = parseProgram loc $ T.unpack contents
       nuri = toNormalizedUri uri
-  case pres of
-    Right ast -> do
-      publishDiagnostics 100 nuri Nothing (Map.singleton (Just "parser") mempty)
-      pure $ Just ast
-    Left err -> do
-      let
-        diags = [J.Diagnostic
-                  (errorRange err)
-                  (Just J.DsError)  -- severity
-                  Nothing  -- code
-                  (Just "parser") -- source
-                  (T.pack $ msg err)
-                  Nothing -- tags
-                  (Just (J.List []))
-                ]
-      publishDiagnostics 100 nuri Nothing (partitionBySource diags)
-      pure Nothing
+  ast <- sendDiagnosticsOnLeft "parser" nuri $ mapLeft (:[]) pres
 
+  preludeAst <- liftIO readPrelude -- TOOD: Handle errors
+
+  let typedAstOrTypeError = checkError preludeAst ast
+  -- TODO: Return the type checked AST so we can show type info
+  _ <- sendDiagnosticsOnLeft "typechecking" nuri $ mapLeft errorToErrs typedAstOrTypeError
+  pure ast
 
 tshow :: Show a => a -> T.Text
 tshow = T.pack . show
 
 posInRange :: Position -> SRng -> Bool
-posInRange (Position line col) (DummySRng _) = False
+posInRange (Position _line _col) (DummySRng _) = False
 posInRange (Position line col) (RealSRng (SRng (Pos top left) (Pos bottom right))) =
   (line == top && col >= left || line > top)
   && (line == bottom && col <= right || line < bottom)
@@ -180,7 +214,6 @@ errorRange (Err s _)
   | otherwise = Range (Position 0 0) (Position 999 0)
 
 -- TODO: Use findAllExpressions and findExprAt to extract types for hover
--- TODO: Show type errors as diagnostics
 
 -- | Use magic to find all Expressions in a program
 findAllExpressions :: (Data t) => Program t -> [Expr t]
@@ -237,13 +270,6 @@ findAstAtPoint pos = selectSmallestContaining pos [] . SProg
 elog :: (MonadIO m, Show a) => a -> m ()
 elog = liftIO . hPutStrLn stderr . tshow
 
-scanFile' :: FilePath -> ExceptT Err IO [Token]
-scanFile' = ExceptT . scanFile
-
--- TODO: #63 Accept a virtual file as well
-parseProgram' :: FilePath -> ExceptT Err IO (Program SRng)
-parseProgram' filename = ExceptT $ parseProgram filename <$> readFile filename
-
 uriToFilePath' :: Monad m => Uri -> ExceptT Err m FilePath
 uriToFilePath' uri = extract "Read token Error" $ uriToFilePath uri
 
@@ -279,12 +305,9 @@ astToText (SRule (Rule _ n _ _ _):_) = "Declaration of rule " <> T.pack n
 astToText _ = "No hover info found"
 
 lookupTokenBare' :: Position -> Uri -> ExceptT Err (LspM Config) (Maybe Hover)
-lookupTokenBare' pos uri = do
-  mbAst <- parseVirtualOrRealFile uri
-  -- If nothing, return nothing, else keep going with the result
-  forM mbAst $ \ast ->
-    -- `hoist liftIO` changes `ExceptT Err IO a` to `ExceptT Err (LspM Config) a`
-    hoist liftIO $ tokensToHover pos ast
+lookupTokenBare' pos uri = runMaybeT $ do
+  ast <- MaybeT $ parseVirtualOrRealFile uri
+  lift $ ExceptT $ liftIO $ runExceptT $ tokensToHover pos ast
 
 
 syncOptions :: J.TextDocumentSyncOptions

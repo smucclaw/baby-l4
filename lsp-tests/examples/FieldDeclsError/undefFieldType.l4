@@ -1,0 +1,5 @@
+# l4version 0.3.6
+
+class Business {
+      foo: Entity 
+}

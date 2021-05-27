@@ -118,6 +118,7 @@ duplicatesWrtFun f xs = [x | x <- xs, countElem (f x) (map f xs) > 1]
 
 superClassesOf :: Environment t -> ClassName -> [ClassName]
 superClassesOf env cn = case lookup cn (classDefAssoc (classDeclsOfEnv env)) of
+  -- TODO: not call error (causes a crash for lsp server)
   Nothing -> error ("in superclassesOf: undefined class " ++ (case cn of (ClsNm n) -> n))
   Just (ClassDef supcls _) -> supcls
 

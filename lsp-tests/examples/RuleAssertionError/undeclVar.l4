@@ -1,0 +1,4 @@
+rule <r1f>
+for lpr: LegalPractitioner, app: Appointment
+if (exists bsn : Business. AssociatedWithAppB app bsn && ProhibitedBusiness bsn)
+then MustNotAcceptApp lpr app
