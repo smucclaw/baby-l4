@@ -1,0 +1,10 @@
+class Business {
+      foo: Integer
+      bar: Boolean -> (Integer,Integer)
+}
+
+rule <r1a>
+for lpr: LegalPractitioner, app: Appointment
+if (exists b : Business.
+        b.De || 2 > 1)
+then True

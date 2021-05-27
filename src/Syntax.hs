@@ -67,15 +67,15 @@ data ErrorCause
                     , receivedITSE :: [Tp] }
   | NonScalarExpr { exprRangesITSE :: [SRng]      -- functions are not scalar types and not comparable
                     , receivedITSE :: [Tp] }
-  | NonFunctionTp { exprRangesITSE :: [SRng] -- call function when not function
+  | NonFunctionTp { exprRangesITSE :: [SRng]      -- call function when not function
                     , receivedFunTpITSE :: Tp }
-  | CastIncompatible { exprRangesITSE :: [SRng] -- typecasting from int to string for example (and its not compatible)
+  | CastIncompatible { exprRangesITSE :: [SRng]                     -- typecasting from int to string for example (and its not compatible) [** what is the typecasting syntax?]
                     , receivedCastITSE :: Tp
                     , castToITSE :: Tp }
-  | IncompatiblePattern SRng          -- pattern matching failure for tuples (l4)
-  | UnknownFieldName SRng FieldName ClassName   -- class has no such field
-  | AccessToNonObjectType SRng  -- when using dot notation on something thats not an object
-  | Unspecified                 -- don't know, need clarification from martin?
+  | IncompatiblePattern SRng                      -- pattern matching failure for tuples (l4)
+  | UnknownFieldName SRng FieldName ClassName     -- class has no such field 
+  | AccessToNonObjectType SRng                    -- when using dot notation on something thats not an object
+  | Unspecified                                                     -- [** don't know, need clarification from martin?]
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 
