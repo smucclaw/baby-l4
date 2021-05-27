@@ -1,10 +1,10 @@
 
 module Model where
 
-import SimpleSMT as SMT
+import SimpleSMT as SMT ( bool, SExpr(..) )
 import Data.Char (isDigit)
 import Data.Maybe (fromMaybe)
-import Data.List (groupBy, nub)
+import Data.List (groupBy, nub, (\\))
 
 
 -- the model to be constructed from an SMT model:
@@ -47,14 +47,14 @@ simpSmtOr e1 e2 = if e1 == e2 then e1 else List [Atom "or", e1, e2]
 simpSmtEqual :: SMT.SExpr -> SMT.SExpr -> SMT.SExpr
 simpSmtEqual e1@(Atom a1) e2@(Atom a2)
   | a1 == a2 = smtTrue
-  | (isIntString a1 || isIntString a2) && Prelude.not (isIntString a1 && isIntString a2) = List [Atom "=", e1, e2]
+  | (isIntString a1 || isIntString a2) && not (isIntString a1 && isIntString a2) = List [Atom "=", e1, e2]
   | otherwise = smtFalse
 simpSmtEqual e1 e2 = if e1 == e2 then smtTrue else List [Atom "=", e1, e2]
 
 simpSmtDistinct :: SMT.SExpr -> SMT.SExpr -> SMT.SExpr
 simpSmtDistinct e1@(Atom a1) e2@(Atom a2)
   | a1 == a2 = smtFalse
-  | (isIntString a1 || isIntString a2) && Prelude.not (isIntString a1 && isIntString a2) = List [Atom "distinct", e1, e2]
+  | (isIntString a1 || isIntString a2) && not (isIntString a1 && isIntString a2) = List [Atom "distinct", e1, e2]
   | otherwise = smtTrue
 simpSmtDistinct e1 e2 = if e1 == e2 then smtFalse else List [Atom "distinct", e1, e2]
 
@@ -98,13 +98,9 @@ simpSmtExpr argm a@(Atom x) = fromMaybe a (lookup x argm)
 simpSmtExpr argm (List [Atom "not", e]) = simpSmtNot (simpSmtExpr argm e)
 simpSmtExpr argm (List [Atom "=>", e1, e2]) = simpSmtImpl (simpSmtExpr argm e1) (simpSmtExpr argm e2)
 simpSmtExpr argm (List [Atom "and"]) = smtTrue
--- simpSmtExpr argm (List [Atom "and", e1]) = simpSmtExpr argm e1
--- simpSmtExpr argm (List [Atom "and", e1, e2]) = simpSmtAnd (simpSmtExpr argm e1) (simpSmtExpr argm e2)
 simpSmtExpr argm (List ((Atom "and") : e1 : es)) =
     simpSmtAnd (simpSmtExpr argm e1) (simpSmtExpr argm (List (Atom "and" : es)))
 simpSmtExpr argm (List [Atom "or"]) = smtFalse
--- simpSmtExpr argm (List [Atom "or", e1]) = simpSmtExpr argm e1
--- simpSmtExpr argm (List [Atom "or", e1, e2]) = simpSmtOr (simpSmtExpr argm e1) (simpSmtExpr argm e2)
 simpSmtExpr argm (List ((Atom "or") : e1 : es)) =
     simpSmtOr (simpSmtExpr argm e1) (simpSmtExpr argm (List (Atom "or" : es)))
 simpSmtExpr argm (List [Atom "xor", e1, e2]) = simpSmtDistinct (simpSmtExpr argm e1) (simpSmtExpr argm e2)
@@ -139,10 +135,16 @@ defFunDecompose (List [ Atom "define-fun", Atom fn, List params, Atom srt, bd]) 
 extractInstance :: SMT.SExpr -> (String, String)
 extractInstance (List [ Atom "declare-fun", Atom fn, List [], Atom tp]) = (fn, tp)
 
+isDeclareFun :: SExpr -> Bool
+isDeclareFun (List [ Atom "declare-fun", Atom fn, args, Atom tp]) = True
+isDeclareFun _ = False
+
+isDefineFun :: SExpr -> Bool
+isDefineFun (List [ Atom "define-fun", Atom fn, args, Atom tp, e]) = True
+isDefineFun _ = False
 
 fromModel :: SMT.SExpr -> [SMT.SExpr]
-fromModel (List (Atom "model" : es)) = es
-fromModel (List es) = es
+fromModel (List es) = filter (\e -> isDeclareFun e || isDefineFun e) es
 
 -- returns a list of pairs (instance name, sort)
 getInstances :: [SMT.SExpr] -> [(String, String)]
@@ -153,8 +155,12 @@ getPreds = map defFunDecompose . filter (isDefFunOfSort (== "Bool"))
 
 getConsts :: [SMT.SExpr] -> [(String, [SExpr], String, SExpr)]
 getConsts es =
-    filter (\(fn, params, srt, bd) -> null params) (map defFunDecompose (filter (isDefFunOfSort (/= "Bool")) es))
+    filter (\(fn, params, srt, bd) -> null params) (map defFunDecompose (filter (isDefFunOfSort (const True)) es))
 
+-- instsBySort: mapping of sorts to instances
+-- n: position of parameter (starting with 0)
+-- pn: parameter name
+-- ps: parameter sort
 constructCurrentBinding :: [(String, [String])] -> Int -> String -> String -> [(String, SMT.SExpr)]
 constructCurrentBinding instsBySort n pn ps =
     case ps of
@@ -170,48 +176,78 @@ constructBindings instsBySort n ((List [Atom pn, Atom ps]):params) =
 bindingsOfPred :: [(String, [String])] -> (String, [SExpr], String, SExpr) -> (String, [Argmap], SExpr)
 bindingsOfPred instsBySort (fn, params, _, bd) = (fn, constructBindings instsBySort 0 params, bd)
 
--- constructModel :: SMT.SExpr -> RelModel
--- constructModel :: SExpr -> [(String, [Argmap])]
-constructModel :: SExpr -> [(String, [(String, SExpr)], SExpr)]
-constructModel smtmd =
+argMapToArgList :: Argmap -> [String]
+argMapToArgList = map (\(paramName, Atom argName) -> argName)
+
+
+constructRelModel :: SExpr -> [(String, [String], SExpr)]
+constructRelModel smtmd =
     let instances = getInstances (fromModel smtmd)
         sorts = nub (map snd instances)
         instsBySort = map (\s -> (s, map fst (filter (\(i, si) -> s == si) instances))) sorts
         preds = getPreds (fromModel smtmd)
         binds = map (bindingsOfPred instsBySort) preds
-        mds = concatMap (\(fn, argms, bd) -> map (\argm -> (fn, argm, simpSmtExpr argm bd)) argms) binds
-    in  mds
+        -- mds: list of: function name, argument map, evaluated body
+        relmod = concatMap (\(fn, argms, bd) -> map (\argm -> (fn, argMapToArgList argm, simpSmtExpr argm bd)) argms) binds
+    in  relmod
 
+instanceNameMap :: SExpr -> [(String, [String])]
+instanceNameMap smtmd =
+    let instanceNames = map fst (getInstances (fromModel smtmd))
+        consts = Model.getConsts (fromModel smtmd)
+        inm = map (\n -> (n, [cn | (cn, params, tp, Atom s) <- consts, s == n])) instanceNames
+    in inm
 
-{-| 
+-- name used for displaying an instance
+instanceDisplayName :: [(String, [String])] -> String -> String
+instanceDisplayName inm instName =
+    case lookup instName inm of
+        Just (assocName:nms) -> assocName
+        _ -> instName
 
->>> simpSmtExpr [("x!3",Atom "intArg3")] (List [ Atom "=" , Atom "x!3" , Atom "130" ])
-WAS WAS WAS WAS WAS WAS Atom "false"
-WAS WAS WAS WAS WAS NOW Atom "true"
-WAS WAS WAS WAS NOW Atom "false"
-WAS WAS WAS NOW Atom "false"
-WAS WAS NOW Atom "false"
-WAS NOW List [Atom "=",Atom "intArg3",Atom "130"]
-NOW List [Atom "=",Atom "intArg3",Atom "130"]
+substName  :: (String -> String) -> SExpr -> SExpr
+substName sb (Atom s) = Atom (sb s)
+substName sb (List es) = List (map (substName sb) es)
 
->>> simpSmtBinInts [("x!0",Atom "Class!val!1"),("x!1",Atom "Class!val!1"),("x!2",Atom "Class!val!1"),("x!3",Atom "intArg3")] (List [ Atom "=" , Atom "x!3" , Atom "130" ])
-WAS WAS WAS False
-WAS WAS NOW True
-WAS NOW Couldn't match expected type ‘Char’
-WAS NOW             with actual type ‘([Char], SExpr)’
-WAS NOW Couldn't match expected type ‘Char’
-WAS NOW             with actual type ‘([Char], SExpr)’
-WAS NOW Couldn't match expected type ‘Char’
-WAS NOW             with actual type ‘([Char], SExpr)’
-WAS NOW Couldn't match expected type ‘Char’
-WAS NOW             with actual type ‘([Char], SExpr)’
-NOW Couldn't match expected type ‘Char’
-NOW             with actual type ‘([Char], SExpr)’
-NOW Couldn't match expected type ‘Char’
-NOW             with actual type ‘([Char], SExpr)’
-NOW Couldn't match expected type ‘Char’
-NOW             with actual type ‘([Char], SExpr)’
-NOW Couldn't match expected type ‘Char’
-NOW             with actual type ‘([Char], SExpr)’
+printSExpr :: SExpr -> String
+printSExpr (Atom s) = s
+printSExpr (List es) = "(" ++ unwords (map printSExpr es) ++ ")"
 
--}
+displayFormatConst :: (String, [SExpr], String, SExpr) -> (String, String)
+displayFormatConst (cn, params, tp, v) = (cn, printSExpr v)
+
+-- for an SExpr representing an SMT model, the function returns:
+-- - a list of synonymes (constants mapped to the same class instance)
+-- - a list of names of boolean constants and their values (true / false)
+-- - a list of names of integer constants and their values
+-- - a lsit of triples: predicate name, argument list, value of predicate at this point (possibly complex expression) except for boolean constants
+displayableModel :: SExpr -> ([[String]], [(String, String)], [(String, String)], [(String, [String], String)])
+displayableModel smtmd =
+    let allConsts = Model.getConsts (fromModel smtmd)
+        boolConsts = [c | c@(cn, params, tp, v) <- allConsts, tp == "Bool"]
+        intConsts = [c | c@(cn, params, tp, v) <- allConsts, tp == "Int"]
+        inm = instanceNameMap smtmd
+        idn = instanceDisplayName inm
+        synonymes = [constNames | (instName, constNames) <- inm, length constNames > 1]
+        relmod = constructRelModel smtmd
+        relmodWOConstFalse = [ (reln, map idn args, printSExpr (substName idn e)) | (reln, args, e) <- relmod, not (null args), e /= smtFalse ]
+    in (synonymes, map displayFormatConst boolConsts, map displayFormatConst intConsts, relmodWOConstFalse)
+
+printDisplayableModel :: ([[String]], [(String, String)], [(String, String)], [(String, [String], String)]) -> String
+printDisplayableModel (synonymes, boolConsts, intConsts, relmods) =
+    let synonymesS = case synonymes of
+                        []  -> ""
+                        _ -> "Synonymes: \n" ++ unlines (map unwords synonymes)
+        boolConstsS = case boolConsts of
+                        []  -> ""
+                        _ -> "Propositional variables: \n" ++ unlines (map (\c -> fst c ++ " = " ++ snd c) boolConsts)
+        intConstsS = case intConsts of
+                        []  -> ""
+                        _ -> "Integer variables: \n" ++ unlines (map (\c -> fst c ++ " = " ++ snd c) intConsts)
+        relmodsS = case relmods of
+                        []  -> ""
+                        _ -> "Predicates: \n" ++
+                             unlines (map (\(pn, args, v) -> pn ++ " " ++ unwords args ++ " = " ++ v) relmods) ++
+                             "Remaining predicates: false"
+    in synonymesS ++ boolConstsS ++ intConstsS ++ relmodsS
+

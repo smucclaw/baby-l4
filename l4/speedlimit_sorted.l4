@@ -83,9 +83,9 @@ then maxSpeed v d r s
 # "Corrected" version making subjectTo clause explicit
 rule <maxSpCarWorkdayRoadRestrSubjectTo> 
 #     {subjectTo : maxSpCarWorkdayHighway}
+#    && not (isCar v && isWorkday d && isHighway r && s = 130)
 for v: Vehicle, d: Day, r: Road, s: Integer
-if isCar v && isWorkday d && s = 90
-   && not (isCar v && isWorkday d && isHighway r && s = 130)
+if isCar v && isWorkday d && s = 90 && not (isHighway r)
 then maxSpeed v d r s
 
 # Inversion of rules maxSpCarWorkdayHighway and maxSpCarWorkdayRoad
@@ -116,7 +116,8 @@ assert {nSMT:
                           maxSpCarWorkdayRoad,
                           maxSpInversion
                           }
-                   }
+                   },
+            config: {solver: z3, logic: LIA, loglevel: 0}
            },
         nsCASP: {}
        }
@@ -146,7 +147,7 @@ instSpeed1 < instSpeed2
 # Functionality of maxSpeed follows from incorrect assumption set
 # excluding the correct maxSpCarWorkdayRoadRestrSubjectTo and maxSpInversionSubjectTo 
 # --> not valid, countermodel generated
-assert {SMT:
+assert {nSMT:
            {valid, 
             rules: {del : {maxSpCarWorkdayRoadRestrSubjectTo, maxSpInversionSubjectTo}}
            }
@@ -155,7 +156,7 @@ maxSpeed instCar instDay instRoad instSpeed1 &&
 maxSpeed instCar instDay instRoad instSpeed2
 --> instSpeed1 = instSpeed2
 
-# Functionality of maxSpeed follows from incorrect assumption set
+# Functionality of maxSpeed follows from correct assumption set
 # excluding the incorrect maxSpCarWorkdayRoad, maxSpInversion
 # --> valid
 assert {nSMT:
@@ -166,3 +167,32 @@ assert {nSMT:
 maxSpeed instCar instDay instRoad instSpeed1 &&
 maxSpeed instCar instDay instRoad instSpeed2
 --> instSpeed1 = instSpeed2
+
+
+assert {nSMT:
+           {valid, 
+            rules: {del : {maxSpCarWorkdayRoad, maxSpInversion}},
+            config: {loglevel: 1}
+           }
+       }
+isCar instCar -->
+isWorkday instDay -->
+isHighway instRoad -->
+maxSpeed instCar instDay instRoad 90
+
+assert {SMT: {valid,
+              rules:
+              {only: {CarTrDistinct, WdHdDistinct, maxSpCarWorkdayHighway, maxSpCarWorkdayRoadRestrSubjectTo, maxSpInversionSubjectTo}},
+              config: {loglevel: 1}}}
+forall v: Vehicle. forall d: Day. forall r: Road. forall s: Integer.
+(isCar v && isWorkday d && not (isCar v && isWorkday d && isHighway r))
+=
+(isCar v && isWorkday d )
+
+
+
+assert {nSMT: {valid, rules: {only:}, config: {loglevel: 1}}}
+forall v: Vehicle. forall d: Day. forall r: Road. forall s: Integer.
+(isCar v && isWorkday d ) -->
+(isCar v && isWorkday d && not (isCar v && isWorkday d && isHighway r))
+

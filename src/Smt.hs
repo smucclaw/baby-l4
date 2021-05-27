@@ -17,7 +17,7 @@ import RuleTransfo ( prenexForm, ruleImplR, liftDecompRule, repeatDecomp, ruleAl
                     conjs, not )
 import PrintProg (printRule)
 import Data.Maybe (fromMaybe)
-import Model (constructModel)
+import Model (constructRelModel, instanceNameMap, displayableModel, printDisplayableModel)
 
 
 -------------------------------------------------------------
@@ -173,30 +173,58 @@ exprToSExpr env e = error ("exprToSExpr: term " ++ show e ++ " not translatable"
 -- Launching the solver and retrieving results
 -------------------------------------------------------------
 
+selectLogLevel :: Maybe ValueKVM -> Int
+selectLogLevel config =
+  case selectAssocVal "loglevel" (fromMaybe (IntVM 0) config) of
+    Nothing -> 0
+    Just (IntVM n) -> fromIntegral n
+    Just _ -> 0
+
+createSolver :: Maybe ValueKVM -> Maybe Logger -> IO Solver
+createSolver config lg = 
+  let defaultConfig = ("z3", ["-in"])
+      (solverName, solverParams) = case config of
+                                      Nothing -> defaultConfig
+                                      Just vkvm -> case selectAssocVal "solver" vkvm of
+                                                      Just (IdVM "cvc4") -> ("cvc4", ["--lang=smt2"])
+                                                      Just (IdVM "mathsat") -> ("mathsat", [])
+                                                      _ -> defaultConfig
+  in newSolver solverName solverParams lg
+
+
 -- Tried with the following provers:
 -- alt-ergo gets stuck in interaction (apparently only reads from file)
 -- Boolector (impossible to get compiled)
--- cvc4 does not work, apparently problems with quantifiers
--- mathsat terminates with an error (quantifiers not supported)
+-- cvc4 does not work with quantifiers, simple boolean or arithmetic queries supported
+-- mathsat terminates with an error (quantifiers not supported), simple boolean or arithmetic queries supported
 -- yices does not support logics like LIA
-proveExpr :: Show t => Bool -> [ClassDecl t] -> [VarDecl t] -> Expr t ->IO ()
-proveExpr checkSat cds vds e = do
-  l <- newLogger 0
-  --s <- newSolver "z3" ["-in"] (Just l)
-  s <- newSolver "cvc4" ["--lang=smt2"] (Just l)
-  setLogic s "AUFLIA"  -- for z3
+selectLogic :: Solver -> Maybe ValueKVM -> IO ()
+selectLogic s config = 
+  let defaultConfig = "LIA"
+      logicName = case config of
+                     Nothing -> defaultConfig
+                     Just vkvm -> case selectAssocVal "logic" vkvm of
+                                      Just (IdVM l) -> l
+                                      _ -> defaultConfig
+  in setLogic s logicName
+
+
+proveExpr :: Show t => Maybe ValueKVM -> Bool -> [ClassDecl t] -> [VarDecl t] -> Expr t ->IO ()
+proveExpr config checkSat cds vds e = do
+  l <- newLogger (selectLogLevel config)
+  s <- createSolver config (Just l)
+  selectLogic s config
   sEnv <- classDeclsToSortEnv s cds
   fEnv <- varDeclsToFunEnv s sEnv vds
   assert s (exprToSExpr (SMTEnv sEnv fEnv) e)
   checkRes <- check s
-  print checkRes
   when (checkRes == Sat) $ do
     if checkSat
     then putStrLn "Formula satisfiable, found model."
     else putStrLn "Formula not valid, found countermodel."
     mdl <- getModel s
-    pPrint mdl
-    print (constructModel mdl)
+    -- pPrint mdl
+    putStrLn (printDisplayableModel (displayableModel mdl))
   when (checkRes == Unsat) $ do
     if checkSat
     then putStrLn "Formula unsatisfiable."
@@ -251,7 +279,8 @@ proveAssertionSMT p instr asrt = do
   let proveConsistency = selectOneOfInstr ["consistent", "valid"] instr == "consistent"
   let applicableRules = selectApplicableRules p instr
   let proofTarget = constrProofTarget proveConsistency asrt applicableRules
-  proveExpr proveConsistency (classDeclsOfProgram p) (globalsOfProgram p) proofTarget
+  let config = selectAssocVal "config" instr
+  proveExpr config proveConsistency (classDeclsOfProgram p) (globalsOfProgram p) proofTarget
 
 
 constrProofTarget :: Bool -> Assertion Tp -> [Rule Tp] -> Expr Tp
@@ -278,14 +307,4 @@ proveProgram :: Program (LocTypeAnnot Tp) -> IO ()
 proveProgram p =
   let cleanedProg = fmap typeAnnot p
   in foldM (\r a -> proveAssertion cleanedProg a) () (assertionsOfProgram cleanedProg)
-
-
--- this is only a test version, the definite version is proveProgramCorrect
-proveProgramTest :: Program (LocTypeAnnot Tp) -> IO ()
-proveProgramTest p =
-  case rulesOfProgram p of
-      [] -> error "in proveProgram: at least one rule required"
-      r1: r2: _ -> do
-        putStrLn (printRule ((rulesInversion . normalize)  [fmap typeAnnot r1, fmap typeAnnot r2]))
-        -- pPrint ((rulesInversion . normalize)  [fmap typeAnnot r1, fmap typeAnnot r2])
 
