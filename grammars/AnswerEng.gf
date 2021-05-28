@@ -60,10 +60,6 @@ concrete AnswerEng of Answer = AtomsEng ** open
             <AN2, ACN> =>
               let comp : CN = mkCN p1.atom.n2 p1.arg ;
                in cnConjS p2.atom.cn comp ;
-            <AN2, AN2> =>
-              let comp1 : CN = mkCN p1.atom.n2 p1.arg ;
-                  comp2 : CN = mkCN p2.atom.n2 p2.arg ;
-               in cnConjS comp1 comp2 ;
             _ => PredVPS subj (ConjVPS and_Conj (BaseVPS vps1 vps2))
           } ;
 
@@ -77,15 +73,7 @@ concrete AnswerEng of Answer = AtomsEng ** open
             mkS (mkCl subj (C.ConjCN and_Conj (C.ConsCN cn1 (C.BaseCN cn2 cn3))))
        in case <p1.atom.atype, p2.atom.atype> of {
             <ACN, ACN , ACN> => cnConjS p1.atom.cn p2.atom.cn p3.atom.cn ;
-
-            <ACN, AN2, ACN > =>
-              let comp : CN = mkCN p2.atom.n2 p2.arg  ;
-               in cnConjS p1.atom.cn comp p3.atom.cn ;
-
-            -- cnConjS p1.atom.cn (mkCN p2.atom.n2 p2.arg) (mkCN p3.atom.cn)
-
-
-
+          -- cnConjS p1.atom.cn (mkCN p2.atom.n2 p2.arg) (mkCN p3.atom.cn)
           --   <AN2, ACN, ACN > =>
           --     let comp : CN = mkCN p1.atom.n2 p1.arg ;
           --      in cnConjS p2.atom.cn comp ;
@@ -110,12 +98,31 @@ concrete AnswerEng of Answer = AtomsEng ** open
                   comp3 : CN = mkCN p3.atom.n2 p3.arg
                in cnConjS comp1 comp2 comp3;
 
+            <ACN, ACN, AN2> =>
+              let comp1 : p1.atom.cn ;
+                  comp2 : p2.atom.cn ;
+                  comp3 : CN = mkCN p3.atom.n2 p3.arg ;
+              in cnConjS comp1 comp2 comp3 ;
 
-            < ACN , ACN, AN2>
+            <ACN, AN2, ACN> =>
+              let comp1 : p1.atom.cn ;
+                  comp2 : CN = mkCN p2.atom.n2 p2.arg ;
+                  comp3 : p3.atom.cn ;
+              in cnConjS comp1 comp2 comp3 ;
 
-            <
+            <AN2, ACN, ACN> =>
+              let comp1 : CN = mkCN p1.atom.n2 p1.arg ;
+                  comp2 : p2.atom.cn ;
+                  comp3 : p3.atom.cn ;
+              in cnConjS comp1 comp2 comp3 ;
 
-            _ => PredVPS subj (ConjVPS and_Conj (ConsVPS vps1 (BaseVPS vps2 vps3)))
+            <AN2, AN2, AN2> =>
+              let comp1 : CN = mkCN p1.atom.n2 p1.arg ;
+                  comp2 : CN = mkCN p2.atom.n2 p2.arg ;
+                  comp3 : CN = mkCN p3.atom.n2 p3.arg ;
+               in cnConjS comp1 comp2 comp3 ;
+
+            _ => PredVPS subj (ConjVPS and_Conj (ConjVPS vps1 (BaseVPS vps2 vps3)))
 
           } ;
 

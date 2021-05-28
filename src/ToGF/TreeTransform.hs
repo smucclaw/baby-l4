@@ -93,6 +93,11 @@ aggregatePred [pr1, pr2] (GAggregateSubj1 _ subjs) = GAggregatePred2 pr1 pr2 sub
 aggregatePred [pr1, pr2] (GAggregateSubj2 _ _ subjs) = GAggregatePred2 pr1 pr2 subjs
 aggregatePred _ x = x
 
+aggregatePred3 :: [GPred] -> GStatement -> GStatement
+aggregatePred3 [pr1, pr2, pr3] (GAggregateSubj1 _ subjs) = GAggregatePred3 pr1 pr2 pr3 subjs
+aggregatePred3 [pr1, pr2, pr3] (GAggregateSubj2 _ _ subjs) = GAggregatePred3 pr1 pr2 pr3 subjs
+aggregatePred3 _ x = x
+
 getPred :: GStatement -> GPred
 getPred s = case s of
   GApp1 pr _ -> GIntransPred pr
