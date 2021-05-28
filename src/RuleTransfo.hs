@@ -13,27 +13,19 @@ import Data.List (sortBy)
 -- Logical infrastructure: macros for simplifying formula construction
 ----------------------------------------------------------------------
 
-boolT :: Tp
-boolT = ClassT (ClsNm "Boolean")
 
-trueV :: Expr Tp
-trueV = ValE boolT (BoolV True)
 
-falseV :: Expr Tp
-falseV = ValE boolT (BoolV False)
-
--- TODO: UBneg should be renamed to UBnot
 not :: Expr Tp -> Expr Tp
-not = UnaOpE boolT (UBool UBneg)
+not = UnaOpE booleanT (UBool UBnot)
 
 conj :: Expr Tp -> Expr Tp -> Expr Tp
-conj = BinOpE boolT (BBool BBand)
+conj = BinOpE booleanT (BBool BBand)
 
 disj :: Expr Tp -> Expr Tp -> Expr Tp
-disj = BinOpE boolT (BBool BBor)
+disj = BinOpE booleanT (BBool BBor)
 
 impl :: Expr Tp -> Expr Tp -> Expr Tp
-impl = BinOpE boolT (BBool BBimpl)
+impl = BinOpE booleanT (BBool BBimpl)
 
 conjs :: [Expr Tp] -> Expr Tp
 conjs [] = trueV
@@ -46,7 +38,7 @@ disjs [e] = e
 disjs (e:es) = disj e (disjs es)
 
 eq  :: Expr Tp -> Expr Tp -> Expr Tp
-eq = BinOpE (ClassT (ClsNm "Boolean")) (BCompar BCeq)
+eq = BinOpE booleanT (BCompar BCeq)
 
 ----------------------------------------------------------------------
 -- Logical infrastructure: computing normal forms
@@ -126,7 +118,7 @@ swapQuantif All = Ex
 swapQuantif Ex  = All
 
 prenexUnary :: t -> UBoolOp -> Expr t -> Expr t
-prenexUnary t UBneg (QuantifE tq q vn vt et) = QuantifE tq (swapQuantif q) vn vt (UnaOpE t (UBool UBneg) et)
+prenexUnary t UBnot (QuantifE tq q vn vt et) = QuantifE tq (swapQuantif q) vn vt (UnaOpE t (UBool UBnot) et)
 prenexUnary t u e = UnaOpE t (UBool u) e
 
 prenexBinary :: t -> BBoolOp -> Expr t -> Expr t -> Expr t
@@ -151,7 +143,7 @@ ruleToFormula r = abstract All (varDeclsOfRule r) (impl (precondOfRule r) (postc
 abstract :: Quantif -> [VarDecl Tp] -> Expr Tp -> Expr Tp
 abstract q vds e
   = foldr
-      (\ vd -> QuantifE boolT q (nameOfVarDecl vd) (tpOfVarDecl vd)) e
+      (\ vd -> QuantifE booleanT q (nameOfVarDecl vd) (tpOfVarDecl vd)) e
       vds
 
 -------------------------------------------------------------
@@ -281,7 +273,7 @@ ruleExLInvStep r =
           rmpPostc = zip [ll + 1 .. lvds - 1] [ll .. lvds - 2]
           rmpPrec  = (ll, 0) : zip [0 .. ll - 1] [1 .. ll]
           newPostc = remapExpr rmpPostc postc
-          newPrec = QuantifE boolT Ex (nameOfVarDecl d) (tpOfVarDecl d) (remapExpr rmpPrec prec)
+          newPrec = QuantifE booleanT Ex (nameOfVarDecl d) (tpOfVarDecl d) (remapExpr rmpPrec prec)
       in [r{varDeclsOfRule = reverse (lowers++uppers)}{precondOfRule = newPrec}{postcondOfRule = newPostc}]
     _ -> error "internal error in splitDecls: "
 
@@ -323,7 +315,7 @@ rulesInversion rls =
   let r1 = head rls
       (VarE _ f, args) = appToFunArgs [] (postcondOfRule r1)
       rn = nameOfVar f ++ "Inversion"
-  in Rule boolT rn (varDeclsOfRule r1) (postcondOfRule r1) (disjs (map precondOfRule rls))
+  in Rule booleanT rn (varDeclsOfRule r1) (postcondOfRule r1) (disjs (map precondOfRule rls))
 
 
 -- Adds negated precondition of r1 to r2. Corresponds to:

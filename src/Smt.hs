@@ -120,7 +120,7 @@ transUArithOp :: UArithOp ->  SExpr -> SExpr
 transUArithOp UAminus = SMT.neg
 
 transUBoolOp :: UBoolOp ->  SExpr -> SExpr
-transUBoolOp UBneg = SMT.not
+transUBoolOp UBnot = SMT.not
 
 transUnaOp :: UnaOp -> SExpr -> SExpr
 transUnaOp (UArith ua) = transUArithOp ua

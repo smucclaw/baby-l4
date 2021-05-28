@@ -24,7 +24,7 @@ printVar (LocalVar vn i) = vn
 
 printUnaOpE :: UnaOp -> String
 printUnaOpE (UArith UAminus) = "-"
-printUnaOpE (UBool UBneg) = "not "
+printUnaOpE (UBool UBnot) = "not "
 
 printBinOpE :: BinOp -> String
 printBinOpE (BArith b1) =

@@ -52,7 +52,7 @@ isPred :: VarDecl t -> Bool
 isPred = isPred' . tpOfVarDecl
 
 isPred' :: Tp -> Bool
-isPred' (FunT t BoolT) = True
+isPred' (FunT t (ClassT (ClsNm "Boolean"))) = True
 isPred' (FunT t t2) = isPred' t2
 isPred' _ = False
 
@@ -85,8 +85,8 @@ onlyFacts = filter isFact . globalsOfProgram
     isFact :: VarDecl t -> Bool
     isFact = isFact' . tpOfVarDecl
 
-    isFact' BoolT = True
-    isFact' IntT = True
+    isFact' (ClassT (ClsNm "Boolean")) = True
+    isFact' (ClassT (ClsNm "Integer")) = True
     isFact' (ClassT _) = True
     -- isFact' (TupleT _) = _ ---- ??????
     isFact' _ = False
@@ -158,7 +158,7 @@ instance SCasp (Expr Tp) where
     QuantifE _ _ _ _ es -> showSingle es
     BinOpE _ _ e1 e2 -> showSingle e1 <+> showSingle e2
     UnaOpE _ unaop exp -> showSingle unaop <+> showSingle exp
-    NotDeriv ann _ e  -> showSingle $ UnaOpE ann (UBool UBneg) e
+    NotDeriv ann _ e  -> showSingle $ UnaOpE ann (UBool UBnot) e
     AppE _ e1 e2 -> showSingle e1 <+> showSingle e2
     FunE _ _ _ es -> showSingle es
     --IfThenElseE _ ifE thenE elseE -> vsep [
@@ -174,7 +174,7 @@ instance SCasp (Expr Tp) where
 --   showSC (CastE s t t3 et) = _
 instance SCasp UnaOp where
   showSingle (UArith u) = mempty
-  showSingle (UBool UBneg) = pretty "not"
+  showSingle (UBool UBnot) = pretty "not"
 
 instance Arg (Var, Tp) where
   mkAtom (var, tp) = mkAtom tp <> pretty "_" <> mkAtom var
@@ -201,16 +201,16 @@ instance Arg Var where
 
 instance Arg Tp where
   mkAtom tp = case tp of
+    ClassT (ClsNm "Boolean") -> pretty "bool"
+    ClassT (ClsNm "Integer") -> pretty "int"
     ClassT (ClsNm (f : irst)) -> pretty $ toLower f : irst
-    BoolT -> pretty "bool"
-    IntT -> pretty "int"
     FunT t1 t2 -> mkAtom t1 <> pretty "->" <> mkAtom t2
     TupleT ts -> encloseSep lparen rparen comma $ map mkAtom ts
     _ -> pretty "unsupportedtype"
   mkVar tp = pretty $ case tp of
+    ClassT (ClsNm "Boolean") -> "Bool"
+    ClassT (ClsNm "Integer") -> "Int"
     ClassT (ClsNm (f : irst)) -> toUpper f : irst
-    BoolT -> "Bool"
-    IntT -> "Int"
     _ -> "UnsupportedType"
 
 instance SCasp Val where

@@ -84,14 +84,21 @@ data ErrorCause
 -- TODO: also types have to be annotated with position information
 -- for the parser to do the right job
 data Tp
-  = BoolT
-  | IntT
-  | ClassT ClassName
+  = ClassT ClassName
   | FunT {funTp :: Tp, argTp :: Tp}
   | TupleT [Tp]
   | ErrT ErrorCause
   | OkT                    -- fake type appearing in constructs (classes, rules etc.) that do not have a genuine type
   deriving (Eq, Ord, Show, Read, Data, Typeable)
+
+
+booleanT :: Tp
+booleanT = ClassT (ClsNm "Boolean")
+integerT :: Tp
+integerT = ClassT (ClsNm "Integer")
+stringT :: Tp
+stringT = ClassT (ClsNm "String")
+
 
 data VarDecl t = VarDecl {annotOfVarDecl ::t
                          , nameOfVarDecl :: VarName
@@ -110,7 +117,6 @@ instance HasLoc t => HasLoc (Mapping t) where
 data FieldDecl t = FieldDecl {annotOfFieldDecl ::t
                              , nameOfFieldDecl :: FieldName
                              , tpOfFieldDecl ::  Tp }
-                            -- FieldAttribs
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 instance HasLoc t => HasLoc (FieldDecl t) where
   getLoc = getLoc . annotOfFieldDecl
@@ -180,6 +186,11 @@ data Val
     | ErrV
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
+trueV :: Expr Tp
+trueV = ValE booleanT (BoolV True)
+falseV :: Expr Tp
+falseV = ValE booleanT (BoolV False)
+
 data Var
       -- global variable only known by its name
     = GlobalVar { nameOfVar :: VarName }
@@ -193,7 +204,7 @@ data UArithOp = UAminus
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 -- unary boolean operators
-data UBoolOp = UBneg
+data UBoolOp = UBnot
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 -- unary operators (union of the above)
@@ -281,42 +292,9 @@ childExprs x = case x of
 allSubExprs :: Expr t -> [Expr t]
 allSubExprs e = e : concatMap allSubExprs (childExprs e)
 
-{-
-annotOfExpr :: Expr t -> t
-annotOfExpr x = case x of
-  ValE        t _       -> t
-  VarE        t _       -> t
-  UnaOpE      t _ _     -> t
-  BinOpE      t _ _ _   -> t
-  IfThenElseE t _ _ _   -> t
-  AppE        t _ _     -> t
-  FunE        t _ _ _   -> t
-  QuantifE    t _ _ _ _ -> t
-  FldAccE     t _ _     -> t
-  TupleE      t _       -> t
-  CastE       t _ _     -> t
-  ListE       t _ _     -> t
-  NotDeriv    t _ _     -> t
--}
 
 updAnnotOfExpr :: (a -> a) -> Expr a -> Expr a
 updAnnotOfExpr f e = e {annotOfExpr = f (annotOfExpr e)}
-{-
-updAnnotOfExpr f x = case x of
-  ValE        t a       -> ValE (f t) a
-  VarE        t a       -> VarE (f t) a
-  UnaOpE      t a b     -> UnaOpE (f t) a b
-  BinOpE      t a b c   -> BinOpE (f t) a b c
-  IfThenElseE t a b c   -> IfThenElseE (f t) a b c
-  AppE        t a b     -> AppE (f t) a b
-  FunE        t a b c   -> FunE (f t) a b c
-  QuantifE    t a b c d -> QuantifE (f t) a b c d
-  FldAccE     t a b     -> FldAccE (f t) a b
-  TupleE      t a       -> TupleE (f t) a
-  CastE       t a b     -> CastE (f t) a b
-  ListE       t a b     -> ListE (f t) a b
-  NotDeriv    t a b     -> NotDeriv (f t) a b
--}
 
 instance HasLoc t => HasLoc (Expr t) where
   getLoc e = getLoc (annotOfExpr e)

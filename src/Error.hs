@@ -50,8 +50,8 @@ printVarName = id
 
 printTp :: Tp -> String
 printTp t = case t of
-  BoolT -> "Bool"
-  IntT -> "Int"
+  ClassT (ClsNm "Boolean") -> "Bool"
+  ClassT (ClsNm "Integer") -> "Integer"
   ClassT cn -> printClassName cn
   FunT t1 t2 -> "(" ++ printTp t1 ++ " -> " ++ printTp t2 ++")"
   TupleT [] -> "()"

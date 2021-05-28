@@ -45,7 +45,7 @@ normalizeQuantifGF r = r { varDeclsOfRule = [],
     wrapInExistential [] e = e
     wrapInExistential (VarDecl ann nm tp:xs) e = wrapInExistential xs (QuantifE ann Ex nm tp e)
 negateExpr :: Expr t -> Expr t
-negateExpr e = UnaOpE (annotOfExpr e) (UBool UBneg) e
+negateExpr e = UnaOpE (annotOfExpr e) (UBool UBnot) e
 
 extractName :: Expr t -> String
 extractName (ValE t v) = "someVal"

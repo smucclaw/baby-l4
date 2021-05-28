@@ -13,7 +13,7 @@ lift_uarith_op u c = case (u, c) of
 
 lift_ubool_op :: UBoolOp -> Val -> Val
 lift_ubool_op u c = case (u, c) of
-  (UBneg, BoolV b) -> BoolV (not b)
+  (UBnot, BoolV b) -> BoolV (not b)
   _ -> ErrV
 
 lift_unaop_expr :: UnaOp -> Expr Tp -> Expr Tp

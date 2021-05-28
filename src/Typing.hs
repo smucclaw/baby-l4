@@ -192,17 +192,11 @@ kndType kenv t = Right t
 -- Linking classes from the prelude to internal predicates
 ----------------------------------------------------------------------
 
-booleanT = ClassT (ClsNm "Boolean")
-integerT = ClassT (ClsNm "Integer")
-
-stringT = ClassT (ClsNm "String")
 
 isBooleanTp :: Tp -> Bool
-isBooleanTp BoolT = True     -- TODO: BoolT currently still tolerated, but to be phased out
 isBooleanTp (ClassT (ClsNm "Boolean")) = True
 isBooleanTp _ = False
 
--- Note: IntT not taken as number type
 isNumberTp :: Environment t -> Tp -> Bool
 isNumberTp env (ClassT t) = isSubclassOf env t (ClsNm "Number")
 isNumberTp _ _ = False
@@ -216,8 +210,6 @@ isFloatTp (ClassT (ClsNm "Float")) = True
 isFloatTp _ = False
 
 isScalarTp :: Tp -> Bool
-isScalarTp BoolT = True
-isScalarTp IntT = True
 isScalarTp (ClassT _) = True
 isScalarTp (FunT _ _) = False
 isScalarTp (TupleT ts) = all isScalarTp ts
@@ -381,8 +373,6 @@ compatiblePatternType _ _ = False
 -- compatibleType extends subclassing to all type constructors.
 -- compatibleType env t1 t2 roughly means that t1 is a subtype of t2
 compatibleType :: Environment t -> Tp -> Tp -> Bool
-compatibleType _ BoolT BoolT = True
-compatibleType _ IntT IntT = True
 compatibleType env (ClassT c1) (ClassT c2) = isSubclassOf env c1 c2
 compatibleType env (FunT dom1 cod1) (FunT dom2 cod2) =
   compatibleType env dom2 dom1 && compatibleType env cod1 cod2
@@ -761,7 +751,7 @@ wellFormedTA env (TmdAut nm ta_locs ta_act_clss ta_clks trans init_locs invs lbl
         tes = map (tpExpr env . snd) lbls
         ttrans = map (typeTransition env) trans
     in
-      if all (`elem` ta_locs) lbls_locs && all (\te -> getTypeOfExpr te == BoolT) tes
+      if all (`elem` ta_locs) lbls_locs && all (\te -> getTypeOfExpr te == booleanT) tes
       then TmdAut nm ta_locs ta_act_clss ta_clks ttrans init_locs invs (zip lbls_locs tes)
       else error "ill-formed timed automaton (labels)"
   else error "ill-formed timed automaton (transitions)"

@@ -8,17 +8,17 @@ IncompatibleWithDignity -> "incompatible with dignity of legal profession"
 # r34_1_a_applies -> "rule 341 applies"
 
 class Business {
-    DetractsFromDignity: Bool         # has lexicon entry
-    IncompatibleWithDignity: Bool     # has lexicon entry
-    DerogatesFromDignity: Bool        # has lexicon entry
-    UnauthorizedSharingFees : Bool    # has lexicon entry
-    DescribedInSectionOne : Bool         # rest parsed from the predicate name
-    Unfair: Bool
-    DescribedInFirstSchedule: Bool
-    Prohibited: Bool
+    DetractsFromDignity: Boolean         # has lexicon entry
+    IncompatibleWithDignity: Boolean     # has lexicon entry
+    DerogatesFromDignity: Boolean        # has lexicon entry
+    UnauthorizedSharingFees : Boolean    # has lexicon entry
+    DescribedInSectionOne : Boolean         # rest parsed from the predicate name
+    Unfair: Boolean
+    DescribedInFirstSchedule: Boolean
+    Prohibited: Boolean
 }
 
-decl r34_1_a_applies: Business -> Bool
+decl r34_1_a_applies: Business -> Boolean
 
 rule <r34_1_a>
 for b: Business
