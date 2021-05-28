@@ -88,7 +88,10 @@ writeDoc nm doc = withFile nm WriteMode $ \h -> hPutDoc h doc
 
 mkLexicon :: FilePath -> UDA.UDEnv -> GrName -> [Mapping t] -> [AtomWithArity] -> IO (Doc (), Doc ())
 mkLexicon fname udenv gname userlex atoms = do
-  filteredLex <- mapM (filterPredicate udenv fname) parsedLex
+  filteredLex <- do -- Workaround for now: don't ask about disambiguation if there is no user lexicon
+    case userlex of
+      [] -> pure []
+      _ -> mapM (filterPredicate udenv fname) parsedLex
   pure
     (abstractLexicon gname filteredLex guessedLex,
     concreteLexicon gname filteredLex guessedLex)
@@ -109,7 +112,9 @@ mkLexicon fname udenv gname userlex atoms = do
                                  | let pr = parsePred udenv ar funnm ""
                                  , not $ null $ trees pr ]
     parsedLex = [ parsed | (Just parsed , _) <- bothLexica] -- Use the parsed predicate.
-    guessedLex = [ guess | (Nothing , guess) <- bothLexica] -- If no result for parsePred, fall back to guessed pos
+    guessedLex = case userlex of
+      [] -> map snd bothLexica
+      _ -> [ guess | (Nothing , guess) <- bothLexica] -- If no result for parsePred, fall back to guessed pos
 
 printGF' :: PGF -> Expr -> IO ()
 printGF' gr expr = do

@@ -11,7 +11,7 @@ import Data.List.Extra (trim, transpose, allSame)
 import Data.List.Split ( split, splitOn, startsWithOneOf )
 import PGF hiding (Tree)
 import Text.Printf (printf)
-import Data.Maybe (isJust, fromMaybe)
+import Data.Maybe (isJust, fromMaybe, listToMaybe)
 import UDConcepts ( UDSentence, prReducedUDSentence )
 import UDAnnotations (UDEnv (..))
 import GF2UD
@@ -24,10 +24,10 @@ import qualified Data.List as L
 import qualified Data.Set as Set
 import Data.Foldable (for_)
 
---import Debug.Trace (trace)
+import Debug.Trace (trace)
 
-trace :: p1 -> p2 -> p2
-trace _ a = a
+-- trace :: p1 -> p2 -> p2
+-- trace _ a = a
 
 ----------------------------------------------------
 
@@ -170,8 +170,8 @@ matchesConstraints s c = and $ zipWith matchesConstraint (unRUDS s) (unRUDS c)
 filterMatching :: Constraints -> UDSentenceMap -> UDSentenceMap
 filterMatching constrs = M.filterWithKey (\ k _ -> matchesConstraints k constrs)
 
-createEmptyConstraints :: UDSentenceMap -> Constraints
-createEmptyConstraints = (Whatever <$) . head . M.keys
+createEmptyConstraints :: UDSentenceMap -> Maybe Constraints
+createEmptyConstraints = fmap (Whatever <$) . listToMaybe . M.keys
 
 parseRUDW :: UDSentence -> ReducedUDSentence String
 parseRUDW uds = RUDS $ parseUDW <$> lines str
@@ -279,7 +279,7 @@ untransposeWord (RUDW i w x) = RUDW i w <$> x
 askAboutPredicate :: Predicate -> FilePath -> IO Constraints
 askAboutPredicate prd filePrefix = do
   mbCtrs <- getAndValidateConstraints prd filePrefix
-  let ctrs = fromMaybe (createEmptyConstraints $ reducedUDmap prd) mbCtrs
+  let ctrs = fromMaybe (fromMaybe (error $ "No words in ud map\n" ++ show (reducedUDmap prd) ++ "\nfor\n" ++ show prd) . createEmptyConstraints $ reducedUDmap prd) mbCtrs
 
   newCtrs <- askConstraint prd ctrs
   whenJust_ newCtrs $ saveConstraints prd filePrefix
@@ -289,7 +289,7 @@ askUntilUnambigous :: Predicate -> FilePath -> IO [Expr]
 askUntilUnambigous prd filePrefix = do
   ctrs <- askAboutPredicate prd filePrefix
   case M.toList $ filterMatching ctrs (reducedUDmap prd) of
-    [] -> error "BUG: Couldn't find any possibilities"
+    [] -> error $ "BUG: Couldn't find any possibilities\n" ++ show prd ++ "\n" ++ show ctrs
     [(_,exprs)] -> pure exprs
     _ -> askUntilUnambigous prd filePrefix
 
@@ -356,7 +356,8 @@ parsePred udenv ar funname optdesc = validatePredicate $ trace
     pre_filter = map showMPO uds_ts L.\\ map showMPO filtered_uds_ts
     filtered_uds_ts = filterHeuristic ar uds_ts
     nm : _ = splitOn ":" funname
-    nm' = unwords $ splitOn "_" nm -- take care of is_participant_in style
+    nm' = nm
+    --nm' = unwords $ splitOn "_" nm -- if we want to take care of is_participant_in style
     desc = case optdesc of -- if no description provided, parse the name, e.g. DescribedInSection1
               [] -> map (trim . lower) $ split capsOrDigits nm'
               _  -> words optdesc
