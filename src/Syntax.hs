@@ -242,20 +242,19 @@ type instance Annot SRng = SRng
 
 -- Expr t is an expression of type t (to be determined during type checking / inference)
 data Expr t
-    = ValE        t Val                          -- value
-    | VarE        t Var                          -- variable
-    | UnaOpE      t UnaOp (Expr t)               -- unary operator
-    | BinOpE      t BinOp (Expr t) (Expr t)      -- binary operator
-    | IfThenElseE t (Expr t) (Expr t) (Expr t)   -- conditional
-    | AppE        t (Expr t) (Expr t)            -- function application
-    | FunE        t Pattern Tp (Expr t)          -- function abstraction
-    | QuantifE    t Quantif VarName Tp (Expr t)  -- quantifier
-    -- | ClosE       SRng t [(VarName, Expr t)] (Expr t) -- closure  (not externally visible)
-    | FldAccE     t (Expr t) FieldName           -- field access
-    | TupleE      t [Expr t]                     -- tuples
-    | CastE       t Tp (Expr t)                  -- cast to type
-    | ListE       t ListOp [Expr t]              -- list expression
-    | NotDeriv    t Bool (Expr t)            -- Negation as failure "not".
+    = ValE        {annotOfExpr :: t, valOfExprValE :: Val}                       -- value
+    | VarE        {annotOfExpr :: t, varOfExprVarE :: Var}                       -- variable
+    | UnaOpE      {annotOfExpr :: t, unaOpOfExprUnaOpE :: UnaOp, subEOfExprUnaOpE :: Expr t} -- unary operator
+    | BinOpE      {annotOfExpr :: t, binOpOfExprBinOpE :: BinOp, subE1OfExprBinOpE :: Expr t, subE2OfExprBinOpE :: Expr t}      -- binary operator
+    | IfThenElseE {annotOfExpr :: t, condOfExprIf :: Expr t, thenofExprIf :: Expr t, elseOfExprIf :: Expr t}   -- conditional
+    | AppE        {annotOfExpr :: t, funOfExprAppE :: Expr t, argOfExprAppE :: Expr t}           -- function application
+    | FunE        {annotOfExpr :: t, patternOfExprFunE :: Pattern, tpOfExprFunE :: Tp, bodyOfExprFunE :: Expr t}          -- function abstraction
+    | QuantifE    {annotOfExpr :: t, quantifOfExprQ :: Quantif, varNameOfExprQ :: VarName, tpOfExprQ :: Tp, bodyOfExprQ :: Expr t}  -- quantifier
+    | FldAccE     {annotOfExpr :: t, subEOfExprFldAccE :: Expr t, fieldNameOfExprFldAccE :: FieldName}           -- field access
+    | TupleE      {annotOfExpr :: t, componentsOfExprTupleE :: [Expr t]}                     -- tuples
+    | CastE       {annotOfExpr :: t, tpOfExprCastE :: Tp, subEOfExprCastE :: Expr t}               -- cast to type
+    | ListE       {annotOfExpr :: t, listOpOfExprListE :: ListOp, componentsOfExprListE :: [Expr t]}    -- list expression
+    | NotDeriv    {annotOfExpr :: t, isPosLitOfExprNotDeriv ::  Bool, subEOfExprNotDeriv :: Expr t}            -- Negation as failure "not".
                                                       -- The Bool expresses whether "not" precedes a positive literal (True)
                                                       -- or is itself classically negated (False)
                                                       -- The expresssion argument should be a predicate
@@ -282,6 +281,7 @@ childExprs x = case x of
 allSubExprs :: Expr t -> [Expr t]
 allSubExprs e = e : concatMap allSubExprs (childExprs e)
 
+{-
 annotOfExpr :: Expr t -> t
 annotOfExpr x = case x of
   ValE        t _       -> t
@@ -297,8 +297,11 @@ annotOfExpr x = case x of
   CastE       t _ _     -> t
   ListE       t _ _     -> t
   NotDeriv    t _ _     -> t
+-}
 
 updAnnotOfExpr :: (a -> a) -> Expr a -> Expr a
+updAnnotOfExpr f e = e {annotOfExpr = f (annotOfExpr e)}
+{-
 updAnnotOfExpr f x = case x of
   ValE        t a       -> ValE (f t) a
   VarE        t a       -> VarE (f t) a
@@ -313,7 +316,7 @@ updAnnotOfExpr f x = case x of
   CastE       t a b     -> CastE (f t) a b
   ListE       t a b     -> ListE (f t) a b
   NotDeriv    t a b     -> NotDeriv (f t) a b
-
+-}
 
 instance HasLoc t => HasLoc (Expr t) where
   getLoc e = getLoc (annotOfExpr e)
