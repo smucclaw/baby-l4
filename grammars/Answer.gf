@@ -33,7 +33,8 @@ abstract Answer = Atoms ** {
 
     TransPred : Atom -> Arg -> Pred ;
     IntransPred : Atom -> Pred ;
-    AggregatePred : Pred -> Pred -> (subjs : [Arg]) -> Statement ;
+    AggregatePred2 : Pred -> Pred -> (subjs : [Arg]) -> Statement ;
+    AggregatePred3 : Pred -> Pred -> Pred -> (subjs : [Arg]) -> Statement ;
 
     -- To be changed into:
     -- AggregatePred2 : Pred -> Pred -> (subjs : [Arg]) -> Statement ;
