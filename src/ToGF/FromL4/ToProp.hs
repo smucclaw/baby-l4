@@ -120,8 +120,8 @@ var2pred2 var = do
 
 tp2kind :: Var -> Tp -> CuteCats GKind
 tp2kind v e = case e of
-  BoolT -> pure GBoolean
-  IntT -> pure GNat
+  (ClassT (ClsNm "Integer")) -> pure GNat
+  (ClassT (ClsNm "Boolean")) -> pure GBoolean
   ClassT (ClsNm name) -> pure $ GKNoun (var2quant v) (LexNoun name)
   FunT arg ret -> GKFun <$> tp2kind v arg <*> tp2kind v ret
   -- TupleT [Tp]
@@ -236,7 +236,7 @@ pattern Or :: Syntax.Expr Tp -> Syntax.Expr Tp -> Syntax.Expr Tp
 pattern Or e1 e2 <- BinOpE _ (BBool BBor) e1 e2
 
 pattern Not :: Syntax.Expr Tp -> Syntax.Expr Tp
-pattern Not e <- UnaOpE _ (UBool UBneg) e
+pattern Not e <- UnaOpE _ (UBool UBnot) e
 
 pattern Impl :: Syntax.Expr Tp -> Syntax.Expr Tp -> Syntax.Expr Tp
 pattern Impl e1 e2 <- BinOpE _ (BBool BBimpl) e1 e2
