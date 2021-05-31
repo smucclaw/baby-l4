@@ -19,10 +19,11 @@ import ToGF.Disambiguate
 import qualified Data.Map as M
 import Control.Arrow (Arrow (first))
 import Control.Exception (try)
-import Control.Monad (mfilter)
+import Control.Monad (mfilter, forM_)
 import qualified Data.List as L
 import qualified Data.Set as Set
 import Data.Foldable (for_)
+import System.IO (stdout, hFlush)
 
 -- import Debug.Trace (trace)
 
@@ -234,9 +235,12 @@ askConstraint prd ctrs = do
   -- TODO: Extract pure code
   let relevantUDs = filterMatching ctrs (reducedUDmap prd)
   let nextQuestion = getNextQuestion $ M.keys relevantUDs
-  whenJust nextQuestion $ \ q -> do
-      putStrLn $ "Which one: " ++ show q
+  whenJust nextQuestion $ \ q@(RUDW _ wrd alts) -> do
+      putStrLn $ "In the predicate: " ++ show (description prd)
+      putStrLn $ "How should " ++ show wrd ++ " be interpreted?"
+      forM_ alts $ \alt -> putStrLn $ " - " ++ alt
       putStr "> "
+      hFlush stdout
       -- TODO: Make this more flexible
       x <- getLine
       let matching = traverse (L.find (== x)) q
