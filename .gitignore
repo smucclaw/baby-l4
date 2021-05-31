@@ -10,4 +10,4 @@ src/Answer.hs
 src/Prop.hs
 .DS_Store
 .dev-profile*
-.l4lex
+*.l4lex
