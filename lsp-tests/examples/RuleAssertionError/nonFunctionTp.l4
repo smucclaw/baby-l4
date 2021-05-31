@@ -1,0 +1,9 @@
+class Dummy
+
+decl NotFunc : Dummy
+decl IsFunc : Dummy -> Boolean
+
+rule <r5>
+for d: Dummy 
+if (exists a : Dummy. exists b: Dummy. NotFunc a && IsFunc b)
+then IsFunc d

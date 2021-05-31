@@ -1,0 +1,5 @@
+decl v: Bool
+
+rule <ra>
+if (v.De || 2 > 1)
+then True
