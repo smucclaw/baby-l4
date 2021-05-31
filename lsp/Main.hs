@@ -100,7 +100,8 @@ getVirtualOrRealFile uri = do
         -- TODO: Catch errors thrown by readFile
         liftIO $ TIO.readFile filename
 
-parseVirtualOrRealFile :: Uri -> ExceptT Err (LspM Config) (Maybe (Program SRng))
+
+parseVirtualOrRealFile :: Uri -> ExceptT Err (LspM Config) (Maybe (Program (LocTypeAnnot Tp)))
 parseVirtualOrRealFile uri = do
     contents <- getVirtualOrRealFile uri
     lift $ parseAndSendErrors uri contents
@@ -181,7 +182,7 @@ mkErrsField (range, cls, fieldLs) = Err range ("Duplicate field names in the cla
 fieldErrorRange :: (SRng, FieldName) -> String
 fieldErrorRange (range, field) = show range ++ ": " ++ stringOfFieldName field
 
-parseAndSendErrors :: J.Uri -> T.Text -> LspM Config (Maybe (Program SRng))
+parseAndSendErrors :: J.Uri -> T.Text -> LspM Config (Maybe (Program (LocTypeAnnot Tp)))
 parseAndSendErrors uri contents = runMaybeT $ do
   let Just loc = uriToFilePath uri
   let pres = parseProgram loc $ T.unpack contents
@@ -277,24 +278,35 @@ extract :: Monad m => String -> Maybe a -> ExceptT Err m a
 extract errMessage = except . maybeToRight (Err (DummySRng "From lsp") errMessage)
 
 -- TODO: #65 Show type information on hover
-tokensToHover :: Position -> Program SRng -> ExceptT Err IO Hover
+tokensToHover :: Position -> Program (LocTypeAnnot Tp) -> ExceptT Err IO Hover
 tokensToHover pos ast = do
       let astNode = findAstAtPoint pos ast
       return $ tokenToHover astNode
 
-tokenToHover :: [SomeAstNode SRng] -> Hover
+tokenToHover :: [SomeAstNode (LocTypeAnnot Tp)] -> Hover
 tokenToHover astNode = Hover contents range
   where
     astText = astToText astNode
     dbgInfo = case head astNode of
       ast@SProg{} -> T.take 80 $ tshow ast
       ast         -> tshow ast
-    txt = astText <> "\n\n" <> dbgInfo
+    tpInfo = astToTypeInfo astNode
+    txt = astText <> "\n\n" <> tpInfo <> "\n\n" <> dbgInfo
     contents = HoverContents $ markedUpContent "haskell" txt
     annRange = getLoc $ head astNode
     range = sRngToRange annRange
 
-astToText :: [SomeAstNode SRng] -> T.Text
+
+astToTypeInfo :: (Show a, TypeAnnot f) => [SomeAstNode (f a)] -> T.Text
+astToTypeInfo (SMapping (Mapping tpInfo _ _):_) = T.pack (show $ getType tpInfo)
+astToTypeInfo (SClassDecl (ClassDecl tpInfo _ _):_) = T.pack (show $ getType tpInfo)
+astToTypeInfo (SGlobalVarDecl (VarDecl tpInfo _ _):_) = T.pack (show $ getType tpInfo)
+astToTypeInfo (SRule (Rule tpInfo _ _ _ _):_) = T.pack (show $ getType tpInfo)
+astToTypeInfo _ = "No type information found"
+
+
+
+astToText :: [SomeAstNode (LocTypeAnnot Tp)] -> T.Text
 astToText (SMapping (Mapping _ from to):_) = "This block maps variable " <> T.pack from <> " to GrammaticalFramework WordNet definion " <> tshow to
 astToText (SClassDecl (ClassDecl _ (ClsNm x) _):_) = "Declaration of new class : " <> T.pack x
 astToText (SGlobalVarDecl (VarDecl _ n _):_) = "Declaration of global variable " <> T.pack n
