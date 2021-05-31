@@ -101,7 +101,7 @@ getVirtualOrRealFile uri = do
         liftIO $ TIO.readFile filename
 
 
-parseVirtualOrRealFile :: Uri -> ExceptT Err (LspM Config) (Maybe (Program (LocTypeAnnot Tp)))
+parseVirtualOrRealFile :: Uri -> ExceptT Err (LspM Config) (Maybe (Program (LocAndTp)))
 parseVirtualOrRealFile uri = do
     contents <- getVirtualOrRealFile uri
     lift $ parseAndSendErrors uri contents
@@ -182,7 +182,9 @@ mkErrsField (range, cls, fieldLs) = Err range ("Duplicate field names in the cla
 fieldErrorRange :: (SRng, FieldName) -> String
 fieldErrorRange (range, field) = show range ++ ": " ++ stringOfFieldName field
 
-parseAndSendErrors :: J.Uri -> T.Text -> LspM Config (Maybe (Program (LocTypeAnnot Tp)))
+type LocAndTp = LocTypeAnnot Tp
+
+parseAndSendErrors :: J.Uri -> T.Text -> LspM Config (Maybe (Program LocAndTp))
 parseAndSendErrors uri contents = runMaybeT $ do
   let Just loc = uriToFilePath uri
   let pres = parseProgram loc $ T.unpack contents
@@ -278,12 +280,12 @@ extract :: Monad m => String -> Maybe a -> ExceptT Err m a
 extract errMessage = except . maybeToRight (Err (DummySRng "From lsp") errMessage)
 
 -- TODO: #65 Show type information on hover
-tokensToHover :: Position -> Program (LocTypeAnnot Tp) -> ExceptT Err IO Hover
+tokensToHover :: Position -> Program LocAndTp -> ExceptT Err IO Hover
 tokensToHover pos ast = do
       let astNode = findAstAtPoint pos ast
       return $ tokenToHover astNode
 
-tokenToHover :: [SomeAstNode (LocTypeAnnot Tp)] -> Hover
+tokenToHover :: [SomeAstNode LocAndTp] -> Hover
 tokenToHover astNode = Hover contents range
   where
     astText = astToText astNode
@@ -306,7 +308,7 @@ astToTypeInfo _ = "No type information found"
 
 
 
-astToText :: [SomeAstNode (LocTypeAnnot Tp)] -> T.Text
+astToText :: [SomeAstNode LocAndTp] -> T.Text
 astToText (SMapping (Mapping _ from to):_) = "This block maps variable " <> T.pack from <> " to GrammaticalFramework WordNet definion " <> tshow to
 astToText (SClassDecl (ClassDecl _ (ClsNm x) _):_) = "Declaration of new class : " <> T.pack x
 astToText (SGlobalVarDecl (VarDecl _ n _):_) = "Declaration of global variable " <> T.pack n
