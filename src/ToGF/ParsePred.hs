@@ -24,10 +24,11 @@ import qualified Data.List as L
 import qualified Data.Set as Set
 import Data.Foldable (for_)
 
-import Debug.Trace (trace)
+-- import Debug.Trace (trace)
 
--- trace :: p1 -> p2 -> p2
--- trace _ a = a
+-- TODO: Use logging flags to determine if trace should be used
+trace :: p1 -> p2 -> p2
+trace _ a = a
 
 ----------------------------------------------------
 
@@ -301,8 +302,10 @@ askUntilUnambigous prd filePrefix = do
 
 filterPredicate :: UDEnv -> FilePath -> Predicate -> IO Predicate
 filterPredicate udenv filePrefix prd = do
-  let qmap = mkQuestionMap (pgfGrammar udenv) $ mkQuestions (trees prd)
-  putStrLn $ showQuestionMap qmap
+  let _qmap = mkQuestionMap (pgfGrammar udenv) $ mkQuestions (trees prd)
+  -- TODO: Use a proper logging system that allows outputting this depending on flags
+  -- TODO: Actually use this to ask questions
+  -- putStrLn $ showQuestionMap qmap
   exprs <- askUntilUnambigous prd filePrefix
   pure $ prd { trees = exprs}
 
