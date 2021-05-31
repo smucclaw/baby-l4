@@ -1,0 +1,8 @@
+pull_request_rules:
+  - name: Automatic merge on approval
+    conditions:
+      - "#approved-reviews-by>=1"
+      - check-success=flakes-simple (ghc-8.8.4, false)
+    actions:
+      merge:
+        method: merge
