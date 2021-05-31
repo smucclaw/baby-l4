@@ -56,7 +56,7 @@ grName :: GrName
 grName = "Answer"
 
 createGF :: Model -> IO PGF.PGF
-createGF model = createGF' grName [] (Data.Set.toList (getAtoms model))
+createGF model = createGF' "TODO" grName [] (Data.Set.toList (getAtoms model))
 
 printGF :: Gf a => PGF -> a -> IO ()
 printGF gr expr = printGF' gr (gf expr)
@@ -81,7 +81,7 @@ nlgModels' :: Verbosity -> [Model] -> IO ()
 nlgModels' verbose models = do
   gr <- createGF (dumpModels models) -- We need all models together just to create lexicon
   let gfModels = toGF <$> models
-  when verbose $ do 
+  when verbose $ do
       putStrLn "\nRaw translation of the model"
       mapM_ (printGF gr) gfModels
 

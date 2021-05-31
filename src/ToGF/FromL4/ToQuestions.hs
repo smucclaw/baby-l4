@@ -19,8 +19,8 @@ import ToGF.GenerateLexicon (createGF', printGF', AtomWithArity(..), GrName)
 grName :: GrName
 grName = "Questions"
 
-createGF :: Program t -> IO PGF
-createGF prog = createGF' grName (lexiconOfProgram prog) allPreds
+createGF :: FilePath ->Program t -> IO PGF
+createGF fname prog = createGF' fname grName (lexiconOfProgram prog) allPreds
   where
     allPreds = S.toList $ S.fromList $ concat
       [ getAtoms $ toPred vardecl
@@ -34,13 +34,13 @@ printGF gr expr = printGF' gr (gf expr)
 -- Printing GF
 
 getAtoms :: GPred -> [AtomWithArity]
-getAtoms (GMkPred0 (LexAtom name)) = [AA name 0] 
+getAtoms (GMkPred0 (LexAtom name)) = [AA name 0]
 getAtoms (GMkPred1 (LexAtom name) (LexAtom arg)) = [AA name 1, AA arg 0]
 getAtoms (GMkPred2 (LexAtom name) (LexAtom arg1) (LexAtom arg2)) = [AA name 2, AA arg1 0, AA arg2 0]
 
-createQuestions :: Program t -> IO ()
-createQuestions prog = do
-  gr <- createGF prog -- TODO: involve lexicon
+createQuestions :: FilePath -> Program t -> IO ()
+createQuestions filename prog = do
+  gr <- createGF filename prog -- TODO: involve lexicon
   let questions = toQuestions prog
   mapM_ (printGF gr) questions
 

@@ -1,4 +1,5 @@
-concrete QuestionsEng of Questions = AtomsEng - [Pred, LinPred, mkPred] ** open Prelude, SyntaxEng, (S=SyntaxEng), ParadigmsEng, ExtendEng, WordNetEng in {
+concrete QuestionsEng of Questions = AtomsEng - [Pred, LinPred, mkPred] **
+open Prelude, SyntaxEng, (S=SyntaxEng), ParadigmsEng, ExtendEng, WordNetEng in {
 
   lincat
     Question = QS ;

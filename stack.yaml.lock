@@ -5,16 +5,27 @@
 
 packages:
 - completed:
-    size: 3493072
-    url: https://github.com/GrammaticalFramework/gf-core/archive/7dc6717b5e95122a810d3b580981fc4ce0c9744b.tar.gz
+    size: 3496815
+    url: https://github.com/GrammaticalFramework/gf-core/archive/eeda03e9b065ee74905b6d593aa88912c78ef8bb.tar.gz
     name: gf
     version: 3.10.4
-    sha256: 5ebb43d54c819ce3ea32f6274e3d464783ad0e676193217e8718e8b70b9306c3
+    sha256: ee7c4be2b98a029a7bfbf678faff606352cbccc262f8ac75a8088d3dec21b94a
     pantry-tree:
-      size: 65479
-      sha256: abd4187f99d31f9615cbea5ba9bea1a0bd4f8e67f4a74f1c6523949e71293f2c
+      size: 65672
+      sha256: 35ebb425ebbfd12a7e3f76ac94022fec61e8d57e5f1817e3938e35d44abf7092
   original:
-    url: https://github.com/GrammaticalFramework/gf-core/archive/7dc6717b5e95122a810d3b580981fc4ce0c9744b.tar.gz
+    url: https://github.com/GrammaticalFramework/gf-core/archive/eeda03e9b065ee74905b6d593aa88912c78ef8bb.tar.gz
+- completed:
+    size: 1346969
+    url: https://github.com/GrammaticalFramework/gf-ud/archive/4b0760e02f9efdb8fbdd47ed2258e9b89f15a14d.tar.gz
+    name: gf-ud
+    version: 0.1.0.0
+    sha256: 4ec4eca56d13419249ccf3d97ded02691f859c8276e492e7c802b18ae91af397
+    pantry-tree:
+      size: 6064
+      sha256: f629c3806bfe53c3ee09cde66d8922d7e7d5fa789d7f4bff71f50234177c0309
+  original:
+    url: https://github.com/GrammaticalFramework/gf-ud/archive/4b0760e02f9efdb8fbdd47ed2258e9b89f15a14d.tar.gz
 - completed:
     hackage: json-0.10@sha256:d9fc6b07ce92b8894825a17d2cf14799856767eb30c8bf55962baa579207d799,3210
     pantry-tree:
