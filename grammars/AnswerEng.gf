@@ -8,6 +8,11 @@ concrete AnswerEng of Answer = AtomsEng ** open
 
   lincat
     Pred = LinPred ;
+    -- [Pred] = {
+    --   cns : C.ListCN ;
+    --   vps : [VPS] ;
+    --   onlyCNs : Bool
+    -- } ;
 
   lin
 
@@ -39,8 +44,8 @@ concrete AnswerEng of Answer = AtomsEng ** open
 
   lin
     -- Aggregations
-    TransPred atom arg = {atom = atom ; arg = arg ; arity = Ar2} ;
-    IntransPred atom = {atom = atom ; arg = nothing_NP ; arity = Ar1} ;
+    TransPred atom arg = {atom = atom ; arg = arg} ;
+    IntransPred atom = {atom = atom ; arg = nothing_NP} ;
 
     AggregatePred p1 p2 subjs =
       let subj : NP = mkNP and_Conj subjs ;
