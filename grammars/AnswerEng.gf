@@ -130,13 +130,18 @@ concrete AnswerEng of Answer = AtomsEng ** open
           vps3 : VPS = mkPred p3 ;
           toS  : CN -> S = \cn -> mkS (mkCl subj cn) ;
        in case <p1.atom.atype, p2.atom.atype, p3.atom.atype> of {
-            <ACN, AN2, AN2> => toS (twoN2s p1 p2 p3) ;
-            <AN2, ACN, AN2> => toS (twoN2s p2 p1 p3) ;
-            <AN2, AN2, ACN> => toS (twoN2s p3 p1 p2) ;
+            <ACN, ACN, ACN> => toS (cnConj p1.atom.cn p2.atom.cn p3.atom.cn) ;
+
             <ACN, ACN, AN2> => toS (oneN2 p1 p2 p3) ;
             <ACN, AN2, ACN> => toS (oneN2 p1 p3 p2) ;
             <AN2, ACN, ACN> => toS (oneN2 p2 p3 p1) ;
+
+            <ACN, AN2, AN2> => toS (twoN2s p1 p2 p3) ;
+            <AN2, ACN, AN2> => toS (twoN2s p2 p1 p3) ;
+            <AN2, AN2, ACN> => toS (twoN2s p3 p1 p2) ;
+
             <AN2, AN2, AN2> => toS (allN2s p1 p2 p3) ;
+
             _ => PredVPS subj (ConjVPS and_Conj (ConsVPS vps1 (BaseVPS vps2 vps3)))
           } ;
   oper
@@ -146,11 +151,13 @@ concrete AnswerEng of Answer = AtomsEng ** open
             comp2 : CN = mkCN q.atom.n2 q.arg ;
             comp3 : CN = mkCN r.atom.n2 r.arg ;
          in cnConj comp1 comp2 comp3 ;
+
     twoN2s : (p,q,r : LinPred) -> CN = \p,q,r ->
         let comp1 : CN = mkCN p.atom.cn ;
             comp2 : CN = mkCN q.atom.n2 q.arg ;
             comp3 : CN = mkCN r.atom.n2 r.arg ;
          in cnConj comp1 comp2 comp3 ;
+
     oneN2 : (p,q,r : LinPred) -> CN = \p,q,r ->
         let comp1 : CN = mkCN p.atom.cn ;
             comp2 : CN = mkCN q.atom.cn ;

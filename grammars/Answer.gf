@@ -31,6 +31,8 @@ abstract Answer = Atoms ** {
     [Pred]{2};
 
   fun
+    TransPred   : Atom -> Arg -> Pred ;
+    IntransPred : Atom        -> Pred ;
 
     TransPred : Atom -> Arg -> Pred ;
     IntransPred : Atom -> Pred ;
