@@ -68,9 +68,7 @@ concrete AnswerEng of Answer = AtomsEng ** open
           vps1 : VPS = mkPred p1 ;
           vps2 : VPS = mkPred p2 ;
           vps3 : VPS = mkPred p3 ;
-          toS : CN -> S = \cn -> mkS (mkCl subj cn) ;
-       in case <p1.atom.atype, p2.atom.atype> of {
-            <ACN, ACN ,ACN> => toS (cnConj p1.atom.cn p2.atom.cn p3.atom.cn) ;
+       in case <p1.atom.atype, p2.atom.atype, p3.atom.atype> of {
             <ACN, AN2, AN2> => toS (twoN2s p1 p2 p3) ;
             <AN2, ACN, AN2> => toS (twoN2s p2 p1 p3) ;
             <AN2, AN2, ACN> => toS (twoN2s p3 p1 p2) ;
