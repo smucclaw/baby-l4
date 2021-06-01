@@ -265,7 +265,8 @@ getChildren (SExpr et) = SExpr <$> childExprs et
 getChildren (SMapping _) = []
 getChildren (SClassDecl _) = []
 getChildren (SGlobalVarDecl _) = []
-getChildren (SRule _) = []
+-- TODO: add code for getting children of Rule & Assertion
+getChildren (SRule r) = SExpr <$> [precondOfRule r, postcondOfRule r] -- Currently no VarDecl node to show type info, requires change in syntax
 
 findAstAtPoint :: HasLoc t => Position -> Program t -> [SomeAstNode t]
 findAstAtPoint pos = selectSmallestContaining pos [] . SProg
@@ -289,11 +290,12 @@ tokenToHover :: [SomeAstNode LocAndTp] -> Hover
 tokenToHover astNode = Hover contents range
   where
     astText = astToText astNode
+    dbgInfo2 = tshow $ getChildren $ head astNode
     dbgInfo = case head astNode of
       ast@SProg{} -> T.take 80 $ tshow ast
       ast         -> tshow ast
     tpInfo = astToTypeInfo astNode
-    txt = astText <> "\n\n" <> tpInfo <> "\n\n" <> dbgInfo
+    txt = astText <> "\n\n" <> tpInfo <> "\n\n" <> dbgInfo <> "\n\n" <> dbgInfo2
     contents = HoverContents $ markedUpContent "haskell" txt
     annRange = getLoc $ head astNode
     range = sRngToRange annRange
@@ -304,8 +306,8 @@ astToTypeInfo (SMapping (Mapping tpInfo _ _):_) = T.pack (show $ getType tpInfo)
 astToTypeInfo (SClassDecl (ClassDecl tpInfo _ _):_) = T.pack (show $ getType tpInfo)
 astToTypeInfo (SGlobalVarDecl (VarDecl tpInfo _ _):_) = T.pack (show $ getType tpInfo)
 astToTypeInfo (SRule (Rule tpInfo _ _ _ _):_) = T.pack (show $ getType tpInfo)
-astToTypeInfo _ = "No type information found"
-
+astToTypeInfo ((SExpr e):_) = T.pack $ show $ getType $ annotOfExpr e
+astToTypeInfo _ = "No type info found"
 
 
 astToText :: [SomeAstNode LocAndTp] -> T.Text
