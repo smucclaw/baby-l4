@@ -8,13 +8,74 @@ concrete AnswerEng of Answer = AtomsEng ** open
 
   lincat
     Pred = LinPred ;
-    -- [Pred] = {
-    --   cns : C.ListCN ;
-    --   vps : [VPS] ;
-    --   onlyCNs : Bool
-    -- } ;
+    [Pred] = {
+      cn1 : CN ;
+      cns : C.ListCN ;
+      vp1 : VPS ;
+      vps : [VPS] ;
+      contentFields  : ContentFields ;
+    } ;
+
+  param
+    ContentFields = VPS_CN1 | CNS_VP1 | CN1_VP1 | ONLY_CNS | ONLY_VPS | NoSingle  ;
+    -- VPS_CN1 : for case where existing list has only 1 CN
+    -- CNS_VP1 : for case where existing list has only 1 VPS
+    -- NoSingle : for case where existing list is blank or both lists have things which is where existing list has both [CN] and [VPS]
+
 
   lin
+   BasePred p1 p2 =
+     case <p1.atom.atype, p2.atom.atype> of {
+     <ACN|AN2, ACN|AN2> => dummyListPred ** {
+        cns = C.BaseCN (toCN p1) (toCN p2) ;
+        contentFields = ONLY_CNS };
+
+
+     <AV|AV2, AV|AV2> => dummyListPred ** {
+        vps = BaseVPS (mkPred p1) (mkPred p2) ;
+        contentFields = ONLY_VPS ; };
+
+     <ACN|AN2, AV| AV2> => dummyListPred ** {
+       cn1 = toCN p1 ;
+       vp1 = mkPred p2 ;
+       contentFields = CN1_VP1};
+
+    <AV|AV2, ACN| AN2> => dummyListPred ** {
+       vp1 = mkPred p1 ;
+       cn1 = toCN p2 ;
+       contentFields = CN1_VP1 }
+
+
+     };
+
+  ConsPred p ps = case <p.atom.atype, ps.contentFields> of {
+    -- p.atom.atype tells the type of the atom p ie vp or noun or cn2 vp1
+    -- ps.contentFields tells which param value of the contentfields for ps
+    <ACN|AN2 , VPS_CN1>      => ps ** {
+      cns = C.BaseCN (toCN p) ps.cn1 ;
+      contentFields = NoSingle
+      };
+    <ACN|AN2 , CNS_VP1>      => ps ** {
+      cn1 = toCN p} ;
+
+    <ACN|AN2 , CN1_VP1>  => ps ** {
+      cns = C.BaseCN (toCN p) ps.cn1 ;
+      contentFields =
+      };
+
+    <ACN|AN2 , ONLY_CNS> |  <ACN|AN2 , NoSingle> |  <ACN|AN2 , CNS_VP1>    
+      => ps ** {cns = C.ConsCN (toCN p) ps.cns} ;
+
+    <ACN|AN2 , ONLY_VPS> =>
+
+    <AV|AV2  , VPS_CN1>      =>
+    <AV|AV2 , CNS_VP1>       =>
+    <AV|AV2 , CN1_VP1>   =>
+    <AV|AV2 , ONLY_CNS>       =>
+    <AV|AV2 , ONLY_VPS>  | <AV|AV2 , NoSingle>
+     => ps ** {vps = ConsVPS (mkPred p) ps.vps} ;
+
+  }
 
     -- Coercions to Arg
     AVar v = v ;
@@ -42,7 +103,6 @@ concrete AnswerEng of Answer = AtomsEng ** open
     AggregateSubj2 throws rock players =
       App2 throws (mkNP and_Conj players) rock ;
 
-  lin
     -- Aggregations
     TransPred atom arg = {atom = atom ; arg = arg} ;
     IntransPred atom = {atom = atom ; arg = nothing_NP} ;
@@ -68,6 +128,7 @@ concrete AnswerEng of Answer = AtomsEng ** open
           vps1 : VPS = mkPred p1 ;
           vps2 : VPS = mkPred p2 ;
           vps3 : VPS = mkPred p3 ;
+          toS  : CN -> S = \cn -> mkS (mkCl subj cn) ;
        in case <p1.atom.atype, p2.atom.atype, p3.atom.atype> of {
             <ACN, AN2, AN2> => toS (twoN2s p1 p2 p3) ;
             <AN2, ACN, AN2> => toS (twoN2s p2 p1 p3) ;
@@ -99,6 +160,22 @@ concrete AnswerEng of Answer = AtomsEng ** open
     cnConj : CN -> CN -> CN -> CN = \cn1,cn2,cn3 ->
       C.ConjCN and_Conj (C.ConsCN cn1 (C.BaseCN cn2 cn3)) ;
 
+    -- empty list case
+   dummyListPred = {
+      cn1 : CN = dummyAtom.cn ;
+      cns : C.ListCN = C.BaseCN dummyAtom.cn dummyAtom.cn ;
+      vp1 : VPS = dummyAtom.v ;
+      vps : [VPS] = ExtendEng.BaseVPS dummyAtom.v dummyAtom.v ;
+      contentFields = NoSingle ;
+
+   };
+
+   toCN : LinPred -> CN ;
+   toCN p1 = case p1.atom.atype of {
+     ACN => p1.atom.cn ;
+     AN2 => mkCN p1.atom.n2 p1.arg ;
+     _   => dummyAtom.cn
+     };
 
   lin
 
