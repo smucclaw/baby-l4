@@ -20,7 +20,7 @@ concrete AnswerEng of Answer = AtomsEng ** open
     ContentFields = VPS_CN1 | CNS_VP1 | CN1_VP1 | ONLY_CNS | ONLY_VPS | NoSingle  ;
     -- VPS_CN1 : for case where existing list has only 1 CN
     -- CNS_VP1 : for case where existing list has only 1 VPS
-    -- NoSingle : for case where existing list is blank or both lists have things which is where existing list has both [CN] and [VPS]
+    -- NoSingle : eventual list would have lists with no hanging (single) cn1 nor vp1
 
 
   lin
@@ -63,7 +63,7 @@ concrete AnswerEng of Answer = AtomsEng ** open
       contentFields =
       };
 
-    <ACN|AN2 , ONLY_CNS> |  <ACN|AN2 , NoSingle> |  <ACN|AN2 , CNS_VP1>    
+    <ACN|AN2 , ONLY_CNS> |  <ACN|AN2 , NoSingle> |  <ACN|AN2 , CNS_VP1>
       => ps ** {cns = C.ConsCN (toCN p) ps.cns} ;
 
     <ACN|AN2 , ONLY_VPS> =>
