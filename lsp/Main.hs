@@ -194,9 +194,7 @@ parseAndSendErrors uri contents = runMaybeT $ do
   preludeAst <- liftIO readPrelude -- TOOD: Handle errors
 
   let typedAstOrTypeError = checkError preludeAst ast
-  -- TODO: Return the type checked AST so we can show type info
-  _ <- sendDiagnosticsOnLeft "typechecking" nuri $ mapLeft errorToErrs typedAstOrTypeError
-  pure ast
+  sendDiagnosticsOnLeft "typechecking" nuri $ mapLeft errorToErrs typedAstOrTypeError
 
 tshow :: Show a => a -> T.Text
 tshow = T.pack . show
