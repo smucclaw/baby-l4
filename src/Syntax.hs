@@ -46,9 +46,9 @@ data Program t = Program{ annotOfProgram :: t
                             , assertionsOfProgram :: [Assertion t] }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
--- TODO: still needed?
-removeAnnotations :: Program et -> Program ()
-removeAnnotations = (()<$)
+instance HasAnnot Program where
+  getAnnot = annotOfProgram
+  updateAnnot f p = p { annotOfProgram = f (annotOfProgram p)}
 
 data ExpectedType
   = ExpectedString  String
@@ -73,7 +73,7 @@ data ErrorCause
                     , receivedCastITSE :: Tp
                     , castToITSE :: Tp }
   | IncompatiblePattern SRng                      -- pattern matching failure for tuples (l4)
-  | UnknownFieldName SRng FieldName ClassName     -- class has no such field 
+  | UnknownFieldName SRng FieldName ClassName     -- class has no such field
   | AccessToNonObjectType SRng                    -- when using dot notation on something thats not an object
   | Unspecified                                                     -- [** don't know, need clarification from martin?]
   deriving (Eq, Ord, Show, Read, Data, Typeable)
@@ -99,10 +99,18 @@ data VarDecl t = VarDecl {annotOfVarDecl ::t
 instance HasLoc t => HasLoc (VarDecl t) where
   getLoc = getLoc . annotOfVarDecl
 
+instance HasAnnot VarDecl where
+  getAnnot = annotOfVarDecl
+  updateAnnot f p = p { annotOfVarDecl = f (annotOfVarDecl p)}
+
 data Mapping t = Mapping t VarName VarName
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 instance HasLoc t => HasLoc (Mapping t) where
   getLoc (Mapping t _ _) = getLoc t
+
+instance HasAnnot Mapping where
+  getAnnot (Mapping a _ _) = a
+  updateAnnot f (Mapping a v1 v2) = Mapping (f a) v1 v2
 
 -- Field attributes: for example cardinality restrictions
 -- data FieldAttribs = FldAtt
@@ -113,6 +121,10 @@ data FieldDecl t = FieldDecl {annotOfFieldDecl ::t
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 instance HasLoc t => HasLoc (FieldDecl t) where
   getLoc = getLoc . annotOfFieldDecl
+
+instance HasAnnot FieldDecl where
+  getAnnot = annotOfFieldDecl
+  updateAnnot f p = p { annotOfFieldDecl = f (annotOfFieldDecl p)}
 
 -- superclasses, list of field declarations
 -- After parsing, the list of superclasses is a singleton (i.e., the declared superclass).
@@ -130,6 +142,10 @@ data ClassDecl t = ClassDecl { annotOfClassDecl :: t
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 instance HasLoc t => HasLoc (ClassDecl t) where
   getLoc = getLoc . annotOfClassDecl
+
+instance HasAnnot ClassDecl where
+  getAnnot = annotOfClassDecl
+  updateAnnot f p = p { annotOfClassDecl = f (annotOfClassDecl p)}
 
 
 -- Custom Classes and Preable Module
@@ -313,6 +329,10 @@ updAnnotOfExpr f x = case x of
 instance HasLoc t => HasLoc (Expr t) where
   getLoc e = getLoc (annotOfExpr e)
 
+instance HasAnnot Expr where
+  getAnnot = annotOfExpr
+  updateAnnot = updAnnotOfExpr
+
 -- Cmd t is a command of type t
 data Cmd t
     = Skip t                                      -- Do nothing
@@ -331,6 +351,10 @@ data Rule t = Rule { annotOfRule :: t
 instance HasLoc t => HasLoc (Rule t) where
   getLoc e = getLoc (annotOfRule e)
 
+instance HasAnnot Rule where
+  getAnnot = annotOfRule
+  updateAnnot f p = p { annotOfRule = f (annotOfRule p)}
+
 data Assertion t = Assertion { annotOfAssertion :: t
                              , exprOfAssertion :: Expr t}
 
@@ -339,6 +363,9 @@ data Assertion t = Assertion { annotOfAssertion :: t
 instance HasLoc t => HasLoc (Assertion t) where
   getLoc e = getLoc (annotOfAssertion e)
 
+instance HasAnnot Assertion where
+  getAnnot = annotOfAssertion
+  updateAnnot f p = p { annotOfAssertion = f (annotOfAssertion p)}
 
 
 ----------------------------------------------------------------------

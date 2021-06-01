@@ -24,6 +24,13 @@ instance Applicative Located where
 instance HasLoc (Located a) where
   getLoc = loc
 
+class HasAnnot f where
+  getAnnot :: f a -> a
+  updateAnnot :: (a -> a) -> f a -> f a
+
+setAnnot :: HasAnnot f => a -> f a -> f a
+setAnnot = updateAnnot . const
+
 data Pos = Pos
   { line :: !Int
   , col  :: !Int
