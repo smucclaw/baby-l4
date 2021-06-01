@@ -125,6 +125,35 @@ concrete AnswerEng of Answer = AtomsEng ** open
     -- Aggregations
     TransPred atom arg = {atom = atom ; arg = arg} ;
     IntransPred atom = {atom = atom ; arg = nothing_NP} ;
+
+    -- : [Pred] -> [Arg] -> Statement ;
+    AggregatePred preds subjs =
+      let
+        subj : NP = mkNP and_Conj subjs ;
+        cn2vps : CN -> VPS = \cn -> myVPS (mkVP cn) ;
+        -- the subject is [a human, a cat and a dog]
+        cn2s : C.ListCN -> S = \cns -> mkS (mkCl subj (C.ConjCN and_Conj cns)) ;
+
+        -- the subject [throws rock, beats scissors]
+        vp2s : [VPS] -> S = \vps -> PredVPS subj (ConjVPS and_Conj vps) ; -- PredVPS comes from Extend, type signature NP -> VPS -> S
+      in case preds.contentFields of {
+        ONLY_CNS => cn2s preds.cns ;
+        ONLY_VPS => vp2s preds.vps ;
+        NoSingle => let cnVPS : VPS = cn2vps (C.ConjCN and_Conj preds.cns) ; -- is a cat and a player
+                        allVPS : [VPS] = ConsVPS cnVPS preds.vps -- is a cat and a player, throws rock and beats scissors
+                     in vp2s allVPS ;
+        VPS_CN1 => let cnVPS : VPS = cn2vps preds.cn1 ; -- is a cat
+                        allVPS : [VPS] = ConsVPS cnVPS preds.vps -- is a cat, throws rock and beats scissors
+                     in vp2s allVPS ;
+        CNS_VP1 => let cnVPS : VPS = cn2vps (C.ConjCN and_Conj preds.cns) ; -- is a cat and a player
+                        allVPS : [VPS] = BaseVPS cnVPS preds.vp1 -- is a cat and a player, and throws rock
+                     in vp2s allVPS ;  -- TODO: enforce oxford comma
+        CN1_VP1 => let cnVPS : VPS = cn2vps preds.cn1 ;           -- is a cat
+                       allVPS : [VPS] = BaseVPS cnVPS preds.vp1  -- is a cat and throws rock
+                    in vp2s allVPS
+      } ;
+
+
     -- : Statement -> Statement -> Statement ; -- A wins B if …
     IfThen = mkS if_Conj ;
 
