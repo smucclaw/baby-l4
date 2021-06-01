@@ -17,11 +17,14 @@ concrete AnswerEng of Answer = AtomsEng ** open
     } ;
 
   param
-    ContentFields = VPS_CN1 | CNS_VP1 | CN1_VP1 | ONLY_CNS | ONLY_VPS | NoSingle  ;
-    -- VPS_CN1 : for case where existing list has only 1 CN
-    -- CNS_VP1 : for case where existing list has only 1 VPS
-    -- NoSingle : eventual list would have lists with no hanging (single) cn1 nor vp1
-
+    ContentFields =
+      VPS_CN1  -- the list has at least 2 VPSs, but only one CN
+    | CNS_VP1  -- the list has at least 2 CNSs, but only one VPS
+    | CN1_VP1  -- the list has one CN and one VPS
+    | ONLY_CNS  -- the list has only CNs, no VPSs
+    | ONLY_VPS  -- the list has only VPSs, no CNs
+    | NoSingle  -- no hanging (single) cn1 nor vp1 (so empty, or complete)
+    ;
 
   lin
    BasePred p1 p2 =
@@ -29,54 +32,70 @@ concrete AnswerEng of Answer = AtomsEng ** open
      <ACN|AN2, ACN|AN2> => dummyListPred ** {
         cns = C.BaseCN (toCN p1) (toCN p2) ;
         contentFields = ONLY_CNS };
-
-
      <AV|AV2, AV|AV2> => dummyListPred ** {
         vps = BaseVPS (mkPred p1) (mkPred p2) ;
         contentFields = ONLY_VPS ; };
-
      <ACN|AN2, AV| AV2> => dummyListPred ** {
        cn1 = toCN p1 ;
        vp1 = mkPred p2 ;
        contentFields = CN1_VP1};
-
     <AV|AV2, ACN| AN2> => dummyListPred ** {
        vp1 = mkPred p1 ;
        cn1 = toCN p2 ;
-       contentFields = CN1_VP1 }
-
-
-     };
+       contentFields = CN1_VP1 }};
 
   ConsPred p ps = case <p.atom.atype, ps.contentFields> of {
     -- p.atom.atype tells the type of the atom p ie vp or noun or cn2 vp1
     -- ps.contentFields tells which param value of the contentfields for ps
-    <ACN|AN2 , VPS_CN1>      => ps ** {
+    <ACN|AN2, CN1_VP1>  => ps ** {   -- can only come from BasePred: only two preds have been added to the list
       cns = C.BaseCN (toCN p) ps.cn1 ;
-      contentFields = NoSingle
-      };
-    <ACN|AN2 , CNS_VP1>      => ps ** {
-      cn1 = toCN p} ;
+      contentFields = CNS_VP1 } ;
 
-    <ACN|AN2 , CN1_VP1>  => ps ** {
+    <ACN|AN2, ONLY_VPS> => ps ** { -- can be from BasePred with two VPSs, and arbitrary applications of ConsPred with only VPSs.
+      cn1 = toCN p ;
+      contentFields = VPS_CN1 } ;
+
+    <ACN|AN2, VPS_CN1> => ps ** {  -- at least 2 VPSs already, and one loose hanging CN. Must have been at least one ConsPred, possibly more
       cns = C.BaseCN (toCN p) ps.cn1 ;
-      contentFields =
-      };
+      contentFields = NoSingle } ;
 
-    <ACN|AN2 , ONLY_CNS> |  <ACN|AN2 , NoSingle> |  <ACN|AN2 , CNS_VP1>
+    -- Special thing with these three:
+    -- * The cns field already contains a list, so we just call ConsCN
+    -- * We don't need to change contentFields: the CNS part doesn't change, because it was already a list, and neither does VPS (because we didn't have a VPS).
+    <ACN|AN2, ONLY_CNS> | <ACN|AN2, NoSingle> |  <ACN|AN2, CNS_VP1>
       => ps ** {cns = C.ConsCN (toCN p) ps.cns} ;
 
-    <ACN|AN2 , ONLY_VPS> =>
+    <AV|AV2, CN1_VP1> => ps ** {
+      vps = BaseVPS (mkPred p) ps.vp1 ;
+      contentFields = VPS_CN1 } ;
+    <AV|AV2, CNS_VP1> => ps ** {
+      vps = BaseVPS (mkPred p) ps.vp1 ;
+      contentFields = NoSingle } ; -- now it's complete
+    <AV|AV2, ONLY_CNS> => ps ** {
+      vp1 = mkPred p ;
+      contentFields = CNS_VP1 } ;
+    <AV|AV2, ONLY_VPS> | <AV|AV2, NoSingle> | <AV|AV2, VPS_CN1>
+      => ps ** {vps = ConsVPS (mkPred p) ps.vps}
+  } ;
+  oper
+    -- empty list case
+   dummyListPred = {
+      cn1 : CN = dummyAtom.cn ;
+      cns : C.ListCN = C.BaseCN dummyAtom.cn dummyAtom.cn ;
+      vp1 : VPS = dummyAtom.v ;
+      vps : [VPS] = ExtendEng.BaseVPS dummyAtom.v dummyAtom.v ;
+      contentFields = NoSingle ;
 
-    <AV|AV2  , VPS_CN1>      =>
-    <AV|AV2 , CNS_VP1>       =>
-    <AV|AV2 , CN1_VP1>   =>
-    <AV|AV2 , ONLY_CNS>       =>
-    <AV|AV2 , ONLY_VPS>  | <AV|AV2 , NoSingle>
-     => ps ** {vps = ConsVPS (mkPred p) ps.vps} ;
+   };
 
-  }
+   toCN : LinPred -> CN ;
+   toCN p1 = case p1.atom.atype of {
+     ACN => p1.atom.cn ;
+     AN2 => mkCN p1.atom.n2 p1.arg ;
+     _   => dummyAtom.cn
+     };
 
+  lin
     -- Coercions to Arg
     AVar v = v ;
     AAtom atom = case atom.atype of {
@@ -106,86 +125,6 @@ concrete AnswerEng of Answer = AtomsEng ** open
     -- Aggregations
     TransPred atom arg = {atom = atom ; arg = arg} ;
     IntransPred atom = {atom = atom ; arg = nothing_NP} ;
-
-    AggregatePred2 p1 p2 subjs =
-      let subj : NP = mkNP and_Conj subjs ;
-          vps1 : VPS = mkPred p1 ;
-          vps2 : VPS = mkPred p2 ;
-          cnConjS : CN -> CN -> S = \cn1,cn2 -> mkS (mkCl subj (C.ConjCN and_Conj (C.BaseCN cn1 cn2))) ;
-       in case <p1.atom.atype, p2.atom.atype> of {
-            <ACN, ACN> => cnConjS p1.atom.cn p2.atom.cn ;
-            <ACN, AN2> =>
-              let comp : CN = mkCN p2.atom.n2 p2.arg ;
-               in cnConjS p1.atom.cn comp ;
-            <AN2, ACN> =>
-              let comp : CN = mkCN p1.atom.n2 p1.arg ;
-               in cnConjS p2.atom.cn comp ;
-            _ => PredVPS subj (ConjVPS and_Conj (BaseVPS vps1 vps2))
-          } ;
-
-    AggregatePred3 p1 p2 p3 subjs =
-      let subj : NP = mkNP and_Conj subjs ;
-          vps1 : VPS = mkPred p1 ;
-          vps2 : VPS = mkPred p2 ;
-          vps3 : VPS = mkPred p3 ;
-          toS  : CN -> S = \cn -> mkS (mkCl subj cn) ;
-       in case <p1.atom.atype, p2.atom.atype, p3.atom.atype> of {
-            <ACN, ACN, ACN> => toS (cnConj p1.atom.cn p2.atom.cn p3.atom.cn) ;
-
-            <ACN, ACN, AN2> => toS (oneN2 p1 p2 p3) ;
-            <ACN, AN2, ACN> => toS (oneN2 p1 p3 p2) ;
-            <AN2, ACN, ACN> => toS (oneN2 p2 p3 p1) ;
-
-            <ACN, AN2, AN2> => toS (twoN2s p1 p2 p3) ;
-            <AN2, ACN, AN2> => toS (twoN2s p2 p1 p3) ;
-            <AN2, AN2, ACN> => toS (twoN2s p3 p1 p2) ;
-
-            <AN2, AN2, AN2> => toS (allN2s p1 p2 p3) ;
-
-            _ => PredVPS subj (ConjVPS and_Conj (ConsVPS vps1 (BaseVPS vps2 vps3)))
-          } ;
-  oper
-    -- Helper to make AggregatePred3 less redundant
-    allN2s : (p,q,r : LinPred) -> CN = \p,q,r ->
-        let comp1 : CN = mkCN p.atom.n2 p.arg ;
-            comp2 : CN = mkCN q.atom.n2 q.arg ;
-            comp3 : CN = mkCN r.atom.n2 r.arg ;
-         in cnConj comp1 comp2 comp3 ;
-
-    twoN2s : (p,q,r : LinPred) -> CN = \p,q,r ->
-        let comp1 : CN = mkCN p.atom.cn ;
-            comp2 : CN = mkCN q.atom.n2 q.arg ;
-            comp3 : CN = mkCN r.atom.n2 r.arg ;
-         in cnConj comp1 comp2 comp3 ;
-
-    oneN2 : (p,q,r : LinPred) -> CN = \p,q,r ->
-        let comp1 : CN = mkCN p.atom.cn ;
-            comp2 : CN = mkCN q.atom.cn ;
-            comp3 : CN = mkCN r.atom.n2 r.arg ;
-         in cnConj comp1 comp2 comp3 ;
-
-    cnConj : CN -> CN -> CN -> CN = \cn1,cn2,cn3 ->
-      C.ConjCN and_Conj (C.ConsCN cn1 (C.BaseCN cn2 cn3)) ;
-
-    -- empty list case
-   dummyListPred = {
-      cn1 : CN = dummyAtom.cn ;
-      cns : C.ListCN = C.BaseCN dummyAtom.cn dummyAtom.cn ;
-      vp1 : VPS = dummyAtom.v ;
-      vps : [VPS] = ExtendEng.BaseVPS dummyAtom.v dummyAtom.v ;
-      contentFields = NoSingle ;
-
-   };
-
-   toCN : LinPred -> CN ;
-   toCN p1 = case p1.atom.atype of {
-     ACN => p1.atom.cn ;
-     AN2 => mkCN p1.atom.n2 p1.arg ;
-     _   => dummyAtom.cn
-     };
-
-  lin
-
     -- : Statement -> Statement -> Statement ; -- A wins B if …
     IfThen = mkS if_Conj ;
 
