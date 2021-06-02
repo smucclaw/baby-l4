@@ -240,6 +240,7 @@ data SomeAstNode t
   | SClassDecl (ClassDecl t)
   | SGlobalVarDecl (VarDecl t)
   | SRule (Rule t)
+  | SAssertion (Assertion t)
   deriving (Show)
 
 instance HasLoc t => HasLoc (SomeAstNode t) where
@@ -249,6 +250,24 @@ instance HasLoc t => HasLoc (SomeAstNode t) where
   getLoc (SClassDecl et) = getLoc et
   getLoc (SGlobalVarDecl et) = getLoc et
   getLoc (SRule et) = getLoc et
+  getLoc (SAssertion et) = getLoc et
+
+instance HasAnnot SomeAstNode where
+  getAnnot (SProg pt) = getAnnot pt
+  getAnnot (SExpr et) = getAnnot et
+  getAnnot (SMapping et) = getAnnot et
+  getAnnot (SClassDecl et) = getAnnot et
+  getAnnot (SGlobalVarDecl et) = getAnnot et
+  getAnnot (SRule et) = getAnnot et
+  getAnnot (SAssertion et) = getAnnot et
+
+  updateAnnot nt (SProg pt) = SProg $ updateAnnot nt pt
+  updateAnnot nt (SExpr et) = SExpr $ updateAnnot nt et
+  updateAnnot nt (SMapping et) = SMapping $ updateAnnot nt et
+  updateAnnot nt (SClassDecl et) = SClassDecl $ updateAnnot nt et
+  updateAnnot nt (SGlobalVarDecl et) = SGlobalVarDecl $ updateAnnot nt et
+  updateAnnot nt (SRule et) = SRule $ updateAnnot nt et
+  updateAnnot nt (SAssertion et) = SAssertion $ updateAnnot nt et
 
 selectSmallestContaining :: HasLoc t => Position -> [SomeAstNode t] -> SomeAstNode t -> [SomeAstNode t]
 selectSmallestContaining pos parents node =
@@ -257,14 +276,15 @@ selectSmallestContaining pos parents node =
     Just sub -> selectSmallestContaining pos (node:parents) sub
 
 getChildren :: SomeAstNode t -> [SomeAstNode t]
-getChildren (SProg Program {lexiconOfProgram, classDeclsOfProgram, globalsOfProgram, rulesOfProgram }) =
-  map SMapping lexiconOfProgram ++ map SClassDecl classDeclsOfProgram ++ map SGlobalVarDecl globalsOfProgram ++ map SRule rulesOfProgram
+getChildren (SProg Program {lexiconOfProgram, classDeclsOfProgram, globalsOfProgram, rulesOfProgram, assertionsOfProgram }) =
+  map SMapping lexiconOfProgram ++ map SClassDecl classDeclsOfProgram ++ map SGlobalVarDecl globalsOfProgram ++ map SRule rulesOfProgram ++ map SAssertion assertionsOfProgram
 getChildren (SExpr et) = SExpr <$> childExprs et
 getChildren (SMapping _) = []
 getChildren (SClassDecl _) = []
 getChildren (SGlobalVarDecl _) = []
 -- TODO: add code for getting children of Rule & Assertion
 getChildren (SRule r) = SExpr <$> [precondOfRule r, postcondOfRule r] -- Currently no VarDecl node to show type info, requires change in syntax
+getChildren (SAssertion a) = SExpr <$> [exprOfAssertion a]
 
 findAstAtPoint :: HasLoc t => Position -> Program t -> [SomeAstNode t]
 findAstAtPoint pos = selectSmallestContaining pos [] . SProg
@@ -299,12 +319,13 @@ tokenToHover astNode = Hover contents range
     range = sRngToRange annRange
 
 
-astToTypeInfo :: (Show a, TypeAnnot f) => [SomeAstNode (f a)] -> T.Text
-astToTypeInfo (SMapping (Mapping tpInfo _ _):_) = T.pack (show $ getType tpInfo)
-astToTypeInfo (SClassDecl (ClassDecl tpInfo _ _):_) = T.pack (show $ getType tpInfo)
-astToTypeInfo (SGlobalVarDecl (VarDecl tpInfo _ _):_) = T.pack (show $ getType tpInfo)
-astToTypeInfo (SRule (Rule tpInfo _ _ _ _):_) = T.pack (show $ getType tpInfo)
-astToTypeInfo ((SExpr e):_) = T.pack $ show $ getType $ annotOfExpr e
+astToTypeInfo :: (Show a, HasAnnot f) => [SomeAstNode (f a)] -> T.Text
+astToTypeInfo (SMapping (Mapping tpInfo _ _):_) = tshow $ getAnnot tpInfo
+astToTypeInfo (SClassDecl (ClassDecl tpInfo _ _):_) = tshow $ getAnnot tpInfo
+astToTypeInfo (SGlobalVarDecl (VarDecl tpInfo _ _):_) = tshow $ getAnnot tpInfo
+astToTypeInfo (SRule (Rule tpInfo _ _ _ _):_) = tshow $ getAnnot tpInfo
+astToTypeInfo (SAssertion (Assertion tpInfo _):_) = tshow $ getAnnot tpInfo
+astToTypeInfo ((SExpr e):_) = tshow $ getAnnot $ annotOfExpr e
 astToTypeInfo _ = "No type info found"
 
 
@@ -313,6 +334,7 @@ astToText (SMapping (Mapping _ from to):_) = "This block maps variable " <> T.pa
 astToText (SClassDecl (ClassDecl _ (ClsNm x) _):_) = "Declaration of new class : " <> T.pack x
 astToText (SGlobalVarDecl (VarDecl _ n _):_) = "Declaration of global variable " <> T.pack n
 astToText (SRule (Rule _ n _ _ _):_) = "Declaration of rule " <> T.pack n
+astToText (SAssertion (Assertion _ _):_) = "Declaration of Assertion " <> "rule of no name for now"
 astToText _ = "No hover info found"
 
 lookupTokenBare' :: Position -> Uri -> ExceptT Err (LspM Config) (Maybe Hover)
