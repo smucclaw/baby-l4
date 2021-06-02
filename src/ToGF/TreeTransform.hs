@@ -89,14 +89,13 @@ aggregateSubj subjs (GApp2 pr _subj obj) = GAggregateSubj2 pr obj (GListArg subj
 aggregateSubj _ x = x
 
 aggregatePred :: [GPred] -> GStatement -> GStatement
-aggregatePred [pr1, pr2] (GAggregateSubj1 _ subjs) = GAggregatePred2 pr1 pr2 subjs
-aggregatePred [pr1, pr2] (GAggregateSubj2 _ _ subjs) = GAggregatePred2 pr1 pr2 subjs
-aggregatePred _ x = x
+aggregatePred preds statement = case statement of
+  GAggregateSubj1 _ subjs -> GAggregatePred (GListPred preds) (GConjArg subjs)
+  GAggregateSubj2 _ _ subjs -> GAggregatePred (GListPred preds) (GConjArg subjs)
+  GApp1 _ subj -> GAggregatePred (GListPred preds) subj
+  GApp2 _ _ subj -> GAggregatePred (GListPred preds) subj
+  _ -> statement -- wasn't able to aggregate
 
-aggregatePred3 :: [GPred] -> GStatement -> GStatement
-aggregatePred3 [pr1, pr2, pr3] (GAggregateSubj1 _ subjs) = GAggregatePred3 pr1 pr2 pr3 subjs
-aggregatePred3 [pr1, pr2, pr3] (GAggregateSubj2 _ _ subjs) = GAggregatePred3 pr1 pr2 pr3 subjs
-aggregatePred3 _ x = x
 
 getPred :: GStatement -> GPred
 getPred s = case s of

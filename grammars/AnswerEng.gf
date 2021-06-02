@@ -126,11 +126,11 @@ concrete AnswerEng of Answer = AtomsEng ** open
     TransPred atom arg = {atom = atom ; arg = arg} ;
     IntransPred atom = {atom = atom ; arg = nothing_NP} ;
 
-    -- : [Pred] -> [Arg] -> Statement ;
-    AggregatePred preds subjs =
+    -- : [Pred] -> Arg -> Statement ;
+    AggregatePred preds subj =
       let
-        subj : NP = mkNP and_Conj subjs ;
         cn2vps : CN -> VPS = \cn -> myVPS (mkVP cn) ;
+
         -- the subject is [a human, a cat and a dog]
         cn2s : C.ListCN -> S = \cns -> mkS (mkCl subj (C.ConjCN and_Conj cns)) ;
 
@@ -153,6 +153,7 @@ concrete AnswerEng of Answer = AtomsEng ** open
                     in vp2s allVPS
       } ;
 
+    ConjArg = mkNP and_Conj ;
 
     -- : Statement -> Statement -> Statement ; -- A wins B if …
     IfThen = mkS if_Conj ;

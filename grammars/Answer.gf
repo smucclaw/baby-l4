@@ -36,7 +36,7 @@ abstract Answer = Atoms ** {
 
     TransPred : Atom -> Arg -> Pred ;
     IntransPred : Atom -> Pred ;
-    AggregatePred : (preds : [Pred]) -> (subjs : [Arg]) -> Statement ;
+    AggregatePred : (preds : [Pred]) -> (subj : Arg) -> Statement ;
 
     IfThen : Statement -> Statement -> Statement ; -- A wins B if …
 
@@ -46,5 +46,6 @@ abstract Answer = Atoms ** {
 
     Inline, Bullets : Typography ;
 
+    ConjArg : [Arg] -> Arg ;
 
 }
