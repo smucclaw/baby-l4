@@ -96,8 +96,7 @@ instance HasLoc (LocTypeAnnot a) where
 
 instance HasAnnot LocTypeAnnot where
   getAnnot = typeAnnot
-  updateAnnot f p = p { locAnnot = locAnnot p, -- does SRNG change here? I presume not...
-                        typeAnnot = f . typeAnnot $ p}
+  updateAnnot f p = p { typeAnnot = f . typeAnnot $ p}
 
 
 -- ** : Would this still be required, given that we have "HasAnnot" now?

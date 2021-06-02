@@ -11,7 +11,7 @@ import qualified Data.Text as T
 import qualified Language.LSP.Types as J
 
 main :: IO ()
-main = defaultMain $ testGroup "Tests" [hoverTests, typeCheckerTests]
+main = defaultMain $ testGroup "Tests" [hoverTests, hoverTypeInfoTests, typeCheckerTests]
 
 hoverTests :: TestTree
 hoverTests = testGroup "Hover tests"
@@ -25,21 +25,30 @@ hoverTests = testGroup "Hover tests"
   , expectFail                                $ testHover "Hover over nothing"                                        "mini.l4" (Position 1 0)   (mkRange 3 0 3 8)    "This block maps variable Business to WordNet definion \"business_1_N\""
   ]
 
-typeCheckerTests :: TestTree 
-typeCheckerTests = testGroup "Type Error tests"  
+hoverTypeInfoTests :: TestTree
+hoverTypeInfoTests = testGroup "Hover type tests"
+  [ testHover "mini.l4 type info for lexicon DetractsFromDignity"   "mini.l4" (Position 4 4)   (mkRange 4 0 4 66)   "OkT"
+  , testHover "cr.l4 type info for 'class Business {'"              "cr.l4"   (Position 21 10) (mkRange 21 0 24 1)  "OkT"
+  , testHover "cr.l4 type info for var decl AssociatedWith"         "cr.l4"   (Position 38 12) (mkRange 38 0 38 64) "OkT"
+  , testHover "cr.l4 type info for rule r1a"                        "cr.l4"   (Position 61 7)  (mkRange 61 0 64 29) "ClassT (ClsNm {stringOfClassName = \"Boolean\"})"
+  , testHover "cr.l4 type info for assert"                          "cr.l4"   (Position 103 3) (mkRange 103 0 103 83) "ClassT (ClsNm {stringOfClassName = \"Boolean\"})"
+  ]
+
+typeCheckerTests :: TestTree
+typeCheckerTests = testGroup "Type Error tests"
   [
     testGroup "ClassDeclsError"
       [
         testTypeErrs "dupClassNames.l4    duplicate class names Business"           "ClassDeclsError/dupClassNames.l4"    (mkRange 2 0 5 1)    2 "Duplicate class name: Business"
       , testTypeErrs "undefSuperClass.l4  undefined super class LawFirm"            "ClassDeclsError/undefSuperClass.l4"  (mkRange 3 0 3 30)   1 "Undefined super class: LawFirm"
       -- Note: typeErrTests only checks the first error, however, this next test in particular returns 2 errors; one for LawFirm, one for Business
-      , testTypeErrs "cyclicClass.l4      cyclic classes LawFirm & Business"        "ClassDeclsError/cyclicClass.l4"      (mkRange 0 0 0 30)   2 "Cyclic class hierarchy: LawFirm" 
+      , testTypeErrs "cyclicClass.l4      cyclic classes LawFirm & Business"        "ClassDeclsError/cyclicClass.l4"      (mkRange 0 0 0 30)   2 "Cyclic class hierarchy: LawFirm"
       ]
   , testGroup "FieldDeclsError"
       [
         testTypeErrs "dupFieldNames.l4    duplicate field name for class Business"  "FieldDeclsError/dupFieldNames.l4"    (mkRange 2 0 5 1)    1 "Duplicate field names in the class: Business"
       , testTypeErrs "undefFieldType.l4   undefined field type for class Business"  "FieldDeclsError/undefFieldType.l4"   (mkRange 3 6 3 17)   1 "Undefined field type: foo"
-      ] 
+      ]
   , testGroup "VarDeclsError"
       [
         testTypeErrs "undeclVar.l4        undefined variable MustNotAcceptApp"      "VarDeclsError/undeclVar.l4"          (mkRange 64 5 64 21) 6 "Variable MustNotAcceptApp at (64,5) .. (64,21) is undefined"
@@ -88,11 +97,11 @@ testHover testName filename position expectedRange containedText =
 -- test hwat happens if we edit a doc, fix an error & see if error is gone
 
 -- test sequence of edits
-testTypeErrs 
-  :: TestName 
+testTypeErrs
+  :: TestName
   -> FilePath -- ^ The file to test
   -> Range -- ^ expected range of error (0 - indexed)
-  -> Int    -- ^ number of errors expected        -- TODO: maybe take a list of errors to check for instead? 
+  -> Int    -- ^ number of errors expected        -- TODO: maybe take a list of errors to check for instead?
   -> T.Text -- ^ expected error message
   -> TestTree
 testTypeErrs testName fileName expectedRange numDiags containedText =
@@ -112,7 +121,7 @@ testTypeErrs testName fileName expectedRange numDiags containedText =
                   _
                   _
                  = head diags
-        
+
         liftIO $ range @?= expectedRange
         liftIO $ assertFoundIn "type error" containedText errMsg
         pure ()

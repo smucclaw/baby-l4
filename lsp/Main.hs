@@ -101,7 +101,7 @@ getVirtualOrRealFile uri = do
         liftIO $ TIO.readFile filename
 
 
-parseVirtualOrRealFile :: Uri -> ExceptT Err (LspM Config) (Maybe (Program (LocAndTp)))
+parseVirtualOrRealFile :: Uri -> ExceptT Err (LspM Config) (Maybe (Program LocAndTp))
 parseVirtualOrRealFile uri = do
     contents <- getVirtualOrRealFile uri
     lift $ parseAndSendErrors uri contents
@@ -244,13 +244,8 @@ data SomeAstNode t
   deriving (Show)
 
 instance HasLoc t => HasLoc (SomeAstNode t) where
-  getLoc (SProg pt) = getLoc (annotOfProgram pt)
-  getLoc (SExpr et) = getLoc et
-  getLoc (SMapping et) = getLoc et
-  getLoc (SClassDecl et) = getLoc et
-  getLoc (SGlobalVarDecl et) = getLoc et
-  getLoc (SRule et) = getLoc et
-  getLoc (SAssertion et) = getLoc et
+  getLoc astNode = getLoc $ getAnnot astNode
+
 
 instance HasAnnot SomeAstNode where
   getAnnot (SProg pt) = getAnnot pt
@@ -318,16 +313,8 @@ tokenToHover astNode = Hover contents range
     annRange = getLoc $ head astNode
     range = sRngToRange annRange
 
-
-astToTypeInfo :: (Show a, HasAnnot f) => [SomeAstNode (f a)] -> T.Text
-astToTypeInfo (SMapping (Mapping tpInfo _ _):_) = tshow $ getAnnot tpInfo
-astToTypeInfo (SClassDecl (ClassDecl tpInfo _ _):_) = tshow $ getAnnot tpInfo
-astToTypeInfo (SGlobalVarDecl (VarDecl tpInfo _ _):_) = tshow $ getAnnot tpInfo
-astToTypeInfo (SRule (Rule tpInfo _ _ _ _):_) = tshow $ getAnnot tpInfo
-astToTypeInfo (SAssertion (Assertion tpInfo _):_) = tshow $ getAnnot tpInfo
-astToTypeInfo ((SExpr e):_) = tshow $ getAnnot $ annotOfExpr e
-astToTypeInfo _ = "No type info found"
-
+astToTypeInfo :: [SomeAstNode LocAndTp] -> T.Text
+astToTypeInfo (x:_) = tshow $ getType $ getAnnot x
 
 astToText :: [SomeAstNode LocAndTp] -> T.Text
 astToText (SMapping (Mapping _ from to):_) = "This block maps variable " <> T.pack from <> " to GrammaticalFramework WordNet definion " <> tshow to
