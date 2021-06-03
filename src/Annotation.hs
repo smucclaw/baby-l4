@@ -94,6 +94,13 @@ data LocTypeAnnot a = LocTypeAnnot { locAnnot :: SRng
 instance HasLoc (LocTypeAnnot a) where
   getLoc = locAnnot
 
+instance HasAnnot LocTypeAnnot where
+  getAnnot = typeAnnot
+  updateAnnot f p = p { typeAnnot = f . typeAnnot $ p}
+
+
+-- ** : Would this still be required, given that we have "HasAnnot" now?
+--      updType & updateAnnot have different type signatures
 class TypeAnnot f where
   getType :: f a -> a
   updType :: f a -> b -> f b
