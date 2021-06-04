@@ -32,6 +32,7 @@ hoverTypeInfoTests = testGroup "Hover type tests"
   , testHover "cr.l4 type info for var decl AssociatedWith"         "cr.l4"   (Position 38 12) (mkRange 38 0 38 64) "OkT"
   , testHover "cr.l4 type info for rule r1a"                        "cr.l4"   (Position 61 7)  (mkRange 61 0 64 29) "ClassT (ClsNm {stringOfClassName = \"Boolean\"})"
   , testHover "cr.l4 type info for rule subexpr MustNotAcceptApp"   "cr.l4"   (Position 69 8)  (mkRange 69 5 69 21) "FunT (ClassT (ClsNm {stringOfClassName = \"LegalPractitioner\"})) (FunT (ClassT (ClsNm {stringOfClassName = \"Appointment\"})) (ClassT (ClsNm {stringOfClassName = \"Boolean\"})))"
+  , expectFailBecause "No such file exists" $ testHover "noSuchFile.l4 Testing ReadFileErr"                   "noSuchFile.l4" (Position 0 0) (mkRange 0 10 0 10) "File not found"
   ]
 
 typeCheckerTests :: TestTree

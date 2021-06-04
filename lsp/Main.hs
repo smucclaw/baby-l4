@@ -11,7 +11,7 @@ import Lexer
 import Data.Text.IO (hPutStrLn)
 import qualified Data.Text.IO as TIO
 import qualified Data.Map as Map
-import System.IO (stderr)
+import System.IO (stderr, FilePath)
 
 import           Control.Lens hiding (Iso)
 import qualified Language.LSP.Types            as J
@@ -40,7 +40,7 @@ import Error
 import Data.List (intercalate)
 import Control.Monad.Trans.Maybe (MaybeT(..))
 
-data LspError = LexerErr Err |ReadFileErr Err | TypeCheckerErr Err | ParserErr Err deriving Show
+data LspError = ReadFileErr Err | TypeCheckerErr Err | ParserErr Err deriving Show
 
 type Config = ()
 
@@ -89,6 +89,15 @@ handlers = mconcat
         liftIO $ debugM "reactor.handle" $ "Didn't find anything in the VFS for: " ++ show doc
   ]
 
+uriToFilePath' :: Monad m => Uri -> ExceptT LspError m FilePath
+uriToFilePath' uri = extract "Read token Error" $ uriToFilePath uri
+
+-- | Convert Maybe to ExceptT using string as an error message in Maybe is Nothing
+-- TODO: #67 Handle different kinds of problems differently!
+-- TODO: #66 Add custom error type for LSP
+extract :: Monad m => String -> Maybe a -> ExceptT LspError m a                -- ExceptT LspError m a
+extract errMessage = except . maybeToRight (ReadFileErr $ Err (DummySRng "From lsp") errMessage)
+
 getVirtualOrRealFile :: Uri -> ExceptT LspError (LspM Config) T.Text
 getVirtualOrRealFile uri = do
     mdoc <- lift . getVirtualFile $ J.toNormalizedUri uri
@@ -98,9 +107,8 @@ getVirtualOrRealFile uri = do
         pure $ Rope.toText vf
       Nothing -> do
         liftIO $ debugM "reactor.handle" $ "Didn't find anything in the VFS for: " ++ show uri
-        filename <- uriToFilePath' uri
-        -- TODO: Catch errors thrown by readFile
-        liftIO $ TIO.readFile filename
+        handleUriErrs uri (TIO.readFile)
+        -- TODO: Catch errors thrown by uriToFilePath'
 
 
 parseVirtualOrRealFile :: Uri -> ExceptT LspError (LspM Config) (Maybe (Program LocAndTp))
@@ -122,7 +130,6 @@ makeDiagErr source err =
     (Just (J.List []))
 
 makeDiagErr' :: LspError -> Diagnostic
-makeDiagErr' (LexerErr err) = makeDiagErr "lexer" err
 makeDiagErr' (ReadFileErr err) = makeDiagErr "readfile" err
 makeDiagErr' (ParserErr err) = makeDiagErr "parser" err
 makeDiagErr' (TypeCheckerErr err) = makeDiagErr "typechecker" err
@@ -194,13 +201,21 @@ fieldErrorRange (range, field) = show range ++ ": " ++ stringOfFieldName field
 
 type LocAndTp = LocTypeAnnot Tp
 
-getProg :: J.Uri -> T.Text -> Either [LspError] (Program SRng)
-getProg uri contents =
+handleUriErrs :: J.Uri -> (FilePath -> a) -> Either [LspError] a
+handleUriErrs uri f =
   case uriToFilePath uri of
-    Just loc -> case parseProgram loc (T.unpack contents) of    -- parseProgram calls runAlex which returning 'Either Err a'
-      Left msg -> Left [LexerErr msg]
-      Right prog -> Right prog
-    Nothing -> Left [ReadFileErr (Err (DummySRng "No valid range") "File not found")]   -- placeholder until we figure out expected behavior
+    Just loc -> Right $ f loc
+    Nothing  -> Left [ReadFileErr $ Err (DummySRng "No valid range") "File not found"]
+
+-- Switch either to ExceptT?
+getProg :: J.Uri -> T.Text -> Either [LspError] (Program SRng)
+getProg uri contents = join $ handleUriErrs uri (foo contents)
+  where
+    foo :: T.Text -> FilePath -> Either [LspError] (Program SRng)
+    foo conts loc =
+      case parseProgram loc (T.unpack conts) of
+        Left msg -> Left [ParserErr msg]
+        Right prog -> Right prog
 
 parseAndSendErrors :: J.Uri -> T.Text -> LspM Config (Maybe (Program LocAndTp))
 parseAndSendErrors uri contents = runMaybeT $ do
@@ -302,14 +317,6 @@ getChildren (SAssertion a) = SExpr <$> [exprOfAssertion a]
 findAstAtPoint :: HasLoc t => Position -> Program t -> [SomeAstNode t]
 findAstAtPoint pos = selectSmallestContaining pos [] . SProg
 
-uriToFilePath' :: Monad m => Uri -> ExceptT LspError m FilePath
-uriToFilePath' uri = extract "Read token Error" $ uriToFilePath uri
-
--- | Convert Maybe to ExceptT using string as an error message in Maybe is Nothing
--- TODO: #67 Handle different kinds of problems differently!
--- TODO: #66 Add custom error type for LSP
-extract :: Monad m => String -> Maybe a -> ExceptT LspError m a                -- ExceptT LspError m a
-extract errMessage = except . maybeToRight (ReadFileErr $ Err (DummySRng "From lsp") errMessage)
 
 
 -- tokensToHover :: Position -> Program LocAndTp -> ExceptT Err IO Hover
