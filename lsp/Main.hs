@@ -40,6 +40,8 @@ import Error
 import Data.List (intercalate)
 import Control.Monad.Trans.Maybe (MaybeT(..))
 
+data LspError = ReadFileErr Err | TypeCheckerErr Err | ParserErr Err deriving Show
+
 type Config = ()
 
 handlers :: Handlers (LspM Config)
@@ -87,7 +89,7 @@ handlers = mconcat
         liftIO $ debugM "reactor.handle" $ "Didn't find anything in the VFS for: " ++ show doc
   ]
 
-getVirtualOrRealFile :: Uri -> ExceptT Err (LspM Config) T.Text
+getVirtualOrRealFile :: Uri -> ExceptT LspError (LspM Config) T.Text
 getVirtualOrRealFile uri = do
     mdoc <- lift . getVirtualFile $ J.toNormalizedUri uri
     case mdoc of
@@ -101,7 +103,7 @@ getVirtualOrRealFile uri = do
         liftIO $ TIO.readFile filename
 
 
-parseVirtualOrRealFile :: Uri -> ExceptT Err (LspM Config) (Maybe (Program LocAndTp))
+parseVirtualOrRealFile :: Uri -> ExceptT LspError (LspM Config) (Maybe (Program LocAndTp))
 parseVirtualOrRealFile uri = do
     contents <- getVirtualOrRealFile uri
     lift $ parseAndSendErrors uri contents
@@ -119,14 +121,19 @@ makeDiagErr source err =
     Nothing -- tags
     (Just (J.List []))
 
+lspErrortoErr :: LspError -> Err
+lspErrortoErr (ParserErr err) = undefined
+lspErrortoErr (TypeCheckerErr err) = undefined
 
-publishError :: Source -> NormalizedUri -> [Err] -> LspM Config ()
-publishError src uri err = publishDiagnostics 100 uri Nothing (partitionBySource $ makeDiagErr src <$> err)
+publishError :: Source -> NormalizedUri -> [LspError] -> LspM Config ()
+publishError src uri err = publishDiagnostics 100 uri Nothing (partitionBySource $ makeDiagErr src . lspErrortoErr <$> err)
+     
+
 
 clearError :: Source -> NormalizedUri -> LspM Config ()
 clearError src uri = publishDiagnostics 100 uri Nothing (Map.singleton (Just src) mempty)
 
-sendDiagnosticsOnLeft :: Source -> NormalizedUri -> Either [Err] a -> MaybeT (LspM Config) a
+sendDiagnosticsOnLeft :: Source -> NormalizedUri -> Either [LspError] a -> MaybeT (LspM Config) a
 -- sendDiagnosticsOnLeft uri = either (publishError uri) (const $ clearError uri)
 sendDiagnosticsOnLeft src uri (Left err) = MaybeT $ Nothing <$ publishError src uri err
 sendDiagnosticsOnLeft src uri (Right result) = MaybeT $ Just result <$ clearError src uri
@@ -143,23 +150,23 @@ readPrelude = do
       Left err -> do
         error $ "Parser Error in Prelude: " ++ show err
 
-errorToErrs :: Error -> [Err]
+errorToErrs :: Error -> [LspError]
 errorToErrs e = case e of
                   (ClassDeclsErr c) ->
                     case c of
-                      DuplicateClassNamesCDE dc -> mkErrs stringOfClassName "Duplicate class name: " dc
-                      UndefinedSuperclassCDE us -> mkErrs stringOfClassName "Undefined super class: " us
-                      CyclicClassHierarchyCDE cc -> mkErrs stringOfClassName "Cyclic class hierarchy: " cc
+                      DuplicateClassNamesCDE dc -> TypeCheckerErr <$> mkErrs stringOfClassName "Duplicate class name: " dc
+                      UndefinedSuperclassCDE us -> TypeCheckerErr <$> mkErrs stringOfClassName "Undefined super class: " us
+                      CyclicClassHierarchyCDE cc -> TypeCheckerErr <$> mkErrs stringOfClassName "Cyclic class hierarchy: " cc
                   (VarDeclsErr v) ->
                     case v of
-                      DuplicateVarNamesVDE dup -> map (mkErrsVarRule "Duplicate var name: ") dup
-                      UndefinedTypeVDE un      -> map (mkErrsVarRule "Undefined type var decl: ") un
+                      DuplicateVarNamesVDE dup -> map (TypeCheckerErr . mkErrsVarRule "Duplicate var name: ") dup
+                      UndefinedTypeVDE un      -> map (TypeCheckerErr . mkErrsVarRule "Undefined type var decl: ") un
                   (FieldDeclsErr f) ->
                     case f of
-                      UndefinedTypeFDE uf -> mkErrs stringOfFieldName "Undefined field type: " uf
-                      DuplicateFieldNamesFDE dupf -> map mkErrsField dupf
-                  (AssertionErr (AssertionErrAE ae)) -> getErrorCause "Assertion Error: " <$> ae
-                  (RuleErr (RuleErrorRE re)) -> getErrorCause "Rule Error: " <$> re
+                      UndefinedTypeFDE uf -> TypeCheckerErr <$> mkErrs stringOfFieldName "Undefined field type: " uf
+                      DuplicateFieldNamesFDE dupf ->  TypeCheckerErr . mkErrsField <$> dupf
+                  (AssertionErr (AssertionErrAE ae)) -> TypeCheckerErr . getErrorCause "Assertion Error: " <$> ae
+                  (RuleErr (RuleErrorRE re)) -> TypeCheckerErr . getErrorCause "Rule Error: " <$> re
                   -- consider using printErrorCause to gen err msgs for now
 
 getErrorCause :: String -> (SRng, ErrorCause) -> Err
@@ -266,6 +273,7 @@ instance HasAnnot SomeAstNode where
 
 selectSmallestContaining :: HasLoc t => Position -> [SomeAstNode t] -> SomeAstNode t -> [SomeAstNode t]
 selectSmallestContaining pos parents node =
+  -- QN: Does this handle all possible errors with ast traversal? 
   case List.find (posInRange pos . getLoc) (getChildren node) of
     Nothing -> node:parents
     Just sub -> selectSmallestContaining pos (node:parents) sub
@@ -284,17 +292,18 @@ getChildren (SAssertion a) = SExpr <$> [exprOfAssertion a]
 findAstAtPoint :: HasLoc t => Position -> Program t -> [SomeAstNode t]
 findAstAtPoint pos = selectSmallestContaining pos [] . SProg
 
-uriToFilePath' :: Monad m => Uri -> ExceptT Err m FilePath
-uriToFilePath' uri = extract "Read token Error" $ uriToFilePath uri
+uriToFilePath' :: Monad m => Uri -> ExceptT LspError m FilePath
+uriToFilePath' uri = extract "Read token Error" $ uriToFilePath uri       
 
 -- | Convert Maybe to ExceptT using string as an error message in Maybe is Nothing
 -- TODO: #67 Handle different kinds of problems differently!
 -- TODO: #66 Add custom error type for LSP
-extract :: Monad m => String -> Maybe a -> ExceptT Err m a
-extract errMessage = except . maybeToRight (Err (DummySRng "From lsp") errMessage)
+extract :: Monad m => String -> Maybe a -> ExceptT LspError m a                -- ExceptT LspError m a 
+extract errMessage = except . maybeToRight (ReadFileErr $ Err (DummySRng "From lsp") errMessage)
 
--- TODO: #65 Show type information on hover
-tokensToHover :: Position -> Program LocAndTp -> ExceptT Err IO Hover
+
+-- tokensToHover :: Position -> Program LocAndTp -> ExceptT Err IO Hover
+tokensToHover :: Position -> Program LocAndTp -> IO Hover
 tokensToHover pos ast = do
       let astNode = findAstAtPoint pos ast
       return $ tokenToHover astNode
@@ -324,10 +333,10 @@ astToText (SRule (Rule _ n _ _ _):_) = "Declaration of rule " <> T.pack n
 astToText (SAssertion (Assertion _ _):_) = "Declaration of Assertion " <> "rule of no name for now"
 astToText _ = "No hover info found"
 
-lookupTokenBare' :: Position -> Uri -> ExceptT Err (LspM Config) (Maybe Hover)
+lookupTokenBare' :: Position -> Uri -> ExceptT LspError (LspM Config) (Maybe Hover)
 lookupTokenBare' pos uri = runMaybeT $ do
   ast <- MaybeT $ parseVirtualOrRealFile uri
-  lift $ ExceptT $ liftIO $ runExceptT $ tokensToHover pos ast
+  liftIO $ tokensToHover pos ast
 
 
 syncOptions :: J.TextDocumentSyncOptions
