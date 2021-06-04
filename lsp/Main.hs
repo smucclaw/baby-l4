@@ -40,7 +40,7 @@ import Error
 import Data.List (intercalate)
 import Control.Monad.Trans.Maybe (MaybeT(..))
 
-data LspError = ReadFileErr Err | TypeCheckerErr Err | ParserErr Err deriving Show
+data LspError = LexerErr Err |ReadFileErr Err | TypeCheckerErr Err | ParserErr Err deriving Show
 
 type Config = ()
 
@@ -121,22 +121,25 @@ makeDiagErr source err =
     Nothing -- tags
     (Just (J.List []))
 
-lspErrortoErr :: LspError -> Err
-lspErrortoErr (ParserErr err) = undefined
-lspErrortoErr (TypeCheckerErr err) = undefined
-
-publishError :: Source -> NormalizedUri -> [LspError] -> LspM Config ()
-publishError src uri err = publishDiagnostics 100 uri Nothing (partitionBySource $ makeDiagErr src . lspErrortoErr <$> err)
-     
+makeDiagErr' :: LspError -> Diagnostic
+makeDiagErr' (LexerErr err) = makeDiagErr "lexer" err
+makeDiagErr' (ReadFileErr err) = makeDiagErr "readfile" err
+makeDiagErr' (ParserErr err) = makeDiagErr "parser" err
+makeDiagErr' (TypeCheckerErr err) = makeDiagErr "typechecker" err
 
 
+publishError :: NormalizedUri -> [LspError] -> LspM Config ()
+publishError uri err = publishDiagnostics 100 uri Nothing (partitionBySource $ makeDiagErr' <$> err)
+
+
+-- what to do with this?
 clearError :: Source -> NormalizedUri -> LspM Config ()
 clearError src uri = publishDiagnostics 100 uri Nothing (Map.singleton (Just src) mempty)
 
-sendDiagnosticsOnLeft :: Source -> NormalizedUri -> Either [LspError] a -> MaybeT (LspM Config) a
+sendDiagnosticsOnLeft :: NormalizedUri -> Either [LspError] a -> MaybeT (LspM Config) a
 -- sendDiagnosticsOnLeft uri = either (publishError uri) (const $ clearError uri)
-sendDiagnosticsOnLeft src uri (Left err) = MaybeT $ Nothing <$ publishError src uri err
-sendDiagnosticsOnLeft src uri (Right result) = MaybeT $ Just result <$ clearError src uri
+sendDiagnosticsOnLeft uri (Left err) = MaybeT $ Nothing <$ publishError uri err
+sendDiagnosticsOnLeft uri (Right result) = MaybeT $ Just result <$ clearError "No Error?" uri
 
 readPrelude :: IO (Program SRng)
 readPrelude = do
@@ -191,17 +194,24 @@ fieldErrorRange (range, field) = show range ++ ": " ++ stringOfFieldName field
 
 type LocAndTp = LocTypeAnnot Tp
 
+getProg :: J.Uri -> T.Text -> Either [LspError] (Program SRng)
+getProg uri contents =
+  case uriToFilePath uri of
+    Just loc -> case parseProgram loc (T.unpack contents) of    -- parseProgram calls runAlex which returning 'Either Err a'
+      Left msg -> Left [LexerErr msg]
+      Right prog -> Right prog
+    Nothing -> Left [ReadFileErr (Err (DummySRng "No valid range") "File not found")]   -- placeholder until we figure out expected behavior
+
 parseAndSendErrors :: J.Uri -> T.Text -> LspM Config (Maybe (Program LocAndTp))
 parseAndSendErrors uri contents = runMaybeT $ do
-  let Just loc = uriToFilePath uri
-  let pres = parseProgram loc $ T.unpack contents
-      nuri = toNormalizedUri uri
-  ast <- sendDiagnosticsOnLeft "parser" nuri $ mapLeft (:[]) pres
+  let loc = getProg uri contents
+  let nuri = toNormalizedUri uri
+  ast <- sendDiagnosticsOnLeft nuri loc
 
   preludeAst <- liftIO readPrelude -- TOOD: Handle errors
 
   let typedAstOrTypeError = checkError preludeAst ast
-  sendDiagnosticsOnLeft "typechecking" nuri $ mapLeft errorToErrs typedAstOrTypeError
+  sendDiagnosticsOnLeft nuri $ mapLeft errorToErrs typedAstOrTypeError
 
 tshow :: Show a => a -> T.Text
 tshow = T.pack . show
@@ -273,7 +283,7 @@ instance HasAnnot SomeAstNode where
 
 selectSmallestContaining :: HasLoc t => Position -> [SomeAstNode t] -> SomeAstNode t -> [SomeAstNode t]
 selectSmallestContaining pos parents node =
-  -- QN: Does this handle all possible errors with ast traversal? 
+  -- QN: Does this handle all possible errors with ast traversal?
   case List.find (posInRange pos . getLoc) (getChildren node) of
     Nothing -> node:parents
     Just sub -> selectSmallestContaining pos (node:parents) sub
@@ -293,12 +303,12 @@ findAstAtPoint :: HasLoc t => Position -> Program t -> [SomeAstNode t]
 findAstAtPoint pos = selectSmallestContaining pos [] . SProg
 
 uriToFilePath' :: Monad m => Uri -> ExceptT LspError m FilePath
-uriToFilePath' uri = extract "Read token Error" $ uriToFilePath uri       
+uriToFilePath' uri = extract "Read token Error" $ uriToFilePath uri
 
 -- | Convert Maybe to ExceptT using string as an error message in Maybe is Nothing
 -- TODO: #67 Handle different kinds of problems differently!
 -- TODO: #66 Add custom error type for LSP
-extract :: Monad m => String -> Maybe a -> ExceptT LspError m a                -- ExceptT LspError m a 
+extract :: Monad m => String -> Maybe a -> ExceptT LspError m a                -- ExceptT LspError m a
 extract errMessage = except . maybeToRight (ReadFileErr $ Err (DummySRng "From lsp") errMessage)
 
 
