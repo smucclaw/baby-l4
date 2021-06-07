@@ -90,15 +90,6 @@ handlers = mconcat
         liftIO $ debugM "reactor.handle" $ "Didn't find anything in the VFS for: " ++ show doc
   ]
 
-uriToFilePath' :: Monad m => Uri -> ExceptT LspError m FilePath
-uriToFilePath' uri = extract "Read token Error" $ uriToFilePath uri
-
--- | Convert Maybe to ExceptT using string as an error message in Maybe is Nothing
--- TODO: #67 Handle different kinds of problems differently!
--- TODO: #66 Add custom error type for LSP
-extract :: Monad m => String -> Maybe a -> ExceptT LspError m a                -- ExceptT LspError m a
-extract errMessage = except . maybeToRight (ReadFileErr $ Err (DummySRng "From lsp") errMessage)
-
 getVirtualOrRealFile :: Uri -> ExceptT LspError (LspM Config) T.Text
 getVirtualOrRealFile uri = do
     mdoc <- lift . getVirtualFile $ J.toNormalizedUri uri
