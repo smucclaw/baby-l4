@@ -40,7 +40,8 @@ import Error
 import Data.List (intercalate)
 import Control.Monad.Trans.Maybe (MaybeT(..))
 
-data LspError = ReadFileErr Err | TypeCheckerErr Err | ParserErr Err deriving Show
+
+data LspError = ReadFileErr Err | TypeCheckerErr [Err] | ParserErr Err deriving Show
 
 type Config = ()
 
@@ -107,8 +108,9 @@ getVirtualOrRealFile uri = do
         pure $ Rope.toText vf
       Nothing -> do
         liftIO $ debugM "reactor.handle" $ "Didn't find anything in the VFS for: " ++ show uri
-        handleUriErrs uri (TIO.readFile)
-        -- TODO: Catch errors thrown by uriToFilePath'
+        filename <- ExceptT $ pure $ handleUriErrs uri
+        -- TODO: Catch errors thrown by readFile
+        liftIO $ TIO.readFile filename
 
 
 parseVirtualOrRealFile :: Uri -> ExceptT LspError (LspM Config) (Maybe (Program LocAndTp))
@@ -129,21 +131,21 @@ makeDiagErr source err =
     Nothing -- tags
     (Just (J.List []))
 
-makeDiagErr' :: LspError -> Diagnostic
-makeDiagErr' (ReadFileErr err) = makeDiagErr "readfile" err
-makeDiagErr' (ParserErr err) = makeDiagErr "parser" err
-makeDiagErr' (TypeCheckerErr err) = makeDiagErr "typechecker" err
+makeDiagErr' :: LspError -> [Diagnostic]
+makeDiagErr' (ReadFileErr err) = pure $ makeDiagErr "readfile" err
+makeDiagErr' (ParserErr err) = pure $ makeDiagErr "parser" err
+makeDiagErr' (TypeCheckerErr errs) = makeDiagErr "typechecker" <$> errs
 
 
-publishError :: NormalizedUri -> [LspError] -> LspM Config ()
-publishError uri err = publishDiagnostics 100 uri Nothing (partitionBySource $ makeDiagErr' <$> err)
+publishError :: NormalizedUri -> LspError -> LspM Config ()
+publishError uri err = publishDiagnostics 100 uri Nothing (partitionBySource $ makeDiagErr' err)
 
 
 -- what to do with this?
 clearError :: Source -> NormalizedUri -> LspM Config ()
 clearError src uri = publishDiagnostics 100 uri Nothing (Map.singleton (Just src) mempty)
 
-sendDiagnosticsOnLeft :: NormalizedUri -> Either [LspError] a -> MaybeT (LspM Config) a
+sendDiagnosticsOnLeft :: NormalizedUri -> Either LspError a -> MaybeT (LspM Config) a
 -- sendDiagnosticsOnLeft uri = either (publishError uri) (const $ clearError uri)
 sendDiagnosticsOnLeft uri (Left err) = MaybeT $ Nothing <$ publishError uri err
 sendDiagnosticsOnLeft uri (Right result) = MaybeT $ Just result <$ clearError "No Error?" uri
@@ -160,23 +162,23 @@ readPrelude = do
       Left err -> do
         error $ "Parser Error in Prelude: " ++ show err
 
-errorToErrs :: Error -> [LspError]
-errorToErrs e = case e of
+errorToErrs :: Error -> LspError
+errorToErrs e = TypeCheckerErr $ case e of
                   (ClassDeclsErr c) ->
                     case c of
-                      DuplicateClassNamesCDE dc -> TypeCheckerErr <$> mkErrs stringOfClassName "Duplicate class name: " dc
-                      UndefinedSuperclassCDE us -> TypeCheckerErr <$> mkErrs stringOfClassName "Undefined super class: " us
-                      CyclicClassHierarchyCDE cc -> TypeCheckerErr <$> mkErrs stringOfClassName "Cyclic class hierarchy: " cc
+                      DuplicateClassNamesCDE dc -> mkErrs stringOfClassName "Duplicate class name: " dc
+                      UndefinedSuperclassCDE us -> mkErrs stringOfClassName "Undefined super class: " us
+                      CyclicClassHierarchyCDE cc -> mkErrs stringOfClassName "Cyclic class hierarchy: " cc
                   (VarDeclsErr v) ->
                     case v of
-                      DuplicateVarNamesVDE dup -> map (TypeCheckerErr . mkErrsVarRule "Duplicate var name: ") dup
-                      UndefinedTypeVDE un      -> map (TypeCheckerErr . mkErrsVarRule "Undefined type var decl: ") un
+                      DuplicateVarNamesVDE dup -> map (mkErrsVarRule "Duplicate var name: ") dup
+                      UndefinedTypeVDE un      -> map (mkErrsVarRule "Undefined type var decl: ") un
                   (FieldDeclsErr f) ->
                     case f of
-                      UndefinedTypeFDE uf -> TypeCheckerErr <$> mkErrs stringOfFieldName "Undefined field type: " uf
-                      DuplicateFieldNamesFDE dupf ->  TypeCheckerErr . mkErrsField <$> dupf
-                  (AssertionErr (AssertionErrAE ae)) -> TypeCheckerErr . getErrorCause "Assertion Error: " <$> ae
-                  (RuleErr (RuleErrorRE re)) -> TypeCheckerErr . getErrorCause "Rule Error: " <$> re
+                      UndefinedTypeFDE uf -> mkErrs stringOfFieldName "Undefined field type: " uf
+                      DuplicateFieldNamesFDE dupf ->  mkErrsField <$> dupf
+                  (AssertionErr (AssertionErrAE ae)) -> getErrorCause "Assertion Error: " <$> ae
+                  (RuleErr (RuleErrorRE re)) -> getErrorCause "Rule Error: " <$> re
                   -- consider using printErrorCause to gen err msgs for now
 
 getErrorCause :: String -> (SRng, ErrorCause) -> Err
@@ -201,21 +203,16 @@ fieldErrorRange (range, field) = show range ++ ": " ++ stringOfFieldName field
 
 type LocAndTp = LocTypeAnnot Tp
 
-handleUriErrs :: J.Uri -> (FilePath -> a) -> Either [LspError] a
-handleUriErrs uri f =
+handleUriErrs :: J.Uri -> Either LspError FilePath
+handleUriErrs uri =
   case uriToFilePath uri of
-    Just loc -> Right $ f loc
-    Nothing  -> Left [ReadFileErr $ Err (DummySRng "No valid range") "File not found"]
+    Just loc -> Right loc
+    Nothing  -> Left $ ReadFileErr $ Err (DummySRng "No valid range") "File not found"
 
--- Switch either to ExceptT?
-getProg :: J.Uri -> T.Text -> Either [LspError] (Program SRng)
-getProg uri contents = join $ handleUriErrs uri (foo contents)
-  where
-    foo :: T.Text -> FilePath -> Either [LspError] (Program SRng)
-    foo conts loc =
-      case parseProgram loc (T.unpack conts) of
-        Left msg -> Left [ParserErr msg]
-        Right prog -> Right prog
+getProg :: J.Uri -> T.Text -> Either LspError (Program SRng)
+getProg uri contents = do
+  x <- handleUriErrs uri
+  mapLeft ParserErr $ parseProgram x (T.unpack contents)
 
 parseAndSendErrors :: J.Uri -> T.Text -> LspM Config (Maybe (Program LocAndTp))
 parseAndSendErrors uri contents = runMaybeT $ do
