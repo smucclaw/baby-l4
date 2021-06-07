@@ -9,9 +9,12 @@ import Language.LSP.Types
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import qualified Data.Text as T
 import qualified Language.LSP.Types as J
+import L4LSP (handleUriErrs, LspError (ReadFileErr))
+import Lexer (Err(Err))
+import Annotation (SRng(DummySRng))
 
 main :: IO ()
-main = defaultMain $ testGroup "Tests" [hoverTests, hoverTypeInfoTests, typeCheckerTests]
+main = defaultMain $ testGroup "Tests" [hoverTests, hoverTypeInfoTests, typeCheckerTests, unitTests]
 
 hoverTests :: TestTree
 hoverTests = testGroup "Hover tests"
@@ -32,7 +35,6 @@ hoverTypeInfoTests = testGroup "Hover type tests"
   , testHover "cr.l4 type info for var decl AssociatedWith"         "cr.l4"   (Position 38 12) (mkRange 38 0 38 64) "OkT"
   , testHover "cr.l4 type info for rule r1a"                        "cr.l4"   (Position 61 7)  (mkRange 61 0 64 29) "ClassT (ClsNm {stringOfClassName = \"Boolean\"})"
   , testHover "cr.l4 type info for rule subexpr MustNotAcceptApp"   "cr.l4"   (Position 69 8)  (mkRange 69 5 69 21) "FunT (ClassT (ClsNm {stringOfClassName = \"LegalPractitioner\"})) (FunT (ClassT (ClsNm {stringOfClassName = \"Appointment\"})) (ClassT (ClsNm {stringOfClassName = \"Boolean\"})))"
-  , expectFailBecause "No such file exists" $ testHover "noSuchFile.l4 Testing ReadFileErr"                   "noSuchFile.l4" (Position 0 0) (mkRange 0 10 0 10) "File not found"
   ]
 
 typeCheckerTests :: TestTree
@@ -69,6 +71,16 @@ typeCheckerTests = testGroup "Type Error tests"
       "RuleAssertionError/accessToNonObjectTp.l4"   (mkRange 3 4 3 8)     1 "access to a field of a non-object type"
       ]
   ]
+
+
+unitTests :: TestTree
+unitTests = testGroup "Unit tests"
+  [
+    testCase "handleUriErrs returns ReadFileErr with non-existent file" $ do
+      handleUriErrs (Uri "doesNotExist.l4") @?= Left (ReadFileErr $ Err (DummySRng "No valid range") "File not found")
+  ]
+
+
 
 -- TODO: We might want to test several hovers for a single file at once,
 -- but currently each hover will reparse the file anyways, so it won't make
