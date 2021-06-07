@@ -3,6 +3,8 @@ module Error where
 import Syntax
 import Annotation (RealSRng(..), SRng(..), Pos(Pos) )
 
+type ExprError = [(SRng, ErrorCause)]
+
 data ClassDeclsError
     = DuplicateClassNamesCDE [(SRng, ClassName)]  -- classes whose name is defined multiple times
     | UndefinedSuperclassCDE [(SRng, ClassName)]  -- classes having undefined superclasses
@@ -11,7 +13,7 @@ data ClassDeclsError
 
 data FieldDeclsError
     = DuplicateFieldNamesFDE [(SRng, ClassName, [(SRng, FieldName)])]     -- field names with duplicate defs
-    | UndefinedTypeFDE [(SRng, FieldName)]              -- field names with duplicate defs
+    | UndefinedTypeFDE [(SRng, FieldName)]                                -- field names containing undefined types
   deriving (Eq, Ord, Show, Read)
 
 data VarDeclsError
@@ -48,15 +50,13 @@ printFieldName (FldNm fn) = fn
 printVarName :: VarName -> String
 printVarName = id
 
-printTp :: Tp -> String
+printTp :: Tp t -> String
 printTp t = case t of
-  ClassT (ClsNm "Boolean") -> "Bool"
-  ClassT (ClsNm "Integer") -> "Integer"
-  ClassT cn -> printClassName cn
-  FunT t1 t2 -> "(" ++ printTp t1 ++ " -> " ++ printTp t2 ++")"
-  TupleT [] -> "()"
-  TupleT [t] -> "(" ++ printTp t ++ ")"
-  TupleT (t:ts) -> "(" ++ printTp t ++ ", " ++ (foldr (\s r -> ((printTp s) ++ ", " ++ r)) "" ts) ++ ")"
+  ClassT _ cn -> printClassName cn
+  FunT _ t1 t2 -> "(" ++ printTp t1 ++ " -> " ++ printTp t2 ++")"
+  TupleT _ [] -> "()"
+  TupleT _ [t] -> "(" ++ printTp t ++ ")"
+  TupleT _ (t:ts) -> "(" ++ printTp t ++ ", " ++ (foldr (\s r -> ((printTp s) ++ ", " ++ r)) "" ts) ++ ")"
   _ -> error "internal error in printTp: ErrT or OkT not printable"
 
 printExpectedTp :: ExpectedType -> String

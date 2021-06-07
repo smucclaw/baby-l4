@@ -41,9 +41,6 @@ import Control.Monad.Except
     rule    { L _ TokenRule }
     derivable { L _ TokenDerivable }
 
-    Bool  { L _ TokenBool }
-    Int   { L _ TokenInt }
-
     let    { L _ TokenLet }
     in     { L _ TokenIn }
     not    { L _ TokenNot }
@@ -133,17 +130,17 @@ Fields  :                          { ([], Nothing) }
 FieldDecls :                       { [] }
            | FieldDecls FieldDecl  { $2 : $1 }
 
-FieldDecl : VAR ':' Tp             { FieldDecl (tokenRange $1 $3) (FldNm $ tokenSym $1) (unLoc $3) }
+FieldDecl : VAR ':' Tp             { FieldDecl (tokenRange $1 $3) (FldNm $ tokenSym $1) $3 }
 
 GlobalVarDecls :                         { [] }
          | GlobalVarDecls GlobalVarDecl  { $2 : $1 }
 
-GlobalVarDecl : decl VAR ':' Tp          { VarDecl (tokenRange $1 $4) (tokenSym $2) (unLoc $4) }
+GlobalVarDecl : decl VAR ':' Tp          { VarDecl (tokenRange $1 $4) (tokenSym $2) $4 }
 
 VarDeclsCommaSep :  VarDecl              { [$1] }
          | VarDeclsCommaSep  ',' VarDecl { $3 : $1 }
 
-VarDecl : VAR ':' Tp                     { VarDecl (tokenRange $1 $3) (tokenSym $1) (unLoc $3) }
+VarDecl : VAR ':' Tp                     { VarDecl (tokenRange $1 $3) (tokenSym $1) $3 }
 
 
 Assertions :                       { [] }
@@ -153,17 +150,15 @@ Assertion : assert KVMap Expr      { Assertion (tokenRange $1 $3) $2 $3 }
 -- Atomic type
 -- Used to resolve ambigouity of     \x : A -> B -> x
 -- and force the use of parenthesis: \x : (A -> B) -> x
-ATp  : Bool                       { L (getLoc $1) booleanT }
-     | Int                        { L (getLoc $1) integerT }
-     | VAR                        { L (getLoc $1) $ ClassT (ClsNm $ tokenSym $1) }
-     | '(' TpsCommaSep ')'        { L (getLoc $2) $ case $2 of [t] -> unLoc t; tcs -> TupleT (map unLoc $ reverse tcs) }
+ATp  : VAR                        { ClassT (getLoc $1) (ClsNm $ tokenSym $1) }
+| '(' TpsCommaSep ')'        { case $2 of [t] -> t{annotOfTp = (tokenRange $1 $3)}; tcs -> TupleT (tokenRange $1 $3) (reverse tcs) }
 
 TpsCommaSep :                      { [] }
             | Tp                   { [$1] }
             | TpsCommaSep ',' Tp   { $3 : $1 }
 
 Tp   : ATp                        { $1 }
-     | Tp '->' Tp                 { L (tokenRange $1 $3) $ FunT (unLoc $1) (unLoc $3) }
+     | Tp '->' Tp                 { FunT (tokenRange $1 $3) $1 $3 }
 
 
 Pattern : VAR                      { VarP $ tokenSym $1 }
@@ -173,9 +168,9 @@ VarsCommaSep :                      { [] }
             | VAR                   { [tokenSym $1] }
             | VarsCommaSep ',' VAR  { tokenSym $3 : $1 }
 
-Expr : '\\' Pattern ':' ATp '->' Expr  { FunE (tokenRange $1 $6) $2 (unLoc $4) $6 }
-     | forall VAR ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) All (tokenSym $2) (unLoc $4) $6 }
-     | exists VAR ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) Ex  (tokenSym $2) (unLoc $4) $6 }
+Expr : '\\' Pattern ':' ATp '->' Expr  { FunE (tokenRange $1 $6) $2 $4 $6 }
+     | forall VAR ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) All (tokenSym $2) $4 $6 }
+     | exists VAR ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) Ex  (tokenSym $2) $4 $6 }
      | Expr '-->' Expr             { BinOpE (tokenRange $1 $3) (BBool BBimpl) $1 $3 }
      | Expr '||' Expr              { BinOpE (tokenRange $1 $3) (BBool BBor) $1 $3 }
      | Expr '&&' Expr              { BinOpE (tokenRange $1 $3) (BBool BBand) $1 $3 }

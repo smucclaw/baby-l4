@@ -67,9 +67,6 @@ tokens :-
   fact                          { lex' TokenFact }
   rule                          { lex' TokenRule }
   derivable                     { lex' TokenDerivable }
-  -- Types
-  Bool                          { lex' TokenBool }
-  Int                           { lex' TokenInt }
 
   -- Expressions
   let                           { lex' TokenLet }
@@ -404,9 +401,6 @@ data TokenKind
   | TokenRule
   | TokenDerivable
 
-  | TokenBool
-  | TokenInt
-
   | TokenLet
   | TokenIn
   | TokenNot
@@ -460,8 +454,6 @@ unLex TokenLexicon   = "lexicon"
 unLex TokenFact      = "fact"
 unLex TokenRule      = "rule"
 unLex TokenDerivable = "derivable"
-unLex TokenBool      = "Bool"
-unLex TokenInt       = "Int"
 unLex TokenLet       = "let"
 unLex TokenIn        = "in"
 unLex TokenNot       = "not"

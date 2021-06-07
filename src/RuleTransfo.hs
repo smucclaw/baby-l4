@@ -3,7 +3,7 @@
 module RuleTransfo where
 
 import Syntax
-import Typing (appToFunArgs, funArgsToApp, distinct)
+import Typing (appToFunArgs, funArgsToApp, distinct, eraseAnn)
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
 import Data.List (sortBy)
@@ -13,31 +13,29 @@ import Data.List (sortBy)
 -- Logical infrastructure: macros for simplifying formula construction
 ----------------------------------------------------------------------
 
-
-
-not :: Expr Tp -> Expr Tp
+not :: Expr (Tp ()) -> Expr (Tp())
 not = UnaOpE booleanT (UBool UBnot)
 
-conj :: Expr Tp -> Expr Tp -> Expr Tp
+conj :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
 conj = BinOpE booleanT (BBool BBand)
 
-disj :: Expr Tp -> Expr Tp -> Expr Tp
+disj :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
 disj = BinOpE booleanT (BBool BBor)
 
-impl :: Expr Tp -> Expr Tp -> Expr Tp
+impl :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
 impl = BinOpE booleanT (BBool BBimpl)
 
-conjs :: [Expr Tp] -> Expr Tp
+conjs :: [Expr (Tp ())] -> Expr (Tp ())
 conjs [] = trueV
 conjs [e] = e
 conjs (e:es) = conj e (conjs es)
 
-disjs :: [Expr Tp] -> Expr Tp
+disjs :: [Expr (Tp ())] -> Expr (Tp ())
 disjs [] = falseV
 disjs [e] = e
 disjs (e:es) = disj e (disjs es)
 
-eq  :: Expr Tp -> Expr Tp -> Expr Tp
+eq  :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
 eq = BinOpE booleanT (BCompar BCeq)
 
 ----------------------------------------------------------------------
@@ -137,10 +135,10 @@ prenexForm (QuantifE t q vn vt et) = QuantifE t q vn vt (prenexForm et)
 prenexForm e = e
 
 
-ruleToFormula :: Rule Tp -> Expr Tp
+ruleToFormula :: Rule (Tp ()) -> Expr (Tp ())
 ruleToFormula r = abstract All (varDeclsOfRule r) (impl (precondOfRule r) (postcondOfRule r))
 
-abstract :: Quantif -> [VarDecl Tp] -> Expr Tp -> Expr Tp
+abstract :: Quantif -> [VarDecl (Tp ())] -> Expr (Tp ()) -> Expr (Tp ())
 abstract q vds e
   = foldr
       (\ vd -> QuantifE booleanT q (nameOfVarDecl vd) (tpOfVarDecl vd)) e
@@ -153,13 +151,14 @@ abstract q vds e
 type DecompRule t = Rule t -> [Rule t]
 type DecompWorklist t = [Rule t] -> [Rule t]
 
-ruleAllR :: DecompRule Tp
+ruleAllR :: DecompRule (Tp ())
 ruleAllR r =
   case postcondOfRule r of
-    QuantifE t All vn tp e -> [r{postcondOfRule = e}{precondOfRule = liftExpr 0 (precondOfRule r)}{varDeclsOfRule = varDeclsOfRule r ++ [VarDecl tp vn tp]}]
+    QuantifE t All vn tp e ->
+      [r{postcondOfRule = e}{precondOfRule = liftExpr 0 (precondOfRule r)}{varDeclsOfRule = varDeclsOfRule r ++ [VarDecl (eraseAnn  tp) vn tp]}]
     _ -> [r]
 
-ruleImplR :: DecompRule Tp
+ruleImplR :: DecompRule (Tp ())
 ruleImplR r =
   case postcondOfRule r of
     BinOpE t (BBool BBimpl) e1 e2 -> [r{postcondOfRule = e2}{precondOfRule = conj (precondOfRule r) e1}]
@@ -175,8 +174,8 @@ ruleConjR r =
 
 -- suggestion for new variable name, without guarantees that this name is unique
 -- takes into account the variable's type and its rank
-varNameSuggestion :: Tp -> Int -> String
-varNameSuggestion (ClassT cn) n = "v" ++ stringOfClassName cn ++ "Gen" ++ show n
+varNameSuggestion :: Tp () -> Int -> String
+varNameSuggestion (ClassT () cn) n = "v" ++ stringOfClassName cn ++ "Gen" ++ show n
 varNameSuggestion t n = "v" ++ "Gen" ++ show n
 
 newArgCondition :: Expr t -> [Expr t] -> Bool
@@ -186,7 +185,10 @@ newArgCondition (VarE t (LocalVar vn i)) es =
     ) es
 newArgCondition e es = True
 
-constrNewArgs :: Int -> [Expr Tp] -> ([Expr Tp], [Expr Tp], [VarDecl Tp])
+liftType :: Tp () -> Tp (Tp ())
+liftType t = KindT <$ t
+
+constrNewArgs :: Int -> [Expr (Tp ())] -> ([Expr (Tp ())], [Expr (Tp ())], [VarDecl (Tp ())])
 constrNewArgs n [] = ([], [], [])
 constrNewArgs n (e:es) =
   if newArgCondition e es
@@ -196,7 +198,8 @@ constrNewArgs n (e:es) =
         tp = annotOfExpr e
         ve = VarE tp newvar
         (rargs, reqs, rds) = constrNewArgs (n+1) es
-    in (ve:rargs, eq ve e:reqs, rds ++ [VarDecl tp vn tp])
+        nvd =  VarDecl tp vn (liftType tp)
+    in (ve:rargs, eq ve e:reqs, rds ++ [nvd])
   else let (rargs, reqs, rds) = constrNewArgs n es in (e:rargs, reqs, rds)
 
 -- Abstract over instances: A rule of the form 
@@ -206,7 +209,7 @@ constrNewArgs n (e:es) =
 -- for new variables x1 .. xn. 
 -- After abstraction, all arguments of R are distinct local variables. 
 -- New variables are only introduced when necessary.
-ruleAbstrInstances :: DecompRule Tp
+ruleAbstrInstances :: DecompRule (Tp ())
 ruleAbstrInstances r =
   case postcondOfRule r of
     e@AppE {} ->
@@ -235,16 +238,18 @@ isLocalVar (LocalVar _ _) = True
 isLocalVar _ = False
 
 -- lifts an existential quantifier in the preconditions into the var decls of the rule
-ruleExLStep :: DecompRule Tp
+ruleExLStep :: DecompRule (Tp ())
 ruleExLStep r =
   let vds = varDeclsOfRule r
       prec = precondOfRule r
       postc = postcondOfRule r
   in case prec of
-    QuantifE t Ex vn vt e -> [r{varDeclsOfRule = vds ++ [VarDecl vt vn vt]}{precondOfRule = e}{postcondOfRule = liftExpr 0 postc}]
+    QuantifE t Ex vn vt e -> 
+      let nvd = VarDecl (() <$ vt) vn vt
+      in [r{varDeclsOfRule = vds ++ [nvd]}{precondOfRule = e}{postcondOfRule = liftExpr 0 postc}]
     _ -> [r]
 
-ruleExL :: DecompWorklist Tp
+ruleExL :: DecompWorklist (Tp ())
 ruleExL = repeatDecomp (liftDecompRule ruleExLStep)
 
 
@@ -255,7 +260,7 @@ ruleExL = repeatDecomp (liftDecompRule ruleExLStep)
 -- becomes
 -- for x1 ... xn:   (exists y.  pre(x1 ... y ... xn)) --> post(x1 ... xn)
 -- If there is no such variable, the rule is returned unchanged.
-ruleExLInvStep :: DecompRule Tp
+ruleExLInvStep :: DecompRule (Tp ())
 ruleExLInvStep r =
   let vds = varDeclsOfRule r
       prec = precondOfRule r
@@ -277,7 +282,7 @@ ruleExLInvStep r =
       in [r{varDeclsOfRule = reverse (lowers++uppers)}{precondOfRule = newPrec}{postcondOfRule = newPostc}]
     _ -> error "internal error in splitDecls: "
 
-ruleExLInv :: DecompWorklist Tp
+ruleExLInv :: DecompWorklist (Tp ())
 ruleExLInv = repeatDecomp (liftDecompRule ruleExLInvStep)
 
 
@@ -286,7 +291,7 @@ ruleExLInv = repeatDecomp (liftDecompRule ruleExLInvStep)
 -- where f is a function application and the variables xm .. xk are mutually distinct and are exactly the variables in xi .. xj.
 -- The function produces a normalized representation such that the arguments of f are applied to indices in increasing order:
 -- for xn .. x0  if Pre( ... ) then f x0 .. xn
-ruleNormalizeVarOrder :: DecompRule Tp
+ruleNormalizeVarOrder :: DecompRule (Tp ())
 ruleNormalizeVarOrder r =
   case postcondOfRule r of
     postc@AppE {} ->
@@ -310,7 +315,7 @@ ruleNormalizeVarOrder r =
 -- Condition of applicability: 
 -- - list of rules is non-empty; 
 -- - each of the rules is normalized 
-rulesInversion :: [Rule Tp] -> Rule Tp
+rulesInversion :: [Rule (Tp())] -> Rule (Tp ())
 rulesInversion rls =
   let r1 = head rls
       (VarE _ f, args) = appToFunArgs [] (postcondOfRule r1)
@@ -321,7 +326,7 @@ rulesInversion rls =
 -- Adds negated precondition of r1 to r2. Corresponds to:
 -- - "r2 subject to r1" (as annotation of r2: r1 has precedence over r2)
 -- - "r1 despite r2" (as annotation of r1: r1 has precedence over r2)
-addNegPrecondTo :: Rule Tp -> Rule Tp -> Rule Tp
+addNegPrecondTo :: Rule (Tp ()) -> Rule (Tp ()) -> Rule (Tp ())
 addNegPrecondTo r1 r2 = r2{precondOfRule = conj (RuleTransfo.not (precondOfRule r1)) (precondOfRule r2)}
 
 
@@ -335,8 +340,8 @@ repeatDecomp dec wl =
     then wl
     else repeatDecomp dec nwl
 
-clarify :: DecompWorklist Tp
+clarify :: DecompWorklist (Tp ())
 clarify = repeatDecomp (liftDecompRule ruleConjR . liftDecompRule ruleImplR . liftDecompRule ruleAllR)
 
-normalize :: DecompWorklist Tp
+normalize :: DecompWorklist (Tp ())
 normalize = liftDecompRule ruleNormalizeVarOrder . liftDecompRule ruleAbstrInstances . ruleExLInv

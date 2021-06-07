@@ -59,17 +59,17 @@ localVarRef = Atom
 
 -- TODO: distinction between ideal mathematical numbers (tInt, tReal)
 -- vs their implementation (integer words, floats)
-tpToSort :: SMTSortEnv -> Tp -> SExpr
+tpToSort :: Show t => SMTSortEnv -> Tp t-> SExpr
 tpToSort se t
   | isBooleanTp t = tBool
   | isIntegerTp t = tInt
   | isFloatTp t = tReal
   | otherwise = case t of
-                  ClassT cn -> Data.Maybe.fromMaybe (error $ "internal error in tpToSort: Type not found: " ++ show cn) (lookup cn se)
+                  ClassT _ cn -> Data.Maybe.fromMaybe (error $ "internal error in tpToSort: Type not found: " ++ show cn) (lookup cn se)
                   _ -> error $ "in tpToSort: " ++ show t ++ " not supported"
 
-tpToRank :: SMTSortEnv -> Tp -> ([SExpr], SExpr)
-tpToRank se f@(FunT t1 t2) =
+tpToRank :: Show t => SMTSortEnv -> Tp t -> ([SExpr], SExpr)
+tpToRank se f@(FunT _ t1 t2) =
   let (args, res) = spine [] f
   in (map (tpToSort se) args, tpToSort se res)
 tpToRank se t = ([], tpToSort se t)
@@ -78,18 +78,18 @@ tpToRank se t = ([], tpToSort se t)
 -- local variable declaration in a quantification. 
 -- TODO: only first-order quantification, no functional types
 -- (has to be checked in advance)
-varTypeToSExprTD :: SMTSortEnv -> VarName -> Tp -> SExpr
+varTypeToSExprTD :: Show t => SMTSortEnv -> VarName -> Tp t -> SExpr
 varTypeToSExprTD se vn t = List [List [Atom vn, snd (tpToRank se t)]]
 
 -- SMT variable / function declaration
-varDeclToFun :: Solver -> SMTSortEnv -> VarDecl t -> IO (VarName, SExpr)
+varDeclToFun :: Show t => Solver -> SMTSortEnv -> VarDecl t -> IO (VarName, SExpr)
 varDeclToFun s se (VarDecl _ vn vt) =
   let (args, res) = tpToRank se vt
   in do
      se <- declareFun s vn args res
      return (vn, se)
 
-varDeclsToFunEnv :: Solver -> SMTSortEnv -> [VarDecl t] -> IO SMTFunEnv
+varDeclsToFunEnv :: Show t => Solver -> SMTSortEnv -> [VarDecl t] -> IO SMTFunEnv
 varDeclsToFunEnv s se = mapM (varDeclToFun s se)
 
 
@@ -273,7 +273,7 @@ selectApplicableRules p instr =
                       (selectAssocVal "del" rulespec)
                       (selectAssocVal "only" rulespec)
 
-proveAssertionSMT :: Program Tp -> ValueKVM -> Assertion Tp -> IO ()
+proveAssertionSMT :: Program (Tp ()) -> ValueKVM -> Assertion (Tp ()) -> IO ()
 proveAssertionSMT p instr asrt = do
   putStrLn "Launching SMT solver"
   let proveConsistency = selectOneOfInstr ["consistent", "valid"] instr == "consistent"
@@ -283,7 +283,7 @@ proveAssertionSMT p instr asrt = do
   proveExpr config proveConsistency (classDeclsOfProgram p) (globalsOfProgram p) proofTarget
 
 
-constrProofTarget :: Bool -> Assertion Tp -> [Rule Tp] -> Expr Tp
+constrProofTarget :: Bool -> Assertion (Tp ()) -> [Rule (Tp ())] -> Expr (Tp ())
 constrProofTarget sat asrt rls =
   let concl = exprOfAssertion asrt
       forms = map ruleToFormula rls
@@ -295,7 +295,7 @@ constrProofTarget sat asrt rls =
 proveAssertionsCASP :: Show t => Program t -> ValueKVM  -> Assertion t -> IO ()
 proveAssertionsCASP p v asrt = putStrLn "No sCASP solver implemented"
 
-proveAssertion :: Program Tp -> Assertion Tp -> IO ()
+proveAssertion :: Program (Tp ()) -> Assertion (Tp ()) -> IO ()
 proveAssertion p asrt = foldM (\r (k,instr) ->
             case k of
               "SMT" -> proveAssertionSMT p instr asrt
@@ -303,7 +303,7 @@ proveAssertion p asrt = foldM (\r (k,instr) ->
               _ -> return ())
           () (instrOfAssertion asrt)
 
-proveProgram :: Program (LocTypeAnnot Tp) -> IO ()
+proveProgram :: Program (LocTypeAnnot (Tp ())) -> IO ()
 proveProgram p =
   let cleanedProg = fmap typeAnnot p
   in foldM (\r a -> proveAssertion cleanedProg a) () (assertionsOfProgram cleanedProg)

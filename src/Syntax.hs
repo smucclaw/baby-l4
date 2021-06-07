@@ -53,26 +53,28 @@ removeAnnotations = (()<$)
 
 data ExpectedType
   = ExpectedString  String
-  | ExpectedExactTp Tp
-  | ExpectedSubTpOf Tp
+  | ExpectedExactTp (Tp())
+  | ExpectedSubTpOf (Tp())
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 
 data ErrorCause
   = Inherited
+  | UndefinedType [(SRng, ClassName)]            -- cf with the UndefinedType... constructors in Errors.hs
+  | UndefinedTypeInClassT
   | UndeclaredVariable SRng VarName
   | IllTypedSubExpr { exprRangesITSE :: [SRng]    -- operators that require specific types  for their arguments
-                    , receivedITSE :: [Tp]
+                    , receivedITSE :: [Tp()]
                     , expectedITSE :: [ExpectedType] }
   | IncompatibleTp { exprRangesITSE :: [SRng]     -- when we need two types to be the same for an operation, or perhaps a subtype (to check)
-                    , receivedITSE :: [Tp] }
+                    , receivedITSE :: [Tp()] }
   | NonScalarExpr { exprRangesITSE :: [SRng]      -- functions are not scalar types and not comparable
-                    , receivedITSE :: [Tp] }
+                    , receivedITSE :: [Tp()] }
   | NonFunctionTp { exprRangesITSE :: [SRng] -- call function when not function
-                    , receivedFunTpITSE :: Tp }
+                    , receivedFunTpITSE :: Tp() }
   | CastIncompatible { exprRangesITSE :: [SRng] -- typecasting from int to string for example (and its not compatible)
-                    , receivedCastITSE :: Tp
-                    , castToITSE :: Tp }
+                    , receivedCastITSE :: Tp()
+                    , castToITSE :: Tp() }
   | IncompatiblePattern SRng          -- pattern matching failure for tuples (l4)
   | UnknownFieldName SRng FieldName ClassName   -- class has no such field
   | AccessToNonObjectType SRng  -- when using dot notation on something thats not an object
@@ -83,27 +85,60 @@ data ErrorCause
 ----- Types
 -- TODO: also types have to be annotated with position information
 -- for the parser to do the right job
-data Tp
-  = ClassT ClassName
-  | FunT {funTp :: Tp, argTp :: Tp}
-  | TupleT [Tp]
-  | ErrT ErrorCause
-  | OkT                    -- fake type appearing in constructs (classes, rules etc.) that do not have a genuine type
+data Tp t
+  = ClassT {annotOfTp :: t, classNameOfTp :: ClassName}
+  | FunT {annotOfTp :: t, funTp :: Tp t, argTp :: Tp t}
+  | TupleT {annotOfTp :: t, componentsOfTpTupleT :: [Tp t]}
+  | ErrT {causeOfTpErrT :: ErrorCause}
+  | OkT        -- fake type appearing in constructs (classes, rules etc.) that do not have a genuine type
+  | KindT
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
+instance HasLoc t => HasLoc (Tp t) where
+  getLoc e = getLoc (annotOfTp e)
+
+--------------------------------------
+-- Experimental
+data LocTypeAnnotInst = LocTypeAnnotInst { locAnnotI :: SRng
+                                        , typeAnnotI :: Tp SRng
+}
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 
-booleanT :: Tp
-booleanT = ClassT (ClsNm "Boolean")
-integerT :: Tp
-integerT = ClassT (ClsNm "Integer")
-stringT :: Tp
-stringT = ClassT (ClsNm "String")
+-- types occurring in source code (having location annotations in their types)
+data family SourceTp a
+data instance SourceTp SRng = STSRng (Tp SRng)
+data instance SourceTp (LocTypeAnnot (Tp())) = STLTA (LocTypeAnnot (Tp SRng))
+data instance SourceTp (Tp()) = STTp (Tp SRng)
+
+-- types inferred during typechecking 
+data family InferTp a
+data instance InferTp SRng = ITSRng SRng
+data instance InferTp (LocTypeAnnot (Tp())) = ITLTA (LocTypeAnnot (Tp()))
+data instance InferTp (Tp()) = ITTp (Tp())
 
 
-data VarDecl t = VarDecl {annotOfVarDecl ::t
-                         , nameOfVarDecl :: VarName
-                         , tpOfVarDecl :: Tp }
+-- types inferred during typechecking 
+data family NoTp a
+data instance NoTp SRng = NTSRng SRng
+data instance NoTp (LocTypeAnnot (Tp())) = NTLTA SRng
+data instance NoTp (Tp()) = NTTp ()
+
+
+-- tpExpr :: Environment t -> Expr SRng -> Expr (LocTypeAnnot (Tp SRng))
+-- QuantifE    {annotOfExpr :: (InferTp t), quantifOfExprQ :: Quantif, varNameOfExprQ :: VarName, tpOfExprQ :: (SourceTp t), bodyOfExprQ :: Expr t}
+--------------------------------------
+
+booleanT :: Tp ()
+booleanT = ClassT () (ClsNm "Boolean")
+integerT :: Tp ()
+integerT = ClassT () (ClsNm "Integer")
+stringT :: Tp ()
+stringT = ClassT () (ClsNm "String")
+
+data VarDecl t = VarDecl {annotOfVarDecl :: t, nameOfVarDecl :: VarName, tpOfVarDecl :: Tp t}
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
 instance HasLoc t => HasLoc (VarDecl t) where
   getLoc = getLoc . annotOfVarDecl
 
@@ -114,9 +149,9 @@ instance HasLoc t => HasLoc (Mapping t) where
 
 -- Field attributes: for example cardinality restrictions
 -- data FieldAttribs = FldAtt
-data FieldDecl t = FieldDecl {annotOfFieldDecl ::t
+data FieldDecl t = FieldDecl {annotOfFieldDecl :: t
                              , nameOfFieldDecl :: FieldName
-                             , tpOfFieldDecl ::  Tp }
+                             , tpOfFieldDecl ::  Tp t }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 instance HasLoc t => HasLoc (FieldDecl t) where
   getLoc = getLoc . annotOfFieldDecl
@@ -186,9 +221,9 @@ data Val
     | ErrV
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-trueV :: Expr Tp
+trueV :: Expr (Tp ())
 trueV = ValE booleanT (BoolV True)
-falseV :: Expr Tp
+falseV :: Expr (Tp ())
 falseV = ValE booleanT (BoolV False)
 
 data Var
@@ -248,9 +283,6 @@ patternLength (VarListP vs) = length vs
 data Quantif = All | Ex
     deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-type family Annot tpPhase
-type instance Annot SRng = SRng
-
 -- Expr t is an expression of type t (to be determined during type checking / inference)
 data Expr t
     = ValE        {annotOfExpr :: t, valOfExprValE :: Val}                       -- value
@@ -259,11 +291,11 @@ data Expr t
     | BinOpE      {annotOfExpr :: t, binOpOfExprBinOpE :: BinOp, subE1OfExprBinOpE :: Expr t, subE2OfExprBinOpE :: Expr t}      -- binary operator
     | IfThenElseE {annotOfExpr :: t, condOfExprIf :: Expr t, thenofExprIf :: Expr t, elseOfExprIf :: Expr t}   -- conditional
     | AppE        {annotOfExpr :: t, funOfExprAppE :: Expr t, argOfExprAppE :: Expr t}           -- function application
-    | FunE        {annotOfExpr :: t, patternOfExprFunE :: Pattern, tpOfExprFunE :: Tp, bodyOfExprFunE :: Expr t}          -- function abstraction
-    | QuantifE    {annotOfExpr :: t, quantifOfExprQ :: Quantif, varNameOfExprQ :: VarName, tpOfExprQ :: Tp, bodyOfExprQ :: Expr t}  -- quantifier
+    | FunE        {annotOfExpr :: t, patternOfExprFunE :: Pattern, tpOfExprFunE :: Tp t, bodyOfExprFunE :: Expr t}          -- function abstraction
+    | QuantifE    {annotOfExpr :: t, quantifOfExprQ :: Quantif, varNameOfExprQ :: VarName, tpOfExprQ :: Tp t, bodyOfExprQ :: Expr t}  -- quantifier
     | FldAccE     {annotOfExpr :: t, subEOfExprFldAccE :: Expr t, fieldNameOfExprFldAccE :: FieldName}           -- field access
     | TupleE      {annotOfExpr :: t, componentsOfExprTupleE :: [Expr t]}                     -- tuples
-    | CastE       {annotOfExpr :: t, tpOfExprCastE :: Tp, subEOfExprCastE :: Expr t}               -- cast to type
+    | CastE       {annotOfExpr :: t, tpOfExprCastE :: Tp t, subEOfExprCastE :: Expr t}               -- cast to type
     | ListE       {annotOfExpr :: t, listOpOfExprListE :: ListOp, componentsOfExprListE :: [Expr t]}    -- list expression
     | NotDeriv    {annotOfExpr :: t, isPosLitOfExprNotDeriv ::  Bool, subEOfExprNotDeriv :: Expr t}            -- Negation as failure "not".
                                                       -- The Bool expresses whether "not" precedes a positive literal (True)

@@ -51,12 +51,12 @@ instance Monoid (Stash ann) where
 isPred :: VarDecl t -> Bool
 isPred = isPred' . tpOfVarDecl
 
-isPred' :: Tp -> Bool
-isPred' (FunT t (ClassT (ClsNm "Boolean"))) = True
-isPred' (FunT t t2) = isPred' t2
+isPred' :: Tp t -> Bool
+isPred' (FunT _ t (ClassT _ (ClsNm "Boolean"))) = True
+isPred' (FunT _ t t2) = isPred' t2
 isPred' _ = False
 
-createSCasp :: Program Tp -> IO ()
+createSCasp :: Show t => Program (Tp t) -> IO ()
 createSCasp = putDoc . unstash . showSC
 
 indent' :: Doc ann -> Doc ann
@@ -85,9 +85,9 @@ onlyFacts = filter isFact . globalsOfProgram
     isFact :: VarDecl t -> Bool
     isFact = isFact' . tpOfVarDecl
 
-    isFact' (ClassT (ClsNm "Boolean")) = True
-    isFact' (ClassT (ClsNm "Integer")) = True
-    isFact' (ClassT _) = True
+    isFact' (ClassT _ (ClsNm "Boolean")) = True
+    isFact' (ClassT _ (ClsNm "Integer")) = True
+    isFact' (ClassT _ _) = True
     -- isFact' (TupleT _) = _ ---- ??????
     isFact' _ = False
 
@@ -102,7 +102,7 @@ dotList xs = endDot $ vsep $ punctuate dot xs -- terminator: a. b. c.
 endDot :: Doc ann -> Doc ann
 endDot x = x <> dot
 
-instance SCasp (Program Tp) where
+instance Show t => SCasp (Program (Tp t)) where
   showSC p' = let p = normalizeProg p' in
     showSClist (assertionsOfProgram p) -- These become queries
       <> showSClist (onlyFacts p)      -- These become facts
@@ -110,7 +110,7 @@ instance SCasp (Program Tp) where
   showSingle = unstash . showSC
 
 
-instance SCasp (Rule Tp) where
+instance Show t => SCasp (Rule (Tp t)) where
   showSC (Rule _ _ _ (ValE _ (BoolV True)) thenExp) = fact $ endDot $ showSingle thenExp
   showSC (Rule _ _ _ (ValE _ (BoolV False)) thenExp) = fact $ endDot $ showSingle (negateExpr thenExp)
   showSC r = rule $ showSingle r
@@ -123,7 +123,7 @@ instance SCasp (Rule Tp) where
 
 -- Only assertions like `assert Beats Rock Scissors` become facts.
 -- Other assertions become rules.
-instance SCasp (Assertion Tp) where
+instance Show t => SCasp (Assertion (Tp t)) where
   showSingle (Assertion ann _ query) =
     vsep
         [ pretty "?-",
@@ -141,7 +141,7 @@ instance SCasp (VarDecl t) where
   showSClist = fact . dotList . map decl2fact
     where decl2fact (VarDecl _ v tp) = mkAtom tp <> parens (mkAtom v)
 
-instance SCasp (Expr Tp) where
+instance Show t => SCasp (Expr (Tp t)) where
   -- We don't need a case for Forall, because normalizeQuantif has taken care of it already earlier
   showSingle (Exist x typ exp) = vsep $ existX : suchThat
     where
@@ -176,12 +176,12 @@ instance SCasp UnaOp where
   showSingle (UArith u) = mempty
   showSingle (UBool UBnot) = pretty "not"
 
-instance Arg (Var, Tp) where
+instance Arg (Var, Tp t) where
   mkAtom (var, tp) = mkAtom tp <> pretty "_" <> mkAtom var
   mkVar (var@(GlobalVar _), tp) = mkVar var
   mkVar (var, tp) = mkVar tp <> mkVar var
 
-instance Arg (VarName, Tp) where
+instance Arg (VarName, Tp t) where
   mkAtom (var, tp) = mkAtom tp <> pretty "_" <> mkAtom var
   mkVar (var, tp) = mkVar tp <> mkVar var
 
@@ -199,18 +199,18 @@ instance Arg Var where
     where
       f : irst = varName var
 
-instance Arg Tp where
+instance Arg (Tp t) where
   mkAtom tp = case tp of
-    ClassT (ClsNm "Boolean") -> pretty "bool"
-    ClassT (ClsNm "Integer") -> pretty "int"
-    ClassT (ClsNm (f : irst)) -> pretty $ toLower f : irst
-    FunT t1 t2 -> mkAtom t1 <> pretty "->" <> mkAtom t2
-    TupleT ts -> encloseSep lparen rparen comma $ map mkAtom ts
+    ClassT _ (ClsNm "Boolean") -> pretty "bool"
+    ClassT _ (ClsNm "Integer") -> pretty "int"
+    ClassT _ (ClsNm (f : irst)) -> pretty $ toLower f : irst
+    FunT _ t1 t2 -> mkAtom t1 <> pretty "->" <> mkAtom t2
+    TupleT _ ts -> encloseSep lparen rparen comma $ map mkAtom ts
     _ -> pretty "unsupportedtype"
   mkVar tp = pretty $ case tp of
-    ClassT (ClsNm "Boolean") -> "Bool"
-    ClassT (ClsNm "Integer") -> "Int"
-    ClassT (ClsNm (f : irst)) -> toUpper f : irst
+    ClassT _ (ClsNm "Boolean") -> "Bool"
+    ClassT _ (ClsNm "Integer") -> "Int"
+    ClassT _ (ClsNm (f : irst)) -> toUpper f : irst
     _ -> "UnsupportedType"
 
 instance SCasp Val where

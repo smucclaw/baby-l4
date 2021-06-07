@@ -8,7 +8,7 @@ import Data.Maybe (fromMaybe)
 import Syntax
 
 -- This is for ToSCASP, where we want to put existential quantification into VarDecls.
-normalizeQuantif :: Rule Tp -> [Rule Tp]
+normalizeQuantif :: Rule t -> [Rule t]
 normalizeQuantif (Rule ann nm decls ifE thenE) =
   Rule ann nm (decls ++ newDecls) actuallyNewIfE thenE : faRules
   where
@@ -24,19 +24,19 @@ normalizeQuantif (Rule ann nm decls ifE thenE) =
     -- If it was universally quantified, we made a new predicate and now we negate it
     actuallyNewIfE = fromMaybe newIfE negApp
 
-    forallRule :: Expr Tp -> ([Rule Tp], Maybe (Expr Tp))
+    forallRule :: Expr t -> ([Rule t], Maybe (Expr t))
     forallRule (QuantifE ann All name tp ifExp) = ([Rule ann "foo" vardecls ifExp thenExp], Just negThenExp)
       where
         vardecls = [VarDecl ann name tp]
         predName = extractName ifExp
         newPred = VarE ann (LocalVar predName 1) -- TODO: make it actually unique
-        newArg = VarE tp (LocalVar name 0)
+        newArg = VarE ann (LocalVar name 0)  -- TODO (MS): was VarE tp ... but this lead to typing conflicts
         thenExp = AppE ann newPred newArg
         negThenExp = negateExpr thenExp
     forallRule _ = ([], Nothing)
 
 -- Reverse of the previous normalizeQuantif: we want to move the vardecls into existential quantification
-normalizeQuantifGF :: Rule Tp -> Rule Tp
+normalizeQuantifGF :: Rule t -> Rule t
 normalizeQuantifGF r = r { varDeclsOfRule = [],
                            precondOfRule = wrapInExistential decls ifE }
   where
@@ -97,10 +97,10 @@ normalizeProg (Program annP lex classdecs globals rules assert) =
   where
     newGlobals = concatMap cd2vd classdecs
     cd2vd (ClassDecl annot clsname def) =
-      [VarDecl annot functname (FunT argtype returntype)
+      [VarDecl annot functname (FunT annot argtype returntype)    -- TODO (MS): the annotations probably do not contain the correct info
       | (functname, returntype) <- getFieldNmNType def]
-      where argtype = ClassT clsname
+      where argtype = ClassT annot clsname
 
-    getFieldNmNType :: ClassDef t -> [(String, Tp)]
+    getFieldNmNType :: ClassDef t -> [(String, Tp t)]
     getFieldNmNType (ClassDef  _ fields) = map getFieldNmNType' fields
     getFieldNmNType' (FieldDecl _ (FldNm name) tp) = (name, tp)
