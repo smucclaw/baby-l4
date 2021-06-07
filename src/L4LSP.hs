@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE DuplicateRecordFields #-}
-module Main (main) where
+module L4LSP where
 
 import Language.LSP.Server
 import Language.LSP.Types
