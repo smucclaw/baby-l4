@@ -41,7 +41,7 @@ import Data.List (intercalate)
 import Control.Monad.Trans.Maybe (MaybeT(..))
 
 
-data LspError = ReadFileErr Err | TypeCheckerErr [Err] | ParserErr Err deriving Show
+data LspError = ReadFileErr Err | TypeCheckerErr [Err] | ParserErr Err deriving (Eq, Show)
 
 type Config = ()
 
