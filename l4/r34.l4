@@ -102,72 +102,76 @@ BusinessTrust -> "CompoundN business_1_N trust_1_N"
 # ForeignLawPractice
 # ConditionsOfSecondScheduleAreSatisfied
 
+
+#------------------------------ Classes ------------------------------ 
+
 # Class definitions
 class Business {
-    DescribedInSection1: Boolean
-    DetractsFromDignityOfLegalProfession: Boolean
-    IncompatibleWithDignityOfLegalProfession: Boolean
-    DerogatesFromDignityOfLegalProfession: Boolean
-    Unfair: Boolean
-    DescribedInFirstSchedule: Boolean
-    Prohibited: Boolean
-    InvolvesSharingFeesForLegalWorkByUnauthoirzedPersonsPerformedByTheLegalPractitioner: Boolean
-    InvolvesPaymentOfCommissionsForLegalWorkByUnauthorizedPersonsPerformedByTheLegalPractioner: Boolean
+    # DescribedInSection1: Boolean
+    # DetractsFromDignityOfLegalProfession: Boolean
+    # IncompatibleWithDignityOfLegalProfession: Boolean
+    # DerogatesFromDignityOfLegalProfession: Boolean
+    # Unfair: Boolean
+    # DescribedInFirstSchedule: Boolean
+    # Prohibited: Boolean
+    # InvolvesSharingFeesForLegalWorkByUnauthoirzedPersonsPerformedByTheLegalPractitioner: Boolean
+    # InvolvesPaymentOfCommissionsForLegalWorkByUnauthorizedPersonsPerformedByTheLegalPractioner: Boolean
 }
 
 class Trade
 
 class Calling
 
-class ExecutiveAppointment extends Position {
-    AssociatedWith: Business
-    MateriallyInterferesWithAvailability: LegalPractitioner
-    MateriallyInterferesWithPracticingAsLawyer: LegalPractitioner
-    MateriallyInterferesWithRepresentation: LegalPractitioner
+class ExecutiveAppointment extends Position{
+    # AssociatedWith: Business
+    # MateriallyInterferesWithAvailability: LegalPractitioner
+    # MateriallyInterferesWithPracticingAsLawyer: LegalPractitioner
+    # MateriallyInterferesWithRepresentation: LegalPractitioner
 }
 
+
 class Organization {
-    Position: Position
-    Provides: Service
+    # Position: Position
+    # Provides: Service
 }
 
 class Institution extends Organization {
-    ListedInThirdSchedule: Boolean
+    # ListedInThirdSchedule: Boolean
 }
 
 class Service {
-    Legal: Boolean
+    # Legal: Boolean
 }
 
 class Position {
-    HeldAsRepresentativeOf: Organization
-    EntitlesHolder: Boolean
-    NonExecutiveDirector: Boolean
-    IndependentDirector: Boolean
+    # HeldAsRepresentativeOf: Organization
+    # EntitlesHolder: Boolean
+    # NonExecutiveDirector: Boolean
+    # IndependentDirector: Boolean
 }
 
 class LegalPractitioner extends Person {
-    MustNotAccept: Appointment
-    MayAccept: Appointment
+    MustNotAccept: ExecutiveAppointment
+    MayAccept: ExecutiveAppointment
     PrimaryOccupationIsPracticingAsLawyer: Boolean
     LocumSolicitor: Boolean
 }
 
 class Person {
-    AuthorizedToPracticeLaw: Boolean
-    Awesome: Boolean
-    Cool: Boolean
+    # AuthorizedToPracticeLaw: Boolean
+    # Awesome: Boolean
+    # Cool: Boolean
 }
 
 class LawPractice extends Organization {
-    Owner: Person
-    LegalOwner: Person
-    BeneficialOwner: Person
-    Partner: Person
-    SoleProprietor: Person
-    Director: Person
-    JurisdictionIsSingapore: Boolean
-    Member: LegalPractitioner
+    # Owner: Person
+    # LegalOwner: Person
+    # BeneficialOwner: Person
+    # Partner: Person
+    # SoleProprietor: Person
+    # Director: Person
+    # JurisdictionIsSingapore: Boolean
+    # Member: LegalPractitioner
 }
 
 class BusinessEntity extends Organization 
@@ -195,44 +199,100 @@ class FormalLawAlliance
 
 class ForeignLawPractice
 
+#------------------------------ Declarations ------------------------------ 
+
+# from class Business
+decl DescribedInSection1: Business -> Boolean
+decl DetractsFromDignityOfLegalProfession: Business -> Boolean
+decl IncompatibleWithDignityOfLegalProfession: Business -> Boolean
+decl DerogatesFromDignityOfLegalProfession: Business -> Boolean
+decl Unfair: Business -> Boolean
+decl DescribedInFirstSchedule: Business -> Boolean
+decl Prohibited: Business -> Boolean
+decl InvolvesSharingFeesForLegalWorkByUnauthoirzedPersonsPerformedByTheLegalPractitioner: Business -> Boolean
+decl InvolvesPaymentOfCommissionsForLegalWorkByUnauthorizedPersonsPerformedByTheLegalPractioner: Business -> Boolean
+
+# from class ExecutiveAppointment
+decl AssociatedWith: ExecutiveAppointment -> Business -> Boolean
+decl MateriallyInterferesWithAvailability: ExecutiveAppointment -> LegalPractitioner -> Boolean
+decl MateriallyInterferesWithPracticingAsLawyer: ExecutiveAppointment -> LegalPractitioner -> Boolean
+decl MateriallyInterferesWithRepresentation: ExecutiveAppointment -> LegalPractitioner -> Boolean
+
+# from class Organization
+decl Position: Organization -> Position -> Boolean
+decl Provides: Organization -> Service -> Boolean
+
+# from class Institution
+decl ListedInThirdSchedule: Institution -> Boolean
+
+# from class Service
+decl Legal: Service -> Boolean
+
+# from class Position
+decl HeldAsRepresentativeOf: Position -> Organization -> Boolean
+decl EntitlesHolder: Position -> Boolean
+decl NonExecutiveDirector: Position -> Boolean
+decl IndependentDirector: Position -> Boolean
+
+# from class LegalPractitioner
+decl MustNotAccept: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl MayAccept: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl PrimaryOccupationIsPracticingAsLawyer: LegalPractitioner -> Boolean
+decl LocumSolicitor: LegalPractitioner -> Boolean
+
+# from class Person
+decl AuthorizedToPracticeLaw: Person -> Boolean
+decl Awesome: Person -> Boolean
+decl Cool: Person -> Boolean
+
+# from class LawPractice
+decl Owner: LawPractice -> Person -> Boolean
+decl LegalOwner: LawPractice -> Person -> Boolean
+decl BeneficialOwner: LawPractice -> Person -> Boolean
+decl Partner: LawPractice -> Person -> Boolean
+decl SoleProprietor: LawPractice -> Person -> Boolean
+decl Director: LawPractice -> Person -> Boolean
+decl JurisdictionIsSingapore: LawPractice -> Boolean
+decl Member: LawPractice -> LegalPractitioner -> Boolean
+
 decl ConditionsOfSecondScheduleAreSatisfied: Global
 
-decl r34_1_applies: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_1_applies:   LegalPractitioner -> ExecutiveAppointment -> Boolean
 decl r34_1_a_applies: Business -> Boolean
-decl r34_1_c_applies: Business -> Boolean
-decl r34_1_d_applies: Business -> Boolean
-decl r34_1_e_applies: Business -> Boolean
-decl r34_1_f_applies: Business -> Boolean
-decl r34_1A_applies: LegalPractitioner -> ExecutiveAppointment  -> Boolean
+decl r34_1_c_applies: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_1_d_applies: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_1_e_applies: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_1_f_applies: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_1A_applies:  LegalPractitioner -> ExecutiveAppointment -> Boolean
 decl r34_2_a_applies: LegalPractitioner -> ExecutiveAppointment -> Boolean
 decl r34_2_b_applies: LegalPractitioner -> ExecutiveAppointment -> Boolean
-decl r34_3_applies: LegalPractitioner -> ExecutiveAppointment -> Boolean
-decl r34_4_applies: LegalPractitioner -> ExecutiveAppointment -> Boolean
-decl r34_5_applies: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_3_applies:   LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_4_applies:   LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_5_applies:   LegalPractitioner -> ExecutiveAppointment -> Boolean
 decl r34_6_a_applies: LegalPractitioner -> ExecutiveAppointment -> Boolean
 decl r34_6_b_applies: LegalPractitioner -> ExecutiveAppointment -> Boolean
 
-decl r34_1_defeated: LegalPractitioner -> ExecutiveAppointment -> Boolean
-decl r34_1_a_defeated: Business -> Boolean
-decl r34_1_c_defeated: Business -> Boolean
-decl r34_1_d_defeated: Business -> Boolean
-decl r34_1_e_defeated: Business -> Boolean
-decl r34_1_f_defeated: Business -> Boolean
-decl r34_1A_defeated: LegalPractitioner -> ExecutiveAppointment  -> Boolean
+decl r34_1_defeated:   LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_1_a_defeated: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_1_c_defeated: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_1_d_defeated: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_1_e_defeated: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_1_f_defeated: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_1A_defeated:  LegalPractitioner -> ExecutiveAppointment  -> Boolean
 decl r34_2_a_defeated: LegalPractitioner -> ExecutiveAppointment -> Boolean
 decl r34_2_b_defeated: LegalPractitioner -> ExecutiveAppointment -> Boolean
-decl r34_3_defeated: LegalPractitioner -> ExecutiveAppointment -> Boolean
-decl r34_4_defeated: LegalPractitioner -> ExecutiveAppointment -> Boolean
-decl r34_5_defeated: LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_3_defeated:   LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_4_defeated:   LegalPractitioner -> ExecutiveAppointment -> Boolean
+decl r34_5_defeated:   LegalPractitioner -> ExecutiveAppointment -> Boolean
 decl r34_6_a_defeated: LegalPractitioner -> ExecutiveAppointment -> Boolean
 decl r34_6_b_defeated: LegalPractitioner -> ExecutiveAppointment -> Boolean
 
 decl r34_1_holds: LegalPractitioner -> ExecutiveAppointment -> Boolean
-decl r34_1_a_holds: Business -> Boolean
-decl r34_1_c_holds: Business -> Boolean
-decl r34_1_d_holds: Business -> Boolean
-decl r34_1_e_holds: Business -> Boolean
-decl r34_1_f_holds: Business -> Boolean
+decl r34_1_a_holds: LegalPractitioner -> ExecutiveAppointment  -> Boolean
+decl r34_1_c_holds: LegalPractitioner -> ExecutiveAppointment  -> Boolean
+decl r34_1_d_holds: LegalPractitioner -> ExecutiveAppointment  -> Boolean
+decl r34_1_e_holds: LegalPractitioner -> ExecutiveAppointment  -> Boolean
+decl r34_1_f_holds: LegalPractitioner -> ExecutiveAppointment  -> Boolean
 decl r34_1A_holds: LegalPractitioner -> ExecutiveAppointment  -> Boolean
 decl r34_2_a_holds: LegalPractitioner -> ExecutiveAppointment -> Boolean
 decl r34_2_b_holds: LegalPractitioner -> ExecutiveAppointment -> Boolean
@@ -336,7 +396,7 @@ if (
     r34_5_applies lp ea &&
     not r34_5_defeated lp ea
 )
-then r34_5holds lp ea
+then r34_5_holds lp ea
 
 rule <r34_6_a_holds>
 for lp: LegalPractitioner, ea: ExecutiveAppointment
