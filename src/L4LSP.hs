@@ -40,7 +40,8 @@ import Error
 import Data.List (intercalate)
 import Control.Monad.Trans.Maybe (MaybeT(..))
 
-
+-- proposed change related to #67
+-- change ReadFileErr Err to ReadFileErr Text, since ReadFileErr doesn't have location information
 data LspError = ReadFileErr Err | TypeCheckerErr [Err] | ParserErr Err deriving (Eq, Show)
 
 type Config = ()
@@ -205,6 +206,14 @@ getProg uri contents = do
   x <- handleUriErrs uri
   mapLeft ParserErr $ parseProgram x (T.unpack contents)
 
+-- TODO: #67 Handle different errors differently
+--    - maybe add a top-level helper function that handles all the different types of errors
+--    - helper function should preserve current behavior
+--      - sends diagnostics with TypeCheckerErr / pArser Err & return Nothing
+--      - with more serious errors (like from handleUriErrs/readFileErrs), return Left <error description>
+--    - with no diagnostics, returns Nothing on the hover (add a new "NoHover" constructor to LspError).
+-- handleLspErr :: Either LspError a -> LspM Config (Either ResponseError (Maybe a))
+
 parseAndSendErrors :: J.Uri -> T.Text -> LspM Config (Maybe (Program LocAndTp))
 parseAndSendErrors uri contents = runMaybeT $ do
   let loc = getProg uri contents
@@ -307,12 +316,15 @@ findAstAtPoint pos = selectSmallestContaining pos [] . SProg
 
 
 
--- tokensToHover :: Position -> Program LocAndTp -> ExceptT Err IO Hover
+-- proposed change related to issue #67
+-- tokensToHover :: Position -> Program LocAndTp -> IO (Maybe Hover)
 tokensToHover :: Position -> Program LocAndTp -> IO Hover
 tokensToHover pos ast = do
       let astNode = findAstAtPoint pos ast
       return $ tokenToHover astNode
 
+-- proposed change related to issue #67
+-- tokenToHover :: [SomeAstNode LocAndTp] -> Maybe Hover
 tokenToHover :: [SomeAstNode LocAndTp] -> Hover
 tokenToHover astNode = Hover contents range
   where
