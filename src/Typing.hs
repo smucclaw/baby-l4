@@ -515,7 +515,7 @@ tpExpr env x = case x of
     in FunE (updType annot restp) pt tparam te
 
   QuantifE annot q vn vt e ->
-    let te = tpExpr (pushLocalVarEnv [(vn, eraseAnn vt)] env) e
+    let te = tpExpr (pushLocalVarEnv [(nameOfQVarName vn, eraseAnn vt)] env) e
         t  = getTypeOfExpr te
         restp = propagateError [t]
                 (if isBooleanTp t

@@ -36,7 +36,13 @@ newtype FieldName = FldNm {stringOfFieldName :: String}
 newtype PartyName = PtNm {stringOfPartyName :: String}
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
+-- a qualified var name has an annotation (contrary to a simple var name)
+data QVarName t = QVarName {annotOfQVarName :: t, nameOfQVarName :: VarName}
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
+instance HasLoc t => HasLoc (QVarName t) where
+  getLoc v = getLoc (annotOfQVarName v)
+  
 ----- Program
 
 data Program t = Program{ annotOfProgram :: t
@@ -96,38 +102,6 @@ data Tp t
 
 instance HasLoc t => HasLoc (Tp t) where
   getLoc e = getLoc (annotOfTp e)
-
---------------------------------------
--- Experimental
-data LocTypeAnnotInst = LocTypeAnnotInst { locAnnotI :: SRng
-                                        , typeAnnotI :: Tp SRng
-}
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
-
-
--- types occurring in source code (having location annotations in their types)
-data family SourceTp a
-data instance SourceTp SRng = STSRng (Tp SRng)
-data instance SourceTp (LocTypeAnnot (Tp())) = STLTA (LocTypeAnnot (Tp SRng))
-data instance SourceTp (Tp()) = STTp (Tp SRng)
-
--- types inferred during typechecking 
-data family InferTp a
-data instance InferTp SRng = ITSRng SRng
-data instance InferTp (LocTypeAnnot (Tp())) = ITLTA (LocTypeAnnot (Tp()))
-data instance InferTp (Tp()) = ITTp (Tp())
-
-
--- types inferred during typechecking 
-data family NoTp a
-data instance NoTp SRng = NTSRng SRng
-data instance NoTp (LocTypeAnnot (Tp())) = NTLTA SRng
-data instance NoTp (Tp()) = NTTp ()
-
-
--- tpExpr :: Environment t -> Expr SRng -> Expr (LocTypeAnnot (Tp SRng))
--- QuantifE    {annotOfExpr :: (InferTp t), quantifOfExprQ :: Quantif, varNameOfExprQ :: VarName, tpOfExprQ :: (SourceTp t), bodyOfExprQ :: Expr t}
---------------------------------------
 
 booleanT :: Tp ()
 booleanT = ClassT () (ClsNm "Boolean")
@@ -308,7 +282,7 @@ data Expr t
     | IfThenElseE {annotOfExpr :: t, condOfExprIf :: Expr t, thenofExprIf :: Expr t, elseOfExprIf :: Expr t}   -- conditional
     | AppE        {annotOfExpr :: t, funOfExprAppE :: Expr t, argOfExprAppE :: Expr t}           -- function application
     | FunE        {annotOfExpr :: t, patternOfExprFunE :: Pattern, tpOfExprFunE :: Tp t, bodyOfExprFunE :: Expr t}          -- function abstraction
-    | QuantifE    {annotOfExpr :: t, quantifOfExprQ :: Quantif, varNameOfExprQ :: VarName, tpOfExprQ :: Tp t, bodyOfExprQ :: Expr t}  -- quantifier
+    | QuantifE    {annotOfExpr :: t, quantifOfExprQ :: Quantif, varNameOfExprQ :: QVarName t, tpOfExprQ :: Tp t, bodyOfExprQ :: Expr t}  -- quantifier
     | FldAccE     {annotOfExpr :: t, subEOfExprFldAccE :: Expr t, fieldNameOfExprFldAccE :: FieldName}           -- field access
     | TupleE      {annotOfExpr :: t, componentsOfExprTupleE :: [Expr t]}                     -- tuples
     | CastE       {annotOfExpr :: t, tpOfExprCastE :: Tp t, subEOfExprCastE :: Expr t}               -- cast to type

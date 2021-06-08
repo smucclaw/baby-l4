@@ -14,7 +14,7 @@ normalizeQuantif (Rule ann nm decls ifE thenE) =
   where
     -- 1) Take care of existential quantification
     (newDecls, newIfE) = go ifE -- result of the recursion
-    go (QuantifE ann Ex varnm tp expr) = (VarDecl ann varnm tp : newDs, newE)
+    go (QuantifE ann Ex varnm tp expr) = (VarDecl (annotOfQVarName varnm) (nameOfQVarName varnm) tp : newDs, newE)
       where
         (newDs, newE) = go expr
     go e = ([], e)
@@ -27,10 +27,10 @@ normalizeQuantif (Rule ann nm decls ifE thenE) =
     forallRule :: Expr t -> ([Rule t], Maybe (Expr t))
     forallRule (QuantifE ann All name tp ifExp) = ([Rule ann "foo" vardecls ifExp thenExp], Just negThenExp)
       where
-        vardecls = [VarDecl ann name tp]
+        vardecls = [VarDecl (annotOfQVarName name) (nameOfQVarName name) tp]
         predName = extractName ifExp
         newPred = VarE ann (LocalVar predName 1) -- TODO: make it actually unique
-        newArg = VarE ann (LocalVar name 0)  -- TODO (MS): was VarE tp ... but this lead to typing conflicts
+        newArg = VarE ann (LocalVar (nameOfQVarName name) 0)  -- TODO (MS): was VarE tp ... but this lead to typing conflicts
         thenExp = AppE ann newPred newArg
         negThenExp = negateExpr thenExp
     forallRule _ = ([], Nothing)
@@ -43,13 +43,14 @@ normalizeQuantifGF r = r { varDeclsOfRule = [],
     ifE = precondOfRule r
     decls = varDeclsOfRule r
     wrapInExistential [] e = e
-    wrapInExistential (VarDecl ann nm tp:xs) e = wrapInExistential xs (QuantifE ann Ex nm tp e)
+    wrapInExistential (VarDecl ann nm tp:xs) e = 
+      wrapInExistential xs (QuantifE ann Ex (QVarName ann nm) tp e)
 negateExpr :: Expr t -> Expr t
 negateExpr e = UnaOpE (annotOfExpr e) (UBool UBnot) e
 
 extractName :: Expr t -> String
 extractName (ValE t v) = "someVal"
-extractName (VarE t v) = map toLower $ varName v
+extractName (VarE t v) = map toLower $ nameOfVar v
 extractName (UnaOpE t u et) = show u ++ extractName et
 extractName (BinOpE t b et et4) = extractName et ++ "_" ++ extractName et4
 extractName (IfThenElseE t et et3 et4) = extractName et ++ "_" ++ extractName et3 ++ "_" ++ extractName et4
@@ -61,10 +62,6 @@ extractName (TupleE t l_et) = intercalate "_" (map extractName l_et)
 extractName (CastE t t2 et) = extractName et
 extractName (ListE t l l_et) = intercalate "_" (map extractName l_et)
 extractName (NotDeriv _ _ et) = extractName et
-
-varName :: Var -> VarName
-varName (GlobalVar n) = n
-varName (LocalVar n _) = n
 
 -- Nested binary ands into a single AndList
 normalizeAndExpr :: Expr t -> Expr t

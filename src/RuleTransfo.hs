@@ -52,14 +52,14 @@ localVarLowerThan n _ = True
 
 -- Free variables of an expression. Also LocalVar count as free variables.
 fv :: Expr t -> Set.Set Var
-fv (ValE _ v) = Set.empty
+fv ValE {} = Set.empty
 fv (VarE _ v) = Set.singleton v
 fv (UnaOpE _  _ e) = fv e
 fv (BinOpE _  _ e1 e2) = Set.union (fv e1) (fv e2)
 fv (IfThenElseE _ c e1 e2) = Set.unions [fv c, fv e1, fv e2]
 fv (AppE _ f a) = Set.union (fv f) (fv a)
-fv (FunE _ p t e) = Set.map (dropVarBy (patternLength p)) (Set.filter (localVarLowerThan (patternLength p - 1)) (fv e))
-fv (QuantifE _ _ vn t e) = Set.map (dropVarBy 1) (Set.filter (localVarLowerThan 0) (fv e))
+fv (FunE _ p _ e) = Set.map (dropVarBy (patternLength p)) (Set.filter (localVarLowerThan (patternLength p - 1)) (fv e))
+fv QuantifE {bodyOfExprQ = e} = Set.map (dropVarBy 1) (Set.filter (localVarLowerThan 0) (fv e))
 fv (FldAccE _ e _) = fv e
 fv (TupleE _ es) = Set.unions (map fv es)
 fv (CastE _ _ e) = fv e
@@ -141,7 +141,7 @@ ruleToFormula r = abstract All (varDeclsOfRule r) (impl (precondOfRule r) (postc
 abstract :: Quantif -> [VarDecl (Tp ())] -> Expr (Tp ()) -> Expr (Tp ())
 abstract q vds e
   = foldr
-      (\ vd -> QuantifE booleanT q (nameOfVarDecl vd) (tpOfVarDecl vd)) e
+      (\ vd -> QuantifE booleanT q (QVarName (annotOfVarDecl vd) (nameOfVarDecl vd)) (tpOfVarDecl vd)) e
       vds
 
 -------------------------------------------------------------
@@ -154,14 +154,14 @@ type DecompWorklist t = [Rule t] -> [Rule t]
 ruleAllR :: DecompRule (Tp ())
 ruleAllR r =
   case postcondOfRule r of
-    QuantifE t All vn tp e ->
-      [r{postcondOfRule = e}{precondOfRule = liftExpr 0 (precondOfRule r)}{varDeclsOfRule = varDeclsOfRule r ++ [VarDecl (eraseAnn  tp) vn tp]}]
+    QuantifE _ All vn tp e ->
+      [r{postcondOfRule = e}{precondOfRule = liftExpr 0 (precondOfRule r)}{varDeclsOfRule = varDeclsOfRule r ++ [VarDecl (eraseAnn  tp) (nameOfQVarName vn) tp]}]
     _ -> [r]
 
 ruleImplR :: DecompRule (Tp ())
 ruleImplR r =
   case postcondOfRule r of
-    BinOpE t (BBool BBimpl) e1 e2 -> [r{postcondOfRule = e2}{precondOfRule = conj (precondOfRule r) e1}]
+    BinOpE _ (BBool BBimpl) e1 e2 -> [r{postcondOfRule = e2}{precondOfRule = conj (precondOfRule r) e1}]
     _ -> [r]
 
 ruleConjR :: DecompRule t
@@ -244,8 +244,8 @@ ruleExLStep r =
       prec = precondOfRule r
       postc = postcondOfRule r
   in case prec of
-    QuantifE t Ex vn vt e -> 
-      let nvd = VarDecl (() <$ vt) vn vt
+    QuantifE _ Ex vn vt e ->
+      let nvd = VarDecl (() <$ vt) (nameOfQVarName vn) vt
       in [r{varDeclsOfRule = vds ++ [nvd]}{precondOfRule = e}{postcondOfRule = liftExpr 0 postc}]
     _ -> [r]
 
@@ -272,13 +272,13 @@ ruleExLInvStep r =
     -- rule not modified
     [] -> [r]
     -- variable set has been split
-    [d] ->
+    [vd] ->
       let ll = length lowers
           lvds = length vds
           rmpPostc = zip [ll + 1 .. lvds - 1] [ll .. lvds - 2]
           rmpPrec  = (ll, 0) : zip [0 .. ll - 1] [1 .. ll]
           newPostc = remapExpr rmpPostc postc
-          newPrec = QuantifE booleanT Ex (nameOfVarDecl d) (tpOfVarDecl d) (remapExpr rmpPrec prec)
+          newPrec = QuantifE booleanT Ex (QVarName (annotOfVarDecl vd) (nameOfVarDecl vd)) (tpOfVarDecl vd) (remapExpr rmpPrec prec)
       in [r{varDeclsOfRule = reverse (lowers++uppers)}{precondOfRule = newPrec}{postcondOfRule = newPostc}]
     _ -> error "internal error in splitDecls: "
 

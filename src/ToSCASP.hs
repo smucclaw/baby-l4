@@ -145,7 +145,7 @@ instance Show t => SCasp (Expr (Tp t)) where
   -- We don't need a case for Forall, because normalizeQuantif has taken care of it already earlier
   showSingle (Exist x typ exp) = vsep $ existX : suchThat
     where
-      existX = mkAtom typ <> parens (mkVar (x, typ))
+      existX = mkAtom typ <> parens (mkVar (nameOfQVarName x, typ))
       suchThat =
         showSingle <$> case normalizeAndExpr exp of
           ListE _ _ es -> es
@@ -194,12 +194,12 @@ instance Arg VarName where
 instance Arg Var where
   mkAtom var = pretty $ toLower f : irst
     where
-      f : irst = varName var
+      f : irst = nameOfVar var
   mkVar var@(GlobalVar _) = mkAtom var -- to handle decl Rock : Sign, should become sign(rock)
   mkVar var =
     pretty $ toUpper f : irst
     where
-      f : irst = varName var
+      f : irst = nameOfVar var
 
 instance Arg (Tp t) where
   mkAtom tp = case tp of

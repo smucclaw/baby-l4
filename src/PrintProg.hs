@@ -4,6 +4,9 @@ module PrintProg where
 import Syntax
 import Error (printTp)
 
+printQVarName :: QVarName t -> VarName
+printQVarName =  nameOfQVarName
+
 printVarDecl :: Show t => VarDecl t -> String
 printVarDecl vd = nameOfVarDecl vd ++ ": " ++ printTp (tpOfVarDecl vd)
 
@@ -19,8 +22,7 @@ printVal (StringV s) = show s
 printVal v = show v    -- TODO - rest still to be done
 
 printVar :: Var -> String
-printVar (GlobalVar vn) = vn
-printVar (LocalVar vn i) = vn
+printVar = nameOfVar 
 
 printUnaOpE :: UnaOp -> String
 printUnaOpE (UArith UAminus) = "-"
@@ -64,7 +66,7 @@ printExpr (BinOpE t b et1 et2) = "(" ++ printExpr et1 ++ printBinOpE b ++ printE
 printExpr (IfThenElseE t c et1 et2) = " if " ++ printExpr c ++ " then " ++ printExpr et1 ++ " else " ++ printExpr et2
 printExpr (AppE t f a) = "(" ++ printExpr f ++ " " ++ printExpr a ++ ")"
 printExpr (FunE t p pt et) = "( \\ " ++ printPattern p ++ ": " ++ printTp pt ++ " " ++ printExpr et ++ ")"
-printExpr (QuantifE t q vn vt et) = "(" ++ printQuantif q ++ vn ++ ": " ++ printTp vt ++ ". " ++ printExpr et ++ ")"
+printExpr (QuantifE t q vn vt et) = "(" ++ printQuantif q ++ printQVarName vn ++ ": " ++ printTp vt ++ ". " ++ printExpr et ++ ")"
 printExpr (FldAccE t et f) = printExpr et ++ "." ++ stringOfFieldName f
 printExpr e = show e  -- TODO - incomplete
 

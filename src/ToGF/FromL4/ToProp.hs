@@ -15,7 +15,7 @@ import System.Environment (withArgs)
 import System.IO (stderr, hPutStrLn)
 import Text.Printf (printf)
 import ToGF.FromL4.TransProp
-import ToGF.NormalizeSyntax ( varName, normalizeQuantifGF )
+import ToGF.NormalizeSyntax ( normalizeQuantifGF )
 
 -- moved this here from exe/Main.hs, needed to tell optparse which languages to output
 data GFlang  = GFall | GFeng | GFswe deriving (Show,Eq)
@@ -91,7 +91,7 @@ vardecl2prop (VarDecl _ vname vtyp) = do
 
 var2ind :: Var -> CuteCats t GInd
 var2ind var = do
-  let name = varName var
+  let name = nameOfVar var
   lex <- asks lexicon
   return $ case findMapping lex name of
     val : _ | gfType val == "Noun" -> GIVarN (LexNoun name)
@@ -99,7 +99,7 @@ var2ind var = do
 
 var2pred :: Var -> CuteCats t GPred1
 var2pred var = do
-  let name = varName var
+  let name = nameOfVar var
   lex <- asks lexicon
   return $ case findMapping lex name of
     val : _
@@ -110,7 +110,7 @@ var2pred var = do
 
 var2pred2 :: Var -> CuteCats t GPred2
 var2pred2 var = do
-  let name = varName var
+  let name = nameOfVar var
   lex <- asks lexicon
   return $ case findMapping lex name of
     val : _ | gfType val == "Adj2" -> GPAdj2 (LexAdj2 name)
@@ -140,7 +140,7 @@ tp2ind v e = case e of
   -- _ -> error $ "tp2kind: not yet supported: " ++ show e
 
 var2quant :: Var -> GQuantifier
-var2quant = GQString . GString . varName
+var2quant = GQString . GString . nameOfVar
 
 rule2prop :: Show t => Rule t -> CuteCats t GProp
 rule2prop r =
@@ -167,12 +167,12 @@ expr2prop e = case e of
     pure $ GPAtom (GAPred2 f' x' y')
   Exist x cl exp -> do
     prop <- expr2prop exp
-    typ <- tp2kind (LocalVar x 0) cl
-    pure $ GPExists (GListVar [GVString (GString x)]) typ prop
+    typ <- tp2kind (LocalVar (nameOfQVarName x) 0) cl
+    pure $ GPExists (GListVar [GVString (GString (nameOfQVarName x))]) typ prop
   Forall x cl exp -> do
     prop <- expr2prop exp
-    typ <- tp2kind (LocalVar x 0) cl
-    pure $ GPUnivs (GListVar [GVString (GString x)]) typ prop
+    typ <- tp2kind (LocalVar (nameOfQVarName x) 0) cl
+    pure $ GPUnivs (GListVar [GVString (GString (nameOfQVarName x))]) typ prop
   And e1 e2 -> do
     exp1 <- expr2prop e1
     exp2 <- expr2prop e2
@@ -223,10 +223,10 @@ pattern FunApp2 f x xTp y yTp <- AppU (FunApp1 f x xTp) (VarU y yTp)
 
 -- Quantification
 
-pattern Exist :: VarName -> Tp t -> Syntax.Expr t -> Syntax.Expr t
+pattern Exist :: QVarName t -> Tp t -> Syntax.Expr t -> Syntax.Expr t
 pattern Exist x typ exp <- QuantifE _ Ex x typ exp
 
-pattern Forall :: VarName -> Tp t -> Syntax.Expr t -> Syntax.Expr t
+pattern Forall :: QVarName t -> Tp t -> Syntax.Expr t -> Syntax.Expr t
 pattern Forall x typ exp <- QuantifE _ All x typ exp
 
 -- Binary operations
