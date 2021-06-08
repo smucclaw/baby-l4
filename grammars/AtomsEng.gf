@@ -4,8 +4,9 @@ concrete AtomsEng of Atoms = open Prelude, SyntaxEng, ExtendEng, (S=SyntaxEng), 
     --Pred = LinPred ;
 
   param
-    AType = AN2 | ACN | AV | AV2 ;
-
+    AType = AN2 | AV2 -- Arity = 2
+          | ACN | AV  -- Arity = 1
+          ;
   oper
 
     isTransitive : LinAtom -> Bool = \atom -> case atom.atype of {
@@ -20,6 +21,7 @@ concrete AtomsEng of Atoms = open Prelude, SyntaxEng, ExtendEng, (S=SyntaxEng), 
       v2 : VPS2 ;
       atype : AType
       } ;
+
     dummyAtom : LinAtom = let dummyN2 : N2 = P.mkN2 (P.mkN "dummy") in {
       cn = mkCN dummyN2 ;
       v  = v2vps (P.mkV "dummy") ;
@@ -38,19 +40,12 @@ concrete AtomsEng of Atoms = open Prelude, SyntaxEng, ExtendEng, (S=SyntaxEng), 
       mkAtom : VPS2  -> LinAtom = \v2 -> dummyAtom ** {v2 = v2 ; atype = AV2} ;
     } ;
 
-
-  param
-
-    -- Predicates
-
-    Arity = Ar0 | Ar1 | Ar2  ;
-
   oper
-    LinPred : Type = {atom : LinAtom ; arg : NP ; arity : Arity} ;
+    LinPred : Type = {atom : LinAtom ; arg : NP } ;
 
     mkPred : LinPred -> VPS = \pred ->
-      case pred.arity of {
-        Ar2 => pred2 pred.atom pred.arg ;
+      case isTransitive pred.atom of {
+        True => pred2 pred.atom pred.arg ;
         _ => pred1 pred.atom } ; -- TODO: arity 0 ??
 
     pred1 : LinAtom -> VPS = \atom -> case atom.atype of {
@@ -70,7 +65,7 @@ concrete AtomsEng of Atoms = open Prelude, SyntaxEng, ExtendEng, (S=SyntaxEng), 
 
     v2vps : S.V -> VPS = \v -> myVPS (mkVP v) ;
     v2vps2 : V2 -> VPS2 = \v2 -> myVPS2 (mkVPSlash v2) ;
-      
+
     myVPS : VP -> VPS = \vp -> MkVPS (mkTemp presentTense simultaneousAnt) positivePol vp ;
     myVPS2 : VPSlash -> VPS2 = \v2 -> MkVPS2 (mkTemp presentTense simultaneousAnt) positivePol v2 ;
 }

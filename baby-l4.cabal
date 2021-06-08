@@ -19,7 +19,21 @@ extra-source-files:  README.org
                    , grammars/Predicates.gf
                    , grammars/ParsePredicates.gf
 data-files:          l4/Prelude.l4
-
+                   , grammars/Prop.gf
+                   , grammars/PropEng.gf
+                   , grammars/Atoms.gf
+                   , grammars/AtomsEng.gf
+                   , grammars/Answer.gf
+                   , grammars/AnswerEng.gf
+                   , grammars/Questions.gf
+                   , grammars/QuestionsEng.gf
+                   , grammars/Predicates.gf
+                   , grammars/PredicatesEng.gf
+                   , grammars/ReducedWordNet.gf
+                   , grammars/ReducedWordNetEng.gf
+                   , grammars/ParsePredicates.labels
+                   , grammars/ParsePredicatesEng.labels
+                   , grammars/ExtendEng.gfo
 -- data-files: LICENSE
 -- data-files: Prop.pgf
 
@@ -40,7 +54,7 @@ library l4-generated
   build-depends:       base >= 4.7 && < 5
                      , gf
                      , mtl        >= 2.2 && <2.4
-  ghc-options: -Wno-all 
+  ghc-options: -Wno-all
   build-tools:         gf
   -- build-tools-depends: gf:gf
   hs-source-dirs:
@@ -68,6 +82,7 @@ library
                   ToGF.GenerateLexicon
                   ToGF.NormalizeSyntax
                   ToGF.ParsePred
+                  ToGF.Disambiguate
                   ToGF.TreeTransform
                   ToGF.FromSCasp.SCasp
                   ToGF.FromSCasp.ToAnswer
@@ -103,6 +118,7 @@ library
                      , mtl        >= 2.2 && <2.4
                      -- required for GF
                      , gf
+                     , gf-ud
                      -- required for SCasp abs.syn.
                      , megaparsec
                      -- Required for lexer/lsp interop
@@ -112,6 +128,34 @@ library
                      , simple-smt
                      , sbv
   default-language: Haskell2010
+  ghc-options: -Wall
+
+test-suite unit-tests
+  default-language:
+    Haskell2010
+  type:
+    exitcode-stdio-1.0
+  hs-source-dirs:
+    tests
+    src
+  main-is:
+    Test.hs
+  other-modules:       ToGF.Disambiguate
+                     , DisambiguateTest
+                     , Paths_baby_l4
+  build-depends:
+      base >= 4 && < 5
+    , baby-l4
+    , containers
+    , gf
+    , l4-generated
+    , split
+    , safe
+    , tasty
+    , tasty-expected-failure
+    , tasty-golden
+    , tasty-hunit
+  ghc-options: -Wall
 
 executable l4
   hs-source-dirs:      exe

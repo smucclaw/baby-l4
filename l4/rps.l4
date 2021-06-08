@@ -1,16 +1,14 @@
-lexicon
-
-Rock -> "rock_1_N"
-Paper -> "paper_1_N"
-Scissors -> "scissors_1_N"
-Throw -> "throw_1_V2"
-Win -> "win_1_V2"
-Lose -> "lose_1_V2"
-Beat -> "beat_1_V2"
-Participate_in -> "mkV2 participate_2_V in_Prep"
-Player -> "player_5_N"
-Sign -> "sign_2_N"
-Game -> "game_1_N"
+# Rock -> "rock"
+# Paper -> "paper_1_N"
+# Scissors -> "scissors_1_N"
+# Throw -> "throw_1_V2"
+# Win -> "win_1_V2"
+# Lose -> "lose_1_V2"
+# Beat -> "beat_1_V2"
+# Participate_in -> "participates in"
+# Player -> "player_5_N"
+# Sign -> "sign_2_N"
+# Game -> "game_1_N"
 
 class Sign {
     beat : Sign -> Boolean
@@ -47,7 +45,7 @@ class Game {
 # decl Paper    : Sign
 # decl Scissors : Sign
 
-# proposed new syntax: 
+# proposed new syntax:
 # https://www.typescriptlang.org/docs/handbook/enums.html
 # good artists copy; great artists steal
 # enum Sign {
@@ -61,12 +59,7 @@ class Game {
 
 rule <winner>
 for a : Player, g : Game, r : Sign, s : Sign
-if (exists b : Player . participate_in g a && participate_in g b &&
-                                           throw a r  && throw b s && beat r s
-                                           )
-then win g a
-
-
-# assert Beat Rock Scissors
-# assert Beat Scissors Paper
-# assert Beat Paper Rock
+if (exists b : Player . g.participate_in(a) && g.participate_in(b)&&
+                        a.throw(r) && b.throw(s) && r.beat(s)
+   )
+then g.win(a)

@@ -165,6 +165,8 @@ instance Show t => SCasp (Expr (Tp t)) where
     --                                  showSC ifE <> comma,
     --                                showSC thenE,
     --                              showSC elseE ]
+    FldAccE {} -> pretty "TODO: FldAccE"
+    VarE {} -> pretty "TODO: VarE"
     x -> error $ "not handled yet: " ++ show x
 --   showSC (BinOpE s t b et et5) = _
 --   showSC (VarE s t v) = _

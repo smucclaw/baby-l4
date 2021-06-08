@@ -66,7 +66,7 @@ process args input = do
             Fscasp -> createSCasp normalAst
             Fyaml -> do createDSyaml tpAstNoSrc
                         putStrLn "---------------"
-                        createQuestions normalAst
+                        createQuestions fpath normalAst
 
 
           -- Just a test for creating natural language from s(CASP) models.
@@ -114,8 +114,8 @@ optsParse = InputOpts <$>
             <*> argument str (metavar "Filename")
             <**> helper
         where
-          gfSubparser = fmap Fgf $ GFOpts <$> 
-                          subparser 
+          gfSubparser = fmap Fgf $ GFOpts <$>
+                          subparser
                              ( command "all" (info (pure GF.GFall) (progDesc "tell GF to output all languages"))
                             <> command "en"  (info (pure GF.GFeng) (progDesc "tell GF to output english"))
                             <> command "swe" (info (pure GF.GFswe) (progDesc "tell GF to output swedish"))
@@ -149,7 +149,7 @@ catchAll ioAction = catch ioAction (print @SomeException)
 
 tests :: [String]
 tests = [
-  "{ win(A,RPS),  is_game(RPS),  is_participant_in(A,RPS),  is_player(A),  throw(A,rock), is_player(C),  is_participant_in(C,RPS),  throw(C,scissors),  beat(rock,scissors) }",
-  "{ win(A,RPS),  is_game(RPS),  is_participant_in(A,RPS),  is_player(A),  throw(A,scissors),  is_player(C),  is_participant_in(C,RPS),  throw(C,paper),  beat(scissors,paper) }",
-  "{ win(A,RPS),  is_game(RPS),  is_participant_in(A,RPS),  is_player(A),  throw(A,paper),  is_player(C),  is_participant_in(C,RPS),  throw(C,rock),  beat(paper,rock) }"
+  "{ win(A,RPS), is_human(A), is_human(C), is_game(RPS),  is_participant_in(A,RPS),  is_player(A),  throw(A,rock), is_player(C),  is_participant_in(C,RPS),  throw(C,scissors),  beat(rock,scissors) }",
+  "{ win(A,RPS), is_human(A), is_human(C), is_game(RPS),  is_participant_in(A,RPS),  is_player(A),  throw(A,scissors),  is_player(C),  is_participant_in(C,RPS),  throw(C,paper),  beat(scissors,paper) }",
+  "{ win(A,RPS), is_human(A), is_human(C), is_game(RPS),  is_participant_in(A,RPS),  is_player(A),  throw(A,paper),  is_player(C),  is_participant_in(C,RPS),  throw(C,rock),  beat(paper,rock) }"
   ]

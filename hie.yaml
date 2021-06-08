@@ -44,5 +44,8 @@ cradle:
             - path: "./lsp/Main.hs"
               component: "baby-l4:exe:lsp-server-bl4"
 
+            - path: "./tests/"
+              component: "baby-l4:test:unit-tests"
+
             - path: "./lsp-tests/Test.hs"
               component: "baby-l4:test:lsp-server-tests"

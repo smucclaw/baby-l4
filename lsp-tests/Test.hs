@@ -11,7 +11,7 @@ import qualified Data.Text as T
 import qualified Language.LSP.Types as J
 
 main :: IO ()
-main = defaultMain $ testGroup "Tests" [hoverTests, typeCheckerTests]
+main = defaultMain $ testGroup "Tests" [hoverTests, hoverTypeInfoTests, typeCheckerTests]
 
 hoverTests :: TestTree
 hoverTests = testGroup "Hover tests"
@@ -25,21 +25,30 @@ hoverTests = testGroup "Hover tests"
   , expectFail                                $ testHover "Hover over nothing"                                        "mini.l4" (Position 1 0)   (mkRange 3 0 3 8)    "This block maps variable Business to WordNet definion \"business_1_N\""
   ]
 
-typeCheckerTests :: TestTree 
-typeCheckerTests = testGroup "Type Error tests"  
+hoverTypeInfoTests :: TestTree
+hoverTypeInfoTests = testGroup "Hover type tests"
+  [ testHover "mini.l4 type info for lexicon DetractsFromDignity"   "mini.l4" (Position 4 4)   (mkRange 4 0 4 66)   "OkT"
+  , testHover "cr.l4 type info for 'class Business {'"              "cr.l4"   (Position 21 10) (mkRange 21 0 24 1)  "OkT"
+  , testHover "cr.l4 type info for var decl AssociatedWith"         "cr.l4"   (Position 38 12) (mkRange 38 0 38 64) "OkT"
+  , testHover "cr.l4 type info for rule r1a"                        "cr.l4"   (Position 61 7)  (mkRange 61 0 64 29) "ClassT (ClsNm {stringOfClassName = \"Boolean\"})"
+  , testHover "cr.l4 type info for rule subexpr MustNotAcceptApp"   "cr.l4"   (Position 69 8)  (mkRange 69 5 69 21) "FunT (ClassT (ClsNm {stringOfClassName = \"LegalPractitioner\"})) (FunT (ClassT (ClsNm {stringOfClassName = \"Appointment\"})) (ClassT (ClsNm {stringOfClassName = \"Boolean\"})))"
+  ]
+
+typeCheckerTests :: TestTree
+typeCheckerTests = testGroup "Type Error tests"
   [
     testGroup "ClassDeclsError"
       [
         testTypeErrs "dupClassNames.l4    duplicate class names Business"           "ClassDeclsError/dupClassNames.l4"    (mkRange 2 0 5 1)    2 "Duplicate class name: Business"
       , testTypeErrs "undefSuperClass.l4  undefined super class LawFirm"            "ClassDeclsError/undefSuperClass.l4"  (mkRange 3 0 3 30)   1 "Undefined super class: LawFirm"
       -- Note: typeErrTests only checks the first error, however, this next test in particular returns 2 errors; one for LawFirm, one for Business
-      , testTypeErrs "cyclicClass.l4      cyclic classes LawFirm & Business"        "ClassDeclsError/cyclicClass.l4"      (mkRange 0 0 0 30)   2 "Cyclic class hierarchy: LawFirm" 
+      , testTypeErrs "cyclicClass.l4      cyclic classes LawFirm & Business"        "ClassDeclsError/cyclicClass.l4"      (mkRange 0 0 0 30)   2 "Cyclic class hierarchy: LawFirm"
       ]
   , testGroup "FieldDeclsError"
       [
         testTypeErrs "dupFieldNames.l4    duplicate field name for class Business"  "FieldDeclsError/dupFieldNames.l4"    (mkRange 2 0 5 1)    1 "Duplicate field names in the class: Business"
       , testTypeErrs "undefFieldType.l4   undefined field type for class Business"  "FieldDeclsError/undefFieldType.l4"   (mkRange 3 6 3 17)   1 "Undefined field type: foo"
-      ] 
+      ]
   , testGroup "VarDeclsError"
       [
         testTypeErrs "undeclVar.l4        undefined variable MustNotAcceptApp"      "VarDeclsError/undeclVar.l4"          (mkRange 64 5 64 21) 6 "Variable MustNotAcceptApp at (64,5) .. (64,21) is undefined"
@@ -47,8 +56,16 @@ typeCheckerTests = testGroup "Type Error tests"
       ]
   , testGroup "RuleError"
       [
-        testTypeErrs "undeclVar.l4        undefined variable AssociatedWithAppB"    "RuleAssertionError/undeclVar.l4"      (mkRange 2 27 2 45)  3 "Rule Error: Variable AssociatedWithAppB"
-      , testTypeErrs "nonScalarTps.l4     at least one type is non-scalar"          "RuleAssertionError/nonScalarTps.l4"   (mkRange 4 3  4 20)  1 "At least one type is not scalar (non-functional)"
+        testTypeErrs "undeclVar.l4            undefined variable AssociatedWithAppB"                    "RuleAssertionError/undeclVar.l4"             (mkRange 2 27 2 45)   3 "Rule Error: Variable AssociatedWithAppB"
+      , testTypeErrs "illTypedSubExpr.l4      has type Boolean but a subtype of Number was expected"    "RuleAssertionError/illTypedSubExpr.l4"       (mkRange 1 4  1 12)   1 "has type Boolean but a subtype of Number was expected"
+      , testTypeErrs "incompatibleTps.l4      types are not compatible"                                 "RuleAssertionError/incompatibleTps.l4"       (mkRange 1 3  1 13)   1 "The types are not compatible (one is subtype of the other)"
+      , testTypeErrs "nonScalarTps.l4         at least one type is non-scalar"                          "RuleAssertionError/nonScalarTps.l4"          (mkRange 4 3  4 20)   1 "At least one type is not scalar (non-functional)"
+      , testTypeErrs "nonFunctionTp.l4        which is not a functional type"                           "RuleAssertionError/nonFunctionTp.l4"         (mkRange 7 39 7 48)   1 "which is not a functional type"
+      , testTypeErrs "incompatiblePattern.l4  variable pattern & expected type are incompatible"        "RuleAssertionError/incompatiblePattern.l4"   (mkRange 1 3  1 34)   1 "the variable pattern and its type are incompatible"
+      , testTypeErrs "unknownFieldName.l4  access to an unknown field"
+      "RuleAssertionError/unknownFieldName.l4"   (mkRange 8 8 8 12)     1 "access to an unknown field"
+      , testTypeErrs "accessToNonObjectTp.l4  access to a field of a non-object type"
+      "RuleAssertionError/accessToNonObjectTp.l4"   (mkRange 3 4 3 8)     1 "access to a field of a non-object type"
       ]
   ]
 
@@ -63,7 +80,7 @@ testHover :: TestName -- ^ Description of the test case
   -> TestTree
 testHover testName filename position expectedRange containedText =
   testCase testName $ do
-    runSession "lsp-server-bl4" fullCaps "l4" $ do
+    runSession "lsp-server-bl4" fullCaps "lsp-tests/examples/hoverError" $ do
         doc <- openDoc filename "l4"
         diags <- waitForDiagnostics
         hover <- getHover doc position
@@ -80,11 +97,11 @@ testHover testName filename position expectedRange containedText =
 -- test hwat happens if we edit a doc, fix an error & see if error is gone
 
 -- test sequence of edits
-testTypeErrs 
-  :: TestName 
+testTypeErrs
+  :: TestName
   -> FilePath -- ^ The file to test
   -> Range -- ^ expected range of error (0 - indexed)
-  -> Int    -- ^ number of errors expected        -- TODO: maybe take a list of errors to check for instead? 
+  -> Int    -- ^ number of errors expected        -- TODO: maybe take a list of errors to check for instead?
   -> T.Text -- ^ expected error message
   -> TestTree
 testTypeErrs testName fileName expectedRange numDiags containedText =
@@ -104,7 +121,7 @@ testTypeErrs testName fileName expectedRange numDiags containedText =
                   _
                   _
                  = head diags
-        
+
         liftIO $ range @?= expectedRange
         liftIO $ assertFoundIn "type error" containedText errMsg
         pure ()

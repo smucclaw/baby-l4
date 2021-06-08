@@ -11,7 +11,7 @@ import PGF (PGF, Expr, readPGF, linearizeAll, showExpr)
 import Prettyprinter
 import Prettyprinter.Render.Text (hPutDoc)
 import ToGF.ParsePred
-import System.Environment (withArgs)
+import System.Environment (withArgs, getEnv)
 import System.IO (IOMode (WriteMode), withFile)
 import Text.Printf (printf)
 import Data.List.Extra (splitOn, trim, intercalate)
@@ -19,6 +19,8 @@ import Syntax (Mapping(..))
 import Data.Maybe (listToMaybe)
 import Control.Applicative ((<|>))
 import Paths_baby_l4 (getDataFileName)
+import qualified UDAnnotations as UDA
+import System.Directory.Extra (createDirectoryIfMissing, copyFile)
 
 ----------------------------------------------------------------------
 -- Generate GF code
@@ -28,47 +30,71 @@ indent' = indent 4
 
 type GrName = String
 
-topName, lexName :: GrName -> Doc () --String
-topName grName = pretty grName <> "Top"
-lexName grName = pretty grName <> "Lexicon"
+generatedFileDir :: String
+generatedFileDir = ".l4-generated"
 
-mkAbsName, mkCncName, mkPGFName :: Doc () -> String
-mkAbsName d = printf "grammars/%s.gf" (show d)
-mkCncName d = printf "grammars/%sEng.gf" (show d)
-mkPGFName d = printf "generated/%s.pgf" (show d)
+topName, lexName :: GrName -> String
+topName grName = grName <> "Top"
+lexName grName = grName <> "Lexicon"
 
-createPGF :: Doc () -> IO PGF.PGF
+mkGeneratedFileName :: String -> String
+mkGeneratedFileName d = generatedFileDir <> "/" <> d
+
+mkAbsName, mkCncName, mkPGFName :: String -> String
+mkAbsName d = d <> ".gf"
+mkCncName d = d <> "Eng.gf"
+mkPGFName d = d <> ".pgf"
+
+createPGF :: String -> IO PGF.PGF
 createPGF nm = do
+  oldLibPath <- getEnv "GF_LIB_PATH"
+  grammarsDir <- getDataFileName "grammars"
+  let libPath = grammarsDir <> ":" <> oldLibPath
+
   withArgs
     [ "-make",
-      "--output-dir=generated",
-      "--gfo-dir=generated",
+      "--gf-lib-path=" <> libPath,
+      "--output-dir="<> generatedFileDir,
+      "--gfo-dir="<> generatedFileDir,
       "-v=0",
       mkCncName nm
     ]
     GF.main
   PGF.readPGF $ mkPGFName nm
 
-createGF' :: GrName -> [Mapping t] -> [AtomWithArity] -> IO PGF.PGF
-createGF' gname userlexicon model = do
+createGF' :: FilePath -> GrName -> [Mapping t] -> [AtomWithArity] -> IO PGF.PGF
+createGF' fname gname userlexicon model = do
   let lName = lexName gname
       tName = topName gname
       grName = pretty gname
-  parsepgf <- readPGF =<< getDataFileName "ParsePredicates.pgf"
-  let (absS, cncS) = mkLexicon parsepgf gname userlexicon model
-  writeDoc (mkAbsName lName) absS
-  writeDoc (mkCncName lName) cncS
-  writeDoc (mkAbsName tName) $ "abstract" <+> tName <+> "=" <+> grName <> "," <+> lName <+> "** {flags startcat = Statement ;}"
-  writeDoc (mkCncName tName) $ "concrete" <+> tName <> "Eng of " <> tName <+> "=" <+> grName <> "Eng," <+> lName <> "Eng ;"
-  createPGF tName
+      writeGenerated = writeDoc . mkGeneratedFileName
+  parsepgfName <- getDataFileName "grammars/ParsePredicates"
+  udenv <- UDA.getEnv parsepgfName "Eng" "Predicate"
+  (absS, cncS) <- mkLexicon fname udenv gname userlexicon model
+  createDirectoryIfMissing False generatedFileDir
+  -- Hack to make sure a modern version of RGL exists
+  dataDir <- getDataFileName "grammars"
+  copyFile (dataDir <> "/ExtendEng.gfo") (mkGeneratedFileName "ExtendEng.gfo")
+  writeGenerated (mkAbsName lName) absS
+  writeGenerated (mkCncName lName) cncS
+  writeGenerated (mkAbsName tName) $
+    "abstract" <+> pretty tName <+> "=" <+> grName <> "," <+> pretty lName <+> "** {flags startcat = Statement ;}"
+  writeGenerated (mkCncName tName) $
+    "concrete" <+> pretty tName <> "Eng of " <> pretty tName <+> "=" <+> grName <> "Eng," <+> pretty lName <> "Eng ;"
+  createPGF $ mkGeneratedFileName tName
 
 writeDoc :: FilePath -> Doc ann -> IO ()
 writeDoc nm doc = withFile nm WriteMode $ \h -> hPutDoc h doc
 
-mkLexicon :: PGF -> GrName -> [Mapping t] -> [AtomWithArity] -> (Doc (), Doc ())
-mkLexicon parsepgf gname userlex atoms = 
-  (abstractLexicon gname parsedLex guessedLex, 
-   concreteLexicon gname parsedLex guessedLex)
+mkLexicon :: FilePath -> UDA.UDEnv -> GrName -> [Mapping t] -> [AtomWithArity] -> IO (Doc (), Doc ())
+mkLexicon fname udenv gname userlex atoms = do
+  filteredLex <- do -- Workaround for now: don't ask about disambiguation if there is no user lexicon
+    case userlex of
+      [] -> pure []
+      _ -> mapM (filterPredicate udenv fname) parsedLex
+  pure
+    (abstractLexicon gname filteredLex guessedLex,
+    concreteLexicon gname filteredLex guessedLex)
   where
     bothLexica =
       [ ( parsePredFromUserLex funname ar'
@@ -80,13 +106,15 @@ mkLexicon parsepgf gname userlex atoms =
     parsePredFromUserLex funnm ar = listToMaybe [ pr
                                    | Mapping _ nm value <- userlex
                                    , nm == funnm
-                                   , let pr = parsePred parsepgf ar nm value
+                                   , let pr = parsePred udenv ar nm value
                                    , not $ null $ trees pr ] -- is empty if the funnm doesn't appear in user lex, or if there's no parse
     parsePredFromName funnm ar = listToMaybe [ pr
-                                 | let pr = parsePred parsepgf ar funnm ""
+                                 | let pr = parsePred udenv ar funnm ""
                                  , not $ null $ trees pr ]
     parsedLex = [ parsed | (Just parsed , _) <- bothLexica] -- Use the parsed predicate.
-    guessedLex = [ guess | (Nothing , guess) <- bothLexica] -- If no result for parsePred, fall back to guessed pos
+    guessedLex = case userlex of
+      [] -> map snd bothLexica
+      _ -> [ guess | (Nothing , guess) <- bothLexica] -- If no result for parsePred, fall back to guessed pos
 
 printGF' :: PGF -> Expr -> IO ()
 printGF' gr expr = do
@@ -130,7 +158,7 @@ guessPOS (AA str int) = POS str $
 
 
 concreteLexicon :: GrName -> [Predicate] -> [POS] -> Doc ()
-concreteLexicon gname userlexicon poses = let lName = lexName gname in
+concreteLexicon gname userlexicon poses = let lName = pretty $ lexName gname in
   vsep
     [ "concrete" <+> lName <> "Eng of" <+> lName <+> "=" <+> "AtomsEng ** open PredicatesEng, SyntaxEng, ParadigmsEng, AdjectiveEng, ReducedWordNetEng in {",
       "lin",
@@ -145,7 +173,7 @@ concreteLexicon gname userlexicon poses = let lName = lexName gname in
 abstractLexicon :: GrName -> [Predicate] -> [POS] -> Doc ()
 abstractLexicon gname userlexicon poses =
   vsep
-    [ "abstract" <+> lexName gname <+> "=" <+> "Atoms ** {",
+    [ "abstract" <+> pretty (lexName gname) <+> "=" <+> "Atoms ** {",
       "fun",
       indent' $ sep $ punctuate "," $ map pretty
         (map origName poses ++ map name userlexicon),

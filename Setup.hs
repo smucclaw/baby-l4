@@ -29,9 +29,9 @@ userHooks = simpleUserHooks {
         let dDir = datadir $ absoluteComponentInstallDirs pDesc lbi (localUnitId lbi) cdest
         let verbosity = fromFlag $ copyVerbosity insF
         let src = buildDir lbi </> "l4-generated" </> "ParsePredicates.pgf"
-        let dst = dDir </> "ParsePredicates.pgf"
+        let dst = dDir </> "grammars" </> "ParsePredicates.pgf"
         -- print dDir
-        createDirectoryIfMissingVerbose verbosity True dDir
+        createDirectoryIfMissingVerbose verbosity True (dDir </> "grammars")
         installOrdinaryFile verbosity src dst
         return ()
 }

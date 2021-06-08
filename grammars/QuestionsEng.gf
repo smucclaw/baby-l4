@@ -1,4 +1,5 @@
-concrete QuestionsEng of Questions = AtomsEng - [Pred, LinPred, mkPred] ** open Prelude, SyntaxEng, (S=SyntaxEng), ParadigmsEng, ExtendEng, WordNetEng in {
+concrete QuestionsEng of Questions = AtomsEng - [Pred, LinPred, mkPred] **
+open Prelude, SyntaxEng, (S=SyntaxEng), ParadigmsEng, ExtendEng, WordNetEng in {
 
   lincat
     Question = QS ;
@@ -64,6 +65,10 @@ concrete QuestionsEng of Questions = AtomsEng - [Pred, LinPred, mkPred] ** open 
 
     dummyArg : CN = mkCN (mkN "dummy") ;
 
+  param
+    Arity = Ar0 | Ar1 | Ar2 ;
+
+  oper
     -- Predicates
     LinPred' : Type = {
       s : LinAtom ;

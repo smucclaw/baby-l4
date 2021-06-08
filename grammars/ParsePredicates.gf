@@ -8,7 +8,7 @@ flags
   fun
     -- Coercions to startcat
     p0 : CN -> Predicate ; -- Owner, LegalOwner
-    mkAtom : N2 -> Predicate ; -- complete hack asdaffdasfsafa
+    mkAtom : N2 -> Predicate ; -- complete hack
     p1 : Predicate1 -> Predicate ;
     p2 : Predicate2 -> Predicate ;
     gp : GenPredicate -> Predicate ;
@@ -25,7 +25,7 @@ flags
 
     -- Map to GenPredicate
     PredSentence : NP -> VPS -> Predicate ; -- JurisdictionIsSingapore
-    PredSentence2 : NP -> VPS2 -> Predicate ; -- Rule 34 applies rcffa 
+    PredSentence2 : NP -> VPS2 -> Predicate ; -- Rule 34 applies
 
     -- Internal errormessages
     -- PartialParseAfterNTokens,
@@ -49,4 +49,8 @@ flags
     --FullPred : Predicate -> FullPredicate ;
   -- FullPred : Agreement -> Polarity -> Predicate -> Utt ;
 
+
+  -- Extensions for disambiguation questions
+  CompoundNHyphen : N -> N -> N ; -- Replace CompoundN with this to make explicit
+  CompoundAHyphen : N -> AP -> AP ; -- Replace CompoundA with this to make explicit
 }

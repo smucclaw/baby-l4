@@ -1,9 +1,9 @@
 
 concrete PredicatesEng of Predicates =
-  NounEng - [PPartNP, UseN2, RelNP, DetNP, AdvNP, PossNP, PartNP, CountNP, AdvCN, ApposCN],
---             IndefArt, MassNP], -- Want to parse NPs without article mainly as CNs if possible
-  VerbEng - [PassV2, ReflVP, ComplVV, SlashV2V, SlashVV, SlashV2VNP, UseCopula, AdvVP, AdvVPSlash, VPSlashPrep],
-  AdjectiveEng - [ReflA2, CAdvAP, UseA2, AdvAP],
+  NounEng - [PPartNP, UseN2, RelNP, DetNP, PossNP, PartNP, CountNP, ApposCN],
+--             IndefArt, MassNP], -- Want to parse NPs without article mainly as CNs if possible. TODO: filter in Haskell instead
+  VerbEng - [PassV2, ReflVP, ComplVV, SlashV2V, SlashVV, SlashV2VNP, UseCopula, AdvVPSlash, VPSlashPrep],
+  AdjectiveEng - [ReflA2, CAdvAP, UseA2],
   AdverbEng - [ComparAdvAdj,ComparAdvAdjS,AdnCAdv],
   SentenceEng - [UseCl],
   QuestionEng,
