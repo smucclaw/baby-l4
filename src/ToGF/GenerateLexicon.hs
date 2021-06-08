@@ -17,6 +17,7 @@ import Text.Printf (printf)
 import Data.List.Extra (splitOn, trim, intercalate)
 import Syntax (Mapping(..))
 import Data.Maybe (listToMaybe)
+import Data.Char (toLower)
 import Control.Applicative ((<|>))
 import Paths_baby_l4 (getDataFileName)
 import qualified UDAnnotations as UDA
@@ -106,7 +107,7 @@ mkLexicon fname udenv gname userlex atoms = do
     parsePredFromUserLex funnm ar = listToMaybe [ pr
                                    | Mapping _ nm value <- userlex
                                    , nm == funnm
-                                   , let pr = parsePred udenv ar nm value
+                                   , let pr = parsePred udenv ar (nm) value
                                    , not $ null $ trees pr ] -- is empty if the funnm doesn't appear in user lex, or if there's no parse
     parsePredFromName funnm ar = listToMaybe [ pr
                                  | let pr = parsePred udenv ar funnm ""
@@ -175,7 +176,7 @@ abstractLexicon gname userlexicon poses =
   vsep
     [ "abstract" <+> pretty (lexName gname) <+> "=" <+> "Atoms ** {",
       "fun",
-      indent' $ sep $ punctuate "," $ map pretty
+      indent' $ sep $ punctuate "," $ map (pretty . map toLower)
         (map origName poses ++ map name userlexicon),
       indent' ": Atom ;",
       "}"

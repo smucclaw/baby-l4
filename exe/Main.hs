@@ -20,6 +20,7 @@ import ToSCASP (createSCasp)
 import ToGF.FromSCasp.SCasp ( parseModel )
 import ToGF.FromSCasp.ToAnswer ( nlgModels )
 import ToGF.FromL4.ToQuestions ( createQuestions )
+import ToGF.FromL4.ToAnswers ( createAnswers )
 import ToGF.NormalizeSyntax
 import Annotation ( SRng, LocTypeAnnot (typeAnnot) )
 import Paths_baby_l4 (getDataFileName)
