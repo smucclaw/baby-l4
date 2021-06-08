@@ -58,9 +58,10 @@ handlers = mconcat
       let fileName =  J.uriToFilePath uri
       liftIO $ debugM "reactor.handle" $ "Processing HoverRequest for: " ++ show fileName
       exceptHover <- runExceptT $ lookupTokenBare' pos uri
+      errOrResponse <- handleLspErr exceptHover
       -- sendDiagnosticsOnLeft uri exceptHover
-      let mkResponseErr e = ResponseError ParseError (tshow e) Nothing
-      responder (first mkResponseErr exceptHover)
+      -- let mkResponseErr e = ResponseError ParseError (tshow e) Nothing
+      responder (fmap join errOrResponse)
   , notificationHandler J.STextDocumentDidOpen $ \msg -> do
     let doc  = msg ^. J.params . J.textDocument . J.uri
         fileName =  J.uriToFilePath doc
@@ -105,7 +106,8 @@ getVirtualOrRealFile uri = do
         liftIO $ TIO.readFile filename
 
 
-parseVirtualOrRealFile :: Uri -> ExceptT LspError (LspM Config) (Maybe (Program LocAndTp))
+-- parseVirtualOrRealFile :: Uri -> ExceptT LspError (LspM Config) (Maybe (Program LocAndTp))
+parseVirtualOrRealFile :: Uri -> ExceptT LspError (LspM Config) (Maybe (Either ResponseError (Maybe (Program LocAndTp))))
 parseVirtualOrRealFile uri = do
     contents <- getVirtualOrRealFile uri
     lift $ parseAndSendErrors uri contents
@@ -212,18 +214,29 @@ getProg uri contents = do
 --      - sends diagnostics with TypeCheckerErr / pArser Err & return Nothing
 --      - with more serious errors (like from handleUriErrs/readFileErrs), return Left <error description>
 --    - with no diagnostics, returns Nothing on the hover (add a new "NoHover" constructor to LspError).
--- handleLspErr :: Either LspError a -> LspM Config (Either ResponseError (Maybe a))
 
-parseAndSendErrors :: J.Uri -> T.Text -> LspM Config (Maybe (Program LocAndTp))
+-- sendDiagnosticsOnLeft :: NormalizedUri -> Either LspError a -> MaybeT (LspM Config) a
+
+handleLspErr :: NormalizedUri -> Either LspError a -> LspM Config (Either ResponseError (Maybe a))
+handleLspErr _ (Left (ReadFileErr _)) = pure $ Left (ResponseError InvalidRequest "readFileErr" Nothing)
+handleLspErr nuri (Left err@(TypeCheckerErr _)) = Right Nothing <$ publishError nuri err
+handleLspErr nuri (Left err@(ParserErr _)) = Right Nothing <$ publishError nuri err
+handleLspErr nuri (Right a) = Right (Just a) <$ clearError "No Error?" nuri
+
+
+
+-- parseAndSendErrors :: J.Uri -> T.Text -> LspM Config (Maybe (Program LocAndTp))
+parseAndSendErrors :: J.Uri -> T.Text -> LspM Config (Maybe (Either ResponseError (Maybe (Program LocAndTp))))
 parseAndSendErrors uri contents = runMaybeT $ do
   let loc = getProg uri contents
   let nuri = toNormalizedUri uri
   ast <- sendDiagnosticsOnLeft nuri loc
-
   preludeAst <- liftIO readPrelude -- TOOD: Handle errors
 
   let typedAstOrTypeError = checkError preludeAst ast
-  sendDiagnosticsOnLeft nuri $ mapLeft errorToErrs typedAstOrTypeError
+  -- sendDiagnosticsOnLeft nuri $ mapLeft errorToErrs typedAstOrTypeError
+  lift $ handleLspErr nuri $ mapLeft errorToErrs typedAstOrTypeError
+
 
 tshow :: Show a => a -> T.Text
 tshow = T.pack . show
