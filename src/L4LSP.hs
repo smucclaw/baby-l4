@@ -58,7 +58,7 @@ handlers = mconcat
       let fileName =  J.uriToFilePath uri
       liftIO $ debugM "reactor.handle" $ "Processing HoverRequest for: " ++ show fileName
       exceptHover <- runExceptT $ lookupTokenBare' pos uri
-      errOrResponse <- handleLspErr exceptHover
+      errOrResponse <- _ $ handleLspErr uri exceptHover
       -- sendDiagnosticsOnLeft uri exceptHover
       -- let mkResponseErr e = ResponseError ParseError (tshow e) Nothing
       responder (fmap join errOrResponse)
@@ -107,7 +107,7 @@ getVirtualOrRealFile uri = do
 
 
 -- parseVirtualOrRealFile :: Uri -> ExceptT LspError (LspM Config) (Maybe (Program LocAndTp))
-parseVirtualOrRealFile :: Uri -> ExceptT LspError (LspM Config) (Maybe (Either ResponseError (Maybe (Program LocAndTp))))
+parseVirtualOrRealFile :: Uri -> ExceptT LspError (LspM Config) (Maybe (Program LocAndTp))
 parseVirtualOrRealFile uri = do
     contents <- getVirtualOrRealFile uri
     lift $ parseAndSendErrors uri contents
@@ -217,25 +217,33 @@ getProg uri contents = do
 
 -- sendDiagnosticsOnLeft :: NormalizedUri -> Either LspError a -> MaybeT (LspM Config) a
 
-handleLspErr :: NormalizedUri -> Either LspError a -> LspM Config (Either ResponseError (Maybe a))
-handleLspErr _ (Left (ReadFileErr _)) = pure $ Left (ResponseError InvalidRequest "readFileErr" Nothing)
-handleLspErr nuri (Left err@(TypeCheckerErr _)) = Right Nothing <$ publishError nuri err
-handleLspErr nuri (Left err@(ParserErr _)) = Right Nothing <$ publishError nuri err
-handleLspErr nuri (Right a) = Right (Just a) <$ clearError "No Error?" nuri
+-- publishResponseError :: NormalizedUri -> LspError -> LspM Config ()
+publishResponseError :: NormalizedUri -> LspM Config ()
+publishResponseError = pure $ sendNotification J.SWindowShowMessage (J.ShowMessageParams J.MtError "readFileErr")
 
 
+handleLspErr :: NormalizedUri -> Either LspError a -> LspM Config (Maybe a)
+handleLspErr nuri (Left (ReadFileErr _)) = Nothing <$ publishResponseError nuri -- replace with some function that returns LspMConfig () , but publishes response error (ResponseError InvalidRequest "readFileErr" Nothing)
+handleLspErr nuri (Left err@(TypeCheckerErr _)) = Nothing <$ publishError nuri err
+handleLspErr nuri (Left err@(ParserErr _)) = Nothing <$ publishError nuri err
+handleLspErr nuri (Right a) = Just a <$ clearError "No Error?" nuri
 
 -- parseAndSendErrors :: J.Uri -> T.Text -> LspM Config (Maybe (Program LocAndTp))
-parseAndSendErrors :: J.Uri -> T.Text -> LspM Config (Maybe (Either ResponseError (Maybe (Program LocAndTp))))
+parseAndSendErrors :: J.Uri -> T.Text -> LspM Config (Maybe (Program LocAndTp))
 parseAndSendErrors uri contents = runMaybeT $ do
   let loc = getProg uri contents
   let nuri = toNormalizedUri uri
+  -- loc :: Either LspError (Program SRng)    -- readFileErr Err or ParseError Err
+  -- ast :: Program SRng
+  --ast <- handleLspErr nuri loc
   ast <- sendDiagnosticsOnLeft nuri loc
-  preludeAst <- liftIO readPrelude -- TOOD: Handle errors
 
-  let typedAstOrTypeError = checkError preludeAst ast
+  preludeAst <- liftIO readPrelude -- TODO: Handle errors
+
+  -- typedAstOrTypeError :: Either Error (Program ...)
+  let typedAstOrTypeError = checkError preludeAst ast --there could be a Nothing here
   -- sendDiagnosticsOnLeft nuri $ mapLeft errorToErrs typedAstOrTypeError
-  lift $ handleLspErr nuri $ mapLeft errorToErrs typedAstOrTypeError
+  MaybeT $ handleLspErr nuri $ mapLeft errorToErrs typedAstOrTypeError
 
 
 tshow :: Show a => a -> T.Text
