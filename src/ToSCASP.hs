@@ -152,8 +152,8 @@ instance Show t => SCasp (Expr (Tp t)) where
           _ -> [exp]
   showSingle x = case normalizeAndExpr x of
     ValE _ v -> showSingle v
-    FunApp1 f x xTp -> mkAtom f <> parens (mkVar (x, xTp))
-    FunApp2 f x xTp y yTp -> mkAtom f <> encloseSep lparen rparen comma (mkVar <$> [(x, xTp), (y, yTp)])
+    FunApp1 f x xTp -> mkAtom f <> parens (mkVar ((nameOfQVarName .nameOfVar) x, xTp))
+    FunApp2 f x xTp y yTp -> mkAtom f <> encloseSep lparen rparen comma (mkVar <$> [((nameOfQVarName .nameOfVar) x, xTp), ((nameOfQVarName .nameOfVar) y, yTp)])
     ListE _ _ es -> commaList $ map showSingle es
     QuantifE _ _ _ _ es -> showSingle es
     BinOpE _ _ e1 e2 -> showSingle e1 <+> showSingle e2
@@ -178,28 +178,37 @@ instance SCasp UnaOp where
   showSingle (UArith u) = mempty
   showSingle (UBool UBnot) = pretty "not"
 
-instance Arg (Var, Tp t) where
+instance Arg (Var t, Tp t) where
   mkAtom (var, tp) = mkAtom tp <> pretty "_" <> mkAtom var
   mkVar (var@(GlobalVar _), tp) = mkVar var
   mkVar (var, tp) = mkVar tp <> mkVar var
 
 instance Arg (VarName, Tp t) where
+  mkAtom (var, tp) = mkAtom tp <> pretty "_" <> mkAtom (QVarName () var)
+  mkVar (var, tp) = mkVar tp <> mkVar (QVarName () var)
+
+instance Arg (QVarName t, Tp t) where
   mkAtom (var, tp) = mkAtom tp <> pretty "_" <> mkAtom var
   mkVar (var, tp) = mkVar tp <> mkVar var
 
 instance Arg VarName where
+  mkAtom varname = mkAtom (LocalVar (QVarName () varname) 0)
+  mkVar varname = mkVar (LocalVar (QVarName () varname) 0)
+
+instance Arg (QVarName t) where
   mkAtom varname = mkAtom (LocalVar varname 0)
   mkVar varname = mkVar (LocalVar varname 0)
 
-instance Arg Var where
+
+instance Arg (Var t) where
   mkAtom var = pretty $ toLower f : irst
     where
-      f : irst = nameOfVar var
+      f : irst = nameOfQVarName (nameOfVar var)
   mkVar var@(GlobalVar _) = mkAtom var -- to handle decl Rock : Sign, should become sign(rock)
   mkVar var =
     pretty $ toUpper f : irst
     where
-      f : irst = nameOfVar var
+      f : irst = nameOfQVarName (nameOfVar var)
 
 instance Arg (Tp t) where
   mkAtom tp = case tp of

@@ -103,6 +103,9 @@ data Tp t
 instance HasLoc t => HasLoc (Tp t) where
   getLoc e = getLoc (annotOfTp e)
 
+instance HasDefault (Tp t) where
+  defaultVal = OkT
+
 booleanT :: Tp ()
 booleanT = ClassT () (ClsNm "Boolean")
 integerT :: Tp ()
@@ -216,13 +219,13 @@ trueV = ValE booleanT (BoolV True)
 falseV :: Expr (Tp ())
 falseV = ValE booleanT (BoolV False)
 
-data Var
+data Var t
       -- global variable only known by its name
-    = GlobalVar { nameOfVar :: VarName }
+    = GlobalVar { nameOfVar :: QVarName t }
     -- local variable known by its provisional name and deBruijn index.
-    | LocalVar { nameOfVar :: VarName
+    | LocalVar { nameOfVar :: QVarName t
                , indexOfVar :: Int }
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 -- unary arithmetic operators
 data UArithOp = UAminus
@@ -276,7 +279,7 @@ data Quantif = All | Ex
 -- Expr t is an expression of type t (to be determined during type checking / inference)
 data Expr t
     = ValE        {annotOfExpr :: t, valOfExprValE :: Val}                       -- value
-    | VarE        {annotOfExpr :: t, varOfExprVarE :: Var}                       -- variable
+    | VarE        {annotOfExpr :: t, varOfExprVarE :: Var t}                       -- variable
     | UnaOpE      {annotOfExpr :: t, unaOpOfExprUnaOpE :: UnaOp, subEOfExprUnaOpE :: Expr t} -- unary operator
     | BinOpE      {annotOfExpr :: t, binOpOfExprBinOpE :: BinOp, subE1OfExprBinOpE :: Expr t, subE2OfExprBinOpE :: Expr t}      -- binary operator
     | IfThenElseE {annotOfExpr :: t, condOfExprIf :: Expr t, thenofExprIf :: Expr t, elseOfExprIf :: Expr t}   -- conditional
@@ -328,7 +331,7 @@ instance HasAnnot Expr where
 -- Cmd t is a command of type t
 data Cmd t
     = Skip t                                      -- Do nothing
-    | VAssign t Var (Expr t)                   -- Assignment to variable
+    | VAssign t (Var  t) (Expr t)                   -- Assignment to variable
     | FAssign t (Expr t) FieldName (Expr t)         -- Assignment to field
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 

@@ -178,10 +178,10 @@ Expr : '\\' Pattern ':' ATp '->' Expr  { FunE (tokenRange $1 $6) $2 $4 $6 }
      | Expr '&&' Expr              { BinOpE (tokenRange $1 $3) (BBool BBand) $1 $3 }
      | if Expr then Expr else Expr { IfThenElseE (tokenRange $1 $6) $2 $4 $6 }
      | not Expr                    { UnaOpE (tokenRange $1 $2) (UBool UBnot) $2 }
-     | not derivable VAR           { NotDeriv (tokenRange $1 $3) True (VarE (tokenPos $3) (GlobalVar $ tokenSym $3)) }
-     | not derivable not VAR       { NotDeriv (tokenRange $1 $4) False (VarE (tokenPos $4) (GlobalVar $ tokenSym $4)) }
-     | not derivable VAR Atom      { NotDeriv (tokenRange $1 $4) True (AppE (tokenRange $3 $4)  (VarE (tokenPos $3) (GlobalVar $ tokenSym $3)) $4) }
-     | not derivable not VAR Atom  { NotDeriv (tokenRange $1 $5) False (AppE (tokenRange $4 $5) (VarE (tokenPos $4) (GlobalVar $ tokenSym $4)) $5) }
+     | not derivable QualifVar           { NotDeriv (tokenRange $1 $3) True (VarE (getLoc $3) (GlobalVar $3)) }
+     | not derivable not QualifVar       { NotDeriv (tokenRange $1 $4) False (VarE (getLoc $4) (GlobalVar $4)) }
+     | not derivable QualifVar Atom      { NotDeriv (tokenRange $1 $4) True (AppE (tokenRange $3 $4)  (VarE (getLoc $3) (GlobalVar $3)) $4) }
+     | not derivable not QualifVar Atom  { NotDeriv (tokenRange $1 $5) False (AppE (tokenRange $4 $5) (VarE (getLoc $4) (GlobalVar $4)) $5) }
      | Expr '<' Expr               { BinOpE (tokenRange $1 $3) (BCompar BClt) $1 $3 }
      | Expr '<=' Expr              { BinOpE (tokenRange $1 $3) (BCompar BClte) $1 $3 }
      | Expr '>' Expr               { BinOpE (tokenRange $1 $3) (BCompar BCgt) $1 $3 }
@@ -209,7 +209,7 @@ Atom : '(' ExprsCommaSep ')'       { let ecs = $2
                                         else TupleE (tokenRange $1 $3) (reverse ecs) }
      | NUM                         { ValE (pos) (IntV $1) }
      | STR                         { ValE (tokenPos $1) (StringV (tokenString $1)) }
-     | VAR                         { VarE (tokenPos $1) (GlobalVar $ tokenSym $1) }
+     | QualifVar                   { VarE (getLoc $1) (GlobalVar $1) }
      | true                        { ValE (tokenPos $1) (BoolV True) }
      | false                       { ValE (tokenPos $1) (BoolV False) }
 

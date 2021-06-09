@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase #-}
 module RuleTransfo where
 
+import Annotation ( HasDefault(defaultVal) )
 import Syntax
 import Typing (appToFunArgs, funArgsToApp, distinct, eraseAnn)
 import Data.Maybe (fromMaybe)
@@ -42,16 +43,16 @@ eq = BinOpE booleanT (BCompar BCeq)
 -- Logical infrastructure: computing normal forms
 ----------------------------------------------------------------------
 
-dropVarBy :: Int -> Var -> Var
+dropVarBy :: Int -> Var t -> Var t
 dropVarBy n (LocalVar vn i) = LocalVar vn (i - n)
 dropVarBy n v = v
 
-localVarLowerThan :: Int -> Var -> Bool
+localVarLowerThan :: Int -> Var t -> Bool
 localVarLowerThan n (LocalVar vn i) = i <= n
 localVarLowerThan n _ = True
 
 -- Free variables of an expression. Also LocalVar count as free variables.
-fv :: Expr t -> Set.Set Var
+fv :: Ord t => Expr t -> Set.Set (Var t)
 fv ValE {} = Set.empty
 fv (VarE _ v) = Set.singleton v
 fv (UnaOpE _  _ e) = fv e
@@ -70,7 +71,7 @@ fv (NotDeriv _ _ e) = fv e
 -- Increase by one all indices of bound variables with index number >= n
 -- Used for pushing an expression below a quantifier
 
-liftVar :: Int -> Var -> Var
+liftVar :: Int -> Var t -> Var t
 liftVar n (LocalVar vn i) = if n <= i then LocalVar vn (i + 1) else LocalVar vn i
 liftVar n v = v
 
@@ -92,7 +93,7 @@ liftExpr n (NotDeriv t b et) = NotDeriv t b (liftExpr n et)
 -- Remap variables and expressions: 
 -- Exchange indices of bound variables as indicated in the map
 -- Used for permuting quantifiers
-remapVar :: [(Int, Int)] -> Var -> Var
+remapVar :: [(Int, Int)] -> Var t -> Var t
 remapVar m (LocalVar vn i) = LocalVar vn (fromMaybe i (lookup i m))
 remapVar _ v = v
 
@@ -194,7 +195,7 @@ constrNewArgs n (e:es) =
   if newArgCondition e es
   then
     let vn = varNameSuggestion (annotOfExpr e) n
-        newvar = LocalVar vn n
+        newvar = LocalVar (QVarName defaultVal vn) n
         tp = annotOfExpr e
         ve = VarE tp newvar
         (rargs, reqs, rds) = constrNewArgs (n+1) es
@@ -233,7 +234,7 @@ splitDecls fvs (lowers,this,u:us) =
   else (lowers,[u],us)
 
 -- TODO: move elsewhere
-isLocalVar :: Var -> Bool
+isLocalVar :: Var t -> Bool
 isLocalVar (LocalVar _ _) = True
 isLocalVar _ = False
 
@@ -319,7 +320,7 @@ rulesInversion :: [Rule (Tp())] -> Rule (Tp ())
 rulesInversion rls =
   let r1 = head rls
       (VarE _ f, args) = appToFunArgs [] (postcondOfRule r1)
-      rn = nameOfVar f ++ "Inversion"
+      rn = (nameOfQVarName . nameOfVar) f ++ "Inversion"
   in Rule booleanT rn (varDeclsOfRule r1) (postcondOfRule r1) (disjs (map precondOfRule rls))
 
 

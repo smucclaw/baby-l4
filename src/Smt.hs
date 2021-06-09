@@ -109,12 +109,13 @@ valToSExpr (IntV i) = int i
 valToSExpr _ = error "valToSExpr: not implemented"
 
 -- TODO: For this to work, names (also of bound variables) have to be unique
-varToSExpr :: SMTFunEnv -> Var -> SExpr
-varToSExpr env (GlobalVar vn) =
-    Data.Maybe.fromMaybe
+varToSExpr :: SMTFunEnv -> Var t -> SExpr
+varToSExpr env (GlobalVar qvn) =
+  let vn = nameOfQVarName qvn
+  in Data.Maybe.fromMaybe
         (error $ "internal error in varToSExpr: Var not found: " ++ show vn)
         (lookup vn env)
-varToSExpr env (LocalVar vn i) = localVarRef vn
+varToSExpr env (LocalVar qvn i) = let vn = nameOfQVarName qvn in localVarRef vn
 
 transUArithOp :: UArithOp ->  SExpr -> SExpr
 transUArithOp UAminus = SMT.neg

@@ -10,6 +10,7 @@ import Control.Monad.Reader (MonadReader (local), Reader, asks, runReader)
 import qualified GF
 import PGF
 import Prop
+import Annotation ( HasDefault(defaultVal) )
 import Syntax
 import System.Environment (withArgs)
 import System.IO (stderr, hPutStrLn)
@@ -83,23 +84,23 @@ program2prop e = case e of
           (mapM rule2prop rules)
           env0
 
-vardecl2prop :: Show t => VarDecl t -> CuteCats t GProp
+vardecl2prop :: (HasDefault t, Show t) => VarDecl t -> CuteCats t GProp
 vardecl2prop (VarDecl _ vname vtyp) = do
-  typ <- tp2kind (GlobalVar vname) vtyp
-  name <- var2ind (GlobalVar vname)
+  typ <- tp2kind (GlobalVar (QVarName defaultVal vname)) vtyp
+  name <- var2ind (GlobalVar (QVarName defaultVal vname))
   pure $ GPAtom (GAKind typ name)
 
-var2ind :: Var -> CuteCats t GInd
+var2ind :: Var t -> CuteCats t GInd
 var2ind var = do
-  let name = nameOfVar var
+  let name =  nameOfQVarName (nameOfVar var)
   lex <- asks lexicon
   return $ case findMapping lex name of
     val : _ | gfType val == "Noun" -> GIVarN (LexNoun name)
     _ -> GIVar (GVString (GString name)) -- Fall back to string literal
 
-var2pred :: Var -> CuteCats t GPred1
+var2pred :: Var t -> CuteCats t GPred1
 var2pred var = do
-  let name = nameOfVar var
+  let name = nameOfQVarName (nameOfVar var)
   lex <- asks lexicon
   return $ case findMapping lex name of
     val : _
@@ -108,9 +109,9 @@ var2pred var = do
       | gfType val == "Noun" -> GPNoun1 (LexNoun name)
     _ -> GPVar1 (GVString (GString name))
 
-var2pred2 :: Var -> CuteCats t GPred2
+var2pred2 :: Var t -> CuteCats t GPred2
 var2pred2 var = do
-  let name = nameOfVar var
+  let name = nameOfQVarName (nameOfVar var)
   lex <- asks lexicon
   return $ case findMapping lex name of
     val : _ | gfType val == "Adj2" -> GPAdj2 (LexAdj2 name)
@@ -118,7 +119,7 @@ var2pred2 var = do
     val : _ | gfType val == "Noun2" -> GPNoun2 (LexNoun2 name)
     _ -> GPVar2 (GVString (GString name))
 
-tp2kind :: Show t => Var -> Tp t -> CuteCats te GKind
+tp2kind :: Show t => Var t -> Tp t -> CuteCats te GKind
 tp2kind v e = case e of
   (ClassT _ (ClsNm "Integer")) -> pure GNat
   (ClassT _ (ClsNm "Boolean")) -> pure GBoolean
@@ -128,7 +129,7 @@ tp2kind v e = case e of
   -- ErrT
   _ -> error $ "tp2kind: not yet supported: " ++ show e
 
-tp2ind :: Var -> Tp t -> CuteCats te GInd
+tp2ind :: Var t -> Tp t -> CuteCats te GInd
 tp2ind v e = case e of
   --BoolT -> pure GBoolean
   --IntT -> pure GNat
@@ -139,8 +140,8 @@ tp2ind v e = case e of
   _ -> pure $ GIVar (GVString (GString "<unsupported>"))
   -- _ -> error $ "tp2kind: not yet supported: " ++ show e
 
-var2quant :: Var -> GQuantifier
-var2quant = GQString . GString . nameOfVar
+var2quant :: Var t -> GQuantifier
+var2quant = GQString . GString . nameOfQVarName . nameOfVar
 
 rule2prop :: Show t => Rule t -> CuteCats t GProp
 rule2prop r =
@@ -167,11 +168,11 @@ expr2prop e = case e of
     pure $ GPAtom (GAPred2 f' x' y')
   Exist x cl exp -> do
     prop <- expr2prop exp
-    typ <- tp2kind (LocalVar (nameOfQVarName x) 0) cl
+    typ <- tp2kind (LocalVar x 0) cl
     pure $ GPExists (GListVar [GVString (GString (nameOfQVarName x))]) typ prop
   Forall x cl exp -> do
     prop <- expr2prop exp
-    typ <- tp2kind (LocalVar (nameOfQVarName x) 0) cl
+    typ <- tp2kind (LocalVar x 0) cl
     pure $ GPUnivs (GListVar [GVString (GString (nameOfQVarName x))]) typ prop
   And e1 e2 -> do
     exp1 <- expr2prop e1
@@ -210,15 +211,15 @@ val2atom e = case e of
 pattern AppU :: Syntax.Expr t -> Syntax.Expr t -> Syntax.Expr t
 pattern AppU x y <- AppE _ x y
 
-pattern VarU :: Var -> t -> Syntax.Expr t
+pattern VarU :: Var t -> t -> Syntax.Expr t
 pattern VarU var tp <- VarE tp var
 
-pattern FunApp1 :: Var -> Var -> t -> Syntax.Expr t
+pattern FunApp1 :: Var t -> Var t -> t -> Syntax.Expr t
 pattern FunApp1 f x xTp <- AppU (VarU f _) (VarU x xTp)
 
 -- AppU (VarU (GlobalVar f)) (VarU (LocalVar x int))
 
-pattern FunApp2 :: Var -> Var ->  t -> Var ->  t -> Syntax.Expr t
+pattern FunApp2 :: Var t -> Var t ->  t -> Var t ->  t -> Syntax.Expr t
 pattern FunApp2 f x xTp y yTp <- AppU (FunApp1 f x xTp) (VarU y yTp)
 
 -- Quantification

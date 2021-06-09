@@ -1,14 +1,14 @@
 {-# LANGUAGE TypeApplications #-}
 module ToGF.NormalizeSyntax where
 
-import Annotation (TypeAnnot (updType))
+import Annotation (TypeAnnot (updType), HasDefault (defaultVal))
 import Data.Char (toLower)
 import Data.List (intercalate)
 import Data.Maybe (fromMaybe)
 import Syntax
 
 -- This is for ToSCASP, where we want to put existential quantification into VarDecls.
-normalizeQuantif :: Rule t -> [Rule t]
+normalizeQuantif :: HasDefault t => Rule t -> [Rule t]
 normalizeQuantif (Rule ann nm decls ifE thenE) =
   Rule ann nm (decls ++ newDecls) actuallyNewIfE thenE : faRules
   where
@@ -24,13 +24,13 @@ normalizeQuantif (Rule ann nm decls ifE thenE) =
     -- If it was universally quantified, we made a new predicate and now we negate it
     actuallyNewIfE = fromMaybe newIfE negApp
 
-    forallRule :: Expr t -> ([Rule t], Maybe (Expr t))
+    forallRule :: HasDefault t => Expr t -> ([Rule t], Maybe (Expr t))
     forallRule (QuantifE ann All name tp ifExp) = ([Rule ann "foo" vardecls ifExp thenExp], Just negThenExp)
       where
         vardecls = [VarDecl (annotOfQVarName name) (nameOfQVarName name) tp]
         predName = extractName ifExp
-        newPred = VarE ann (LocalVar predName 1) -- TODO: make it actually unique
-        newArg = VarE ann (LocalVar (nameOfQVarName name) 0)  -- TODO (MS): was VarE tp ... but this lead to typing conflicts
+        newPred = VarE ann (LocalVar (QVarName defaultVal predName) 1) -- TODO: make it actually unique
+        newArg = VarE ann (LocalVar name 0) 
         thenExp = AppE ann newPred newArg
         negThenExp = negateExpr thenExp
     forallRule _ = ([], Nothing)
@@ -50,7 +50,7 @@ negateExpr e = UnaOpE (annotOfExpr e) (UBool UBnot) e
 
 extractName :: Expr t -> String
 extractName (ValE t v) = "someVal"
-extractName (VarE t v) = map toLower $ nameOfVar v
+extractName (VarE t v) = map toLower $ (nameOfQVarName . nameOfVar) v
 extractName (UnaOpE t u et) = show u ++ extractName et
 extractName (BinOpE t b et et4) = extractName et ++ "_" ++ extractName et4
 extractName (IfThenElseE t et et3 et4) = extractName et ++ "_" ++ extractName et3 ++ "_" ++ extractName et4

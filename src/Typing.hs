@@ -396,29 +396,18 @@ castCompatible te ctp = True
 
 
 -- typing of a variable that is initially (after parsing) only known by its name
-tpVar :: Environment te -> SRng -> Var -> Tp ()
-tpVar env loc (GlobalVar vn) =
-  case lookup vn (globalsOfEnv env) of
-    Nothing ->
-      Data.Maybe.fromMaybe (ErrT (UndeclaredVariable loc vn)) (lookup vn (localsOfEnv env))
-    Just t -> t
+tpVar :: Environment te -> SRng -> Var t -> Tp ()
+tpVar env loc (GlobalVar qvn) =
+  let vn = nameOfQVarName qvn
+  in case lookup vn (globalsOfEnv env) of
+      Nothing ->Data.Maybe.fromMaybe (ErrT (UndeclaredVariable loc vn)) (lookup vn (localsOfEnv env))
+      Just t -> t
 tpVar env _ (LocalVar _ _) = error "internal error: for type checking, variable should be GlobalVar"
 
--- alternataive version returning an Either type. 
--- TODO: reconsider later when rewriting tpExpr with an Either result type.
-tpVarNew :: Environment () -> SRng -> Var -> Either ErrorCause (Tp ())
-tpVarNew env loc (GlobalVar vn) =
-  case lookup vn (globalsOfEnv env) of
-    Nothing ->
-      case lookup vn (localsOfEnv env) of
-        Nothing -> Left (UndeclaredVariable loc vn)
-        Just t -> Right t
-    Just t -> Right t
-tpVarNew env loc (LocalVar vn i) = Left (UndeclaredVariable loc vn)
-
-varIdentityInEnv :: Environment t -> Var -> Var
-varIdentityInEnv (Env _ _ vds) (GlobalVar vn) =
-  maybe (GlobalVar vn) (LocalVar vn) (elemIndex vn (map fst vds))
+varIdentityInEnv :: Environment te -> Var t -> Var t
+varIdentityInEnv (Env _ _ vds) (GlobalVar qvn) =
+  let vn = nameOfQVarName qvn
+  in maybe (GlobalVar qvn) (LocalVar qvn) (elemIndex vn (map fst vds))
 varIdentityInEnv env (LocalVar _ _) = error "internal error: for type checking, variable should be GlobalVar"
 
 pushLocalVarEnv :: VarEnvironment -> Environment t -> Environment t
@@ -427,9 +416,9 @@ pushLocalVarEnv nvds (Env cls gv vds) = Env cls gv (reverse nvds ++ vds)
 -- the function returns the environment unchanged if a pattern and its type
 -- are not compatible in the sense of the following function
 pushPatternEnv :: Pattern t -> Tp t -> Environment te -> Environment te
-pushPatternEnv (VarP vn) t (Env cls gv vds) = 
+pushPatternEnv (VarP vn) t (Env cls gv vds) =
   Env cls gv  ((nameOfQVarName vn, eraseAnn t):vds)
-pushPatternEnv (VarListP vns) (TupleT _ ts) (Env cls gv vds) = 
+pushPatternEnv (VarListP vns) (TupleT _ ts) (Env cls gv vds) =
   Env cls gv (reverse (zip (map nameOfQVarName vns) (map eraseAnn ts)) ++ vds)
 pushPatternEnv _ _ env = env
 

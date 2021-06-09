@@ -21,8 +21,8 @@ printVal (IntV i) = show i
 printVal (StringV s) = show s
 printVal v = show v    -- TODO - rest still to be done
 
-printVar :: Var -> String
-printVar = nameOfVar
+printVar :: Var t -> String
+printVar = nameOfQVarName . nameOfVar
 
 printUnaOpE :: UnaOp -> String
 printUnaOpE (UArith UAminus) = "-"

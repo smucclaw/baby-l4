@@ -18,7 +18,7 @@ data Located a = L
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 instance Applicative Located where
-  pure = L $ DummySRng "Unknown position"
+  pure = L $ defaultSRng
   L lf f <*> L lx x = L (coordFromTo lf lx) $ f x
 
 instance HasLoc (Located a) where
@@ -56,6 +56,9 @@ data RealSRng = SRng
 nullSRng :: SRng
 nullSRng = DummySRng "Empty list"
 
+defaultSRng :: SRng
+defaultSRng = DummySRng "Unknown position"
+
 instance Semigroup RealSRng where
   SRng f1 t1 <> SRng f2 t2 = SRng (min f1 f2) (max t2 t2)
 
@@ -84,6 +87,12 @@ instance HasLoc SRng where
 
 instance HasLoc a => HasLoc [a] where
   getLoc = tokenRangeList . map getLoc
+
+class HasDefault a where
+  defaultVal :: a
+
+instance HasDefault SRng where
+  defaultVal = defaultSRng
 
 data LocTypeAnnot a = LocTypeAnnot { locAnnot :: SRng
                                    , typeAnnot :: a
