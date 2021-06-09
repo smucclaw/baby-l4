@@ -42,7 +42,7 @@ data QVarName t = QVarName {annotOfQVarName :: t, nameOfQVarName :: VarName}
 
 instance HasLoc t => HasLoc (QVarName t) where
   getLoc v = getLoc (annotOfQVarName v)
-  
+
 ----- Program
 
 data Program t = Program{ annotOfProgram :: t
@@ -261,12 +261,12 @@ data BinOp
 data ListOp = AndList | OrList | XorList | CommaList
     deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-data Pattern
-    = VarP String
-    | VarListP [String]
-    deriving (Eq, Ord, Show, Read, Data, Typeable)
+data Pattern t
+    = VarP (QVarName t)
+    | VarListP [QVarName t]
+    deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
-patternLength :: Pattern -> Int
+patternLength :: Pattern t -> Int
 patternLength (VarP _) = 1
 patternLength (VarListP vs) = length vs
 
@@ -281,7 +281,7 @@ data Expr t
     | BinOpE      {annotOfExpr :: t, binOpOfExprBinOpE :: BinOp, subE1OfExprBinOpE :: Expr t, subE2OfExprBinOpE :: Expr t}      -- binary operator
     | IfThenElseE {annotOfExpr :: t, condOfExprIf :: Expr t, thenofExprIf :: Expr t, elseOfExprIf :: Expr t}   -- conditional
     | AppE        {annotOfExpr :: t, funOfExprAppE :: Expr t, argOfExprAppE :: Expr t}           -- function application
-    | FunE        {annotOfExpr :: t, patternOfExprFunE :: Pattern, tpOfExprFunE :: Tp t, bodyOfExprFunE :: Expr t}          -- function abstraction
+    | FunE        {annotOfExpr :: t, patternOfExprFunE :: Pattern t, tpOfExprFunE :: Tp t, bodyOfExprFunE :: Expr t}          -- function abstraction
     | QuantifE    {annotOfExpr :: t, quantifOfExprQ :: Quantif, varNameOfExprQ :: QVarName t, tpOfExprQ :: Tp t, bodyOfExprQ :: Expr t}  -- quantifier
     | FldAccE     {annotOfExpr :: t, subEOfExprFldAccE :: Expr t, fieldNameOfExprFldAccE :: FieldName}           -- field access
     | TupleE      {annotOfExpr :: t, componentsOfExprTupleE :: [Expr t]}                     -- tuples

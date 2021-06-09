@@ -426,13 +426,15 @@ pushLocalVarEnv nvds (Env cls gv vds) = Env cls gv (reverse nvds ++ vds)
 
 -- the function returns the environment unchanged if a pattern and its type
 -- are not compatible in the sense of the following function
-pushPatternEnv :: Pattern -> Tp t -> Environment te -> Environment te
-pushPatternEnv (VarP vn) t (Env cls gv vds) = Env cls gv  ((vn, eraseAnn t):vds)
-pushPatternEnv (VarListP vns) (TupleT _ ts) (Env cls gv vds) = Env cls gv (reverse (zip vns (map eraseAnn ts)) ++ vds)
+pushPatternEnv :: Pattern t -> Tp t -> Environment te -> Environment te
+pushPatternEnv (VarP vn) t (Env cls gv vds) = 
+  Env cls gv  ((nameOfQVarName vn, eraseAnn t):vds)
+pushPatternEnv (VarListP vns) (TupleT _ ts) (Env cls gv vds) = 
+  Env cls gv (reverse (zip (map nameOfQVarName vns) (map eraseAnn ts)) ++ vds)
 pushPatternEnv _ _ env = env
 
 -- a pattern and its type are compatible
-compatiblePatternType :: Pattern -> Tp t -> Bool
+compatiblePatternType :: Pattern t -> Tp t -> Bool
 compatiblePatternType (VarP vn) t = True
 compatiblePatternType (VarListP vns) (TupleT _ ts) = length vns == length ts
 compatiblePatternType _ _ = False

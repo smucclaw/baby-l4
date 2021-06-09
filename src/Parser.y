@@ -163,12 +163,12 @@ Tp   : ATp                        { $1 }
      | Tp '->' Tp                 { FunT (tokenRange $1 $3) $1 $3 }
 
 
-Pattern : VAR                      { VarP $ tokenSym $1 }
-    | '(' VarsCommaSep ')'         { let vcs = $2 in if length vcs == 1 then VarP (head vcs) else VarListP (reverse vcs) }
+Pattern : QualifVar                { VarP $1 }
+    | '(' QVarsCommaSep ')'        { let vcs = $2 in if length vcs == 1 then VarP (head vcs) else VarListP (reverse vcs) }
 
-VarsCommaSep :                      { [] }
-            | VAR                   { [tokenSym $1] }
-            | VarsCommaSep ',' VAR  { tokenSym $3 : $1 }
+QVarsCommaSep :                            { [] }
+            | QualifVar                    { [$1] }
+            | QVarsCommaSep ',' QualifVar  { $3 : $1 }
 
 Expr : '\\' Pattern ':' ATp '->' Expr  { FunE (tokenRange $1 $6) $2 $4 $6 }
      | forall QualifVar ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) All $2 $4 $6 }

@@ -22,7 +22,7 @@ printVal (StringV s) = show s
 printVal v = show v    -- TODO - rest still to be done
 
 printVar :: Var -> String
-printVar = nameOfVar 
+printVar = nameOfVar
 
 printUnaOpE :: UnaOp -> String
 printUnaOpE (UArith UAminus) = "-"
@@ -50,9 +50,9 @@ printBinOpE (BBool b1) =
         BBor -> "||"
         BBand -> "&&"
 
-printPattern :: Pattern -> String
-printPattern (VarP s) = s
-printPattern (VarListP ss) = "(" ++ foldr1 (\w s -> w ++ ", "++s) ss ++ ")"
+printPattern :: Pattern t -> String
+printPattern (VarP s) = printQVarName s
+printPattern (VarListP ss) = "(" ++ foldr1 (\w s -> w ++ ", "++ s ) (map printQVarName ss) ++ ")"
 
 printQuantif :: Quantif -> String
 printQuantif All = " all "
