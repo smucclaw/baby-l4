@@ -77,7 +77,7 @@ unitTests :: TestTree
 unitTests = testGroup "Unit tests"
   [
     testCase "handleUriErrs returns ReadFileErr with non-existent file" $ do
-      handleUriErrs (Uri "doesNotExist.l4") @?= Left (ReadFileErr $ Err (DummySRng "No valid range") "File not found")
+      handleUriErrs (Uri "doesNotExist.l4") @?= Left (ReadFileErr $ "Unable to parse uri: \"doesNotExist.l4\"")
   ]
 
 
@@ -121,8 +121,6 @@ testTypeErrs testName fileName expectedRange numDiags containedText =
     testCase testName $ do
     runSession "lsp-server-bl4" fullCaps "lsp-tests/examples" $ do
         doc <- openDoc fileName "l4"
-        diags <- waitForDiagnostics
-        liftIO $ diags @?= []
         diags <- waitForDiagnostics
         liftIO $ length diags @?= numDiags
         let J.Diagnostic
