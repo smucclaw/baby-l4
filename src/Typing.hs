@@ -698,15 +698,16 @@ extractErrorCause :: Tp t -> ErrorCause
 extractErrorCause (ErrT c) = c
 extractErrorCause _ = Unspecified
 
-displayableErrors :: (TypeAnnot f, HasLoc (f (Tp()))) => f (Tp()) -> [(SRng, ErrorCause)]
-displayableErrors annot = [(getLoc annot, extractErrorCause (getType annot)) | isSpecificError (getType annot)]
+displayableErrors :: (TypeAnnot f, HasLoc (f (Tp()))) => SRng -> f (Tp()) -> [(SRng, ErrorCause)]
+displayableErrors rng annot = [(rng, extractErrorCause (getType annot)) | isSpecificError (getType annot)]
 
 extractRuleErrors::  (TypeAnnot f, HasLoc (f (Tp()))) => Rule (f (Tp())) -> [(SRng, ErrorCause)]
 extractRuleErrors rl =
-  concatMap (displayableErrors . annotOfVarDecl) (varDeclsOfRule rl) ++
-  concatMap (displayableErrors . annotOfExpr) (allSubExprs (precondOfRule rl)) ++
-  concatMap (displayableErrors . annotOfExpr) (allSubExprs (postcondOfRule rl)) ++
-  displayableErrors (annotOfRule rl)
+  let rng = getLoc (annotOfRule rl) 
+  in concatMap (displayableErrors rng . annotOfVarDecl) (varDeclsOfRule rl) ++
+     concatMap (displayableErrors rng . annotOfExpr) (allSubExprs (precondOfRule rl)) ++
+     concatMap (displayableErrors rng . annotOfExpr) (allSubExprs (postcondOfRule rl)) ++
+     displayableErrors rng (annotOfRule rl)
 
 checkRuleError :: Program (LocTypeAnnot (Tp ())) -> Either RuleError (Program (LocTypeAnnot (Tp ())))
 checkRuleError prg =
@@ -721,8 +722,9 @@ checkRuleError prg =
 
 extractAssertionErrors :: (TypeAnnot f, HasLoc (f (Tp()))) => Assertion (f (Tp())) -> [(SRng, ErrorCause)]
 extractAssertionErrors ass =
-  concatMap (displayableErrors . annotOfExpr) (allSubExprs (exprOfAssertion ass)) ++
-  displayableErrors (annotOfAssertion ass)
+  let rng = getLoc (annotOfAssertion ass) 
+  in concatMap (displayableErrors rng . annotOfExpr) (allSubExprs (exprOfAssertion ass)) ++
+     displayableErrors rng (annotOfAssertion ass)
 
 --checkAssertionError :: (TypeAnnot f, HasLoc (f (Tp()))) => Program (f (Tp())) -> Either AssertionError (Program (f (Tp())))
 checkAssertionError :: Program (LocTypeAnnot (Tp ())) -> Either AssertionError (Program (LocTypeAnnot (Tp ())))
