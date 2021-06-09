@@ -42,7 +42,7 @@ import Control.Monad.Trans.Maybe (MaybeT(..))
 
 -- proposed change related to #67
 -- change ReadFileErr Err to ReadFileErr Text, since ReadFileErr doesn't have location information
-data LspError = ReadFileErr Err | TypeCheckerErr [Err] | ParserErr Err deriving (Eq, Show)
+data LspError = ReadFileErr T.Text | TypeCheckerErr [Err] | ParserErr Err deriving (Eq, Show)
 
 type Config = ()
 
@@ -57,17 +57,17 @@ handlers = mconcat
       let (TextDocumentIdentifier uri) = doc
       let fileName =  J.uriToFilePath uri
       liftIO $ debugM "reactor.handle" $ "Processing HoverRequest for: " ++ show fileName
-      exceptHover <- runExceptT $ lookupTokenBare' pos uri
-      errOrResponse <- _ $ handleLspErr uri exceptHover
-      -- sendDiagnosticsOnLeft uri exceptHover
-      -- let mkResponseErr e = ResponseError ParseError (tshow e) Nothing
-      responder (fmap join errOrResponse)
+      exceptHover <- lookupTokenBare' pos uri
+      let nuri = toNormalizedUri uri
+      errOrResponse <- handleLspErr nuri exceptHover
+      responder errOrResponse
   , notificationHandler J.STextDocumentDidOpen $ \msg -> do
     let doc  = msg ^. J.params . J.textDocument . J.uri
         fileName =  J.uriToFilePath doc
     liftIO $ debugM "reactor.handle" $ "Processing DidOpenTextDocument for: " ++ show fileName
     for_ fileName $ \fn -> do
       contents <- liftIO $ readFile fn
+      -- TODO: Handle Left (not a req, so res is ignored & errors are ignored)
       parseAndSendErrors doc $ T.pack contents
   , notificationHandler J.STextDocumentDidSave $ \msg -> do
     let doc  = msg ^. J.params . J.textDocument . J.uri
@@ -105,12 +105,14 @@ getVirtualOrRealFile uri = do
         -- TODO: Catch errors thrown by readFile
         liftIO $ TIO.readFile filename
 
+type ResErrOrAst = Either ResponseError (Maybe (Program (LocTypeAnnot Tp)))
 
--- parseVirtualOrRealFile :: Uri -> ExceptT LspError (LspM Config) (Maybe (Program LocAndTp))
-parseVirtualOrRealFile :: Uri -> ExceptT LspError (LspM Config) (Maybe (Program LocAndTp))
+
+parseVirtualOrRealFile :: Uri -> ExceptT LspError (LspM Config) (Program (LocTypeAnnot Tp))
 parseVirtualOrRealFile uri = do
     contents <- getVirtualOrRealFile uri
-    lift $ parseAndSendErrors uri contents
+    parseAndTypecheck uri contents
+
 
 type Source = T.Text
 
@@ -126,7 +128,7 @@ makeDiagErr source err =
     (Just (J.List []))
 
 makeDiagErr' :: LspError -> [Diagnostic]
-makeDiagErr' (ReadFileErr err) = pure $ makeDiagErr "readfile" err
+
 makeDiagErr' (ParserErr err) = pure $ makeDiagErr "parser" err
 makeDiagErr' (TypeCheckerErr errs) = makeDiagErr "typechecker" <$> errs
 
@@ -173,7 +175,6 @@ errorToErrs e = TypeCheckerErr $ case e of
                       DuplicateFieldNamesFDE dupf ->  mkErrsField <$> dupf
                   (AssertionErr (AssertionErrAE ae)) -> getErrorCause "Assertion Error: " <$> ae
                   (RuleErr (RuleErrorRE re)) -> getErrorCause "Rule Error: " <$> re
-                  -- consider using printErrorCause to gen err msgs for now
 
 getErrorCause :: String -> (SRng, ErrorCause) -> Err
 getErrorCause errTp (r, ec) = Err r (errTp ++ printErrorCause ec)
@@ -201,49 +202,35 @@ handleUriErrs :: J.Uri -> Either LspError FilePath
 handleUriErrs uri =
   case uriToFilePath uri of
     Just loc -> Right loc
-    Nothing  -> Left $ ReadFileErr $ Err (DummySRng "No valid range") "File not found"
+    Nothing  -> Left $ ReadFileErr $ "Unable to parse uri: " <> tshow (getUri uri)
 
 getProg :: J.Uri -> T.Text -> Either LspError (Program SRng)
 getProg uri contents = do
   x <- handleUriErrs uri
   mapLeft ParserErr $ parseProgram x (T.unpack contents)
 
--- TODO: #67 Handle different errors differently
---    - maybe add a top-level helper function that handles all the different types of errors
---    - helper function should preserve current behavior
---      - sends diagnostics with TypeCheckerErr / pArser Err & return Nothing
---      - with more serious errors (like from handleUriErrs/readFileErrs), return Left <error description>
---    - with no diagnostics, returns Nothing on the hover (add a new "NoHover" constructor to LspError).
-
--- sendDiagnosticsOnLeft :: NormalizedUri -> Either LspError a -> MaybeT (LspM Config) a
-
--- publishResponseError :: NormalizedUri -> LspError -> LspM Config ()
 publishResponseError :: NormalizedUri -> LspM Config ()
 publishResponseError = pure $ sendNotification J.SWindowShowMessage (J.ShowMessageParams J.MtError "readFileErr")
 
+handleLspErr :: NormalizedUri -> Either LspError a -> LspM Config (Either ResponseError (Maybe a))
+handleLspErr _ (Left (ReadFileErr _)) = pure $ Left (ResponseError InvalidRequest "readFileErr" Nothing)
+handleLspErr nuri (Left err@(TypeCheckerErr _)) = Right Nothing <$ publishError nuri err
+handleLspErr nuri (Left err@(ParserErr _)) = Right Nothing <$ publishError nuri err
+handleLspErr nuri (Right a) = Right (Just a) <$ clearError "typechecker" nuri
 
-handleLspErr :: NormalizedUri -> Either LspError a -> LspM Config (Maybe a)
-handleLspErr nuri (Left (ReadFileErr _)) = Nothing <$ publishResponseError nuri -- replace with some function that returns LspMConfig () , but publishes response error (ResponseError InvalidRequest "readFileErr" Nothing)
-handleLspErr nuri (Left err@(TypeCheckerErr _)) = Nothing <$ publishError nuri err
-handleLspErr nuri (Left err@(ParserErr _)) = Nothing <$ publishError nuri err
-handleLspErr nuri (Right a) = Just a <$ clearError "No Error?" nuri
-
--- parseAndSendErrors :: J.Uri -> T.Text -> LspM Config (Maybe (Program LocAndTp))
-parseAndSendErrors :: J.Uri -> T.Text -> LspM Config (Maybe (Program LocAndTp))
-parseAndSendErrors uri contents = runMaybeT $ do
-  let loc = getProg uri contents
+parseAndSendErrors :: J.Uri -> T.Text -> LspT Config IO ResErrOrAst
+parseAndSendErrors uri contents = do
+  lspErrOrAst <- runExceptT $ parseAndTypecheck uri contents
   let nuri = toNormalizedUri uri
-  -- loc :: Either LspError (Program SRng)    -- readFileErr Err or ParseError Err
-  -- ast :: Program SRng
-  --ast <- handleLspErr nuri loc
-  ast <- sendDiagnosticsOnLeft nuri loc
+  handleLspErr nuri lspErrOrAst
 
+parseAndTypecheck :: MonadIO m => J.Uri -> T.Text -> ExceptT LspError m (Program (LocTypeAnnot Tp))
+parseAndTypecheck uri contents = do
+  let errOrProg = getProg uri contents
+  ast <- ExceptT $ pure errOrProg
   preludeAst <- liftIO readPrelude -- TODO: Handle errors
-
-  -- typedAstOrTypeError :: Either Error (Program ...)
-  let typedAstOrTypeError = checkError preludeAst ast --there could be a Nothing here
-  -- sendDiagnosticsOnLeft nuri $ mapLeft errorToErrs typedAstOrTypeError
-  MaybeT $ handleLspErr nuri $ mapLeft errorToErrs typedAstOrTypeError
+  let typedAstOrTypeError = checkError preludeAst ast
+  ExceptT $ pure $ mapLeft errorToErrs typedAstOrTypeError
 
 
 tshow :: Show a => a -> T.Text
@@ -371,11 +358,11 @@ astToText (SRule (Rule _ n _ _ _):_) = "Declaration of rule " <> T.pack n
 astToText (SAssertion (Assertion _ _):_) = "Declaration of Assertion " <> "rule of no name for now"
 astToText _ = "No hover info found"
 
-lookupTokenBare' :: Position -> Uri -> ExceptT LspError (LspM Config) (Maybe Hover)
-lookupTokenBare' pos uri = runMaybeT $ do
-  ast <- MaybeT $ parseVirtualOrRealFile uri
-  liftIO $ tokensToHover pos ast
 
+lookupTokenBare' :: Position -> Uri -> LspM Config (Either LspError Hover)
+lookupTokenBare' pos uri = runExceptT $ do
+  ast <- parseVirtualOrRealFile uri
+  liftIO $ tokensToHover pos ast
 
 syncOptions :: J.TextDocumentSyncOptions
 syncOptions = J.TextDocumentSyncOptions
