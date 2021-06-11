@@ -4,6 +4,10 @@ module PrintProg where
 import Syntax
 import Error (printTp)
 
+printARName :: ARName -> String 
+printARName Nothing = ""
+printARName (Just s) = "<" ++ s ++ ">"
+
 printQVarName :: QVarName t -> VarName
 printQVarName =  nameOfQVarName
 
@@ -72,7 +76,7 @@ printExpr e = show e  -- TODO - incomplete
 
 printRule :: Show t => Rule t -> String
 printRule r =
-    "rule <" ++ nameOfRule r ++ ">\n" ++
+    "rule " ++ printARName (nameOfRule r) ++ "\n" ++
     printVarDeclsCommaSep (varDeclsOfRule r) ++ "\n" ++
     "if   " ++ printExpr (precondOfRule r) ++ "\n" ++
     "then " ++ printExpr (postcondOfRule r) ++ "\n"

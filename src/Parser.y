@@ -145,10 +145,6 @@ VarDeclsCommaSep :  VarDecl              { [$1] }
 VarDecl : VAR ':' Tp                     { VarDecl (tokenRange $1 $3) (tokenSym $1) $3 }
 
 
-Assertions :                       { [] }
-           | Assertions Assertion  { $2 : $1 }
-Assertion : assert KVMap Expr      { Assertion (tokenRange $1 $3) $2 $3 }
-
 -- Atomic type
 -- Used to resolve ambigouity of     \x : A -> B -> x
 -- and force the use of parenthesis: \x : (A -> B) -> x
@@ -218,19 +214,36 @@ ExprsCommaSep :                      { [] }
             | ExprsCommaSep ',' Expr  { $3 : $1 }
 
 
+----------------------------------------------------------------------
+-- Rules and Assertions
+----------------------------------------------------------------------
+
+-- Assertion / Rule name
+ARName :                 { Nothing }
+       | '<' VAR '>'     { Just (tokenSym $2) }
+
 Rules  :                       { [] }
        | Rules Rule            { $2 : $1}
        | Rules Fact            { $2 : $1}
 
-Rule: rule '<' VAR '>'  KVMap RuleVarDecls RulePrecond RuleConcl { Rule (tokenRange $1 $8) (tokenSym $3) $6 $7 $8 }
-Fact: fact '<' VAR '>'  KVMap RuleVarDecls Expr { Rule (tokenRange $1 $7) (tokenSym $3) $6
-                                                 (ValE (nullSRng) (BoolV True)) $7 }
+-- TODO: KVMaps do not have a location, so the token range in the following is incomplete
+Rule : rule ARName KVMap { Rule (getLoc $1) $2 $3  [] (ValE (nullSRng) (BoolV True)) (ValE (nullSRng) (BoolV True)) }
+     | rule ARName KVMap RuleVarDecls RulePrecond RuleConcl { Rule (tokenRange $1 $6) $2 $3 $4 $5 $6 }
+
+Fact : fact ARName  KVMap RuleVarDecls Expr { Rule (tokenRange $1 $5) $2 $3 $4 (ValE (nullSRng) (BoolV True)) $5 }
 
 RuleVarDecls :                       { [] }
              | for VarDeclsCommaSep  { reverse $2 }
 
 RulePrecond : if Expr      { $2 }
 RuleConcl   : then Expr    { $2 }
+
+
+Assertions :                       { [] }
+           | Assertions Assertion  { $2 : $1 }
+
+Assertion : assert ARName KVMap Expr      { Assertion (tokenRange $1 $4) $2 $3 $4 }
+
 
 KVMap :                        { [] }
 | '{' KVMapListCommaSep  '}'   { reverse $2 }

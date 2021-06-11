@@ -6,6 +6,7 @@ import Annotation (TypeAnnot (getType), LocTypeAnnot (typeAnnot))
 import KeyValueMap
 import Syntax
 import Typing (getTypeOfExpr, isBooleanTp, isIntegerTp, isFloatTp, superClassesOfClassDecl, spine)
+import RuleTransfo (isNamedRule)
 
 import SimpleSMT as SMT
 import qualified Data.Maybe
@@ -14,7 +15,7 @@ import Text.Pretty.Simple (pPrint, pPrintString)
 import RuleTransfo ( prenexForm, ruleImplR, liftDecompRule, repeatDecomp, ruleAllR, clarify,
                     ruleAbstrInstances, ruleExL, ruleExLInv, ruleNormalizeVarOrder, rulesInversion, normalize,
                     ruleToFormula,
-                    conjs, not )
+                    conjsExpr, notExpr )
 import PrintProg (printRule)
 import Data.Maybe (fromMaybe)
 import Model (constructRelModel, instanceNameMap, displayableModel, printDisplayableModel)
@@ -242,7 +243,7 @@ defaultRuleSet = rulesOfProgram
 -- It should also be possible to specify transformations to the rules 
 rulesOfRuleSpec :: Program t -> ValueKVM -> [Rule t]
 rulesOfRuleSpec p (MapVM kvm) =
-  let nameRuleAssoc = map (\r -> (nameOfRule r, r)) (rulesOfProgram p)
+  let nameRuleAssoc = map (\r -> (fromMaybe "" (nameOfRule r), r)) (filter isNamedRule (rulesOfProgram p))
   in map (\(k, v) -> fromMaybe (error ("rule name " ++ k ++ " unknown in rule set")) (lookup k nameRuleAssoc)) kvm
 rulesOfRuleSpec p instr =
   error ("rule specification " ++ show instr ++ " should be a list (in { .. }) of rule names and transformations")
@@ -289,8 +290,8 @@ constrProofTarget sat asrt rls =
   let concl = exprOfAssertion asrt
       forms = map ruleToFormula rls
   in if sat
-     then conjs (concl : forms)
-     else conjs (RuleTransfo.not concl : forms)
+     then conjsExpr (concl : forms)
+     else conjsExpr (notExpr concl : forms)
 
 -- TODO: details to be filled in
 proveAssertionsCASP :: Show t => Program t -> ValueKVM  -> Assertion t -> IO ()

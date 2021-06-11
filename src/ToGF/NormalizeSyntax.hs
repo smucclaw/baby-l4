@@ -9,8 +9,8 @@ import Syntax
 
 -- This is for ToSCASP, where we want to put existential quantification into VarDecls.
 normalizeQuantif :: HasDefault t => Rule t -> [Rule t]
-normalizeQuantif (Rule ann nm decls ifE thenE) =
-  Rule ann nm (decls ++ newDecls) actuallyNewIfE thenE : faRules
+normalizeQuantif (Rule ann nm instr decls ifE thenE) =
+  Rule ann nm instr (decls ++ newDecls) actuallyNewIfE thenE : faRules
   where
     -- 1) Take care of existential quantification
     (newDecls, newIfE) = go ifE -- result of the recursion
@@ -25,7 +25,7 @@ normalizeQuantif (Rule ann nm decls ifE thenE) =
     actuallyNewIfE = fromMaybe newIfE negApp
 
     forallRule :: HasDefault t => Expr t -> ([Rule t], Maybe (Expr t))
-    forallRule (QuantifE ann All name tp ifExp) = ([Rule ann "foo" vardecls ifExp thenExp], Just negThenExp)
+    forallRule (QuantifE ann All name tp ifExp) = ([Rule ann Nothing [] vardecls ifExp thenExp], Just negThenExp)
       where
         vardecls = [VarDecl (annotOfQVarName name) (nameOfQVarName name) tp]
         predName = extractName ifExp
@@ -78,8 +78,8 @@ normalizeAndExpr e = e
 --   then Good foo && MayBeEaten foo
 -- becomes 4 new rules, with all permutations
 normaliseConditionsAndConclusions :: Rule t -> [Rule t]  -- takes a rule t and returns a list of rules
-normaliseConditionsAndConclusions (Rule ann nm decls ifE thenE) =
-  [Rule ann nm decls condition conclusion
+normaliseConditionsAndConclusions (Rule ann nm instr decls ifE thenE) =
+  [Rule ann nm instr decls condition conclusion
   | condition <- goCond ifE, conclusion <- goConc thenE]
   where
     goCond e@(BinOpE ann (BBool BBor) e1 e2) = goCond e1 ++ goCond e2 -- result of the recursion

@@ -111,10 +111,10 @@ instance Show t => SCasp (Program (Tp t)) where
 
 
 instance Show t => SCasp (Rule (Tp t)) where
-  showSC (Rule _ _ _ (ValE _ (BoolV True)) thenExp) = fact $ endDot $ showSingle thenExp
-  showSC (Rule _ _ _ (ValE _ (BoolV False)) thenExp) = fact $ endDot $ showSingle (negateExpr thenExp)
+  showSC (Rule _ _ _ _ (ValE _ (BoolV True)) thenExp) = fact $ endDot $ showSingle thenExp
+  showSC (Rule _ _ _ _ (ValE _ (BoolV False)) thenExp) = fact $ endDot $ showSingle (negateExpr thenExp)
   showSC r = rule $ showSingle r
-  showSingle (Rule _ rulename vardecls ifExp thenExp) =
+  showSingle (Rule _ rulename _ vardecls ifExp thenExp) =
       vsep
         [ showSingle thenExp <+> pretty ":-",
           endDot $ indent' $ commaList (map showSingle vardecls ++ [showSingle ifExp]),
@@ -124,7 +124,7 @@ instance Show t => SCasp (Rule (Tp t)) where
 -- Only assertions like `assert Beats Rock Scissors` become facts.
 -- Other assertions become rules.
 instance Show t => SCasp (Assertion (Tp t)) where
-  showSingle (Assertion ann _ query) =
+  showSingle (Assertion _ _ _ query) =
     vsep
         [ pretty "?-",
           endDot $ indent' $ commaList [showSingle query],

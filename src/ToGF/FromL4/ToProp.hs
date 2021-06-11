@@ -145,7 +145,7 @@ var2quant = GQString . GString . nameOfQVarName . nameOfVar
 
 rule2prop :: Show t => Rule t -> CuteCats t GProp
 rule2prop r =
-  let r'@(Rule _ nm vars ifE thenE) = normalizeQuantifGF r in local (updateVars vars) $
+  let r'@(Rule _ nm _ vars ifE thenE) = normalizeQuantifGF r in local (updateVars vars) $
   do
     ifProp <- expr2prop ifE
     thenProp <- expr2prop thenE

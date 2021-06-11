@@ -11,33 +11,52 @@ import Data.List (sortBy)
 
 
 ----------------------------------------------------------------------
+-- Elementary manipulation of rules and rule names
+----------------------------------------------------------------------
+
+exchangeARName:: ARName -> String -> ARName 
+exchangeARName Nothing rn = Nothing 
+exchangeARName (Just s) rn = Just rn
+
+modifyARName:: ARName -> String -> ARName 
+modifyARName Nothing rn = Nothing 
+modifyARName (Just s) rn = Just (s ++ rn)
+
+hasName :: ARName -> Bool 
+hasName Nothing = False 
+hasName _ = True 
+
+isNamedRule :: Rule t -> Bool 
+isNamedRule  = hasName . nameOfRule
+
+----------------------------------------------------------------------
 -- Logical infrastructure: macros for simplifying formula construction
 ----------------------------------------------------------------------
 
-not :: Expr (Tp ()) -> Expr (Tp())
-not = UnaOpE booleanT (UBool UBnot)
+notExpr :: Expr (Tp ()) -> Expr (Tp())
+notExpr = UnaOpE booleanT (UBool UBnot)
 
-conj :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
-conj = BinOpE booleanT (BBool BBand)
+conjExpr :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
+conjExpr = BinOpE booleanT (BBool BBand)
 
-disj :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
-disj = BinOpE booleanT (BBool BBor)
+disjExpr :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
+disjExpr = BinOpE booleanT (BBool BBor)
 
-impl :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
-impl = BinOpE booleanT (BBool BBimpl)
+implExpr :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
+implExpr = BinOpE booleanT (BBool BBimpl)
 
-conjs :: [Expr (Tp ())] -> Expr (Tp ())
-conjs [] = trueV
-conjs [e] = e
-conjs (e:es) = conj e (conjs es)
+conjsExpr :: [Expr (Tp ())] -> Expr (Tp ())
+conjsExpr [] = trueV
+conjsExpr [e] = e
+conjsExpr (e:es) = conjExpr e (conjsExpr es)
 
-disjs :: [Expr (Tp ())] -> Expr (Tp ())
-disjs [] = falseV
-disjs [e] = e
-disjs (e:es) = disj e (disjs es)
+disjsExpr :: [Expr (Tp ())] -> Expr (Tp ())
+disjsExpr [] = falseV
+disjsExpr [e] = e
+disjsExpr (e:es) = disjExpr e (disjsExpr es)
 
-eq  :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
-eq = BinOpE booleanT (BCompar BCeq)
+eqExpr  :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
+eqExpr = BinOpE booleanT (BCompar BCeq)
 
 ----------------------------------------------------------------------
 -- Logical infrastructure: computing normal forms
@@ -137,7 +156,7 @@ prenexForm e = e
 
 
 ruleToFormula :: Rule (Tp ()) -> Expr (Tp ())
-ruleToFormula r = abstract All (varDeclsOfRule r) (impl (precondOfRule r) (postcondOfRule r))
+ruleToFormula r = abstract All (varDeclsOfRule r) (implExpr (precondOfRule r) (postcondOfRule r))
 
 abstract :: Quantif -> [VarDecl (Tp ())] -> Expr (Tp ()) -> Expr (Tp ())
 abstract q vds e
@@ -162,15 +181,16 @@ ruleAllR r =
 ruleImplR :: DecompRule (Tp ())
 ruleImplR r =
   case postcondOfRule r of
-    BinOpE _ (BBool BBimpl) e1 e2 -> [r{postcondOfRule = e2}{precondOfRule = conj (precondOfRule r) e1}]
+    BinOpE _ (BBool BBimpl) e1 e2 -> [r{postcondOfRule = e2}{precondOfRule = conjExpr (precondOfRule r) e1}]
     _ -> [r]
+
 
 ruleConjR :: DecompRule t
 ruleConjR r =
   case postcondOfRule r of
     BinOpE t (BBool BBand) e1 e2 ->
-      [ r{postcondOfRule = e1}{nameOfRule = nameOfRule r ++ "Conj1"}
-      , r{postcondOfRule = e2}{nameOfRule = nameOfRule r ++ "Conj2"}]
+      [ r{postcondOfRule = e1}{nameOfRule = modifyARName (nameOfRule r) "Conj1"}
+      , r{postcondOfRule = e2}{nameOfRule = modifyARName (nameOfRule r) "Conj2"}]
     _ -> [r]
 
 -- suggestion for new variable name, without guarantees that this name is unique
@@ -200,7 +220,7 @@ constrNewArgs n (e:es) =
         ve = VarE tp newvar
         (rargs, reqs, rds) = constrNewArgs (n+1) es
         nvd =  VarDecl tp vn (liftType tp)
-    in (ve:rargs, eq ve e:reqs, rds ++ [nvd])
+    in (ve:rargs, eqExpr ve e:reqs, rds ++ [nvd])
   else let (rargs, reqs, rds) = constrNewArgs n es in (e:rargs, reqs, rds)
 
 -- Abstract over instances: A rule of the form 
@@ -218,7 +238,7 @@ ruleAbstrInstances r =
             (f, args) = appToFunArgs [] e
             (rargs, reqs, rds) = constrNewArgs (length vds) args
         in [r{postcondOfRule = funArgsToApp f rargs}
-             {precondOfRule = conjs (precondOfRule r:reqs) }
+             {precondOfRule = conjsExpr (precondOfRule r:reqs) }
              {varDeclsOfRule = rds ++ varDeclsOfRule r }]
     _ -> [r]
 
@@ -316,19 +336,20 @@ ruleNormalizeVarOrder r =
 -- Condition of applicability: 
 -- - list of rules is non-empty; 
 -- - each of the rules is normalized 
+-- TODO: instructions of generated rule set to []. More precise information?
 rulesInversion :: [Rule (Tp())] -> Rule (Tp ())
 rulesInversion rls =
   let r1 = head rls
       (VarE _ f, args) = appToFunArgs [] (postcondOfRule r1)
-      rn = (nameOfQVarName . nameOfVar) f ++ "Inversion"
-  in Rule booleanT rn (varDeclsOfRule r1) (postcondOfRule r1) (disjs (map precondOfRule rls))
+      rn = Just ((nameOfQVarName . nameOfVar) f ++ "Inversion")
+  in Rule booleanT rn [] (varDeclsOfRule r1) (postcondOfRule r1) (disjsExpr (map precondOfRule rls))
 
 
 -- Adds negated precondition of r1 to r2. Corresponds to:
 -- - "r2 subject to r1" (as annotation of r2: r1 has precedence over r2)
 -- - "r1 despite r2" (as annotation of r1: r1 has precedence over r2)
 addNegPrecondTo :: Rule (Tp ()) -> Rule (Tp ()) -> Rule (Tp ())
-addNegPrecondTo r1 r2 = r2{precondOfRule = conj (RuleTransfo.not (precondOfRule r1)) (precondOfRule r2)}
+addNegPrecondTo r1 r2 = r2{precondOfRule = conjExpr (notExpr (precondOfRule r1)) (precondOfRule r2)}
 
 
 liftDecompRule :: DecompRule t -> DecompWorklist t

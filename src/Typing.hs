@@ -553,23 +553,13 @@ tpExpr env x = case x of
   _ -> error "typing of lists not implemented yet"
 
 
--- generic version
-{-
-tpVarDecl :: TypeAnnot f => [ClassName] -> VarDecl (f a) -> VarDecl (f (Tp()))
-tpVarDecl kenv vd =
-  case kndType kenv (tpOfVarDecl vd) of
-    Right t -> vd {annotOfVarDecl = updType (annotOfVarDecl vd) t}
-    Left cns -> vd {annotOfVarDecl = updType (annotOfVarDecl vd) (ErrT  Unspecified)}
--}
-
- -- simplified
 tpVarDecl :: [ClassName] -> VarDecl (LocTypeAnnot (Tp ()))  -> VarDecl (LocTypeAnnot (Tp ()))
 tpVarDecl kenv (VarDecl ann vn tp) =
   let annotTp = kndTypeS kenv tp
   in  VarDecl (updType ann (eraseAnn annotTp)) vn annotTp
 
 tpRule :: Environment t -> Rule (LocTypeAnnot (Tp ()))  -> Rule (LocTypeAnnot (Tp ()))
-tpRule env (Rule ann rn vds precond postcond) =
+tpRule env (Rule ann rn instr vds precond postcond) =
   let renv = pushLocalVarEnv (map (\(VarDecl _ vn vt) -> (vn, eraseAnn vt)) vds) env
       teprecond  = tpExpr renv precond
       tepostcond = tpExpr renv postcond
@@ -584,17 +574,17 @@ tpRule env (Rule ann rn vds precond postcond) =
                     else ErrT (IllTypedSubExpr [getLoc ann, getLoc postcond] [tpostcond] [ExpectedExactTp (ClassT () (ClsNm "Boolean"))])
                 else ErrT (IllTypedSubExpr [getLoc ann, getLoc precond] [tprecond] [ExpectedExactTp (ClassT () (ClsNm "Boolean"))])
               )
-  in Rule (updType ann (eraseAnn restp)) rn tpdVds teprecond tepostcond
+  in Rule (updType ann (eraseAnn restp)) rn instr tpdVds teprecond tepostcond
 
 tpAssertion :: Environment t -> Assertion (LocTypeAnnot (Tp ()))  -> Assertion (LocTypeAnnot (Tp ()))
-tpAssertion env (Assertion ann md e) =
+tpAssertion env (Assertion ann nm md e) =
   let te = tpExpr env e
       t  = getTypeOfExpr te
       restp = propagateError [t]
               (if isBooleanTp t
                then t
                else ErrT (IllTypedSubExpr [getLoc ann, getLoc e] [t] [ExpectedExactTp (ClassT () (ClsNm "Boolean"))]))
-  in Assertion (updType ann (eraseAnn restp)) md te
+  in Assertion (updType ann (eraseAnn restp)) nm md te
 
 
 ----------------------------------------------------------------------

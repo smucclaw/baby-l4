@@ -23,10 +23,9 @@ import KeyValueMap
 
 ----- Names
 type VarName = String
-type RuleName = String
+-- Assertion / Rule name 
+type ARName = Maybe String
 -- newtype VarName = VarName String
---   deriving (Eq, Ord, Show, Read, Data, Typeable)
--- newtype RuleName = RuleName String
 --   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 newtype ClassName = ClsNm {stringOfClassName :: String}
@@ -337,7 +336,8 @@ data Cmd t
 
 
 data Rule t = Rule { annotOfRule :: t
-                   , nameOfRule :: RuleName
+                   , nameOfRule :: ARName
+                   , instrOfRule :: KVMap
                    , varDeclsOfRule :: [VarDecl t]
                    , precondOfRule :: Expr t
                    , postcondOfRule :: Expr t}
@@ -351,6 +351,7 @@ instance HasAnnot Rule where
   updateAnnot f p = p { annotOfRule = f (annotOfRule p)}
 
 data Assertion t = Assertion { annotOfAssertion :: t
+                             , nameOfAssertion :: ARName
                              , instrOfAssertion :: KVMap
                              , exprOfAssertion :: Expr t}
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
@@ -464,5 +465,5 @@ data Modality = Must | May
 -- rule name corresponding to HENCE clause
 -- rule name (optional) corresponding to LEST clause
 
-data EventRule t = EvRule RuleName [Event t] Modality [PartyName] Action [ClConstr] RuleName (Maybe RuleName)
+data EventRule t = EvRule ARName [Event t] Modality [PartyName] Action [ClConstr] ARName ARName
   deriving (Eq, Ord, Show, Read, Data, Typeable)

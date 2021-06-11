@@ -88,6 +88,9 @@ instance HasLoc SRng where
 instance HasLoc a => HasLoc [a] where
   getLoc = tokenRangeList . map getLoc
 
+instance HasLoc a => HasLoc (Maybe a) where
+  getLoc = maybe nullSRng getLoc
+
 class HasDefault a where
   defaultVal :: a
 

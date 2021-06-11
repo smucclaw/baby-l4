@@ -26,6 +26,7 @@ import Syntax
 import Control.Lens.Extras (template)
 import Data.Data (Data)
 import Data.Either.Combinators (maybeToRight, mapLeft)
+import Data.Maybe (fromMaybe)
 import Control.Monad.Trans.Except (except)
 import Control.Monad.Except
 -- import Syntax (Pos(..),SRng(..))
@@ -320,8 +321,8 @@ astToText :: [SomeAstNode LocAndTp] -> T.Text
 astToText (SMapping (Mapping _ from to):_) = "This block maps variable " <> T.pack from <> " to GrammaticalFramework WordNet definion " <> tshow to
 astToText (SClassDecl (ClassDecl _ (ClsNm x) _):_) = "Declaration of new class : " <> T.pack x
 astToText (SGlobalVarDecl (VarDecl _ n _):_) = "Declaration of global variable " <> T.pack n
-astToText (SRule (Rule _ n _ _ _):_) = "Declaration of rule " <> T.pack n
-astToText (SAssertion (Assertion _ _ _):_) = "Declaration of Assertion " <> "rule of no name for now"
+astToText (SRule r@Rule {}:_) = "Declaration of rule " <> T.pack (fromMaybe "" (nameOfRule r))
+astToText (SAssertion a@Assertion{}:_) = "Declaration of assertion " <> T.pack (fromMaybe "" (nameOfAssertion a))
 astToText _ = "No hover info found"
 
 lookupTokenBare' :: Position -> Uri -> ExceptT Err (LspM Config) (Maybe Hover)
