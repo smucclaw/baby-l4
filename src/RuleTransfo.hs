@@ -3,6 +3,8 @@
 module RuleTransfo where
 
 import Annotation ( HasDefault(defaultVal) )
+import KeyValueMap
+    ( ValueKVM(..), KVMap, KeyKVM, selectAssocOfMap, hasPathValue, hasPathMap, getAssocOfPathMap, stringListAsKVMap, putAssocOfPathMap )
 import Syntax
 import Typing (appToFunArgs, funArgsToApp, distinct, eraseAnn)
 import Data.Maybe (fromMaybe)
@@ -14,19 +16,19 @@ import Data.List (sortBy)
 -- Elementary manipulation of rules and rule names
 ----------------------------------------------------------------------
 
-exchangeARName:: ARName -> String -> ARName 
-exchangeARName Nothing rn = Nothing 
+exchangeARName:: ARName -> String -> ARName
+exchangeARName Nothing rn = Nothing
 exchangeARName (Just s) rn = Just rn
 
-modifyARName:: ARName -> String -> ARName 
-modifyARName Nothing rn = Nothing 
+modifyARName:: ARName -> String -> ARName
+modifyARName Nothing rn = Nothing
 modifyARName (Just s) rn = Just (s ++ rn)
 
-hasName :: ARName -> Bool 
-hasName Nothing = False 
-hasName _ = True 
+hasName :: ARName -> Bool
+hasName Nothing = False
+hasName _ = True
 
-isNamedRule :: Rule t -> Bool 
+isNamedRule :: Rule t -> Bool
 isNamedRule  = hasName . nameOfRule
 
 ----------------------------------------------------------------------
@@ -346,10 +348,10 @@ rulesInversion rls =
 
 
 -- Adds negated precondition of r1 to r2. Corresponds to:
--- - "r2 subject to r1" (as annotation of r2: r1 has precedence over r2)
--- - "r1 despite r2" (as annotation of r1: r1 has precedence over r2)
-addNegPrecondTo :: Rule (Tp ()) -> Rule (Tp ()) -> Rule (Tp ())
-addNegPrecondTo r1 r2 = r2{precondOfRule = conjExpr (notExpr (precondOfRule r1)) (precondOfRule r2)}
+-- - "r1 subject to r2" (as annotation of r1: r2 has precedence over r1)
+-- - "r2 despite r1" synonymous to  "r1 subject to r2"
+restrictWithNegPrecondOf :: Rule (Tp ()) -> Rule (Tp ()) -> Rule (Tp ())
+restrictWithNegPrecondOf r1 r2 = r1{precondOfRule = conjExpr (precondOfRule r1) (notExpr (precondOfRule r2))}
 
 
 liftDecompRule :: DecompRule t -> DecompWorklist t
@@ -367,3 +369,79 @@ clarify = repeatDecomp (liftDecompRule ruleConjR . liftDecompRule ruleImplR . li
 
 normalize :: DecompWorklist (Tp ())
 normalize = liftDecompRule ruleNormalizeVarOrder . liftDecompRule ruleAbstrInstances . ruleExLInv
+
+-------------------------------------------------------------
+-- Manipulating rule sets
+-------------------------------------------------------------
+
+-- Assumption: 
+-- Three kinds of rules:
+-- - defined
+-- - derived (from other rules, without a reference to a "current" rule)
+-- - restricted (current rule referencing other rules)
+-- All the rules involved in the transformation have to be named. Possibly generate fake names first
+
+---------------- rewrite "despite" restrictions ----------------
+-- Assumption: despite-restrictions are written:
+-- {restrict: {despite: rulename}}   or
+-- {restrict: {despite: {rulename1, .. , rulenamen}}
+-- Despite-restrictions may only reference rule names and not contain complex rule derivations
+getRuleNamesAt :: [String] -> Rule t -> [String]
+getRuleNamesAt pth rl =
+  case getAssocOfPathMap pth (instrOfRule rl) of
+    Just (IdVM s) -> [s]
+    Just (MapVM mdesp) -> map fst mdesp
+    _ -> []
+
+addRestrictSubjectTo :: String -> Rule t -> Rule t
+addRestrictSubjectTo nm rl =
+  let oldRst = getRuleNamesAt ["restrict", "subjectTo"] rl
+      newRst = nm : oldRst
+      newInstr = putAssocOfPathMap ["restrict", "subjectTo"] (MapVM (stringListAsKVMap newRst)) (instrOfRule rl)
+  in rl{instrOfRule=newInstr}
+
+-- rewrite "restrict/despite" rule rl by adding "restrict/subjectTo" clauses in the referenced rules
+rewriteRuleDespite :: Rule t -> [Rule t] -> [Rule t]
+rewriteRuleDespite rl rls =
+  let rds = map Just (getRuleNamesAt ["restrict", "despite"] rl)
+      rlname = arNameToString (nameOfRule rl)
+  in map (\arl -> if nameOfRule arl `elem` rds then addRestrictSubjectTo rlname arl else arl) rls
+
+rewriteRuleSetDespite :: [Rule t] -> [Rule t]
+rewriteRuleSetDespite rls =
+  let restrictDespite = filter (hasPathMap ["restrict", "despite"] . instrOfRule) rls
+  in foldr rewriteRuleDespite rls restrictDespite
+
+
+---------------- rewrite "subjectTo" restrictions ----------------
+
+
+-- TODO: move the following two to a section about rule name management 
+appendToARName :: ARName -> String -> ARName
+appendToARName Nothing _ = Nothing
+appendToARName (Just n) s = Just (n ++ s)
+
+arNameToString :: ARName  -> String
+arNameToString = fromMaybe ""
+
+rewriteRuleSubjectTo :: Rule t -> [Rule t]
+rewriteRuleSubjectTo rl =
+  if hasPathMap ["restrict", "subjectTo"] (instrOfRule rl)
+  then
+    let rlOrig = rl{instrOfRule = definedKVM, nameOfRule = appendToARName (nameOfRule rl) "'Orig"}
+        rlDeriv = rl{instrOfRule = derivedKVMForSubjectTo (arNameToString (nameOfRule rl)) (getRuleNamesAt ["restrict", "subjectTo"] rl)}
+    in [rlOrig, rlDeriv]
+  else [rl]
+
+definedKVM :: KVMap
+definedKVM = [("defined", MapVM [])]
+
+derivedKVMForSubjectTo :: KeyKVM -> [String] -> [(String, ValueKVM)]
+derivedKVMForSubjectTo original args =
+  [( "derived", MapVM [( "apply", MapVM [( "restrictWithNegPrecondOf", MapVM []),
+                                  (original, MapVM []),
+                                  ("list", MapVM (stringListAsKVMap args))])])]
+
+rewriteRuleSetSubjectTo :: [Rule t] -> [Rule t]
+rewriteRuleSetSubjectTo = concatMap rewriteRuleSubjectTo
+

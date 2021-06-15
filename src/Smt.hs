@@ -15,7 +15,7 @@ import Text.Pretty.Simple (pPrint, pPrintString)
 import RuleTransfo ( prenexForm, ruleImplR, liftDecompRule, repeatDecomp, ruleAllR, clarify,
                     ruleAbstrInstances, ruleExL, ruleExLInv, ruleNormalizeVarOrder, rulesInversion, normalize,
                     ruleToFormula,
-                    conjsExpr, notExpr )
+                    conjsExpr, notExpr, rewriteRuleSetDespite, rewriteRuleSetSubjectTo )
 import PrintProg (printRule)
 import Data.Maybe (fromMaybe)
 import Model (constructRelModel, instanceNameMap, displayableModel, printDisplayableModel)
@@ -177,7 +177,7 @@ exprToSExpr _    e = error ("exprToSExpr: term " ++ show e ++ " not translatable
 
 selectLogLevel :: Maybe ValueKVM -> Int
 selectLogLevel config =
-  case selectAssocVal "loglevel" (fromMaybe (IntVM 0) config) of
+  case selectAssocOfValue "loglevel" (fromMaybe (IntVM 0) config) of
     Nothing -> 0
     Just (IntVM n) -> fromIntegral n
     Just _ -> 0
@@ -187,7 +187,7 @@ createSolver config lg =
   let defaultConfig = ("z3", ["-in"])
       (solverName, solverParams) = case config of
                                       Nothing -> defaultConfig
-                                      Just vkvm -> case selectAssocVal "solver" vkvm of
+                                      Just vkvm -> case selectAssocOfValue "solver" vkvm of
                                                       Just (IdVM "cvc4") -> ("cvc4", ["--lang=smt2"])
                                                       Just (IdVM "mathsat") -> ("mathsat", [])
                                                       _ -> defaultConfig
@@ -205,7 +205,7 @@ selectLogic s config =
   let defaultConfig = "LIA"
       logicName = case config of
                      Nothing -> defaultConfig
-                     Just vkvm -> case selectAssocVal "logic" vkvm of
+                     Just vkvm -> case selectAssocOfValue "logic" vkvm of
                                       Just (IdVM l) -> l
                                       _ -> defaultConfig
   in setLogic s logicName
@@ -268,12 +268,12 @@ composeApplicableRuleSet p mbadd mbdel mbonly =
 
 selectApplicableRules :: Program t -> ValueKVM -> [Rule t]
 selectApplicableRules p instr =
-  case selectAssocVal "rules" instr of
+  case selectAssocOfValue "rules" instr of
     Nothing -> defaultRuleSet p
     Just rulespec -> composeApplicableRuleSet p
-                      (selectAssocVal "add" rulespec)
-                      (selectAssocVal "del" rulespec)
-                      (selectAssocVal "only" rulespec)
+                      (selectAssocOfValue "add" rulespec)
+                      (selectAssocOfValue "del" rulespec)
+                      (selectAssocOfValue "only" rulespec)
 
 proveAssertionSMT :: Program (Tp ()) -> ValueKVM -> Assertion (Tp ()) -> IO ()
 proveAssertionSMT p instr asrt = do
@@ -281,7 +281,7 @@ proveAssertionSMT p instr asrt = do
   let proveConsistency = selectOneOfInstr ["consistent", "valid"] instr == "consistent"
   let applicableRules = selectApplicableRules p instr
   let proofTarget = constrProofTarget proveConsistency asrt applicableRules
-  let config = selectAssocVal "config" instr
+  let config = selectAssocOfValue "config" instr
   proveExpr config proveConsistency (classDeclsOfProgram p) (globalsOfProgram p) proofTarget
 
 
@@ -310,3 +310,6 @@ proveProgram p =
   let cleanedProg = fmap typeAnnot p
   in foldM (\r a -> proveAssertion cleanedProg a) () (assertionsOfProgram cleanedProg)
 
+proveProgramTest :: Program (LocTypeAnnot (Tp ())) -> IO ()
+proveProgramTest p =
+  putStrLn (concatMap printRule (rewriteRuleSetSubjectTo (rewriteRuleSetDespite (rulesOfProgram p))))

@@ -242,7 +242,9 @@ RuleConcl   : then Expr    { $2 }
 Assertions :                       { [] }
            | Assertions Assertion  { $2 : $1 }
 
-Assertion : assert ARName KVMap Expr      { Assertion (tokenRange $1 $4) $2 $3 $4 }
+-- TODO: same problem with locations as for Rule above
+Assertion : assert ARName KVMap        { Assertion (getLoc $1) $2 $3 (ValE (nullSRng) (BoolV True)) }
+          | assert ARName KVMap Expr   { Assertion (tokenRange $1 $4) $2 $3 $4 }
 
 
 KVMap :                        { [] }
