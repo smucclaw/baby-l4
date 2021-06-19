@@ -127,6 +127,8 @@ library
                      -- required for SMT interaction
                      , simple-smt
                      , sbv
+                     -- required for graph processing (rule transformation)
+                     , fgl >= 5.7
   default-language: Haskell2010
   ghc-options: -Wall
 

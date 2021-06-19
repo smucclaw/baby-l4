@@ -11,6 +11,11 @@ import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
 import Data.List (sortBy)
 
+import Data.Graph.Inductive.Graph
+    ( nodes, Graph(labEdges, mkGraph), LNode, Node )
+import Data.Graph.Inductive.PatriciaTree ( Gr ) 
+import Data.Graph.Inductive.Query.DFS ( scc, topsort' )
+
 
 ----------------------------------------------------------------------
 -- Elementary manipulation of rules and rule names
@@ -350,9 +355,11 @@ rulesInversion rls =
 -- Adds negated precondition of r1 to r2. Corresponds to:
 -- - "r1 subject to r2" (as annotation of r1: r2 has precedence over r1)
 -- - "r2 despite r1" synonymous to  "r1 subject to r2"
-restrictWithNegPrecondOf :: Rule (Tp ()) -> Rule (Tp ()) -> Rule (Tp ())
-restrictWithNegPrecondOf r1 r2 = r1{precondOfRule = conjExpr (precondOfRule r1) (notExpr (precondOfRule r2))}
+restrictWithNegPrecondOfStep :: Rule (Tp ()) -> Rule (Tp ()) -> Rule (Tp ())
+restrictWithNegPrecondOfStep r1 r2 = r1{precondOfRule = conjExpr (precondOfRule r1) (notExpr (precondOfRule r2))}
 
+restrictWithNegPrecondOf :: Rule (Tp ()) ->  DecompWorklist (Tp())
+restrictWithNegPrecondOf rl rls = [foldl restrictWithNegPrecondOfStep rl rls]
 
 liftDecompRule :: DecompRule t -> DecompWorklist t
 liftDecompRule = concatMap
@@ -428,8 +435,9 @@ rewriteRuleSubjectTo :: Rule t -> [Rule t]
 rewriteRuleSubjectTo rl =
   if hasPathMap ["restrict", "subjectTo"] (instrOfRule rl)
   then
-    let rlOrig = rl{instrOfRule = definedKVM, nameOfRule = appendToARName (nameOfRule rl) "'Orig"}
-        rlDeriv = rl{instrOfRule = derivedKVMForSubjectTo (arNameToString (nameOfRule rl)) (getRuleNamesAt ["restrict", "subjectTo"] rl)}
+    let origName = appendToARName (nameOfRule rl) "'Orig"
+        rlOrig = rl{instrOfRule = definedKVM, nameOfRule = origName}
+        rlDeriv = rl{instrOfRule = derivedKVMForSubjectTo (arNameToString origName) (getRuleNamesAt ["restrict", "subjectTo"] rl)}
     in [rlOrig, rlDeriv]
   else [rl]
 
@@ -438,10 +446,138 @@ definedKVM = [("defined", MapVM [])]
 
 derivedKVMForSubjectTo :: KeyKVM -> [String] -> [(String, ValueKVM)]
 derivedKVMForSubjectTo original args =
+  [( "derived", MapVM [( "apply", MapVM ([( "restrictWithNegPrecondOf", MapVM []), (original, MapVM [])] ++ stringListAsKVMap args))])]
+{-
   [( "derived", MapVM [( "apply", MapVM [( "restrictWithNegPrecondOf", MapVM []),
                                   (original, MapVM []),
                                   ("list", MapVM (stringListAsKVMap args))])])]
+-}
 
 rewriteRuleSetSubjectTo :: [Rule t] -> [Rule t]
 rewriteRuleSetSubjectTo = concatMap rewriteRuleSubjectTo
 
+
+
+---------------- rewrite "derived" instructions ----------------
+
+data RuleProg
+  = RuleName String
+  | Apply String [RuleProg]
+  deriving (Eq, Ord, Show, Read)
+
+ruleNamesOfRuleProg :: RuleProg -> Set.Set String
+ruleNamesOfRuleProg (RuleName rn) = Set.singleton rn
+ruleNamesOfRuleProg (Apply _ rps) = Set.unions (map ruleNamesOfRuleProg rps)
+
+
+convertDerivedInstrToRuleProg :: KVMap -> RuleProg
+convertDerivedInstrToRuleProg [("derived", IdVM rn)] =  RuleName rn
+convertDerivedInstrToRuleProg [("derived", MapVM [kvp])] =  convertKeyValPairToRuleProg kvp
+convertDerivedInstrToRuleProg _ = error "illegal format for derived instruction"
+
+convertKeyValPairToRuleProg :: (KeyKVM, ValueKVM) -> RuleProg
+convertKeyValPairToRuleProg (k,  MapVM []) = RuleName k
+convertKeyValPairToRuleProg ("apply", MapVM ((fn,MapVM []) : args)) = Apply fn (map convertKeyValPairToRuleProg args)
+convertKeyValPairToRuleProg p = error ("illegal form of rule program " ++ show p)
+
+ruleNamesInDerived :: Rule t -> Set.Set String
+ruleNamesInDerived rl =
+  if hasPathMap ["derived"] (instrOfRule rl)
+  then ruleNamesOfRuleProg (convertDerivedInstrToRuleProg (instrOfRule rl))
+  else Set.empty
+
+
+-- TODO: temporary, only for testing
+printDerivs :: [Rule t] -> String
+printDerivs rls =
+  let derivs = filter (hasPathMap ["derived"] . instrOfRule) rls
+      convs = map (convertDerivedInstrToRuleProg . instrOfRule) derivs
+      showconvs = map show convs
+  in unlines showconvs
+
+
+findRule :: [Rule t] -> ARName -> Rule t
+findRule rls rn = fromMaybe (error ("findRule: rule with name " ++ arNameToString rn ++ " should be in list")) (lookup rn (map (\r -> (nameOfRule r, r)) rls))
+
+-- rule functions convert rule lists to rule lists
+findRuleFun :: String -> DecompWorklist (Tp())
+findRuleFun "restrictWithNegPrecondOf" (rl:rls) = restrictWithNegPrecondOf rl rls
+findRuleFun "normalize" rls = normalize rls
+findRuleFun "inversion" rls = [rulesInversion rls]
+findRuleFun _ _ = error "undefined rule function"
+
+runRuleProg :: RuleProg -> DecompWorklist (Tp())
+runRuleProg (RuleName rn) rls = [findRule rls (Just rn)]
+runRuleProg (Apply fn args) rls = findRuleFun fn (concatMap (`runRuleProg` rls) args)
+
+
+edgeListGraphToGrNodes :: [a] -> [LNode a]
+edgeListGraphToGrNodes ns = zip [0 .. length ns -1] ns
+
+-- the elements swapped as compared to the above
+grToEdgeListGraphNodes :: [a] -> [(a, Node)]
+grToEdgeListGraphNodes ns = zip ns [0 .. length ns -1]
+
+{-
+edgeListGraphToGrEdges :: (a -> Node) -> [(a, a)] -> [LEdge ()]
+edgeListGraphToGrEdges m = map (\(v1, v2) -> (m v1, m v2, ()))
+
+-- conversion from edge-list format to Gr graph format
+edgeListGraphToGr :: (Eq a) => EdgeListGraph a -> Gr a String
+edgeListGraphToGr (ELG ns es) =
+  let inv_nodes_map = grToEdgeListGraphNodes ns
+      m = (\n -> fromJust (lookup n inv_nodes_map))
+  in mkGraph (edgeListGraphToGrNodes ns) (edgeListGraphToGrEdges m es)
+-}
+
+derivedGraphEdgeRelation :: [Rule t] -> [(Rule t, Rule t)]
+derivedGraphEdgeRelation rls =
+  [(r1, r2) | r1 <- rls, r2 <- map (findRule rls . Just) (Set.toList (ruleNamesInDerived r1))]
+
+rulesToGraph :: Eq t => [Rule t] -> (Gr (Rule t) (), Node -> Rule t)
+rulesToGraph rls =
+  let ndsRls = edgeListGraphToGrNodes rls
+      rlsNds = grToEdgeListGraphNodes rls
+      ndsRlsMap = (\n -> fromMaybe (error "in rulesToGraph: incorrect node lookup") (lookup n ndsRls))
+      rlsNdsMap = (\r -> fromMaybe (error "in rulesToGraph: incorrect rule lookup") (lookup r rlsNds))
+      rlsEdgs = derivedGraphEdgeRelation rls
+      ndsEdgs = map (\(r1, r2) -> (rlsNdsMap r1, rlsNdsMap r2, ())) rlsEdgs
+  in (mkGraph ndsRls ndsEdgs, ndsRlsMap)
+
+isCyclic :: Gr a b -> Bool
+isCyclic gr =  any (\(n1, n2, _) -> n1 == n2) (labEdges gr) || any (\c -> length c > 1) (scc gr)
+
+cyclesInRuleGraph :: (Node -> Rule t) -> Gr (Rule t) () -> [[String]]
+cyclesInRuleGraph ndsRlsMap gr =
+  let cycNds = [[n] | n <- nodes gr, (n, n, ()) `elem` labEdges gr] ++ filter (\c -> length c > 1) (scc gr)
+  in map (map (arNameToString . nameOfRule . ndsRlsMap)) cycNds
+
+
+
+topsortRules :: [Rule (Tp())] -> [Rule (Tp())]
+topsortRules rls =
+  let (ruleGr, nodeToRlMap) = rulesToGraph rls
+  in
+    case cyclesInRuleGraph nodeToRlMap ruleGr of
+      [] -> topsort' ruleGr
+      c -> error ("mutual dependency among rules " ++ unlines (map unlines c))
+
+    {-
+    case [c | c <- stronglyConn, length c > 1] of
+    --filter (\c -> length c > 1) stronglyConn of                -- 
+      [] -> topsort' ruleGr
+      c:cs -> error  "bla" -- ("mutual dependency among rules " + (map (\r -> arNameToString (nameOfRule r)) (map nodeToRlMap c)))
+-}
+
+rewriteRuleDerived :: [Rule (Tp())] -> Rule (Tp()) -> Rule (Tp())
+rewriteRuleDerived rls rl =
+  if hasPathMap ["derived"] (instrOfRule rl)
+  then
+    let prg = convertDerivedInstrToRuleProg (instrOfRule rl)
+    in head (runRuleProg prg rls)
+  else rl
+
+rewriteRuleSetDerived :: [Rule (Tp())] -> [Rule (Tp())]
+rewriteRuleSetDerived rls =
+  let rlsSorted = topsortRules rls
+  in map (rewriteRuleDerived rls) rlsSorted

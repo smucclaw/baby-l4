@@ -12,10 +12,8 @@ import SimpleSMT as SMT
 import qualified Data.Maybe
 import Control.Monad ( when, unless, foldM )
 import Text.Pretty.Simple (pPrint, pPrintString)
-import RuleTransfo ( prenexForm, ruleImplR, liftDecompRule, repeatDecomp, ruleAllR, clarify,
-                    ruleAbstrInstances, ruleExL, ruleExLInv, ruleNormalizeVarOrder, rulesInversion, normalize,
-                    ruleToFormula,
-                    conjsExpr, notExpr, rewriteRuleSetDespite, rewriteRuleSetSubjectTo )
+import RuleTransfo ( ruleToFormula,
+                    conjsExpr, notExpr, rewriteRuleSetDespite, rewriteRuleSetSubjectTo, rewriteRuleSetDerived )
 import PrintProg (printRule)
 import Data.Maybe (fromMaybe)
 import Model (constructRelModel, instanceNameMap, displayableModel, printDisplayableModel)
@@ -305,11 +303,16 @@ proveAssertion p asrt = foldM (\r (k,instr) ->
               _ -> return ())
           () (instrOfAssertion asrt)
 
-proveProgram :: Program (LocTypeAnnot (Tp ())) -> IO ()
-proveProgram p =
+proveProgramOrig :: Program (LocTypeAnnot (Tp ())) -> IO ()
+proveProgramOrig p =
   let cleanedProg = fmap typeAnnot p
   in foldM (\r a -> proveAssertion cleanedProg a) () (assertionsOfProgram cleanedProg)
 
-proveProgramTest :: Program (LocTypeAnnot (Tp ())) -> IO ()
-proveProgramTest p =
-  putStrLn (concatMap printRule (rewriteRuleSetSubjectTo (rewriteRuleSetDespite (rulesOfProgram p))))
+proveProgram :: Program (LocTypeAnnot (Tp ())) -> IO ()
+proveProgram p =
+  do 
+    putStrLn "first transfo"
+    putStrLn (concatMap printRule (rewriteRuleSetSubjectTo (rewriteRuleSetDespite (rulesOfProgram (fmap typeAnnot p)))))
+    putStrLn "second transfo"
+    putStrLn (concatMap printRule (rewriteRuleSetDerived (rewriteRuleSetSubjectTo (rewriteRuleSetDespite (rulesOfProgram (fmap typeAnnot p))))))
+ -- putStrLn (printDerivs (rewriteRuleSetSubjectTo (rewriteRuleSetDespite (rulesOfProgram p))))
