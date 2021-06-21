@@ -13,7 +13,7 @@ import Data.List (sortBy)
 
 import Data.Graph.Inductive.Graph
     ( nodes, Graph(labEdges, mkGraph), LNode, Node )
-import Data.Graph.Inductive.PatriciaTree ( Gr ) 
+import Data.Graph.Inductive.PatriciaTree ( Gr )
 import Data.Graph.Inductive.Query.DFS ( scc, topsort' )
 
 
@@ -177,19 +177,20 @@ abstract q vds e
 
 type DecompRule t = Rule t -> [Rule t]
 type DecompWorklist t = [Rule t] -> [Rule t]
+type RuleTransformer t = Rule t -> Rule t
 
-ruleAllR :: DecompRule (Tp ())
+ruleAllR :: RuleTransformer (Tp ())
 ruleAllR r =
   case postcondOfRule r of
     QuantifE _ All vn tp e ->
-      [r{postcondOfRule = e}{precondOfRule = liftExpr 0 (precondOfRule r)}{varDeclsOfRule = varDeclsOfRule r ++ [VarDecl (eraseAnn  tp) (nameOfQVarName vn) tp]}]
-    _ -> [r]
+      r{postcondOfRule = e}{precondOfRule = liftExpr 0 (precondOfRule r)}{varDeclsOfRule = varDeclsOfRule r ++ [VarDecl (eraseAnn  tp) (nameOfQVarName vn) tp]}
+    _ -> r
 
-ruleImplR :: DecompRule (Tp ())
+ruleImplR :: RuleTransformer (Tp ())
 ruleImplR r =
   case postcondOfRule r of
-    BinOpE _ (BBool BBimpl) e1 e2 -> [r{postcondOfRule = e2}{precondOfRule = conjExpr (precondOfRule r) e1}]
-    _ -> [r]
+    BinOpE _ (BBool BBimpl) e1 e2 -> r{postcondOfRule = e2}{precondOfRule = conjExpr (precondOfRule r) e1}
+    _ -> r
 
 
 ruleConjR :: DecompRule t
@@ -237,17 +238,17 @@ constrNewArgs n (e:es) =
 -- for new variables x1 .. xn. 
 -- After abstraction, all arguments of R are distinct local variables. 
 -- New variables are only introduced when necessary.
-ruleAbstrInstances :: DecompRule (Tp ())
+ruleAbstrInstances :: RuleTransformer (Tp ())
 ruleAbstrInstances r =
   case postcondOfRule r of
     e@AppE {} ->
         let vds = varDeclsOfRule r
             (f, args) = appToFunArgs [] e
             (rargs, reqs, rds) = constrNewArgs (length vds) args
-        in [r{postcondOfRule = funArgsToApp f rargs}
-             {precondOfRule = conjsExpr (precondOfRule r:reqs) }
-             {varDeclsOfRule = rds ++ varDeclsOfRule r }]
-    _ -> [r]
+        in r{postcondOfRule = funArgsToApp f rargs}
+            {precondOfRule = conjsExpr (precondOfRule r:reqs) }
+            {varDeclsOfRule = rds ++ varDeclsOfRule r }
+    _ -> r
 
 localVarExpr :: Expr t -> Bool
 localVarExpr (VarE _ (LocalVar _ _)) = True
@@ -266,7 +267,7 @@ isLocalVar (LocalVar _ _) = True
 isLocalVar _ = False
 
 -- lifts an existential quantifier in the preconditions into the var decls of the rule
-ruleExLStep :: DecompRule (Tp ())
+ruleExLStep :: RuleTransformer (Tp ())
 ruleExLStep r =
   let vds = varDeclsOfRule r
       prec = precondOfRule r
@@ -274,11 +275,11 @@ ruleExLStep r =
   in case prec of
     QuantifE _ Ex vn vt e ->
       let nvd = VarDecl (() <$ vt) (nameOfQVarName vn) vt
-      in [r{varDeclsOfRule = vds ++ [nvd]}{precondOfRule = e}{postcondOfRule = liftExpr 0 postc}]
-    _ -> [r]
+      in r{varDeclsOfRule = vds ++ [nvd]}{precondOfRule = e}{postcondOfRule = liftExpr 0 postc}
+    _ -> r
 
-ruleExL :: DecompWorklist (Tp ())
-ruleExL = repeatDecomp (liftDecompRule ruleExLStep)
+ruleExL :: RuleTransformer (Tp ())
+ruleExL = fixp ruleExLStep
 
 
 -- ruleExLInvStep is the inverse of ruleExLStep:
@@ -288,7 +289,7 @@ ruleExL = repeatDecomp (liftDecompRule ruleExLStep)
 -- becomes
 -- for x1 ... xn:   (exists y.  pre(x1 ... y ... xn)) --> post(x1 ... xn)
 -- If there is no such variable, the rule is returned unchanged.
-ruleExLInvStep :: DecompRule (Tp ())
+ruleExLInvStep :: RuleTransformer (Tp ())
 ruleExLInvStep r =
   let vds = varDeclsOfRule r
       prec = precondOfRule r
@@ -298,7 +299,7 @@ ruleExLInvStep r =
   in case this of
     -- variable set has not been split because all vardecls are fvs of postcond
     -- rule not modified
-    [] -> [r]
+    [] -> r
     -- variable set has been split
     [vd] ->
       let ll = length lowers
@@ -307,19 +308,18 @@ ruleExLInvStep r =
           rmpPrec  = (ll, 0) : zip [0 .. ll - 1] [1 .. ll]
           newPostc = remapExpr rmpPostc postc
           newPrec = QuantifE booleanT Ex (QVarName (annotOfVarDecl vd) (nameOfVarDecl vd)) (tpOfVarDecl vd) (remapExpr rmpPrec prec)
-      in [r{varDeclsOfRule = reverse (lowers++uppers)}{precondOfRule = newPrec}{postcondOfRule = newPostc}]
+      in r{varDeclsOfRule = reverse (lowers++uppers)}{precondOfRule = newPrec}{postcondOfRule = newPostc}
     _ -> error "internal error in splitDecls: "
 
-ruleExLInv :: DecompWorklist (Tp ())
-ruleExLInv = repeatDecomp (liftDecompRule ruleExLInvStep)
-
+ruleExLInv :: RuleTransformer (Tp ())
+ruleExLInv = fixp ruleExLInvStep
 
 -- Condition of applicability: 
 -- the rule has to be of the form for xi .. xj  if Pre( ... ) then f xm .. xk
 -- where f is a function application and the variables xm .. xk are mutually distinct and are exactly the variables in xi .. xj.
--- The function produces a normalized representation such that the arguments of f are applied to indices in increasing order:
--- for xn .. x0  if Pre( ... ) then f x0 .. xn
-ruleNormalizeVarOrder :: DecompRule (Tp ())
+-- The function produces a normalized representation such that the arguments of f are applied to indices in decreasing order:
+-- for xn .. x0  if Pre( ... ) then f xn .. x0
+ruleNormalizeVarOrder :: RuleTransformer (Tp ())
 ruleNormalizeVarOrder r =
   case postcondOfRule r of
     postc@AppE {} ->
@@ -328,16 +328,15 @@ ruleNormalizeVarOrder r =
         in
           if all localVarExpr args && distinct (map (\(VarE _ (LocalVar vn i)) -> i) args) && length vds == length args
           then
-            let idcs = map (\(VarE _ (LocalVar vn i)) -> i) args
-                idcsdecls = zip idcs vds
-                varrmp = zip idcs [0 .. length idcs -1]
-                idcsdeclsSorted = sortBy (\(a,_) (b,_) -> compare a b) idcsdecls
+            let idcs = map (\(VarE _ (LocalVar vn i)) -> i) args  -- the sequence of indices of the argument vars
+                varrmp = zip idcs  (reverse [0 .. length idcs -1])   -- remap of variables
+                idcsdecls = zip (reverse [0 .. length idcs -1]) vds  -- current correspondence index -> vardecl
+                idcsdeclsSorted = reverse (sortBy (\(a,_) (b,_) -> compare (lookup a varrmp) (lookup b varrmp)) idcsdecls)
                 newPostc = remapExpr varrmp postc
                 newPrec = remapExpr varrmp (precondOfRule r)
-            in [r{varDeclsOfRule = map snd idcsdeclsSorted}{precondOfRule = newPrec}{postcondOfRule = newPostc}]
-          else [r]
-    _ -> [r]
-
+            in r{varDeclsOfRule = map snd idcsdeclsSorted}{precondOfRule = newPrec}{postcondOfRule = newPostc}
+          else r
+    _ -> r
 
 -- Inversion of a list of rules for xn .. x0 Pre1(x0 .. xn) -> P x0 .. xn , ... for xn .. xo Prem(x0 .. xn) -> P x0 .. xn
 -- Condition of applicability: 
@@ -358,24 +357,24 @@ rulesInversion rls =
 restrictWithNegPrecondOfStep :: Rule (Tp ()) -> Rule (Tp ()) -> Rule (Tp ())
 restrictWithNegPrecondOfStep r1 r2 = r1{precondOfRule = conjExpr (precondOfRule r1) (notExpr (precondOfRule r2))}
 
-restrictWithNegPrecondOf :: Rule (Tp ()) ->  DecompWorklist (Tp())
-restrictWithNegPrecondOf rl rls = [foldl restrictWithNegPrecondOfStep rl rls]
+restrictWithNegPrecondOf :: Rule (Tp ()) ->  [Rule (Tp())] -> Rule (Tp())
+restrictWithNegPrecondOf = foldl restrictWithNegPrecondOfStep
 
 liftDecompRule :: DecompRule t -> DecompWorklist t
 liftDecompRule = concatMap
 
-repeatDecomp :: Eq t => DecompWorklist t -> DecompWorklist t
-repeatDecomp dec wl =
-  let nwl = dec wl in
-    if nwl == wl
-    then wl
-    else repeatDecomp dec nwl
+fixp :: Eq t => (t -> t) -> (t -> t)
+fixp f a =
+  let newa = f a in
+    if newa == a
+    then a
+    else fixp f newa
 
 clarify :: DecompWorklist (Tp ())
-clarify = repeatDecomp (liftDecompRule ruleConjR . liftDecompRule ruleImplR . liftDecompRule ruleAllR)
+clarify = fixp (liftDecompRule (ruleConjR .  ruleImplR . ruleAllR))
 
-normalize :: DecompWorklist (Tp ())
-normalize = liftDecompRule ruleNormalizeVarOrder . liftDecompRule ruleAbstrInstances . ruleExLInv
+normalize :: RuleTransformer (Tp ())
+normalize = ruleNormalizeVarOrder . ruleAbstrInstances . ruleExLInv
 
 -------------------------------------------------------------
 -- Manipulating rule sets
@@ -431,6 +430,14 @@ appendToARName (Just n) s = Just (n ++ s)
 arNameToString :: ARName  -> String
 arNameToString = fromMaybe ""
 
+definedKVM :: KVMap
+definedKVM = [("defined", MapVM [])]
+
+derivedKVMForSubjectTo :: KeyKVM -> [String] -> [(String, ValueKVM)]
+derivedKVMForSubjectTo original args =
+  [( "derived", MapVM [( "apply", MapVM (stringListAsKVMap ("restrictWithNegPrecondOf" : original : args)))])]
+
+
 rewriteRuleSubjectTo :: Rule t -> [Rule t]
 rewriteRuleSubjectTo rl =
   if hasPathMap ["restrict", "subjectTo"] (instrOfRule rl)
@@ -440,18 +447,6 @@ rewriteRuleSubjectTo rl =
         rlDeriv = rl{instrOfRule = derivedKVMForSubjectTo (arNameToString origName) (getRuleNamesAt ["restrict", "subjectTo"] rl)}
     in [rlOrig, rlDeriv]
   else [rl]
-
-definedKVM :: KVMap
-definedKVM = [("defined", MapVM [])]
-
-derivedKVMForSubjectTo :: KeyKVM -> [String] -> [(String, ValueKVM)]
-derivedKVMForSubjectTo original args =
-  [( "derived", MapVM [( "apply", MapVM ([( "restrictWithNegPrecondOf", MapVM []), (original, MapVM [])] ++ stringListAsKVMap args))])]
-{-
-  [( "derived", MapVM [( "apply", MapVM [( "restrictWithNegPrecondOf", MapVM []),
-                                  (original, MapVM []),
-                                  ("list", MapVM (stringListAsKVMap args))])])]
--}
 
 rewriteRuleSetSubjectTo :: [Rule t] -> [Rule t]
 rewriteRuleSetSubjectTo = concatMap rewriteRuleSubjectTo
@@ -470,20 +465,20 @@ ruleNamesOfRuleProg (RuleName rn) = Set.singleton rn
 ruleNamesOfRuleProg (Apply _ rps) = Set.unions (map ruleNamesOfRuleProg rps)
 
 
-convertDerivedInstrToRuleProg :: KVMap -> RuleProg
-convertDerivedInstrToRuleProg [("derived", IdVM rn)] =  RuleName rn
-convertDerivedInstrToRuleProg [("derived", MapVM [kvp])] =  convertKeyValPairToRuleProg kvp
-convertDerivedInstrToRuleProg _ = error "illegal format for derived instruction"
+derivedInstrToRuleProg :: KVMap -> RuleProg
+derivedInstrToRuleProg [("derived", IdVM rn)] =  RuleName rn
+derivedInstrToRuleProg [("derived", MapVM [kvp])] =  keyValPairToRuleProg kvp
+derivedInstrToRuleProg _ = error "illegal format for derived instruction"
 
-convertKeyValPairToRuleProg :: (KeyKVM, ValueKVM) -> RuleProg
-convertKeyValPairToRuleProg (k,  MapVM []) = RuleName k
-convertKeyValPairToRuleProg ("apply", MapVM ((fn,MapVM []) : args)) = Apply fn (map convertKeyValPairToRuleProg args)
-convertKeyValPairToRuleProg p = error ("illegal form of rule program " ++ show p)
+keyValPairToRuleProg :: (KeyKVM, ValueKVM) -> RuleProg
+keyValPairToRuleProg (k,  MapVM []) = RuleName k
+keyValPairToRuleProg ("apply", MapVM ((fn,MapVM []) : args)) = Apply fn (map keyValPairToRuleProg args)
+keyValPairToRuleProg p = error ("illegal form of rule program " ++ show p)
 
 ruleNamesInDerived :: Rule t -> Set.Set String
 ruleNamesInDerived rl =
   if hasPathMap ["derived"] (instrOfRule rl)
-  then ruleNamesOfRuleProg (convertDerivedInstrToRuleProg (instrOfRule rl))
+  then ruleNamesOfRuleProg (derivedInstrToRuleProg (instrOfRule rl))
   else Set.empty
 
 
@@ -491,7 +486,7 @@ ruleNamesInDerived rl =
 printDerivs :: [Rule t] -> String
 printDerivs rls =
   let derivs = filter (hasPathMap ["derived"] . instrOfRule) rls
-      convs = map (convertDerivedInstrToRuleProg . instrOfRule) derivs
+      convs = map (derivedInstrToRuleProg . instrOfRule) derivs
       showconvs = map show convs
   in unlines showconvs
 
@@ -500,15 +495,17 @@ findRule :: [Rule t] -> ARName -> Rule t
 findRule rls rn = fromMaybe (error ("findRule: rule with name " ++ arNameToString rn ++ " should be in list")) (lookup rn (map (\r -> (nameOfRule r, r)) rls))
 
 -- rule functions convert rule lists to rule lists
-findRuleFun :: String -> DecompWorklist (Tp())
+findRuleFun :: String -> [Rule (Tp())] -> Rule (Tp())
+findRuleFun "inversion" rls = rulesInversion rls
+findRuleFun "normalize" [rl] = normalize rl
+findRuleFun "normalize" _ = error "normalize rule function must have exactly one argument"
 findRuleFun "restrictWithNegPrecondOf" (rl:rls) = restrictWithNegPrecondOf rl rls
-findRuleFun "normalize" rls = normalize rls
-findRuleFun "inversion" rls = [rulesInversion rls]
+findRuleFun "restrictWithNegPrecondOf" _ = error "restrictWithNegPrecondOf rule function must have at least one argument"
 findRuleFun _ _ = error "undefined rule function"
 
-runRuleProg :: RuleProg -> DecompWorklist (Tp())
-runRuleProg (RuleName rn) rls = [findRule rls (Just rn)]
-runRuleProg (Apply fn args) rls = findRuleFun fn (concatMap (`runRuleProg` rls) args)
+runRuleProg :: RuleProg -> [Rule (Tp())] -> Rule (Tp())
+runRuleProg (RuleName rn) rls = findRule rls (Just rn)
+runRuleProg (Apply fn args) rls = findRuleFun fn (map (`runRuleProg` rls) args)
 
 
 edgeListGraphToGrNodes :: [a] -> [LNode a]
@@ -518,18 +515,7 @@ edgeListGraphToGrNodes ns = zip [0 .. length ns -1] ns
 grToEdgeListGraphNodes :: [a] -> [(a, Node)]
 grToEdgeListGraphNodes ns = zip ns [0 .. length ns -1]
 
-{-
-edgeListGraphToGrEdges :: (a -> Node) -> [(a, a)] -> [LEdge ()]
-edgeListGraphToGrEdges m = map (\(v1, v2) -> (m v1, m v2, ()))
-
--- conversion from edge-list format to Gr graph format
-edgeListGraphToGr :: (Eq a) => EdgeListGraph a -> Gr a String
-edgeListGraphToGr (ELG ns es) =
-  let inv_nodes_map = grToEdgeListGraphNodes ns
-      m = (\n -> fromJust (lookup n inv_nodes_map))
-  in mkGraph (edgeListGraphToGrNodes ns) (edgeListGraphToGrEdges m es)
--}
-
+-- list of rule pairs (r1, r2) such that r1 depends on r2, i.e. r2 occurs in the derivation of r1
 derivedGraphEdgeRelation :: [Rule t] -> [(Rule t, Rule t)]
 derivedGraphEdgeRelation rls =
   [(r1, r2) | r1 <- rls, r2 <- map (findRule rls . Just) (Set.toList (ruleNamesInDerived r1))]
@@ -552,8 +538,8 @@ cyclesInRuleGraph ndsRlsMap gr =
   let cycNds = [[n] | n <- nodes gr, (n, n, ()) `elem` labEdges gr] ++ filter (\c -> length c > 1) (scc gr)
   in map (map (arNameToString . nameOfRule . ndsRlsMap)) cycNds
 
-
-
+-- rules are ordered in such a way that a rule depends on the elements following it in the list
+-- but not on the elements preceding it
 topsortRules :: [Rule (Tp())] -> [Rule (Tp())]
 topsortRules rls =
   let (ruleGr, nodeToRlMap) = rulesToGraph rls
@@ -562,22 +548,19 @@ topsortRules rls =
       [] -> topsort' ruleGr
       c -> error ("mutual dependency among rules " ++ unlines (map unlines c))
 
-    {-
-    case [c | c <- stronglyConn, length c > 1] of
-    --filter (\c -> length c > 1) stronglyConn of                -- 
-      [] -> topsort' ruleGr
-      c:cs -> error  "bla" -- ("mutual dependency among rules " + (map (\r -> arNameToString (nameOfRule r)) (map nodeToRlMap c)))
--}
 
-rewriteRuleDerived :: [Rule (Tp())] -> Rule (Tp()) -> Rule (Tp())
+rewriteRuleDerived :: [Rule (Tp())] -> RuleTransformer (Tp())
 rewriteRuleDerived rls rl =
   if hasPathMap ["derived"] (instrOfRule rl)
   then
-    let prg = convertDerivedInstrToRuleProg (instrOfRule rl)
-    in head (runRuleProg prg rls)
+    let prg = derivedInstrToRuleProg (instrOfRule rl)
+        derRl = runRuleProg prg rls
+    in derRl {nameOfRule = nameOfRule rl, instrOfRule = instrOfRule rl}
   else rl
 
 rewriteRuleSetDerived :: [Rule (Tp())] -> [Rule (Tp())]
 rewriteRuleSetDerived rls =
   let rlsSorted = topsortRules rls
-  in map (rewriteRuleDerived rls) rlsSorted
+  -- in map (rewriteRuleDerived rls) rlsSorted
+  --in rlsSorted
+  in foldr (\rl accrls -> rewriteRuleDerived accrls rl : accrls) [] rlsSorted

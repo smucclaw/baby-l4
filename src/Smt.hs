@@ -14,7 +14,7 @@ import Control.Monad ( when, unless, foldM )
 import Text.Pretty.Simple (pPrint, pPrintString)
 import RuleTransfo ( ruleToFormula,
                     conjsExpr, notExpr, rewriteRuleSetDespite, rewriteRuleSetSubjectTo, rewriteRuleSetDerived )
-import PrintProg (printRule)
+import PrintProg (printRule, renameAndPrintRule, namesUsedInProgram )
 import Data.Maybe (fromMaybe)
 import Model (constructRelModel, instanceNameMap, displayableModel, printDisplayableModel)
 
@@ -311,8 +311,8 @@ proveProgramOrig p =
 proveProgram :: Program (LocTypeAnnot (Tp ())) -> IO ()
 proveProgram p =
   do 
-    putStrLn "first transfo"
-    putStrLn (concatMap printRule (rewriteRuleSetSubjectTo (rewriteRuleSetDespite (rulesOfProgram (fmap typeAnnot p)))))
-    putStrLn "second transfo"
-    putStrLn (concatMap printRule (rewriteRuleSetDerived (rewriteRuleSetSubjectTo (rewriteRuleSetDespite (rulesOfProgram (fmap typeAnnot p))))))
+    putStrLn "First transfo: rewrite Despite and SubjectTo"
+    putStrLn (concatMap (renameAndPrintRule (namesUsedInProgram p)) (rewriteRuleSetSubjectTo (rewriteRuleSetDespite (rulesOfProgram (fmap typeAnnot p)))))
+    putStrLn "Second transfo: rewrite Derived"
+    putStrLn (concatMap (renameAndPrintRule (namesUsedInProgram p)) (rewriteRuleSetDerived (rewriteRuleSetSubjectTo (rewriteRuleSetDespite (rulesOfProgram (fmap typeAnnot p))))))
  -- putStrLn (printDerivs (rewriteRuleSetSubjectTo (rewriteRuleSetDespite (rulesOfProgram p))))

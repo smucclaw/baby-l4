@@ -18,7 +18,7 @@ data Located a = L
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 instance Applicative Located where
-  pure = L $ defaultSRng
+  pure = L defaultSRng
   L lf f <*> L lx x = L (coordFromTo lf lx) $ f x
 
 instance HasLoc (Located a) where
