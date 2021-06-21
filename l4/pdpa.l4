@@ -1,0 +1,86 @@
+# l4 encoding of PDPA 
+# Part VIA - Notification of Data Breaches &
+# Personal Data Protection (Notification of Data Breaches) Regulations 2021
+
+#------------------------------ Classes ------------------------------ 
+
+# Class definitions
+
+class Individual = {
+    NaturalPersonLivingOrDeceased = Boolean
+}
+
+PersonalData = {
+    IndividualIdentifiedFromData = Boolean
+    IndividualIdentifiedFromDataAndInformationOrgHas = Boolean
+}
+
+class LikelytoOccur = Boolean
+
+class DataBreach = {
+    UnauthorisedAccess: Boolean
+    UnauthorisedCollection: Boolean
+    UnauthorisedUse: Boolean
+    UnauthorisedDisclosure: Boolean
+    UnauthorisedCopying: Boolean
+    UnauthorisedModification: Boolean
+    UnauthorisedDisposal: Boolean
+    LossofStorageMedium: Boolean
+}
+
+class SignificantScale = {
+    # Is there an Int datatype in L4
+    # Regulations state that 500 or more affected individuals constitute a data breach of significant scale
+    AffectedIndividuals: Int
+    OtherPrescribedCircumstances: Boolean
+}
+
+class SignificantHarmToIndividual = {
+    FullName: Boolean
+    IDNumber: Boolean
+    PersonalDataInPart1ofScheduleSubjectToPart2ofSchedule: Boolean
+    AccountIdentifier: Boolean
+    PasswordtoAccount: Boolean
+    OtherPrescribedCircumstances: Boolean
+}
+
+class NotifiableDataBreach extends DataBreach = {
+    SignificantHarm: SignificantHarmToIndividual
+    SignificantScale: SignificantScale
+    DataBreachOnlyWithinOrg: Boolean
+}
+
+class Organisation
+
+class DataIntermediary extends Organisation = {
+    ProcessesDataOnBehalfOfAnotherOrganisation: Boolean
+    # DoesNotIncludeEmployeeOfTheOtherOrganisation: Boolean
+}
+
+# No definition of what constitutes an assessment of data breach in the legislation, only in the guide
+class AssessmentOfDataBreach = {
+    ReasonToBelieve: Boolean
+    DataInPossession: Boolean
+    DataUnderControl: Boolean
+    ReasonableAndExpeditious: Boolean
+}
+
+class Notification
+
+class Commission
+
+class PrescribedLawEnforcement
+
+class Days
+
+class BestofKnowledgeAndBelief
+
+class PrescribedRequirements
+
+class RestrictionOnTheDisclosureofInformation = {
+    DutyorObligationUnderLaw: Boolean
+    DutyUnderContract: Boolean
+    RuleOfProfessionalConduct: Boolean
+}
+
+class PublicAgency
