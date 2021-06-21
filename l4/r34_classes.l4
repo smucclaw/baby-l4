@@ -1,0 +1,68 @@
+# class AllConditionsOfSecondScheduleSatisfied
+# {LExSIS: {encoding: "conditions_of_second_schedule_satisfied"}}
+
+class Service {
+    isLegalService: Boolean
+    isLawRelatedService: Boolean
+    isListedInFourthSchedule: Boolean
+}
+
+class Business {
+    isDetractsFromDignityOfLegalProfession: Boolean
+    isIncompatibleWithDignityOfLegalProfession: Boolean
+    isDerogatesFromDignityOfLegalProfession: Boolean
+    isLikelyToUnfairlyAttractBusiness: Boolean
+    isSetOutInFirstSchedule: Boolean
+    isProhibitedBusiness: Boolean
+    isTrade: Boolean
+    isCalling: Boolean
+    isForProfit: Boolean
+    isInSingapore: Boolean
+}
+
+
+class Organization {
+    isListedInThirdSchedule: Boolean
+    isCompany: Boolean
+    isCorporation: Boolean
+    isPartnership: Boolean
+    isLLP: Boolean
+    isSoleProprietorship: Boolean
+    isBusinessTrust: Boolean
+
+    hasPosition: Position -> Boolean
+    BeneficialOwner: Person -> Boolean
+    LegalOwner: Person -> Boolean
+    hasPartner: Person -> Boolean
+    hasSoleProprietor: Person -> Boolean
+    hasDirector: Person -> Boolean
+    CarriesOn: Business -> Boolean
+    Provides: Service -> Boolean
+}
+
+class Position {
+    isAcceptedAsRepresentativeOfParentPractice: Boolean
+    isEntitlesHolderAsExecutive: Boolean
+    isIndependentDirector: Boolean
+    isNonExecutiveDirector: Boolean
+    AssociatedWith: Business -> Boolean
+    MateriallyInterferesPracticing: Person -> Boolean # ???
+    MateriallyInterferesAvailability: Person -> Boolean # ???
+    MateriallyInterferesRepresentation: Person -> Boolean # ???
+}
+
+
+class LegalPractitioner {
+    isLocum_Solicitor: Boolean
+    Primary_Occupation: Boolean
+}
+
+class Legal_Practice {
+    Joint_Law_Venture: Boolean
+    Formal_Law_Alliance: Boolean
+    Jurisdiction: Boolean
+    hasLegalPractitioner: LegalPractitioner -> Boolean
+    hasPosition: Position -> Boolean
+}
+
+class Person
