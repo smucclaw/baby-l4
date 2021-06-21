@@ -69,7 +69,7 @@ class Answerable x where
     toAnswers :: x -> [GStatement]
 
 instance Answerable (VarDecl t) where
-  toAnswers v = [GApp1] <*>  [toPred v]
+  toAnswers v = [(`GApp` dummySubj)] <*> [toPred v]
 
 instance Answerable (Program a) where
   toAnswers = concatMap toAnswers . filter isPred.globalsOfProgram
@@ -86,6 +86,9 @@ isPred' :: Tp -> Bool
 isPred' (FunT _ BoolT) = True
 isPred' (FunT _ t2) = isPred' t2
 isPred' _ = False
+
+dummySubj :: GArg
+dummySubj = GAVar (GV(GString "dummy"))
 
 -- -- patterns
 
