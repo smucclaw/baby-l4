@@ -65,6 +65,10 @@ open Prelude, SyntaxEng, (S=SyntaxEng), ParadigmsEng, ExtendEng, WordNetEng in {
 
     dummyArg : CN = mkCN (mkN "dummy") ;
 
+  param
+    Arity = Ar0 | Ar1 | Ar2 ;
+
+  oper
     -- Predicates
     LinPred' : Type = {
       s : LinAtom ;

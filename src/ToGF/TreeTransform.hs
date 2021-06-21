@@ -14,47 +14,47 @@ import Answer
 
 {-
 firstAggr gets this as argument:
-* RPS is a game , 
-* A participates in RPS , 
-* A plays , 
-* A throws rock , 
-* C plays , 
-* C participates in RPS , 
-* C throws scissors and 
+* RPS is a game ,
+* A participates in RPS ,
+* A plays ,
+* A throws rock ,
+* C plays ,
+* C participates in RPS ,
+* C throws scissors and
 * rock beats scissors
 
 groupBy' samePred statements returns this:
 
-[[RPS is a game] , 
+[[RPS is a game] ,
 [A participates in RPS , C participates in RPS] ,
-[A plays               , C plays ], 
-[A throws rock] , 
+[A plays               , C plays ],
+[A throws rock] ,
 [C throws scissors],
 [rock beats scissors]]
 
 aggregateSubj transforms that list of lists into
 
-* RPS is a game , 
-* A and C participate in RPS , 
-* A and C play , 
-* A throws rock , 
-* C throws scissors and 
+* RPS is a game ,
+* A and C participate in RPS ,
+* A and C play ,
+* A throws rock ,
+* C throws scissors and
 * rock beats scissors
 
 groupBy sameSubj returns this:
 
 [
-[ RPS is a game ], 
-[ A and C participate in RPS , A and C play ], 
-[ A throws rock ], 
-[ C throws scissors], 
+[ RPS is a game ],
+[ A and C participate in RPS , A and C play ],
+[ A throws rock ],
+[ C throws scissors],
 [ rock beats scissors]]
 
 aggregatePred transforms that list of lists into
 
-* RPS is a game , 
-* A and C play and participate in RPS , 
-* A throws rock , 
+* RPS is a game ,
+* A and C play and participate in RPS ,
+* A throws rock ,
 * C throws scissors and
 * rock beats scissors
 -}
@@ -89,9 +89,13 @@ aggregateSubj subjs (GApp2 pr _subj obj) = GAggregateSubj2 pr obj (GListArg subj
 aggregateSubj _ x = x
 
 aggregatePred :: [GPred] -> GStatement -> GStatement
-aggregatePred [pr1, pr2] (GAggregateSubj1 _ subjs) = GAggregatePred pr1 pr2 subjs
-aggregatePred [pr1, pr2] (GAggregateSubj2 _ _ subjs) = GAggregatePred pr1 pr2 subjs
-aggregatePred _ x = x
+aggregatePred preds statement = case statement of
+  GAggregateSubj1 _ subjs -> GAggregatePred (GListPred preds) (GConjArg subjs)
+  GAggregateSubj2 _ _ subjs -> GAggregatePred (GListPred preds) (GConjArg subjs)
+  GApp1 _ subj -> GAggregatePred (GListPred preds) subj
+  GApp2 _ _ subj -> GAggregatePred (GListPred preds) subj
+  _ -> statement -- wasn't able to aggregate
+
 
 getPred :: GStatement -> GPred
 getPred s = case s of

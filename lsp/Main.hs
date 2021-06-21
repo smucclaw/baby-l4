@@ -100,7 +100,8 @@ getVirtualOrRealFile uri = do
         -- TODO: Catch errors thrown by readFile
         liftIO $ TIO.readFile filename
 
-parseVirtualOrRealFile :: Uri -> ExceptT Err (LspM Config) (Maybe (Program SRng))
+
+parseVirtualOrRealFile :: Uri -> ExceptT Err (LspM Config) (Maybe (Program LocAndTp))
 parseVirtualOrRealFile uri = do
     contents <- getVirtualOrRealFile uri
     lift $ parseAndSendErrors uri contents
@@ -181,7 +182,9 @@ mkErrsField (range, cls, fieldLs) = Err range ("Duplicate field names in the cla
 fieldErrorRange :: (SRng, FieldName) -> String
 fieldErrorRange (range, field) = show range ++ ": " ++ stringOfFieldName field
 
-parseAndSendErrors :: J.Uri -> T.Text -> LspM Config (Maybe (Program SRng))
+type LocAndTp = LocTypeAnnot Tp
+
+parseAndSendErrors :: J.Uri -> T.Text -> LspM Config (Maybe (Program LocAndTp))
 parseAndSendErrors uri contents = runMaybeT $ do
   let Just loc = uriToFilePath uri
   let pres = parseProgram loc $ T.unpack contents
@@ -191,9 +194,7 @@ parseAndSendErrors uri contents = runMaybeT $ do
   preludeAst <- liftIO readPrelude -- TOOD: Handle errors
 
   let typedAstOrTypeError = checkError preludeAst ast
-  -- TODO: Return the type checked AST so we can show type info
-  _ <- sendDiagnosticsOnLeft "typechecking" nuri $ mapLeft errorToErrs typedAstOrTypeError
-  pure ast
+  sendDiagnosticsOnLeft "typechecking" nuri $ mapLeft errorToErrs typedAstOrTypeError
 
 tshow :: Show a => a -> T.Text
 tshow = T.pack . show
@@ -239,15 +240,29 @@ data SomeAstNode t
   | SClassDecl (ClassDecl t)
   | SGlobalVarDecl (VarDecl t)
   | SRule (Rule t)
+  | SAssertion (Assertion t)
   deriving (Show)
 
 instance HasLoc t => HasLoc (SomeAstNode t) where
-  getLoc (SProg pt) = getLoc (annotOfProgram pt)
-  getLoc (SExpr et) = getLoc et
-  getLoc (SMapping et) = getLoc et
-  getLoc (SClassDecl et) = getLoc et
-  getLoc (SGlobalVarDecl et) = getLoc et
-  getLoc (SRule et) = getLoc et
+  getLoc astNode = getLoc $ getAnnot astNode
+
+
+instance HasAnnot SomeAstNode where
+  getAnnot (SProg pt) = getAnnot pt
+  getAnnot (SExpr et) = getAnnot et
+  getAnnot (SMapping et) = getAnnot et
+  getAnnot (SClassDecl et) = getAnnot et
+  getAnnot (SGlobalVarDecl et) = getAnnot et
+  getAnnot (SRule et) = getAnnot et
+  getAnnot (SAssertion et) = getAnnot et
+
+  updateAnnot nt (SProg pt) = SProg $ updateAnnot nt pt
+  updateAnnot nt (SExpr et) = SExpr $ updateAnnot nt et
+  updateAnnot nt (SMapping et) = SMapping $ updateAnnot nt et
+  updateAnnot nt (SClassDecl et) = SClassDecl $ updateAnnot nt et
+  updateAnnot nt (SGlobalVarDecl et) = SGlobalVarDecl $ updateAnnot nt et
+  updateAnnot nt (SRule et) = SRule $ updateAnnot nt et
+  updateAnnot nt (SAssertion et) = SAssertion $ updateAnnot nt et
 
 selectSmallestContaining :: HasLoc t => Position -> [SomeAstNode t] -> SomeAstNode t -> [SomeAstNode t]
 selectSmallestContaining pos parents node =
@@ -256,13 +271,15 @@ selectSmallestContaining pos parents node =
     Just sub -> selectSmallestContaining pos (node:parents) sub
 
 getChildren :: SomeAstNode t -> [SomeAstNode t]
-getChildren (SProg Program {lexiconOfProgram, classDeclsOfProgram, globalsOfProgram, rulesOfProgram }) =
-  map SMapping lexiconOfProgram ++ map SClassDecl classDeclsOfProgram ++ map SGlobalVarDecl globalsOfProgram ++ map SRule rulesOfProgram
+getChildren (SProg Program {lexiconOfProgram, classDeclsOfProgram, globalsOfProgram, rulesOfProgram, assertionsOfProgram }) =
+  map SMapping lexiconOfProgram ++ map SClassDecl classDeclsOfProgram ++ map SGlobalVarDecl globalsOfProgram ++ map SRule rulesOfProgram ++ map SAssertion assertionsOfProgram
 getChildren (SExpr et) = SExpr <$> childExprs et
 getChildren (SMapping _) = []
 getChildren (SClassDecl _) = []
 getChildren (SGlobalVarDecl _) = []
-getChildren (SRule _) = []
+-- TODO: add code for getting children of Rule & Assertion
+getChildren (SRule r) = SExpr <$> [precondOfRule r, postcondOfRule r] -- Currently no VarDecl node to show type info, requires change in syntax
+getChildren (SAssertion a) = SExpr <$> [exprOfAssertion a]
 
 findAstAtPoint :: HasLoc t => Position -> Program t -> [SomeAstNode t]
 findAstAtPoint pos = selectSmallestContaining pos [] . SProg
@@ -277,28 +294,34 @@ extract :: Monad m => String -> Maybe a -> ExceptT Err m a
 extract errMessage = except . maybeToRight (Err (DummySRng "From lsp") errMessage)
 
 -- TODO: #65 Show type information on hover
-tokensToHover :: Position -> Program SRng -> ExceptT Err IO Hover
+tokensToHover :: Position -> Program LocAndTp -> ExceptT Err IO Hover
 tokensToHover pos ast = do
       let astNode = findAstAtPoint pos ast
       return $ tokenToHover astNode
 
-tokenToHover :: [SomeAstNode SRng] -> Hover
+tokenToHover :: [SomeAstNode LocAndTp] -> Hover
 tokenToHover astNode = Hover contents range
   where
     astText = astToText astNode
+    dbgInfo2 = tshow $ getChildren $ head astNode
     dbgInfo = case head astNode of
       ast@SProg{} -> T.take 80 $ tshow ast
       ast         -> tshow ast
-    txt = astText <> "\n\n" <> dbgInfo
+    tpInfo = astToTypeInfo astNode
+    txt = astText <> "\n\n" <> tpInfo <> "\n\n" <> dbgInfo <> "\n\n" <> dbgInfo2
     contents = HoverContents $ markedUpContent "haskell" txt
     annRange = getLoc $ head astNode
     range = sRngToRange annRange
 
-astToText :: [SomeAstNode SRng] -> T.Text
+astToTypeInfo :: [SomeAstNode LocAndTp] -> T.Text
+astToTypeInfo (x:_) = tshow $ getType $ getAnnot x
+
+astToText :: [SomeAstNode LocAndTp] -> T.Text
 astToText (SMapping (Mapping _ from to):_) = "This block maps variable " <> T.pack from <> " to GrammaticalFramework WordNet definion " <> tshow to
 astToText (SClassDecl (ClassDecl _ (ClsNm x) _):_) = "Declaration of new class : " <> T.pack x
 astToText (SGlobalVarDecl (VarDecl _ n _):_) = "Declaration of global variable " <> T.pack n
 astToText (SRule (Rule _ n _ _ _):_) = "Declaration of rule " <> T.pack n
+astToText (SAssertion (Assertion _ _):_) = "Declaration of Assertion " <> "rule of no name for now"
 astToText _ = "No hover info found"
 
 lookupTokenBare' :: Position -> Uri -> ExceptT Err (LspM Config) (Maybe Hover)
