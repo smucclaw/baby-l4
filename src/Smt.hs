@@ -303,13 +303,17 @@ proveAssertion p asrt = foldM (\r (k,instr) ->
               _ -> return ())
           () (instrOfAssertion asrt)
 
-proveProgramOrig :: Program (LocTypeAnnot (Tp ())) -> IO ()
-proveProgramOrig p =
-  let cleanedProg = fmap typeAnnot p
-  in foldM (\r a -> proveAssertion cleanedProg a) () (assertionsOfProgram cleanedProg)
-
 proveProgram :: Program (LocTypeAnnot (Tp ())) -> IO ()
-proveProgram p =
+proveProgram p = do
+  let cleanedProg = fmap typeAnnot p
+  let transfRules = rewriteRuleSetDerived (rewriteRuleSetSubjectTo (rewriteRuleSetDespite (rulesOfProgram cleanedProg)))
+  let transfProg = cleanedProg {rulesOfProgram = transfRules}
+  putStrLn "Generated rules:"
+  putStrLn (concatMap (renameAndPrintRule (namesUsedInProgram transfProg)) transfRules)
+  foldM (\r a -> proveAssertion transfProg a) () (assertionsOfProgram transfProg)
+
+proveProgramTest :: Program (LocTypeAnnot (Tp ())) -> IO ()
+proveProgramTest p =
   do 
     putStrLn "First transfo: rewrite Despite and SubjectTo"
     putStrLn (concatMap (renameAndPrintRule (namesUsedInProgram p)) (rewriteRuleSetSubjectTo (rewriteRuleSetDespite (rulesOfProgram (fmap typeAnnot p)))))

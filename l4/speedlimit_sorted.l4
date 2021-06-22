@@ -75,6 +75,7 @@ decl isHighway : Road -> Boolean
 decl maxSpeed : Vehicle -> Day -> Road -> Integer -> Boolean
 
 # typical representatives of their class
+decl instVeh : Vehicle
 decl instCar : Vehicle
 decl instDay : Day
 decl instRoad : Road
@@ -110,155 +111,54 @@ not (isWorkday c && isHoliday c)
 
 ## Domain-specific rules
 
-rule <maxSpCarWorkdayHighway>
+# General rule
+
+rule <maxSpeedCar> 
 for v: Vehicle, d: Day, r: Road
-if isCar v && isWorkday d && isHighway r
+if isCar v 
+then maxSpeed v d r 90
+
+# the same as above, but not affected by "despite" clause
+rule <maxSpeedCarNotRestricted> 
+for v: Vehicle, d: Day, r: Road
+if isCar v 
+then maxSpeed v d r 90
+
+
+# Specific rule overriding general rule
+
+rule <maxSpeedCarHighway>
+    {restrict: {despite: maxSpeedCar}}
+for v: Vehicle, d: Day, r: Road
+if isCar v && isHighway r
 then maxSpeed v d r 130
 
-# "Incorrect" version not excluding highways as roads
-rule <maxSpCarWorkdayRoad>
-for v: Vehicle, d: Day, r: Road
-if isCar v && isWorkday d
-then maxSpeed v d r 90
 
-###### subjectTo
-
-# "Corrected" version with subjectTo clause
-rule <maxSpCarWorkdayRoadRestrSubjectTo> 
-    {restrict: {subjectTo: maxSpCarWorkdayHighway}}
-for v: Vehicle, d: Day, r: Road
-if isCar v && isWorkday d
-then maxSpeed v d r 90
-
-rule <maxSpCarWorkdayRoad>
-for v: Vehicle, d: Day, r: Road
-if isCar v && isWorkday d &&
- not( isCar v && isWorkday d && isHighway r)
-then maxSpeed v d r 90
-
-
-
-# The above translates to the two:
-
-rule <maxSpCarWorkdayRoadRestrSubjectTo'Original> 
-    {defined}
-for v: Vehicle, d: Day, r: Road
-if isCar v && isWorkday d
-then maxSpeed v d r 90
-
-# the name should be maxSpCarWorkdayRoadRestrSubjectTo and not ...'Derived
-rule <maxSpCarWorkdayRoadRestrSubjectTo'Derived> 
-     {derived: {apply: {restrictWithNegPrecondOf, maxSpCarWorkdayRoadRestrSubjectTo'Original, maxSpCarWorkdayHighway}}}
-
-
-
-# "Corrected" version making subjectTo explicit
-rule <maxSpCarWorkdayRoadRestrSubjectToExpl> 
-#     {subjectTo: maxSpCarWorkdayHighway}
-#    && not (isCar v && isWorkday d && isHighway r && s = 130)
-for v: Vehicle, d: Day, r: Road
-if isCar v && isWorkday d && not (isHighway r)
-then maxSpeed v d r 90
-
-
-
-###### Despite
-
-# in the following example, neither of the rules is more specific than the other
-
-rule <maxSpHighway>
-     {restrict: {despite: maxSpTruck}}
-for v: Vehicle, d: Day, r: Road
-if isHighway r
-then maxSpeed v d r 130
-
-rule <maxSpTruck>
-for v: Vehicle, d: Day, r: Road
-if isTruck v  && 
-    isWorkday d &&
-then maxSpeed v d r 100
-
-
-
-
-# rewrites in a first step to:
-
-rule <maxSpHighway>
-     {restrict: {despite: maxSpTruckOnWorkday}}
-for v: Vehicle, d: Day, r: Road
-if isHighway r && isWorkday d
-then maxSpeed v d r 130
-
-rule <maxSpTruck>
-     {restrict: {subjectTo: maxSpHighway}}
-for v: Vehicle, d: Day, r: Road
-if isTruck v
-then maxSpeed v d r 100
-
-
-
-
-
-
-
-
-
-
-# then, <maxSpTruck> rewrites in a second step to:
-
-rule <maxSpTruck'Original>
-     {defined}
-for v: Vehicle, d: Day, r: Road
-if isTruck v
-then maxSpeed v d r 100
-
-rule <maxSpTruck>
-     {derived: {apply: {restrictWithNegPrecondOf, maxSpTruck'Original, maxSpHighway}}}
-
-# then, <maxSpTruck> rewrites in a third step to:
-
-rule <maxSpTruck>
-     {defined}
-for v: Vehicle, d: Day, r: Road
-if isTruck v && not isHighway r
-then maxSpeed v d r 100
-     
-
-###### Inversion
-
-# Inversion of rules maxSpCarWorkdayHighway and maxSpCarWorkdayRoad
-rule <maxSpInversion>
-for v: Vehicle, d: Day, r: Road, s: Integer
-if maxSpeed v d r s
-then
- (isCar v && isWorkday d && isHighway r && s = 130) ||
- (isCar v && isWorkday d && s =  90)
-
-# Inversion of rules maxSpCarWorkdayHighway and maxSpCarWorkdayRoadRestrSubjectTo
-rule <maxSpInversionSubjectTo>
-for v: Vehicle, d: Day, r: Road, s: Integer
-if maxSpeed v d r s
-then
- (isCar v && isWorkday d && isHighway r && s = 130) ||
- (isCar v && isWorkday d && s =  90 && not (isHighway r))
-
-rule <maxSpInversionSubjectToDerived>
+# Inversion of rules maxSpeedCar and maxSpeedCarHighway
+rule <maxSpeedInversion>
      {derived: {apply: {inversion,
-                          list: {apply: {normalize, maxSpCarWorkdayRoad},
-			         apply: {normalize, maxSpCarWorkdayRoadRestrSubjectTo}}}}}
+     	       	        apply: {normalize, maxSpeedCar},
+     	       	        apply: {normalize, maxSpeedCarHighway}}}}
+
+# Inversion of rules maxSpeedCarNotRestricted and maxSpeedCarHighway
+rule <maxSpeedInversionNotRestricted>
+     {derived: {apply: {inversion,
+     	       	        apply: {normalize, maxSpeedCarNotRestricted},
+     	       	        apply: {normalize, maxSpeedCarHighway}}}}
+
 
 
 # Non-functionality of maxSpeed is consistent with the assumption set
-# including the incorrect maxSpCarWorkdayRoad
+# including the "incorrect" 
 # --> satisfiable
 assert <maxSpeedNotFunctionalWOsubjectToClause>
        {nSMT:
            {consistent, 
             rules: {only: {instCarType,
                           WdHdDistinct, CarTrDistinct,
-                          maxSpCarWorkdayHighway,
-                          maxSpCarWorkdayRoad,
-                          maxSpInversion
+                          maxSpeedCarNotRestricted,
+                          maxSpeedCarHighway,
+                          maxSpeedInversionNotRestricted
                           }
                    },
             config: {solver: z3, logic: LIA, loglevel: 0}
@@ -276,9 +176,9 @@ assert {nSMT:
            {consistent, 
             rules: {only: {instCarType,
                           WdHdDistinct, CarTrDistinct,
-                          maxSpCarWorkdayHighway,
-                          maxSpCarWorkdayRoadRestrSubjectTo,
-                          maxSpInversionSubjectTo
+                          maxSpeedCar,
+                          maxSpeedCarHighway,
+                          maxSpeedInversion
                           }
                    }
            }
@@ -288,24 +188,12 @@ maxSpeed instCar instDay instRoad instSpeed2 &&
 instSpeed1 < instSpeed2
 
 
-# Functionality of maxSpeed follows from incorrect assumption set
-# excluding the correct maxSpCarWorkdayRoadRestrSubjectTo and maxSpInversionSubjectTo 
-# --> not valid, countermodel generated
-assert {nSMT:
-           {valid, 
-            rules: {del : {maxSpCarWorkdayRoadRestrSubjectTo, maxSpInversionSubjectTo}}
-           }
-       }
-maxSpeed instCar instDay instRoad instSpeed1 &&
-maxSpeed instCar instDay instRoad instSpeed2
---> instSpeed1 = instSpeed2
-
 # Functionality of maxSpeed follows from correct assumption set
 # excluding the incorrect maxSpCarWorkdayRoad, maxSpInversion
 # --> valid
 assert {nSMT:
            {valid, 
-            rules: {del : {maxSpCarWorkdayRoad, maxSpInversion}}
+            rules: {del : {maxSpeedCarNotRestricted, maxSpeedInversionNotRestricted, maxSpeedCar'Orig}}
            }
        }
 maxSpeed instCar instDay instRoad instSpeed1 &&
@@ -313,43 +201,79 @@ maxSpeed instCar instDay instRoad instSpeed2
 --> instSpeed1 = instSpeed2
 
 
+# Query: max speed of a car on a highway
+assert {nSMT:
+           {consistent,
+            rules: {del : {maxSpeedCarNotRestricted, maxSpeedInversionNotRestricted, maxSpeedCar'Orig}}
+           }
+       }
+isHighway instRoad &&
+maxSpeed instCar instDay instRoad instSpeed1
+
+# Query: max speed of a car.
+# Returns answer:
+# maxSpeed instCar instDay instRoad intArg3 = (= intArg3 90)
+# Adding this as a negation forces the next interpretation, which is:
+# isHighway instRoad = true
+# maxSpeed instCar instDay instRoad intArg3 = (and (not (= intArg3 90)) (= intArg3 130))
+
+assert {nSMT:
+           {consistent,
+            rules: {del : {maxSpeedCarNotRestricted, maxSpeedInversionNotRestricted, maxSpeedCar'Orig}}
+           }
+       }
+not (maxSpeed instCar instDay instRoad 90) &&
+maxSpeed instCar instDay instRoad instSpeed1
+
+
+# Exhaustiveness: is there a situation for which maxSpeed gives no answer?
+# Not valid, countermodel for example for a vehicle that is not a car.
+assert {SMT:
+           {valid,
+            rules: {del : {maxSpeedCarNotRestricted, maxSpeedInversionNotRestricted, maxSpeedCar'Orig}}
+           }
+       }
+#forall iv: Vehicle. forall id: Day. forall ir: Road. exists sp: Integer. maxSpeed iv id ir sp
+exists sp: Integer. maxSpeed instVeh instDay instRoad sp
+
+
 # TODO: construct the above assertion (but universally quantified):
 # maxSpeed is functional in its 4th argument
-assert <maxSpeedFunctionalDerived>
-       {derived: {functional: {maxSpeed: 4},
-                  rules: {del : {maxSpCarWorkdayRoad, maxSpInversion}}},
-        valid}
+# assert <maxSpeedFunctionalDerived>
+#        {derived: {functional: {maxSpeed: 4},
+#                   rules: {del : {maxSpCarWorkdayRoad, maxSpInversion}}},
+#         valid}
 
 
 # TODO: also admit assertions as facts
-assert <maxSpeedNoConflict>
-       {derived: {apply: {conjunction, rules: {only: foo1, foo2, maxSpeedFunctionalDerived}}},
-        consistent}
+# assert <maxSpeedNoConflict>
+#        {derived: {apply: {conjunction, rules: {only: foo1, foo2, maxSpeedFunctionalDerived}}},
+#         consistent}
        
-assert {nSMT:
-           {valid, 
-            rules: {del : {maxSpCarWorkdayRoad, maxSpInversion}},
-            config: {loglevel: 1}
-           }
-       }
-isCar instCar -->
-isWorkday instDay -->
-isHighway instRoad -->
-maxSpeed instCar instDay instRoad 90
+# assert {nSMT:
+#            {valid, 
+#             rules: {del : {maxSpCarWorkdayRoad, maxSpInversion}},
+#             config: {loglevel: 1}
+#            }
+#        }
+# isCar instCar -->
+# isWorkday instDay -->
+# isHighway instRoad -->
+# maxSpeed instCar instDay instRoad 90
 
-assert {SMT: {valid,
-              rules:
-              {only: {CarTrDistinct, WdHdDistinct, maxSpCarWorkdayHighway, maxSpCarWorkdayRoadRestrSubjectTo, maxSpInversionSubjectTo}},
-              config: {loglevel: 1}}}
-forall v: Vehicle. forall d: Day. forall r: Road. forall s: Integer.
-(isCar v && isWorkday d && not (isCar v && isWorkday d && isHighway r))
-=
-(isCar v && isWorkday d )
+# assert {SMT: {valid,
+#               rules:
+#               {only: {CarTrDistinct, WdHdDistinct, maxSpCarWorkdayHighway, maxSpCarWorkdayRoadRestrSubjectTo, maxSpInversionSubjectTo}},
+#               config: {loglevel: 1}}}
+# forall v: Vehicle. forall d: Day. forall r: Road. forall s: Integer.
+# (isCar v && isWorkday d && not (isCar v && isWorkday d && isHighway r))
+# =
+# (isCar v && isWorkday d )
 
 
 
-assert {nSMT: {valid, rules: {only:}, config: {loglevel: 1}}}
-forall v: Vehicle. forall d: Day. forall r: Road. forall s: Integer.
-(isCar v && isWorkday d ) -->
-(isCar v && isWorkday d && not (isCar v && isWorkday d && isHighway r))
+# assert {nSMT: {valid, rules: {only:}, config: {loglevel: 1}}}
+# forall v: Vehicle. forall d: Day. forall r: Road. forall s: Integer.
+# (isCar v && isWorkday d ) -->
+# (isCar v && isWorkday d && not (isCar v && isWorkday d && isHighway r))
 

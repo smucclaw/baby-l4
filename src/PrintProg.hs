@@ -171,9 +171,9 @@ printRule :: Show t => Rule t -> String
 printRule r =
     "rule " ++ printARName (nameOfRule r) ++ "\n" ++
     printInstr (instrOfRule r) ++ "\n" ++
-    printVarDeclsCommaSep (varDeclsOfRule r) ++ "\n" ++
+    (let vds = printVarDeclsCommaSep (varDeclsOfRule r) in if vds == "" then "" else (vds ++ "\n")) ++
     "if   " ++ printExpr (precondOfRule r) ++ "\n" ++
-    "then " ++ printExpr (postcondOfRule r) ++ "\n"
+    "then " ++ printExpr (postcondOfRule r) ++ "\n\n"
 
 namesUsedInProgram :: Program t -> [VarName]
 namesUsedInProgram = map nameOfVarDecl . globalsOfProgram
