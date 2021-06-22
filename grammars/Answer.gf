@@ -38,8 +38,6 @@ abstract Answer = Atoms ** {
     TransPred   : Atom -> Arg -> Pred ;
     IntransPred : Atom        -> Pred ;
 
-    TransPred : Atom -> Arg -> Pred ;
-    IntransPred : Atom -> Pred ;
     AggregatePred : (preds : [Pred]) -> (subj : Arg) -> Statement ;
 
     IfThen : Statement -> Statement -> Statement ; -- A wins B if …
