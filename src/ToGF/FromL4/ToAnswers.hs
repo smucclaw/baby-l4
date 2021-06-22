@@ -9,10 +9,9 @@ module ToGF.FromL4.ToAnswers where
 
 import qualified Data.Set as S
 
-import Answer
 import Syntax
 import PGF
-import ToGF.GenerateLexicon (createGF', printGF', AtomWithArity(..), GrName)
+import ToGF.GenerateLexicon (createGF', AtomWithArity(..), GrName)
 
 ----------------------------------------------------------------------
 -- Helper functions from GenerateLexicon specialised for Answers
@@ -23,88 +22,53 @@ createGF :: FilePath ->Program t -> IO PGF
 createGF fname prog = createGF' fname grName (lexiconOfProgram prog) allPreds
   where
     allPreds = S.toList $ S.fromList $ concat
-      [ getAtoms $ toPred vardecl
+      [ getAtoms vardecl
       | vardecl <- globalsOfProgram prog
-      , isPred vardecl ]
-
-printGF :: Gf a => PGF -> a -> IO ()
-printGF gr expr = printGF' gr (gf expr)
-
-createAnswers :: FilePath -> Program t -> IO ()
-createAnswers filename prog = do
-  gr <- createGF filename prog -- TODO: involve lexicon
-  let answers = toAnswers prog
-  mapM_ (printGF gr) answers
+      ]
 
 
----------------
+createPGFforAnswers :: FilePath -> Program t -> IO ()
+createPGFforAnswers filename prog = do
+  _ <- createGF filename prog
+  -- Feel free to remove this printout, it's just there so that people know that this has changed :-P
+  putStrLn ("Created the PGF file .l4-generated/" ++ grName ++ "Top.pgf out of the L4 file " ++ filename ++ ".")
+  putStrLn "This PGF file should be copied to the Docassemble server and be used for generating the answers."
 
+----------------
 -- get the atoms
 
+getAtoms :: VarDecl t -> [AtomWithArity]
+getAtoms v = case v of
+  Arity0 name typ -> [AA name 0, AA typ 0] -- Anything of form `rock : Sign`. Both the name (rock) and the type (Sign) are atoms.
+  Pred1 name arg -> [AA name 1, AA arg 0]  -- Any unary predicate: `is_player : Person -> Bool`. Has to return Bool.
+  Pred2 name arg1 arg2 -> [AA name 2, AA arg1 0, AA arg2 0] -- Any binary predicate: `win : Sign -> Sign -> Bool`. Has to return Bool.
+  VarDecl _ name tp -> [AA name (getArity tp)] -- Any other function type: `salary : Person -> Int`. TODO: include also the types for this more generic case.
 
+-- TODO: return AtomWithArity for the Tps in the main Tp.
+-- For instance, foo : Business -> Person -> Int should return
+-- [AA "foo" 2, AA "Business" 0, AA "Person" 0]
+-- Make a test out of it!
 
+getArity :: Tp -> Int
+getArity t = case t of
+  FunT _ x -> 1 + getArity x
+  _ -> 0
 
---MkPred1 : (name : Atom) -> (a1     : Atom) -> Pred ;
--- pattern Pred1 :: VarName -> String           -> VarDecl t
--- pattern Pred1 name arg1 <- VarDecl _ name (Arg1 arg1)  -- to create VarDecl String Tp
+-- patterns
+pattern Arity0 :: VarName -> String           -> VarDecl t
+pattern Arity0 name typ <- VarDecl _ name (Arg0 typ)
 
+pattern Pred1 :: VarName -> String           -> VarDecl t
+pattern Pred1 name arg1 <- VarDecl _ name (Arg1 arg1)  -- to create VarDecl String Tp
 
--- --------------------------------------------------------------------
--- --Printing GF
+pattern Pred2 :: VarName -> String -> String -> VarDecl t
+pattern Pred2 name arg1 arg2 <- VarDecl _ name (Arg2 arg1 arg2)
 
-getAtoms :: GPred -> [AtomWithArity]
-getAtoms (GIntransPred (LexAtom name)) = [AA name 0]
-getAtoms (GTransPred (LexAtom name) (GAAtom (LexAtom arg))) = [AA name 1, AA arg 0]
--- getAtoms (GMkPred2 (LexAtom name) (LexAtom arg1) (LexAtom arg2)) = [AA name 2, AA arg1 0, AA arg2 0]
-
--- createQuestions :: FilePath -> Program t -> IO ()
--- createQuestions filename prog = do
---   gr <- createGF filename prog -- TODO: involve lexicon
---   let questions = toQuestions prog
---   mapM_ (printGF gr) questions
-
--- ----------------------------------------------------------------------
--- Type class for questions
-class Answerable x where
-    toAnswers :: x -> [GStatement]
-
-instance Answerable (VarDecl t) where
-  toAnswers v = [(`GApp` dummySubj)] <*> [toPred v]
-
-instance Answerable (Program a) where
-  toAnswers = concatMap toAnswers . filter isPred.globalsOfProgram
-
-toPred :: VarDecl t -> GPred
-toPred (TransPred name arg1)      = GTransPred (LexAtom name) (GAAtom (LexAtom arg1))
--- toPred (Pred2 name arg1 arg2) = GApp2 (LexAtom name) (LexAtom arg1) (LexAtom arg2)
-toPred (VarDecl _ nm tp) = error $  "The VarDecl '" ++ nm ++ " : " ++ show tp ++ "' is not a predicate :("
-
-isPred :: VarDecl t -> Bool
-isPred = isPred' . tpOfVarDecl
-
-isPred' :: Tp -> Bool
-isPred' (FunT _ BoolT) = True
-isPred' (FunT _ t2) = isPred' t2
-isPred' _ = False
-
-dummySubj :: GArg
-dummySubj = GAVar (GV(GString "dummy"))
-
--- -- patterns
-
---   GIntransPred :: GAtom -> Tree GPred_
--- pattern IntransPred :: VarName -> VarDecl t 
--- pattern IntransPred name <- VarDecl _ name -- to create VarDecl String Tp
-
--- --  GTransPred :: GAtom -> GArg -> Tree GPred_
-pattern TransPred :: VarName -> String -> VarDecl t 
-pattern TransPred name arg1 <- VarDecl _ name (Arg1 arg1)  -- to create VarDecl String Tp
-
--- pattern Pred2 :: VarName -> String -> String -> VarDecl t
--- pattern Pred2 name arg1 arg2 <- VarDecl _ name (Arg2 arg1 arg2)
+pattern Arg0 :: String -> Tp
+pattern Arg0 x <- ClassT (ClsNm x)
 
 pattern Arg1 :: String -> Tp
-pattern Arg1 x <- FunT (ClassT (ClsNm x)) BoolT
+pattern Arg1 x <- FunT (Arg0 x) BoolT
 
--- pattern Arg2 :: String -> String -> Tp
--- pattern Arg2 x y <- FunT (ClassT (ClsNm x)) (Arg1 y)
+pattern Arg2 :: String -> String -> Tp
+pattern Arg2 x y <- FunT (Arg0 x) (Arg1 y)
