@@ -1,0 +1,180 @@
+### Fake example rules about speed limits of different kinds of vehicles
+### on different days on different kinds of roads.
+
+# Experiments with predicate extensions with rule names.
+# Based on speedlimit_sorted
+
+
+### Classes
+
+class Vehicle
+class Car extends Vehicle
+class Truck extends Vehicle
+
+class Day
+class Workday extends Day
+class Holiday extends Day
+
+class Road
+class Highway extends Road
+
+# TODO: should one be able to do something like that?
+# currently leads to an error in the SMT translation
+# (however, no problem with type checking)
+# class Rulename extends Integer
+
+### Predicates 
+
+## uninteresting (the is... predicates should be generated)
+# decl isVehicle : Vehicle -> Boolean
+decl isCar : Vehicle -> Boolean
+decl isTruck : Vehicle -> Boolean
+
+# decl isDay : Day -> Boolean
+decl isWorkday : Day -> Boolean
+decl isHoliday : Day -> Boolean
+
+# decl isRoad : Road -> Boolean
+decl isHighway : Road -> Boolean
+
+## interesting: the maximal speed of a vehicle on a day on a road is ...
+# The predicate is extended with a rule name (first argument)
+# (informal semantics: the fact is derivable by the corresponding rule)
+decl maxSpeed : Integer -> Vehicle -> Day -> Road -> Integer -> Boolean
+
+# typical representatives of their class
+decl instVeh : Vehicle
+decl instCar : Vehicle
+decl instDay : Day
+decl instRoad : Road
+decl instSpeed1: Integer
+decl instSpeed2: Integer
+
+decl rlMaxSpeedCar: Integer
+decl rlMaxSpeedCarHighway: Integer
+decl instRN1: Integer
+decl instRN2: Integer
+
+### Facts and rules
+
+## Typing of the instances
+# (typing of instDay and instRoad is a tautology)
+
+fact <instCarType>
+isCar instCar
+
+
+## Class inclusion: follows from typing
+
+
+## Class disjointness (possible to automate)
+
+# top-level classes: follows from typing
+
+# subclasses of Vehicle
+fact <CarTrDistinct>
+for c: Vehicle
+not (isCar c && isTruck c)
+
+# subclasses of Day
+fact <WdHdDistinct>
+for c: Day
+not (isWorkday c && isHoliday c)
+
+
+## Symbolic rule names
+
+fact <rlMaxSpeedCarDef> rlMaxSpeedCar = 0
+fact <rlMaxSpeedCarDef> rlMaxSpeedCarHighway = 1
+
+## Domain-specific rules
+
+# General rule
+
+# The restriction is here manually integrated into the precond of the rule
+rule <maxSpeedCar> 
+for v: Vehicle, d: Day, r: Road
+if isCar v
+   && not maxSpeed rlMaxSpeedCarHighway v d r 130 
+then maxSpeed rlMaxSpeedCar v d r 90
+
+
+# Specific rule overriding general rule
+
+rule <maxSpeedCarHighway>
+for v: Vehicle, d: Day, r: Road
+if isCar v && isHighway r
+then maxSpeed rlMaxSpeedCarHighway v d r 130
+
+
+# Inversion of rules maxSpeedCar and maxSpeedCarHighway
+rule <maxSpeedInversion>
+     {derived: {apply: {inversion,
+     	       	        apply: {normalize, maxSpeedCar},
+     	       	        apply: {normalize, maxSpeedCarHighway}}}}
+
+
+# Non-functionality of maxSpeed is consistent with the assumption set
+# --> unsatisfiable
+assert {nSMT:
+           {consistent, 
+            rules: {only: {instCarType,
+                          WdHdDistinct, CarTrDistinct,
+                          maxSpeedCar,
+                          maxSpeedCarHighway,
+                          maxSpeedInversion
+                          }
+                   }
+           }
+       }
+maxSpeed instRN1 instCar instDay instRoad instSpeed1 &&
+maxSpeed instRN2 instCar instDay instRoad instSpeed2 &&
+instSpeed1 < instSpeed2
+
+
+# Functionality of maxSpeed follows from correct assumption set
+# excluding the incorrect maxSpCarWorkdayRoad, maxSpInversion
+# --> valid
+assert {SMT:
+           {valid
+           }
+       }
+maxSpeed instRN1 instCar instDay instRoad instSpeed1 &&
+maxSpeed instRN2 instCar instDay instRoad instSpeed2
+--> instSpeed1 = instSpeed2
+
+# Variant of the above:
+# remove precondition: not maxSpeed rlMaxSpeedCarHighway v d r 130 
+# from rule maxSpeedCar
+# Result: formula not valid, countermodel shows that:
+# max speed can be 90 (derived by rule MaxSpeedCar), or
+# max speed can be 130 (derived by rule MaxSpeedCarHighway)
+
+
+# Query: max speed of a car on a highway
+# Result: max speed is 130, which is derived by rule rlMaxSpeedCarHighway
+assert {nSMT:
+           {consistent
+           }
+       }
+isHighway instRoad &&
+maxSpeed instRN1 instCar instDay instRoad instSpeed1
+
+# Query: max speed of a car (no info about road)
+# Result: max speed is 90, which is derived by rule rlMaxSpeedCar
+assert {nSMT:
+           {consistent
+           }
+       }
+maxSpeed instRN1 instCar instDay instRoad instSpeed1
+
+
+# Exhaustiveness: is there a situation for which maxSpeed gives no answer?
+# Not valid, countermodel for example for a vehicle that is not a car.
+assert {nSMT:
+           {valid,
+            rules: {del : {maxSpeedCar'Orig}}
+           }
+       }
+#forall iv: Vehicle. forall id: Day. forall ir: Road. exists sp: Integer. maxSpeed iv id ir sp
+exists sp: Integer. maxSpeed instRN1 instVeh instDay instRoad sp

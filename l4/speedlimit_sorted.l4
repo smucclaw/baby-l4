@@ -1,3 +1,14 @@
+### Fake example rules about speed limits of different kinds of vehicles
+### on different days on different kinds of roads.
+
+
+# The coding used here is *sorted*, with three distinguished sorts
+# (Vehicle, Day, Road) that are the immediate subclasses of Class.
+# Subtypes of these sorts are coded by predicates. 
+# All predicates have Class as codomain, e.g. isDay: Class -> Boolean
+# For a flat version without sorts, see speedlimit_flat.l4
+
+
 # Annotations in rules:
 
 # * rule R1 subjectTo R2:
@@ -37,10 +48,6 @@
 
 # ---> Conclusion: There is only one genuine prioritizing operator: subjectTo
 
-
-
-### Fake example rules about speed limits of different kinds of vehicles
-### on different days on different kinds of roads.
 
 ### Classes
 

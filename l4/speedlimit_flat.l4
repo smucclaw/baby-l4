@@ -1,6 +1,12 @@
 ### Fake example rules about speed limits of different kinds of vehicles
 ### on different days on different kinds of roads.
 
+# The coding used here is *flat*, without distinguished sorts.
+# Typing is simulated via  predicates that have Class as codomain,
+# e.g. isDay: Class -> Boolean
+# Subtyping has to be expressed by numerous type inclusion axioms.
+# For a sorted version, see speedlimit_sorted.l4
+
 ### Classes
 
 class Vehicle
