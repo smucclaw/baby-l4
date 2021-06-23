@@ -6,16 +6,19 @@
 
 # Class definitions
 
+class NotifiableDataBreach
+
 class Individual  {
-    NaturalPersonLivingOrDeceased  Boolean
+    NaturalPersonLivingOrDeceased: Boolean
 }
 
-PersonalData  {
-    IndividualIdentifiedFromData  Boolean
-    IndividualIdentifiedFromDataAndInformationOrgHas  Boolean
+class PersonalData  {
+    IndividualIdentifiedFromData: Boolean
+    IndividualIdentifiedFromDataAndInformationOrgHas: Boolean
 }
 
-class LikelytoOccur  Boolean
+# To be written as predicate?
+class LikelytoOccur
 
 class DataBreach  {
     UnauthorisedAccess: Boolean
@@ -28,11 +31,13 @@ class DataBreach  {
     LossofStorageMedium: Boolean
 }
 
+# NOTE: How to have a class declaration when there is an "open ended" class?
+class OtherPrescribedCircumstances
+
+
 class SignificantScale  {
-    # Is there an Int datatype in L4
     # Regulations state that 500 or more affected individuals constitute a data breach of significant scale
-    AffectedIndividuals: Int
-    OtherPrescribedCircumstances: Boolean
+    AffectedIndividuals: Integer
 }
 
 class SignificantHarmToIndividual  {
@@ -41,20 +46,15 @@ class SignificantHarmToIndividual  {
     PersonalDataInPart1ofScheduleSubjectToPart2ofSchedule: Boolean
     AccountIdentifier: Boolean
     PasswordtoAccount: Boolean
-    OtherPrescribedCircumstances: Boolean
 }
 
-class NotifiableDataBreach extends DataBreach  {
-    SignificantHarm: SignificantHarmToIndividual
-    SignificantScale: SignificantScale
-    DataBreachOnlyWithinOrg: Boolean
-}
+class DataBreachOnlyWithinOrg
 
 class Organisation
 
 class DataIntermediary extends Organisation  {
     ProcessesDataOnBehalfOfAnotherOrganisation: Boolean
-    # DoesNotIncludeEmployeeOfTheOtherOrganisation: Boolean
+    DoesNotIncludeEmployeeOfTheOtherOrganisation: Boolean
 }
 
 # No definition of what constitutes an assessment of data breach in the legislation, only in the guide
@@ -65,7 +65,37 @@ class AssessmentOfDataBreach  {
     ReasonableAndExpeditious: Boolean
 }
 
-class Notification
+# r5(1) of PDPR 
+# NOTE: How to account for r5(3), which specifies that notification to commission must be in a particular format
+class NotificationtoCommission {
+    
+    # NOTE: We don't have a datetime datatype
+    DateWhichBreachFirstOccurred: Integer 
+    
+    StepsTakenByOrgAfterBreach: String
+    HowTheBreachOccurred: String
+    NumOfAffectedIndividuals: Integer
+    DataAffectedByBreach: String
+    PotentialHarmToIndividuals: String
+
+    ActionTakenBeforeOrAfterBreachToEliminateOrMitigateHarm: String
+    ActionTakenBeforeOrAfterBreachToAddressAnyFailureThatMayHaveCausedBreach: String
+
+    InfoOnOrgPlanToInformAffectedIndividuals: String
+    BusinessContactofOrg: String
+}
+
+
+# To account for r5(2)
+class NotificationtoCommissionAfterExpiry extends NotificationtoCommission {
+    ReasonsForLateNotification: String
+    SupportingEvidence: String
+}
+
+# To account for r5(3)
+class NotificationtoCommissionWithoutNotificationToIndividual extends NotificationtoCommission {
+    GroundsForNotNotifyingIndividual: String
+}
 
 class Commission
 
@@ -84,3 +114,72 @@ class RestrictionOnTheDisclosureofInformation  {
 }
 
 class PublicAgency
+
+
+#------------------------------ Declarations ------------------------------ 
+
+# NOTE: Are there naming conventions for classes vs declarations?
+
+#------------------------------ s26B: Notifiable Data Breach ------------------------------ 
+
+# Definitions
+# NOTE: Do I need to convert the classes to booleans?
+decl significantharm: SignificantHarmToIndividual -> Boolean
+decl significantscale: SignificantScale -> Boolean
+decl databreach: DataBreach -> Boolean
+decl notifiabledatabreach: NotifiableDataBreach -> Boolean
+decl databreachwithinorg: DataBreachOnlyWithinOrg -> Boolean
+
+# s26B: Other prescribed circumstances
+decl otherprescribedcircumstances: OtherPrescribedCircumstances -> Boolean
+
+
+# s26B(2) - Significant harm
+decl s26b_2_applies: DataBreach -> SignificantHarmToIndividual -> NotifiableDataBreach
+
+rule <s26b_2_applies>
+for db: DataBreach, sh: SignificantHarmToIndividual, opc: OtherPrescribedCircumstances
+if (
+    databreach db && (significantharm sh || otherprescribedcircumstances opc)
+)
+then NotifiableDataBreach
+
+
+
+# s26B(3) - Significant Scale
+decl s26b_3_applies: DataBreach -> SignificantScale -> NotifiableDataBreach
+
+rule <s26b_3_applies>
+for db: DataBreach, ss: SignificantScale
+if (
+    databreach db && (significantscale ss || otherprescribedcircumstances opc)
+)
+then NotifiableDataBreach
+
+
+
+# s26B(4) - Exception, breach within organisation
+decl s26b_4_applies: DataBreach -> DataBreachOnlyWithinOrg -> Boolean
+
+rule <s26b_4_applies>
+for db: DataBreach, wo: DataBreachOnlyWithinOrg
+if (
+    databreach db && databreachwithinorg wo
+)
+# NOTE: Do we have a NOT operator?
+then not NotifiableDataBreach
+
+
+
+
+# s26B(1) - Notifiable Data Breach
+decl s26b_1_applies: NotifiableDataBreach -> NotificationtoCommission
+
+rule <s26b_1_applies>
+# NOTE: Does L4 accept other functions as arguments?
+# NOTE: Does L4 require a shortform for variable declaration in function?
+for s26b_2_applies, s26b_3_applies, s26b_4_applies
+if (
+    (s26b_2_applies || s26b_3_applies) && (not s26b_4_applies)
+)
+then NotificationtoCommission
