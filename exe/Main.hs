@@ -20,6 +20,7 @@ import ToSCASP (createSCasp)
 import ToGF.FromSCasp.SCasp ( parseModel )
 import ToGF.FromSCasp.ToAnswer ( nlgModels )
 import ToGF.FromL4.ToQuestions ( createQuestions )
+import ToGF.FromL4.ToAnswers ( createPGFforAnswers )
 import ToGF.NormalizeSyntax
 import Annotation ( SRng, LocTypeAnnot (typeAnnot) )
 import Paths_baby_l4 (getDataFileName)
@@ -66,15 +67,10 @@ process args input = do
             Fscasp -> createSCasp normalAst
             Fyaml -> do createDSyaml tpAstNoSrc
                         putStrLn "---------------"
+                        putStrLn "WIP: create the questions with GF. Below is the current progress. They are not used yet in the yaml."
                         createQuestions fpath normalAst
-
-
-          -- Just a test for creating natural language from s(CASP) models.
-          when (testModels args) $ do
-            putStrLn "\nDemo of NLG from s(CASP) models"
-            let models = rights $ map parseModel tests
-            nlgModels models
-
+                        putStrLn "---------------"
+                        createPGFforAnswers fpath normalAst
     Left err -> do
       putStrLn "Parser Error:"
       print err
@@ -146,10 +142,3 @@ debugGF = do
 -- | catch and print all exceptions
 catchAll :: IO () -> IO ()
 catchAll ioAction = catch ioAction (print @SomeException)
-
-tests :: [String]
-tests = [
-  "{ win(A,RPS), is_human(A), is_human(C), is_game(RPS),  is_participant_in(A,RPS),  is_player(A),  throw(A,rock), is_player(C),  is_participant_in(C,RPS),  throw(C,scissors),  beat(rock,scissors) }",
-  "{ win(A,RPS), is_human(A), is_human(C), is_game(RPS),  is_participant_in(A,RPS),  is_player(A),  throw(A,scissors),  is_player(C),  is_participant_in(C,RPS),  throw(C,paper),  beat(scissors,paper) }",
-  "{ win(A,RPS), is_human(A), is_human(C), is_game(RPS),  is_participant_in(A,RPS),  is_player(A),  throw(A,paper),  is_player(C),  is_participant_in(C,RPS),  throw(C,rock),  beat(paper,rock) }"
-  ]

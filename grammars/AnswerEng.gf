@@ -103,6 +103,8 @@ concrete AnswerEng of Answer = AtomsEng ** open
       _ => nothing_NP --Predef.error "AAtom: trying to make predicate into argument"
     } ;
 
+    App pred arg = PredVPS arg (mkPred pred) ;
+
     -- Atom -> Arg -> Statement ;
     App1 atom arg = PredVPS arg (pred1 atom) ;
 
@@ -113,6 +115,8 @@ concrete AnswerEng of Answer = AtomsEng ** open
     V = symb ;
 
     -- Aggregation functions
+    AggregateSubj isplayer players =
+      App isplayer (mkNP and_Conj players) ;
 
     -- : Atom -> Arg -> [Arg] -> Statement ; -- A and B are participants in C
     AggregateSubj1 isplayer players =

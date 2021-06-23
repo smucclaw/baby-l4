@@ -8,7 +8,7 @@
 module ToGF.FromL4.ToQuestions where
 
 import qualified Data.Set as S
-
+import Data.Char (toLower)
 import Questions
 import Syntax
 import PGF
@@ -19,7 +19,7 @@ import ToGF.GenerateLexicon (createGF', printGF', AtomWithArity(..), GrName)
 grName :: GrName
 grName = "Questions"
 
-createGF :: FilePath ->Program t -> IO PGF
+createGF :: FilePath -> Program t -> IO PGF
 createGF fname prog = createGF' fname grName (lexiconOfProgram prog) allPreds
   where
     allPreds = S.toList $ S.fromList $ concat
@@ -40,7 +40,7 @@ getAtoms (GMkPred2 (LexAtom name) (LexAtom arg1) (LexAtom arg2)) = [AA name 2, A
 
 createQuestions :: FilePath -> Program t -> IO ()
 createQuestions filename prog = do
-  gr <- createGF filename prog -- TODO: involve lexicon
+  gr <- createGF filename prog
   let questions = toQuestions prog
   mapM_ (printGF gr) questions
 
@@ -56,9 +56,15 @@ instance Questionable (Program a) where
   toQuestions = concatMap toQuestions . filter isPred.globalsOfProgram
 
 toPred :: VarDecl t -> GPred
-toPred (Pred1 name arg1)      = GMkPred1 (LexAtom name) (LexAtom arg1)
-toPred (Pred2 name arg1 arg2) = GMkPred2 (LexAtom name) (LexAtom arg1) (LexAtom arg2)
-toPred (VarDecl _ nm tp) = error $  "The VarDecl '" ++ nm ++ " : " ++ show tp ++ "' is not a predicate :("
+toPred d = case d of
+  Pred1 name arg1      -> GMkPred1 (LexAtom (l name)) (LexAtom (l arg1))
+  Pred2 name arg1 arg2 -> GMkPred2 (LexAtom (l name)) (LexAtom (l arg1)) (LexAtom (l arg2))
+  VarDecl _ nm tp      -> error $  "The VarDecl '" ++ nm ++ " : " ++ show tp ++ "' is not a predicate :("
+  where
+    -- The atoms need to be lowercase to match the s(CASP) atoms
+    l :: String -> String
+    l = map toLower
+
 
 isPred :: VarDecl t -> Bool
 isPred = isPred' . tpOfVarDecl
