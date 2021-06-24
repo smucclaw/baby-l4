@@ -23,7 +23,7 @@ createDSyaml p = putDoc $ showDS p
 -- With Left :: Doc ann = PP.emptyDoc, and right :: WithProgram (Doc ann) = concretized
 data DSBlock t = DSBlock { blkName  :: String               -- block name
                          , blkType  :: String               --
-                         , blkCard  :: Maybe Int            -- cardinality, everything is assumed to be a list
+                         , blkCard  :: Maybe String             -- cardinality, everything is assumed to be a list
                          , blkEncodings :: String           -- associated sCASP encoding
                          , blkAttrs :: [Maybe (DSBlock t)]  --
                          , blkUI    :: [Maybe t]            -- ask, tell, any, another
@@ -35,6 +35,7 @@ instance (Show t) => DSYaml (DSBlock t) where
   showDS DSBlock { blkName, blkType, blkCard, blkEncodings, blkAttrs, blkUI, blkSource} =
     hang 2 $ "-" <+> vsep [ "name:" <+> pretty blkName
                           , "type:" <+> pretty blkType
+                          , putCard blkCard <> "encodings:"  , indent 2 $ "-" <+> pretty blkEncodings -- TODO : add functionality for list-encoding
                           , putSource blkSource <> putAttrs blkAttrs
                           ]
       where putAttrs ba = case ba of
@@ -42,6 +43,8 @@ instance (Show t) => DSYaml (DSBlock t) where
               _  -> "attributes:" <> PP.line <> indent 2 (showDSlist $ catMaybes ba) -- attributes here (one-level only)
             putSource (Just x) = "source:" <+> pretty x <> PP.line
             putSource Nothing = PP.emptyDoc
+            putCard (Just x) = pretty x <> PP.line
+            putCard Nothing = PP.emptyDoc
 
 
 --  nameOfClassDecl = ClsNm { stringOfClassName = "Service" }
@@ -122,6 +125,7 @@ classDeclToBlock ClassDecl { nameOfClassDecl, defOfClassDecl } =
   in
   DSBlock { blkName = lowercase clnm
           , blkType = superToBlocktype super
+          , blkCard = superToBlockcard super
           , blkEncodings = lowercase clnm ++ "(X)" -- TODO: Arity of parent encodings
           , blkAttrs = mapAttrs $ fieldsOfClassDef defOfClassDecl
           , blkUI = undefined
@@ -132,6 +136,9 @@ classDeclToBlock ClassDecl { nameOfClassDecl, defOfClassDecl } =
           [] -> [Nothing]
           _  -> map (Just . fieldDeclToBlock) x
         getSuper (x1:x2:xs) = getClassname x2
+        superToBlockcard x = case x of
+          "Class" -> Just "minimum: 0"
+          _       -> Nothing
         superToBlocktype x = case x of
           "Class" -> "String"
           _       -> "Object"
@@ -147,12 +154,15 @@ fieldDeclToBlock (FieldDecl _ (FldNm fldnm) fieldtype) =
   in
   DSBlock { blkName = outname
           , blkType = blockType
+          , blkCard = getCard blockType
           , blkEncodings = showEncoding outname blockArity
           , blkAttrs = [Nothing]
           , blkUI = undefined
           , blkSource = showFTname fieldtype  -- for supported types, there is no source block
           }
-
+  where getCard x = case x of
+          "Object" -> Just "minimum: 0"
+          _        -> Nothing
 
 eitherTp :: String -> a -> Tp -> Either String a
 eitherTp x1 x2 tp = if elem tp [BoolT, IntT] then Right x2 else Left x1
@@ -180,7 +190,6 @@ showEncoding x 2 = x <> "(X,Y)"
 lowercase :: String -> String
 lowercase = map toLower
 
--- type WithProgram = Reader (Program Tp)
 
 class DSYaml x where
   showDS :: x -> Doc ann
@@ -192,7 +201,7 @@ instance DSYaml (Program Tp) where
   showDS Program { lexiconOfProgram,classDeclsOfProgram,globalsOfProgram,rulesOfProgram,assertionsOfProgram} = do
     vsep [ "rules: "
          , "query: "
-         , "data:"      , hang 2 $ showDSlist $ map classDeclToBlock $ reverse $ drop 7 classDeclsOfProgram
+         , "data:"      ,  indent 2 $ showDSlist $ map classDeclToBlock $ reverse $ drop 7 classDeclsOfProgram -- TODO: Refactor to a more concrete method of handling base classes
          , "terms: "
          , "options: " <> PP.line
          ]
