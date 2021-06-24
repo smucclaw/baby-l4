@@ -105,10 +105,10 @@ getVirtualOrRealFile uri = do
         -- TODO: Catch errors thrown by readFile
         liftIO $ TIO.readFile filename
 
-type ResErrOrAst = Either ResponseError (Maybe (Program (LocTypeAnnot Tp)))
+type ResErrOrAst = Either ResponseError (Maybe (Program (LocTypeAnnot (Tp () ))))
 
 
-parseVirtualOrRealFile :: Uri -> ExceptT LspError (LspM Config) (Program (LocTypeAnnot Tp))
+parseVirtualOrRealFile :: Uri -> ExceptT LspError (LspM Config) (Program (LocTypeAnnot (Tp ())))
 parseVirtualOrRealFile uri = do
     contents <- getVirtualOrRealFile uri
     parseAndTypecheck uri contents
@@ -196,7 +196,7 @@ mkErrsField (range, cls, fieldLs) = Err range ("Duplicate field names in the cla
 fieldErrorRange :: (SRng, FieldName) -> String
 fieldErrorRange (range, field) = show range ++ ": " ++ stringOfFieldName field
 
-type LocAndTp = LocTypeAnnot Tp
+type LocAndTp = LocTypeAnnot (Tp ())
 
 handleUriErrs :: J.Uri -> Either LspError FilePath
 handleUriErrs uri =
@@ -224,7 +224,7 @@ parseAndSendErrors uri contents = do
   let nuri = toNormalizedUri uri
   handleLspErr nuri lspErrOrAst
 
-parseAndTypecheck :: MonadIO m => J.Uri -> T.Text -> ExceptT LspError m (Program (LocTypeAnnot Tp))
+parseAndTypecheck :: MonadIO m => J.Uri -> T.Text -> ExceptT LspError m (Program (LocTypeAnnot (Tp ())))
 parseAndTypecheck uri contents = do
   let errOrProg = getProg uri contents
   ast <- ExceptT $ pure errOrProg
@@ -350,12 +350,16 @@ tokenToHover astNode = Hover contents range
 astToTypeInfo :: [SomeAstNode LocAndTp] -> T.Text
 astToTypeInfo (x:_) = tshow $ getType $ getAnnot x
 
+arNameToString :: ARName -> String 
+arNameToString Nothing = "(anonymous)"
+arNameToString (Just s) = s 
+
 astToText :: [SomeAstNode LocAndTp] -> T.Text
 astToText (SMapping (Mapping _ from to):_) = "This block maps variable " <> T.pack from <> " to GrammaticalFramework WordNet definion " <> tshow to
 astToText (SClassDecl (ClassDecl _ (ClsNm x) _):_) = "Declaration of new class : " <> T.pack x
 astToText (SGlobalVarDecl (VarDecl _ n _):_) = "Declaration of global variable " <> T.pack n
-astToText (SRule (Rule _ n _ _ _):_) = "Declaration of rule " <> T.pack n
-astToText (SAssertion (Assertion _ _):_) = "Declaration of Assertion " <> "rule of no name for now"
+astToText (SRule Rule {nameOfRule = n}:_) = "Declaration of rule " <> T.pack (arNameToString n)
+astToText (SAssertion Assertion {nameOfAssertion = n}:_) = "Declaration of Assertion " <> T.pack (arNameToString n)
 astToText _ = "No hover info found"
 
 
