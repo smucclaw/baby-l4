@@ -9,9 +9,12 @@ import Language.LSP.Types
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import qualified Data.Text as T
 import qualified Language.LSP.Types as J
+import L4LSP (handleUriErrs, LspError (ReadFileErr))
+import Lexer (Err(Err))
+import Annotation (SRng(DummySRng))
 
 main :: IO ()
-main = defaultMain $ testGroup "Tests" [hoverTests, hoverTypeInfoTests, typeCheckerTests]
+main = defaultMain $ testGroup "Tests" [hoverTests, hoverTypeInfoTests, typeCheckerTests, unitTests]
 
 hoverTests :: TestTree
 hoverTests = testGroup "Hover tests"
@@ -69,6 +72,16 @@ typeCheckerTests = testGroup "Type Error tests"
       ]
   ]
 
+
+unitTests :: TestTree
+unitTests = testGroup "Unit tests"
+  [
+    testCase "handleUriErrs returns ReadFileErr with non-existent file" $ do
+      handleUriErrs (Uri "doesNotExist.l4") @?= Left (ReadFileErr $ "Unable to parse uri: \"doesNotExist.l4\"")
+  ]
+
+
+
 -- TODO: We might want to test several hovers for a single file at once,
 -- but currently each hover will reparse the file anyways, so it won't make
 -- any performance difference anyways.
@@ -108,8 +121,6 @@ testTypeErrs testName fileName expectedRange numDiags containedText =
     testCase testName $ do
     runSession "lsp-server-bl4" fullCaps "lsp-tests/examples" $ do
         doc <- openDoc fileName "l4"
-        diags <- waitForDiagnostics
-        liftIO $ diags @?= []
         diags <- waitForDiagnostics
         liftIO $ length diags @?= numDiags
         let J.Diagnostic
