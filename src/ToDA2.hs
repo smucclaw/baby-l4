@@ -35,15 +35,12 @@ instance (Show t) => DSYaml (DSBlock t) where
   showDS DSBlock { blkName, blkType, blkCard, blkEncodings, blkAttrs, blkUI, blkSource} =
     hang 2 $ "-" <+> vsep [ "name:" <+> pretty blkName
                           , "type:" <+> pretty blkType
-                          , "minimum: 0" --cardinality goes here
-                          -- TODO: "ask/tell/any/other:"
-                          , "encodings:"  , indent 2 $ "-" <+> pretty blkEncodings -- TODO : add functionality for list-encoding
-                          , putSource blkSource <> putAttrs blkAttrs <>  PP.line
+                          , putSource blkSource <> putAttrs blkAttrs
                           ]
       where putAttrs ba = case ba of
               [Nothing] -> PP.emptyDoc
               _  -> "attributes:" <> PP.line <> indent 2 (showDSlist $ catMaybes ba) -- attributes here (one-level only)
-            putSource (Just x) = "source:" <+> pretty x
+            putSource (Just x) = "source:" <+> pretty x <> PP.line
             putSource Nothing = PP.emptyDoc
 
 
@@ -120,27 +117,36 @@ instance (Show t) => DSYaml (DSBlock t) where
 
 classDeclToBlock :: ClassDecl ct -> DSBlock ct
 classDeclToBlock ClassDecl { nameOfClassDecl, defOfClassDecl } =
+  let clnm = getClassname nameOfClassDecl
+      super = getSuper $ supersOfClassDef defOfClassDecl
+  in
   DSBlock { blkName = lowercase clnm
-          , blkType = "String" -- This needs to show "boolean" for types that are supported
-          , blkCard = Nothing
+          , blkType = superToBlocktype super
           , blkEncodings = lowercase clnm ++ "(X)" -- TODO: Arity of parent encodings
           , blkAttrs = mapAttrs $ fieldsOfClassDef defOfClassDecl
           , blkUI = undefined
-          , blkSource = Nothing
+          , blkSource = superToBlocksource super
           }
-  where clnm = (\(ClsNm name) -> name) nameOfClassDecl
+  where getClassname (ClsNm name)= name
         mapAttrs x = case x of
           [] -> [Nothing]
           _  -> map (Just . fieldDeclToBlock) x
+        getSuper (x1:x2:xs) = getClassname x2
+        superToBlocktype x = case x of
+          "Class" -> "String"
+          _       -> "Object"
+        superToBlocksource x = case x of
+          "Class" -> Nothing
+          x       -> Just $ lowercase x
 
 fieldDeclToBlock :: FieldDecl ct -> DSBlock ct
 fieldDeclToBlock (FieldDecl _ (FldNm fldnm) fieldtype) =
   let blockArity = getArity fieldtype
+      blockType = getBlocktype fieldtype
       outname = lowercase fldnm
   in
   DSBlock { blkName = outname
-          , blkType = getBlocktype fieldtype
-          , blkCard = Nothing
+          , blkType = blockType
           , blkEncodings = showEncoding outname blockArity
           , blkAttrs = [Nothing]
           , blkUI = undefined
