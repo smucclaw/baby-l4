@@ -2,67 +2,76 @@
 # {LExSIS: {encoding: "conditions_of_second_schedule_satisfied"}}
 
 class Service {
-    isLegalService: Boolean
-    isLawRelatedService: Boolean
-    isListedInFourthSchedule: Boolean
+    is_Legal_Service: Boolean
+    is_Law_Related_Service: Boolean
+    is_Listed_In_Fourth_Schedule: Boolean
 }
 
 class Business {
-    isDetractsFromDignityOfLegalProfession: Boolean
-    isIncompatibleWithDignityOfLegalProfession: Boolean
-    isDerogatesFromDignityOfLegalProfession: Boolean
-    isLikelyToUnfairlyAttractBusiness: Boolean
-    isSetOutInFirstSchedule: Boolean
-    isProhibitedBusiness: Boolean
-    isTrade: Boolean
-    isCalling: Boolean
-    isForProfit: Boolean
-    isInSingapore: Boolean
+    Detracts_From_Dignity_Of_Legal_Profession: Boolean
+    Incompatible_With_Dignity_Of_Legal_Profession: Boolean
+    Derogates_From_Dignity_Of_Legal_Profession: Boolean
+    Likely_To_Unfairly_Attract_Business_in_Practice_of_Law: Boolean
+    Set_Out_In_First_Schedule: Boolean
+    Prohibited_Business: Boolean
+    is_Trade: Boolean
+    is_Calling: Boolean
+    is_ForProfit: Boolean
+    is_in_Singapore: Boolean
 }
 
 
 class Organization {
-    isListedInThirdSchedule: Boolean
-    isCompany: Boolean
-    isCorporation: Boolean
-    isPartnership: Boolean
-    isLLP: Boolean
-    isSoleProprietorship: Boolean
-    isBusinessTrust: Boolean
-
-    hasPosition: Position -> Boolean
-    BeneficialOwner: Person -> Boolean
-    LegalOwner: Person -> Boolean
-    hasPartner: Person -> Boolean
-    hasSoleProprietor: Person -> Boolean
-    hasDirector: Person -> Boolean
-    CarriesOn: Business -> Boolean
+    Carries_On: Business -> Boolean
     Provides: Service -> Boolean
+
+    Listed_In_Third_Schedule: Boolean
+    has_Position: Position -> Boolean
+
+    is_Company: Boolean
+    is_Corporation: Boolean
+    is_Partnership: Boolean
+    is_LLP: Boolean
+    is_Sole_Proprietorship: Boolean
+    is_Business_Trust: Boolean
+
+    Beneficial_Owner_of: Person -> Boolean
+    Legal_Owner_of: Person -> Boolean
+    has_Partner: Person -> Boolean
+    has_SoleProprietor: Person -> Boolean
+    has_Director: Person -> Boolean
 }
 
 class Position {
-    isAcceptedAsRepresentativeOfParentPractice: Boolean
-    isEntitlesHolderAsExecutive: Boolean
-    isIndependentDirector: Boolean
-    isNonExecutiveDirector: Boolean
-    AssociatedWith: Business -> Boolean
-    MateriallyInterferesPracticing: Person -> Boolean # ???
-    MateriallyInterferesAvailability: Person -> Boolean # ???
-    MateriallyInterferesRepresentation: Person -> Boolean # ???
+    Accepted_As_Representative_Of_Parent_Practice: Boolean
+    Associated_With: Business -> Boolean
+    Entitles_Holder_As_Executive: Boolean
+    Independent_Director: Boolean
+    Non_Executive_Director: Boolean
+    Materially_Interferes_with_Practicing_For: Person -> Boolean # ???
+    Materially_Interferes_with_Availability_For: Person -> Boolean # ???
+    Materially_Interferes_with_Representation_For: Person -> Boolean # ???
 }
 
 
-class LegalPractitioner {
-    isLocum_Solicitor: Boolean
-    Primary_Occupation: Boolean
+class LegalPractitioner extends Person {
+    Locum_Solicitor: Boolean
+    Primary_Occupation: Boolean # This is supposed to be an enum
 }
 
 class Legal_Practice {
     Joint_Law_Venture: Boolean
     Formal_Law_Alliance: Boolean
-    Jurisdiction: Boolean
-    hasLegalPractitioner: LegalPractitioner -> Boolean
+    Foreign_Law_Practice: Boolean
+    Jurisdiction: Boolean # this is supposed to be an enum in lexsis
+    Legal_Practitioner: LegalPractitioner -> Boolean
     hasPosition: Position -> Boolean
 }
 
 class Person
+# {LExSIS: {encoding: ""}}
+
+
+
+decl Singapore: Jurisdiction
+decl Other: Jurisdiction
