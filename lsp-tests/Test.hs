@@ -4,6 +4,7 @@ module Main where
 import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Tasty.ExpectedFailure
+import Syntax hiding (Assertion)
 import Language.LSP.Test
 import Language.LSP.Types
 import Control.Monad.IO.Class (MonadIO(liftIO))
@@ -30,8 +31,8 @@ hoverTypeInfoTests = testGroup "Hover type tests"
   [ testHover "mini.l4 type info for lexicon DetractsFromDignity"   "mini.l4" (Position 4 4)   (mkRange 4 0 4 66)   "OkT"
   , testHover "cr.l4 type info for 'class Business {'"              "cr.l4"   (Position 21 10) (mkRange 21 0 24 1)  "OkT"
   , testHover "cr.l4 type info for var decl AssociatedWith"         "cr.l4"   (Position 38 12) (mkRange 38 0 38 64) "OkT"
-  , testHover "cr.l4 type info for rule r1a"                        "cr.l4"   (Position 61 7)  (mkRange 61 0 64 29) "ClassT (ClsNm {stringOfClassName = \"Boolean\"})"
-  , testHover "cr.l4 type info for rule subexpr MustNotAcceptApp"   "cr.l4"   (Position 69 8)  (mkRange 69 5 69 21) "FunT (ClassT (ClsNm {stringOfClassName = \"LegalPractitioner\"})) (FunT (ClassT (ClsNm {stringOfClassName = \"Appointment\"})) (ClassT (ClsNm {stringOfClassName = \"Boolean\"})))"
+  , testHover "cr.l4 type info for rule r1a"                        "cr.l4"   (Position 61 7)  (mkRange 61 0 64 29) $ T.pack $ show $ ClassT () (ClsNm {stringOfClassName = "Boolean"})
+  , testHover "cr.l4 type info for rule subexpr MustNotAcceptApp"   "cr.l4"   (Position 69 8)  (mkRange 69 5 69 21) $ T.pack $ show $ FunT () (ClassT () (ClsNm {stringOfClassName = "LegalPractitioner"})) (FunT () (ClassT () (ClsNm {stringOfClassName = "Appointment"})) (ClassT () (ClsNm {stringOfClassName = "Boolean"})))
   ]
 
 typeCheckerTests :: TestTree

@@ -60,7 +60,7 @@ defaultSRng :: SRng
 defaultSRng = DummySRng "Unknown position"
 
 instance Semigroup RealSRng where
-  SRng f1 t1 <> SRng f2 t2 = SRng (min f1 f2) (max t2 t2)
+  SRng f1 t1 <> SRng f2 t2 = SRng (min f1 f2) (max t1 t2)
 
 instance Semigroup SRng where
   (<>) = coordFromTo
