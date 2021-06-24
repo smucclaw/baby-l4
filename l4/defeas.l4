@@ -96,13 +96,13 @@ rule <maxSpInversion>
 for v: Vehicle, d: Day, r: Road, s: Integer
 if maxSpeed v d r s
 then
- (isCar v && s =  90) ||
- (isCar v && isHighway r && s = 130) ||
- (isCar v && isHoliday d && s = 42)
+ (isCar v && s ==  90) ||
+ (isCar v && isHighway r && s == 130) ||
+ (isCar v && isHoliday d && s == 42)
 
 
 assert {SMT:  {valid}}
 maxSpeed instCar instDay instRoad instSpeed1 &&
 maxSpeed instCar instDay instRoad instSpeed2
---> instSpeed1 = instSpeed2
+--> instSpeed1 == instSpeed2
 

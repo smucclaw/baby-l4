@@ -205,7 +205,7 @@ assert {nSMT:
        }
 maxSpeed instCar instDay instRoad instSpeed1 &&
 maxSpeed instCar instDay instRoad instSpeed2
---> instSpeed1 = instSpeed2
+--> instSpeed1 == instSpeed2
 
 
 # Query: max speed of a car on a highway

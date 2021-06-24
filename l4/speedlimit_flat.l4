@@ -106,21 +106,21 @@ not (isWorkday c && isHoliday c)
 
 rule <maxSpCarWorkdayHighway>
 for v: Class, d: Class, r: Class, s: Integer
-if isCar v && isWorkday d && isHighway r && s = 130
+if isCar v && isWorkday d && isHighway r && s == 130
 then maxSpeed v d r s
 
 # "Incorrect" version not excluding highways as roads
 rule <maxSpCarWorkdayRoad>
 for v: Class, d: Class, r: Class, s: Integer
-if isCar v && isWorkday d && isRoad r && s = 90
+if isCar v && isWorkday d && isRoad r && s == 90
 then maxSpeed v d r s
 
 # "Corrected" version making subjectTo clause explicit
 rule <maxSpCarWorkdayRoadRestrSubjectTo> 
 #     {subjectTo : maxSpCarWorkdayHighway}
 for v: Class, d: Class, r: Class, s: Integer
-if isCar v && isWorkday d && isRoad r && s = 90
-   && not (isCar v && isWorkday d && isHighway r && s = 130)
+if isCar v && isWorkday d && isRoad r && (s == 90)
+   && not (isCar v && isWorkday d && isHighway r && (s == 130))
 then maxSpeed v d r s
 
 # Inversion of rules maxSpCarWorkdayHighway and maxSpCarWorkdayRoad
@@ -128,16 +128,16 @@ rule <maxSpInversion>
 for v: Class, d: Class, r: Class, s: Integer
 if maxSpeed v d r s
 then
- (isCar v && isWorkday d && isHighway r && s = 130) ||
- (isCar v && isWorkday d && isRoad r && s =  90)
+ (isCar v && isWorkday d && isHighway r && (s == 130)) ||
+ (isCar v && isWorkday d && isRoad r && (s ==  90))
 
 # Inversion of rules maxSpCarWorkdayHighway and maxSpCarWorkdayRoadRestrSubjectTo
 rule <maxSpInversionSubjectTo>
 for v: Class, d: Class, r: Class, s: Integer
 if maxSpeed v d r s
 then
- (isCar v && isWorkday d && isHighway r && s = 130) ||
- (isCar v && isWorkday d && isRoad r && s =  90 && not (isHighway r))
+ (isCar v && isWorkday d && isHighway r && (s == 130)) ||
+ (isCar v && isWorkday d && isRoad r && (s ==  90) && not (isHighway r))
 
 
 # Non-functionality of maxSpeed is consistent with the assumption set
@@ -192,7 +192,7 @@ assert {nSMT:
        }
 maxSpeed instCar instDay instRoad instSpeed1 &&
 maxSpeed instCar instDay instRoad instSpeed2
---> instSpeed1 = instSpeed2
+--> instSpeed1 == instSpeed2
 
 # Functionality of maxSpeed follows from incorrect assumption set
 # excluding the incorrect maxSpCarWorkdayRoad, maxSpInversion
@@ -204,4 +204,4 @@ assert {nSMT:
        }
 maxSpeed instCar instDay instRoad instSpeed1 &&
 maxSpeed instCar instDay instRoad instSpeed2
---> instSpeed1 = instSpeed2
+--> instSpeed1 == instSpeed2

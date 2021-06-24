@@ -36,8 +36,8 @@ fact <noHomeless>
 rule <exactlyTwoParents>
    for c: Person, p1: Person, p2: Person, p3: Person
    if isChild c && isParent p1 && isParent p2 && isParent p3 &&
-   parent c p1 && parent c p2 && parent c p3
-   then p1 = p2 || p1 = p3 || p2 = p3
+      parent c p1 && parent c p2 && parent c p3
+   then (p1 == p2) || (p1 == p3) || (p2 == p3)
 
 rule <parentResidencesAreChildResidences>
    for c: Person, p: Person, r: Residence
@@ -50,7 +50,7 @@ rule <parentResidencesAreChildResidences>
 assert <childNotInParentResidence>
     {SMT: {consistent}}
  isParent adam && isParent eve && isChild cain && not isChild adam && not isChild eve
- && not (cain = adam) && not (cain = eve) && not (adam = eve) &&
+ && (cain /= adam) && (cain /= eve) &&  (adam /= eve) &&
  forall p: Person. forall r: Residence. parent cain p --> res p r --> not res cain r
  
 

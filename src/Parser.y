@@ -58,11 +58,12 @@ import Control.Monad.Except
     '-->' { L _ TokenImpl }
     '||'  { L _ TokenOr }
     '&&'  { L _ TokenAnd }
-    '='   { L _ TokenEq }
+    '=='  { L _ TokenEq }
     '<'   { L _ TokenLt }
     '<='  { L _ TokenLte }
     '>'   { L _ TokenGt }
     '>='  { L _ TokenGte }
+    '/='  { L _ TokenNe }
     '+'   { L _ TokenAdd }
     '-'   { L _ TokenSub }
     '*'   { L _ TokenMul }
@@ -182,7 +183,8 @@ Expr : '\\' Pattern ':' ATp '->' Expr  { FunE (tokenRange $1 $6) $2 $4 $6 }
      | Expr '<=' Expr              { BinOpE (tokenRange $1 $3) (BCompar BClte) $1 $3 }
      | Expr '>' Expr               { BinOpE (tokenRange $1 $3) (BCompar BCgt) $1 $3 }
      | Expr '>=' Expr              { BinOpE (tokenRange $1 $3) (BCompar BCgte) $1 $3 }
-     | Expr '=' Expr               { BinOpE (tokenRange $1 $3) (BCompar BCeq) $1 $3 }
+     | Expr '==' Expr              { BinOpE (tokenRange $1 $3) (BCompar BCeq) $1 $3 }
+     | Expr '/=' Expr              { BinOpE (tokenRange $1 $3) (BCompar BCne) $1 $3 }
      | Expr '+' Expr               { BinOpE (tokenRange $1 $3) (BArith BAadd) $1 $3 }
      | Expr '-' Expr               { BinOpE (tokenRange $1 $3) (BArith BAsub) $1 $3 }
      | '-' Expr %prec AMINUS       { UnaOpE (tokenRange $1 $2) (UArith UAminus) $2 }

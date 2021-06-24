@@ -135,12 +135,12 @@ printBinOpE (BArith b1) =
         BAmod -> "%"
 printBinOpE (BCompar b1) =
     case b1 of
-        BCeq -> "="
+        BCeq -> "=="
         BClt -> "<"
         BClte -> "<="
         BCgt -> ">"
         BCgte -> ">="
-        BCne -> "!="
+        BCne -> "/="
 printBinOpE (BBool b1) =
     case b1 of
         BBimpl -> "-->"

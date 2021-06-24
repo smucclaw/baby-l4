@@ -84,8 +84,8 @@ not (isWorkday c && isHoliday c)
 
 ## Symbolic rule names
 
-fact <rlMaxSpeedCarDef> rlMaxSpeedCar = 0
-fact <rlMaxSpeedCarDef> rlMaxSpeedCarHighway = 1
+fact <rlMaxSpeedCarDef> rlMaxSpeedCar == 0
+fact <rlMaxSpeedCarDef> rlMaxSpeedCarHighway == 1
 
 ## Domain-specific rules
 
@@ -141,7 +141,7 @@ assert {SMT:
        }
 maxSpeed instRN1 instCar instDay instRoad instSpeed1 &&
 maxSpeed instRN2 instCar instDay instRoad instSpeed2
---> instSpeed1 = instSpeed2
+--> instSpeed1 == instSpeed2
 
 # Variant of the above:
 # remove precondition: not maxSpeed rlMaxSpeedCarHighway v d r 130 

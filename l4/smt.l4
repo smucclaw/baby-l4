@@ -42,12 +42,12 @@ then (exists y: Integer. x > y && y > 0) || (x < 7)
 rule <fooC1>
 for x1: Class, x2: Class, y: Integer
 if RC x1 y && RC x2 (f y) && y > 47
-then x1 = x2
+then x1 == x2
 
 rule <fooC2>
 for x1: Class, x2: Class, y: Integer
 if RC x1 y && RC x2 y && y < 42
-then not (x1 = x2)
+then x1 /= x2
 
 # rule <foo>
 # for x: Integer, v: Integer
@@ -60,7 +60,7 @@ assert {nSMT:
            {consistent
            }
        }
-P a && a = 10
+P a && a == 10
 
 assert {SMT:
            {consistent
