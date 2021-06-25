@@ -1,0 +1,198 @@
+name: baby-l4
+version: 0.1.0.0
+# synopsis: A modern format for Haskell packages
+# description:
+homepage:            https://github.com/smucclaw/baby-l4
+license:             BSD3
+license-file:        LICENSE
+author:              Author name here
+maintainer:          example@example.com
+copyright: 2020 Author name here
+category: Web
+build-type: Custom
+
+data-files:
+  - l4/Prelude.l4
+  - grammars/Prop.gf
+  - grammars/PropEng.gf
+  - grammars/Atoms.gf
+  - grammars/AtomsEng.gf
+  - grammars/Answer.gf
+  - grammars/AnswerEng.gf
+  - grammars/Questions.gf
+  - grammars/QuestionsEng.gf
+  - grammars/Predicates.gf
+  - grammars/PredicatesEng.gf
+  - grammars/ReducedWordNet.gf
+  - grammars/ReducedWordNetEng.gf
+  - grammars/ParsePredicates.labels
+  - grammars/ParsePredicatesEng.labels
+  - grammars/ExtendEng.gfo
+
+extra-source-files:
+  - README.org
+  - grammars/Prop.gf
+  - grammars/Answer.gf
+  - grammars/Questions.gf
+  - grammars/Predicates.gf
+  - grammars/ParsePredicates.gf
+
+custom-setup:
+  dependencies:
+    - base >= 4.7 && < 5
+    - Cabal >= 1.10
+    - filepath
+
+internal-libraries:
+  l4-generated:
+    source-dirs:
+    # src
+    # Stack complains with this and doesn't work without it
+    # https://github.com/commercialhaskell/stack/issues/3929
+    - grammars
+    exposed-modules:
+    # generated from GF grammars
+    - Prop
+    - Answer
+    - Questions
+    - ParsePredicates
+    - Predicates
+    dependencies:
+    - base >= 4.7 && < 5
+    - gf
+    - mtl >= 2.2 && <2.4
+    ghc-options: -Wno-all
+    build-tools: gf
+
+library:
+  exposed-modules:
+  # generated
+    - Lexer
+    - Parser
+  # from src
+    - Annotation
+    - Error
+    - Syntax
+  # lsp
+    - L4LSP
+  # ToYaml
+    - ToGF.FromL4.ToProp
+    - ToGF.FromL4.TransProp
+    - ToGF.GenerateLexicon
+    - ToGF.NormalizeSyntax
+    - ToGF.ParsePred
+    - ToGF.Disambiguate
+    - ToGF.TreeTransform
+    - ToGF.FromSCasp.SCasp
+    - ToGF.FromSCasp.ToAnswer
+    - ToGF.FromL4.ToQuestions
+    - ToGF.FromL4.ToAnswers
+    - ToSCASP
+    - ToDA2
+  # ExampleInput
+  # Exec
+    - InterfaceNunchaku
+  # RuleToTa
+  # TaToUppaal
+    - Smt
+    - SmtSBV
+    - Typing
+  other-modules: Paths_baby_l4
+  source-dirs: src
+
+  dependencies:
+    - base >= 4.7 && < 5
+    - l4-generated
+    - array
+    - containers
+    - pretty-simple
+    - prettyprinter >= 1.7.0
+    - split
+    - text
+    - extra
+    #  required for lexer and parser
+    - haskeline  >= 0.7
+    - mtl        >= 2.2 && <2.4
+    #  required for GF
+    - gf
+    - gf-ud
+    #  required for SCasp abs.syn.
+    - megaparsec
+    #  Required for lexer/lsp interop
+    - lsp-types
+    - MissingH
+    #  required for SMT interaction
+    - simple-smt
+    - sbv
+    # required for lsp
+    - lsp        >=1.0.0.0
+    - lsp-types  >=1.0.0.0
+    - haskeline  >= 0.7
+    - mtl        >= 2.2 && <2.4
+    - lens
+    - hslogger
+    - sorted-list
+    - either
+    - transformers
+    - rope-utf16-splay
+    - mmorph
+  ghc-options: -Wall
+
+tests:
+  unit-tests:
+    source-dirs:
+      - tests
+      - src
+    main: Test.hs
+    other-modules:
+      - ToGF.Disambiguate
+      - DisambiguateTest
+      - Paths_baby_l4
+    dependencies:
+      - base >= 4 && < 5
+      - baby-l4
+      - containers
+      - gf
+      - l4-generated
+      - split
+      - safe
+      - tasty
+      - tasty-expected-failure
+      - tasty-golden
+      - tasty-hunit
+    ghc-options: Wall
+  lsp-server-tests:
+    source-dirs: lsp-tests
+    build-tools: baby-l4:lsp-server-bl4
+    main: Test.hs
+    dependencies:
+      - base >= 4 && < 5
+      - tasty
+      - tasty-hunit
+      - tasty-expected-failure
+      - baby-l4
+      - lsp-test
+      - lsp-types
+      - text
+
+executables:
+  l4:
+    source-dirs:      exe
+    main:             Main.hs
+    other-modules:    Paths_baby_l4
+    dependencies:
+      - base >= 4.7 && < 5
+      - baby-l4
+      - array
+      - containers
+      - haskeline  >= 0.7
+      - mtl        >= 2.2 && <2.4
+      - pretty-simple
+      - optparse-applicative
+  lsp-server-bl4:
+    source-dirs:      lsp
+    main:             Main.hs
+    dependencies:
+      - base >= 4.7 && < 5
+      - baby-l4
+    ghc-options: -Wall
