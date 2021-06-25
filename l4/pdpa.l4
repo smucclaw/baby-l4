@@ -20,6 +20,8 @@ class PersonalData  {
 # To be written as predicate?
 class LikelytoOccur
 
+class ReasonToBelieve
+
 class DataBreach  {
     UnauthorisedAccess: Boolean
     UnauthorisedCollection: Boolean
@@ -31,7 +33,7 @@ class DataBreach  {
     LossofStorageMedium: Boolean
 }
 
-# NOTE: How to have a class declaration when there is an "open ended" class?
+# NOTE: How to have a class declaration when there is an "open ended" class 
 class OtherPrescribedCircumstances
 
 
@@ -59,15 +61,34 @@ class DataIntermediary extends Organisation  {
 
 # No definition of what constitutes an assessment of data breach in the legislation, only in the guide
 class AssessmentOfDataBreach  {
-    ReasonToBelieve: Boolean
     DataInPossession: Boolean
     DataUnderControl: Boolean
     ReasonableAndExpeditious: Boolean
+    PrescribedRequirements: Boolean
 }
+
+class ActionTaken
+
+class TechnologicalMeasure
+
+# NOTE: Would be good to have an operator that signifies whether an event happens before or after another event (like > operator for ints)
+class PriorTo
+
+class CommissionSoDirects
+
+class ApplicationByOrg
+
+class WavierByCommission
+
+class Notification
+
+class NotificationofOtherOrg extends Notification
+
+class UponNotification extends Notification
 
 # r5(1) of PDPR 
 # NOTE: How to account for r5(3), which specifies that notification to commission must be in a particular format
-class NotificationtoCommission {
+class NotificationtoCommission extends UponNotification {
     
     # NOTE: We don't have a datetime datatype
     DateWhichBreachFirstOccurred: Integer 
@@ -99,7 +120,7 @@ class NotificationtoCommissionWithoutNotificationToIndividual extends Notificati
 
 class Commission
 
-class PrescribedLawEnforcement
+class PrescribedLawEnforcementInstructs
 
 class Days
 
@@ -170,8 +191,6 @@ if (
 then not NotifiableDataBreach
 
 
-
-
 # s26B(1) - Notifiable Data Breach
 decl s26b_1_applies: NotifiableDataBreach -> NotificationtoCommission
 
@@ -183,3 +202,158 @@ if (
     (s26b_2_applies || s26b_3_applies) && (not s26b_4_applies)
 )
 then NotificationtoCommission
+
+
+#------------------------------ s26C: Duty to Conduct Assessment of Breach ------------------------------ 
+
+# Definitions
+decl reasontobelieve: ReasonToBelieve -> Boolean
+decl dataintermediary: DataIntermediary -> Boolean
+decl notification: Notification -> Boolean
+decl notificationootherorg: NotificationofOtherOrg -> Boolean
+
+
+
+# s26C(3)(a): Duty for data intermediary to inform other organisation
+decl s26c_3_a_applies: DataIntermediary -> ReasonToBelieve -> NotificationofOtherOrg
+
+rule <s26c_3_a_applies>
+for di: DataIntermediary, rb: ReasonToBelieve
+if (
+    dataintermediary di && reasontobelieve rb
+)
+then NotificationofOtherOrg
+
+
+
+# s26C(3)(b): Duty for other organisation to conduct assessment
+decl s26c_3_b_applies: NotificationofOtherOrg -> AssessmentOfDataBreach
+
+rule <s26c_3_b_applies>
+for n: NotificationofOtherOrg
+if (
+    notificationootherorg n
+)
+then AssessmentOfDataBreach
+
+
+
+
+# s26C(2) - Duty to conduct assessment of data breach
+decl s26c_2_applies: ReasonToBelieve -> DataIntermediary -> AssessmentOfDataBreach
+
+rule <s26c_2_applies>
+for rb: ReasonToBelieve, di: DataIntermediary
+if (
+    reasontobelieve rb && (not dataintermediary di)
+)
+then AssessmentOfDataBreach
+
+# NOTE: s26C(4) can it be represented as the attribute of class AssessmentOfDataBreach?
+
+# NOTE: Is there a way to represent the direction of an obligation?
+# i.e. Whether the intermediary or the organisation is obliged to conduct and assessment
+# Also who needs to send a notification to whom, e.g. from the data intermediary to the organisation
+
+
+
+#------------------------------ s26D: Duty to Notify Occurrence of Notifiable Data Breach ------------------------------ 
+
+# NOTE: Maybe these functions that convert the classes to booleans can be part of the local scope of the general rule? (ie. defined within an object called s26D)
+decl notifiabledatabreach: NotifiableDataBreach -> Boolean
+decl actiontaken: ActionTaken -> Boolean
+decl prescribedrequirements: PrescribedRequirements -> Boolean
+decl significantharm: SignificantHarmToIndividual -> Boolean
+decl technologicalmeasure: TechnologicalMeasure -> Boolean
+decl prescribedlawenforcement: PrescribedLawEnforcementInstructs -> Boolean
+decl priorto: PriorTo -> Boolean
+decl commissionsodirects: CommissionSoDirects -> Boolean
+decl applicationbyorg: ApplicationByOrg -> Boolean
+decl waiverbycommission: WavierByCommission -> Boolean
+
+
+
+# s26D(1) - Notification to commission
+decl s26d_1_applies: NotifiableDataBreach -> NotificationtoCommission
+
+rule <s26d_1_applies>
+for ndb: NotifiableDataBreach
+if (
+    notifiabledatabreach ndb
+)
+then NotificationtoCommission
+
+
+
+# s26D(5)(a) - Exceptions to notification to individuals
+decl s26d_5_a_applies: NotifiableDataBreach -> ActionTaken -> PrescribedRequirements -> SignificantHarmToIndividual -> NotificationtoCommissionWithoutNotificationToIndividual
+
+rule <s26d_5_a_applies>
+for ndb: NotifiableDataBreach, at: ActionTaken, pr: PrescribedRequirements, sh: SignificantHarmToIndividual
+if (
+    notifiabledatabreach ndb && actiontaken at && prescribedrequirements pr && (not significantharm sh)
+)
+then NotificationtoCommissionWithoutNotificationToIndividual
+
+
+
+# s26D(5)(b) - Exception to notification to individuals
+decl s26d_5_b_applies: NotifiableDataBreach -> TechnologicalMeasure -> PriorTo -> SignificantHarmToIndividual -> NotificationtoCommissionWithoutNotificationToIndividual
+
+rule <s26d_5_b_applies>
+for ndb: NotifiableDataBreach, tm: TechnologicalMeasure, pt: PriorTo, sh: SignificantHarmToIndividual
+if (
+    notifiabledatabreach ndb && technologicalmeasure tm && priorto pt && (not significantharm sh)
+)
+then NotificationtoCommissionWithoutNotificationToIndividual
+
+
+
+# s26D(6)(a) - Exception to notification to individuals
+decl s26d_6_a_applies: NotifiableDataBreach -> PrescribedLawEnforcementInstructs -> NotificationtoCommissionWithoutNotificationToIndividual
+
+rule <s26d_6_a_applies>
+for ndb: NotifiableDataBreach, le: PrescribedLawEnforcementInstructs
+if (
+    notifiabledatabreach ndb && prescribedlawenforcement le
+)
+then NotificationtoCommissionWithoutNotificationToIndividual
+
+
+
+# s26D(6)(b) - Exception to notification to individuals
+decl s26d_6_b_applies: NotifiableDataBreach -> CommissionSoDirects -> NotificationtoCommissionWithoutNotificationToIndividual
+
+rule <s26d_6_a_applies>
+for ndb: NotifiableDataBreach, cd: CommissionSoDirects
+if (
+    notifiabledatabreach ndb && commissionsodirects cd
+)
+then NotificationtoCommissionWithoutNotificationToIndividual
+
+
+# s26D(7) - Wavier by Commission
+decl s26d_7_applies: NotifiableDataBreach -> ApplicationByOrg -> WavierByCommission -> NotificationtoCommissionWithoutNotificationToIndividual
+
+rule <s26d_7_applies>
+for ndb: NotifiableDataBreach, ao: ApplicationByOrg, wc: WavierByCommission
+if (
+    notifiabledatabreach ndb && applicationbyorg ao && waiverbycommission wc
+)
+then NotificationtoCommissionWithoutNotificationToIndividual
+
+# TODO: Encode s26D(8)
+
+
+
+# s26D(2) - Notification to Individuals
+decl s26d_2_applies: NotifiableDataBreach -> s26d_5_a_applies -> s26d_5_b_applies -> s26d_6_a_applies -> s26d_6_b_applies -> s26d_7_applies -> NotificationtoCommission
+
+rule <s26d_2_applies>
+for ndb: NotifiableDataBreach, s26d_5_a_applies, s26d_5_b_applies, s26d_6_a_applies, s26d_6_b_applies, s26d_7_applies
+if (
+    notifiabledatabreach ndb && (s26d_5_a_applies || s26d_5_b_applies || s26d_6_a_applies || s26d_6_b_applies || s26d_7_applies)
+)
+then NotificationtoCommissionWithoutNotificationToIndividual
+else NotificationtoCommission
+# Note: Do we have an else branch
