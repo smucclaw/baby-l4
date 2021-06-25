@@ -177,7 +177,12 @@ errorToErrs e = TypeCheckerErr $ case e of
                   (RuleErr (RuleErrorRE re)) -> getErrorCause "Rule Error: " <$> re
 
 getErrorCause :: String -> (SRng, ErrorCause) -> Err
-getErrorCause errTp (r, ec) = Err r (errTp ++ printErrorCause ec)
+getErrorCause errTp r@(_, ec) = Err (getErrLocation r) (errTp ++ printErrorCause ec)
+
+-- TODO: #98 Replace this temporary workaround when AST is updated with positional information.
+getErrLocation :: (SRng, ErrorCause) -> SRng
+getErrLocation (_, UndeclaredVariable r _vn) = r
+getErrLocation (r, _) = r
 
 mkErr :: (b -> String) -> String -> (SRng, b) -> Err
 mkErr f msg (r, n) = Err r -- get range
