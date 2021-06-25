@@ -160,7 +160,7 @@ tests:
       - tasty-expected-failure
       - tasty-golden
       - tasty-hunit
-    ghc-options: Wall
+    ghc-options: -Wall
   lsp-server-tests:
     source-dirs: lsp-tests
     build-tools: baby-l4:lsp-server-bl4

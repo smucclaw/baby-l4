@@ -183,7 +183,7 @@ test-suite unit-tests
   hs-source-dirs:
       tests
       src
-  ghc-options: Wall
+  ghc-options: -Wall
   build-depends:
       baby-l4
     , base ==4.*
