@@ -112,7 +112,8 @@ testHover testName filename position expectedRange containedText =
 
 -- test sequence of edits
 testTypeErrs
-  :: TestName
+  :: HasCallStack
+  => TestName
   -> FilePath -- ^ The file to test
   -> Range -- ^ expected range of error (0 - indexed)
   -> Int    -- ^ number of errors expected        -- TODO: maybe take a list of errors to check for instead?
