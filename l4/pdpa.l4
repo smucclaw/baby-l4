@@ -6,21 +6,34 @@
 
 # Class definitions
 
-class NotifiableDataBreach
 
+
+# ---------------------------- Party definitions ----------------------
 class Individual  {
     NaturalPersonLivingOrDeceased: Boolean
 }
+
+class PublicAgency
+
+class Commission
+
+class Organisation
+
+class DataIntermediary extends Organisation  {
+    ProcessesDataOnBehalfOfAnotherOrganisation: Boolean
+    DoesNotIncludeEmployeeOfTheOtherOrganisation: Boolean
+}
+
+class DataIntermediaryOnBehalfOfPublicAgency extends DataIntermediary
+
+
+
+------------------------ What information constitutes data -------------------------------
 
 class PersonalData  {
     IndividualIdentifiedFromData: Boolean
     IndividualIdentifiedFromDataAndInformationOrgHas: Boolean
 }
-
-# To be written as predicate?
-class LikelytoOccur
-
-class ReasonToBelieve
 
 class DataBreach  {
     UnauthorisedAccess: Boolean
@@ -32,6 +45,20 @@ class DataBreach  {
     UnauthorisedDisposal: Boolean
     LossofStorageMedium: Boolean
 }
+
+class NotifiableDataBreach extends DataBreach
+
+class DataBreachOnlyWithinOrg extends DataBreach
+
+
+#----------------------------"Reasonability" concepts--------------------------
+
+# To be written as predicate?
+class LikelytoOccur
+
+class ReasonToBelieve
+
+class BestofKnowledgeAndBelief
 
 # NOTE: How to have a class declaration when there is an "open ended" class 
 class OtherPrescribedCircumstances
@@ -50,16 +77,9 @@ class SignificantHarmToIndividual  {
     PasswordtoAccount: Boolean
 }
 
-class DataBreachOnlyWithinOrg
 
-class Organisation
+#------------------------------- Actions taken by parties involved-----------------------
 
-class DataIntermediary extends Organisation  {
-    ProcessesDataOnBehalfOfAnotherOrganisation: Boolean
-    DoesNotIncludeEmployeeOfTheOtherOrganisation: Boolean
-}
-
-# No definition of what constitutes an assessment of data breach in the legislation, only in the guide
 class AssessmentOfDataBreach  {
     DataInPossession: Boolean
     DataUnderControl: Boolean
@@ -69,16 +89,25 @@ class AssessmentOfDataBreach  {
 
 class ActionTaken
 
-class TechnologicalMeasure
-
-# NOTE: Would be good to have an operator that signifies whether an event happens before or after another event (like > operator for ints)
-class PriorTo
-
 class CommissionSoDirects
+
+class PrescribedLawEnforcementInstructs
 
 class ApplicationByOrg
 
 class WavierByCommission
+
+class PrescribedRequirements
+
+class RestrictionOnTheDisclosureofInformation  {
+    DutyorObligationUnderLaw: Boolean
+    DutyUnderContract: Boolean
+    RuleOfProfessionalConduct: Boolean
+}
+
+class InBreach
+
+#------------------------------- Notification requirements ----------------------------
 
 class Notification
 
@@ -107,34 +136,32 @@ class NotificationtoCommission extends UponNotification {
 }
 
 
-# To account for r5(2)
+# r5(2)
 class NotificationtoCommissionAfterExpiry extends NotificationtoCommission {
     ReasonsForLateNotification: String
     SupportingEvidence: String
 }
 
-# To account for r5(3)
+# To r5(3)
 class NotificationtoCommissionWithoutNotificationToIndividual extends NotificationtoCommission {
     GroundsForNotNotifyingIndividual: String
 }
 
-class Commission
+class NotificationtoPublicAgency extends Notification
 
-class PrescribedLawEnforcementInstructs
+
+
+#--------------------------- Time classes and misc ------------------------------
+# NOTE: Would be good to have an operator that signifies whether an event happens before or after another event (like > operator for ints)
+class PriorTo
 
 class Days
 
-class BestofKnowledgeAndBelief
+class TechnologicalMeasure
 
-class PrescribedRequirements
+class ObligationUnderLawNotToDiscloseOrRuleOfProfessionalConduct
 
-class RestrictionOnTheDisclosureofInformation  {
-    DutyorObligationUnderLaw: Boolean
-    DutyUnderContract: Boolean
-    RuleOfProfessionalConduct: Boolean
-}
-
-class PublicAgency
+class RuleOfProfessionalConduct
 
 
 #------------------------------ Declarations ------------------------------ 
@@ -342,7 +369,30 @@ if (
 )
 then NotificationtoCommissionWithoutNotificationToIndividual
 
-# TODO: Encode s26D(8)
+
+
+# s26D(8)(a) - Organisation not in breach of law
+# NOTE: Is there a way to represent the conjunction of all the other rules from s26d(1) - s26d(7)?
+
+decl s26d_8_a_applies: s26d_1_applies -> s26d_2_applies -> ObligationUnderLawNotToDisclose
+
+rule <s26d_8_a_applies>
+for s26d_1_applies, s26d_2_applies
+if (
+    s26d_1_applies || s26b_2_applies
+)
+then (not ObligationUnderLawNotToDisclose)
+
+
+# s26D(8)(b) - Organisation not in breach of professional conduct
+decl s26d_8_b_applies: s26d_1_applies -> s26d_2_applies -> RuleOfProfessionalConduct
+
+rule <s26d_8_b_applies>
+for s26d_1_applies, s26d_2_applies
+if (
+    s26d_1_applies || s26d_2_applies
+)
+then (not RuleOfProfessionalConduct)
 
 
 
@@ -357,3 +407,17 @@ if (
 then NotificationtoCommissionWithoutNotificationToIndividual
 else NotificationtoCommission
 # Note: Do we have an else branch
+
+
+
+# s26E - Notification of public agency
+decl s26e_applies: DataIntermediaryOnBehalfOfPublicAgency -> ReasonToBelieve -> DataBreach -> NotificationtoPublicAgency
+
+decl dataintermediaryonbehalfofpublicagency: DataIntermediaryOnBehalfOfPublicAgency -> Boolean
+
+rule <s26e_applies>
+for di: DataIntermediaryOnBehalfOfPublicAgency, rb: ReasonToBelieve, db: DataBreach
+if (
+    dataintermediaryonbehalfofpublicagency di && reasontobelieve rb && databreach db
+)
+then NotificationtoPublicAgency
