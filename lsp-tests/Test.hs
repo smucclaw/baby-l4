@@ -67,9 +67,9 @@ typeCheckerTests = testGroup "Type Error tests"
       , testTypeErrs "nonFunctionTp.l4        which is not a functional type"                           "RuleAssertionError/nonFunctionTp.l4"         (mkRange 7 39 7 48)   1 "which is not a functional type"
       , testTypeErrs "incompatiblePattern.l4  variable pattern & expected type are incompatible"        "RuleAssertionError/incompatiblePattern.l4"   (mkRange 1 3  1 34)   1 "the variable pattern and its type are incompatible"
       , testTypeErrs "unknownFieldName.l4  access to an unknown field"
-      "RuleAssertionError/unknownFieldName.l4"   (mkRange 8 8 8 12)     1 "access to an unknown field"
+      "RuleAssertionError/unknownFieldName.l4"   (mkRange 8 8 8 9)     1 "access to an unknown field"
       , testTypeErrs "accessToNonObjectTp.l4  access to a field of a non-object type"
-      "RuleAssertionError/accessToNonObjectTp.l4"   (mkRange 3 4 3 8)     1 "access to a field of a non-object type"
+      "RuleAssertionError/accessToNonObjectTp.l4"   (mkRange 3 4 3 5)     1 "access to an unknown field De in class Boolean"
       ]
   ]
 
