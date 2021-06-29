@@ -182,6 +182,13 @@ getErrorCause errTp r@(_, ec) = Err (getErrLocation r) (errTp ++ printErrorCause
 -- TODO: #98 Replace this temporary workaround when AST is updated with positional information.
 getErrLocation :: (SRng, ErrorCause) -> SRng
 getErrLocation (_, UndeclaredVariable r _vn) = r
+getErrLocation (_, IllTypedSubExpr rngs _ _) = head rngs
+getErrLocation (_, IncompatiblePattern r) = r
+getErrLocation (_, UnknownFieldName r _ _) = r
+getErrLocation (_, AccessToNonObjectType r)= r
+getErrLocation (_, IncompatibleTp rngs _) = head rngs
+getErrLocation (_, NonScalarExpr rngs _) = head rngs
+getErrLocation (_, NonFunctionTp rngs _) = head rngs
 getErrLocation (r, _) = r
 
 mkErr :: (b -> String) -> String -> (SRng, b) -> Err
@@ -355,9 +362,9 @@ tokenToHover astNode = Hover contents range
 astToTypeInfo :: [SomeAstNode LocAndTp] -> T.Text
 astToTypeInfo (x:_) = tshow $ getType $ getAnnot x
 
-arNameToString :: ARName -> String 
+arNameToString :: ARName -> String
 arNameToString Nothing = "(anonymous)"
-arNameToString (Just s) = s 
+arNameToString (Just s) = s
 
 astToText :: [SomeAstNode LocAndTp] -> T.Text
 astToText (SMapping (Mapping _ from to):_) = "This block maps variable " <> T.pack from <> " to GrammaticalFramework WordNet definion " <> tshow to
