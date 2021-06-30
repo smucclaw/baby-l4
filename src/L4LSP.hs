@@ -351,7 +351,8 @@ tokenToHover astNode = Hover contents range
     txt = astText <> "\n\n" <> tpInfo <> "\n\n" <> dbgInfo <> "\n\n" <> dbgInfo2
     contents = HoverContents $ markedUpContent "haskell" txt
     annRange = getLoc $ head astNode
-    range = sRngToRange annRange
+    oneIndexed = incrementSRng annRange
+    range = sRngToRange oneIndexed
 
 astToTypeInfo :: [SomeAstNode LocAndTp] -> T.Text
 astToTypeInfo (x:_) = tshow $ getType $ getAnnot x
