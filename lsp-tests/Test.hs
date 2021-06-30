@@ -19,22 +19,22 @@ main = defaultMain $ testGroup "Tests" [hoverTests, hoverTypeInfoTests, typeChec
 hoverTests :: TestTree
 hoverTests = testGroup "Hover tests"
   -- TODO: update the string lexicon & hover over nothing tests
-  [ expectFailBecause "Lexicon is not in AST" $ testHover "mini.l4 hover the string 'lexicon'"                        "mini.l4" (Position 2 4)   (mkRange 2 0 2 7)    "This is a lexicon"
-  ,                                             testHover "mini.l4 hover the string 'Business -> \"business_1_N\"'"   "mini.l4" (Position 4 4)   (mkRange 4 0 4 66)   "This block maps variable DetractsFromDignity to GrammaticalFramework WordNet definion \"detracts from dignity of legal profession\""
-  ,                                             testHover "cr.l4 hover the string 'class Business {'"                 "cr.l4"   (Position 21 10) (mkRange 21 0 24 1)  "Declaration of new class : Business"
-  ,                                             testHover "cr.l4 hover AssociatedWith"                                "cr.l4"   (Position 38 12) (mkRange 38 0 38 64) "Declaration of global variable AssociatedWith"
-  ,                                             testHover "cr.l4 hover AssociatedWith type"                           "cr.l4"   (Position 38 30) (mkRange 38 0 38 64) "Declaration of global variable AssociatedWith"
-  ,                                             testHover "cr.l4 hover rule r1a"                                      "cr.l4"   (Position 61 7)  (mkRange 61 0 64 29) "Declaration of rule r1a"
-  , expectFail                                $ testHover "Hover over nothing"                                        "mini.l4" (Position 1 0)   (mkRange 3 0 3 8)    "This block maps variable Business to WordNet definion \"business_1_N\""
+  [ expectFailBecause "Lexicon is not in AST" $ testHover "mini.l4 hover the string 'lexicon'"                        "mini.l4" (Position 2 4)   (mkRange 3 1 3 8)    "This is a lexicon"
+  ,                                             testHover "mini.l4 hover the string 'Business -> \"business_1_N\"'"   "mini.l4" (Position 4 4)   (mkRange 5 1 5 67)   "This block maps variable DetractsFromDignity to GrammaticalFramework WordNet definion \"detracts from dignity of legal profession\""
+  ,                                             testHover "cr.l4 hover the string 'class Business {'"                 "cr.l4"   (Position 21 10) (mkRange 22 1 25 2)  "Declaration of new class : Business"
+  ,                                             testHover "cr.l4 hover AssociatedWith"                                "cr.l4"   (Position 38 12) (mkRange 39 1 39 65) "Declaration of global variable AssociatedWith"
+  ,                                             testHover "cr.l4 hover AssociatedWith type"                           "cr.l4"   (Position 38 30) (mkRange 39 1 39 65) "Declaration of global variable AssociatedWith"
+  ,                                             testHover "cr.l4 hover rule r1a"                                      "cr.l4"   (Position 61 7)  (mkRange 62 1 65 30) "Declaration of rule r1a"
+  , expectFail                                $ testHover "Hover over nothing"                                        "mini.l4" (Position 1 0)   (mkRange 4 1 4 9)    "This block maps variable Business to WordNet definion \"business_1_N\""
   ]
 
 hoverTypeInfoTests :: TestTree
 hoverTypeInfoTests = testGroup "Hover type tests"
-  [ testHover "mini.l4 type info for lexicon DetractsFromDignity"   "mini.l4" (Position 4 4)   (mkRange 4 0 4 66)   "OkT"
-  , testHover "cr.l4 type info for 'class Business {'"              "cr.l4"   (Position 21 10) (mkRange 21 0 24 1)  "OkT"
-  , testHover "cr.l4 type info for var decl AssociatedWith"         "cr.l4"   (Position 38 12) (mkRange 38 0 38 64) "OkT"
-  , testHover "cr.l4 type info for rule r1a"                        "cr.l4"   (Position 61 7)  (mkRange 61 0 64 29) "ClassT (ClsNm {stringOfClassName = \"Boolean\"})"
-  , testHover "cr.l4 type info for rule subexpr MustNotAcceptApp"   "cr.l4"   (Position 69 8)  (mkRange 69 5 69 21) "FunT (ClassT (ClsNm {stringOfClassName = \"LegalPractitioner\"})) (FunT (ClassT (ClsNm {stringOfClassName = \"Appointment\"})) (ClassT (ClsNm {stringOfClassName = \"Boolean\"})))"
+  [ testHover "mini.l4 type info for lexicon DetractsFromDignity"   "mini.l4" (Position 4 4)   (mkRange 5 1 5 67)   "OkT"
+  , testHover "cr.l4 type info for 'class Business {'"              "cr.l4"   (Position 21 10) (mkRange 22 1 25 2)  "OkT"
+  , testHover "cr.l4 type info for var decl AssociatedWith"         "cr.l4"   (Position 38 12) (mkRange 39 1 39 65) "OkT"
+  , testHover "cr.l4 type info for rule r1a"                        "cr.l4"   (Position 61 7)  (mkRange 62 1 65 30) "ClassT (ClsNm {stringOfClassName = \"Boolean\"})"
+  , testHover "cr.l4 type info for rule subexpr MustNotAcceptApp"   "cr.l4"   (Position 69 8)  (mkRange 70 6 70 22) "FunT (ClassT (ClsNm {stringOfClassName = \"LegalPractitioner\"})) (FunT (ClassT (ClsNm {stringOfClassName = \"Appointment\"})) (ClassT (ClsNm {stringOfClassName = \"Boolean\"})))"
   ]
 
 typeCheckerTests :: TestTree
@@ -42,33 +42,33 @@ typeCheckerTests = testGroup "Type Error tests"
   [
     testGroup "ClassDeclsError"
       [
-        testTypeErrs "dupClassNames.l4    duplicate class names Business"           "ClassDeclsError/dupClassNames.l4"    (mkRange 2 0 5 1)    2 "Duplicate class name: Business"
-      , testTypeErrs "undefSuperClass.l4  undefined super class LawFirm"            "ClassDeclsError/undefSuperClass.l4"  (mkRange 3 0 3 30)   1 "Undefined super class: LawFirm"
+        testTypeErrs "dupClassNames.l4    duplicate class names Business"           "ClassDeclsError/dupClassNames.l4"    (mkRange 3 1 6 2)    2 "Duplicate class name: Business"
+      , testTypeErrs "undefSuperClass.l4  undefined super class LawFirm"            "ClassDeclsError/undefSuperClass.l4"  (mkRange 4 1 4 31)   1 "Undefined super class: LawFirm"
       -- Note: typeErrTests only checks the first error, however, this next test in particular returns 2 errors; one for LawFirm, one for Business
-      , testTypeErrs "cyclicClass.l4      cyclic classes LawFirm & Business"        "ClassDeclsError/cyclicClass.l4"      (mkRange 0 0 0 30)   2 "Cyclic class hierarchy: LawFirm"
+      , testTypeErrs "cyclicClass.l4      cyclic classes LawFirm & Business"        "ClassDeclsError/cyclicClass.l4"      (mkRange 1 1 1 31)   2 "Cyclic class hierarchy: LawFirm"
       ]
   , testGroup "FieldDeclsError"
       [
-        testTypeErrs "dupFieldNames.l4    duplicate field name for class Business"  "FieldDeclsError/dupFieldNames.l4"    (mkRange 2 0 5 1)    1 "Duplicate field names in the class: Business"
-      , testTypeErrs "undefFieldType.l4   undefined field type for class Business"  "FieldDeclsError/undefFieldType.l4"   (mkRange 3 6 3 17)   1 "Undefined field type: foo"
+        testTypeErrs "dupFieldNames.l4    duplicate field name for class Business"  "FieldDeclsError/dupFieldNames.l4"    (mkRange 3 1 6 2)    1 "Duplicate field names in the class: Business"
+      , testTypeErrs "undefFieldType.l4   undefined field type for class Business"  "FieldDeclsError/undefFieldType.l4"   (mkRange 4 7 4 18)   1 "Undefined field type: foo"
       ]
   , testGroup "VarDeclsError"
       [
-        testTypeErrs "undeclVar.l4        undefined variable MustNotAcceptApp"      "VarDeclsError/undeclVar.l4"          (mkRange 64 5 64 21) 6 "Variable MustNotAcceptApp at (64,5) .. (64,21) is undefined"
-      , testTypeErrs "undefVarType.l4     undefined variable type Entity"           "VarDeclsError/undefVarType.l4"       (mkRange 2 0 2 33)   1 "Undefined type var decl: WhereType"
+        testTypeErrs "undeclVar.l4        undefined variable MustNotAcceptApp"      "VarDeclsError/undeclVar.l4"          (mkRange 65 6 65 22) 6 "Variable MustNotAcceptApp at (64,5) .. (64,21) is undefined"
+      , testTypeErrs "undefVarType.l4     undefined variable type Entity"           "VarDeclsError/undefVarType.l4"       (mkRange 3 1 3 34)   1 "Undefined type var decl: WhereType"
       ]
   , testGroup "RuleError"
       [
-        testTypeErrs "undeclVar.l4            undefined variable AssociatedWithAppB"                    "RuleAssertionError/undeclVar.l4"             (mkRange 2 27 2 45)   3 "Rule Error: Variable AssociatedWithAppB"
-      , testTypeErrs "illTypedSubExpr.l4      has type Boolean but a subtype of Number was expected"    "RuleAssertionError/illTypedSubExpr.l4"       (mkRange 1 4  1 12)   1 "has type Boolean but a subtype of Number was expected"
-      , testTypeErrs "incompatibleTps.l4      types are not compatible"                                 "RuleAssertionError/incompatibleTps.l4"       (mkRange 1 3  1 13)   1 "The types are not compatible (one is subtype of the other)"
-      , testTypeErrs "nonScalarTps.l4         at least one type is non-scalar"                          "RuleAssertionError/nonScalarTps.l4"          (mkRange 4 3  4 20)   1 "At least one type is not scalar (non-functional)"
-      , testTypeErrs "nonFunctionTp.l4        which is not a functional type"                           "RuleAssertionError/nonFunctionTp.l4"         (mkRange 7 39 7 48)   1 "which is not a functional type"
-      , testTypeErrs "incompatiblePattern.l4  variable pattern & expected type are incompatible"        "RuleAssertionError/incompatiblePattern.l4"   (mkRange 1 3  1 34)   1 "the variable pattern and its type are incompatible"
+        testTypeErrs "undeclVar.l4            undefined variable AssociatedWithAppB"                    "RuleAssertionError/undeclVar.l4"             (mkRange 3 28 3 46)   3 "Rule Error: Variable AssociatedWithAppB"
+      , testTypeErrs "illTypedSubExpr.l4      has type Boolean but a subtype of Number was expected"    "RuleAssertionError/illTypedSubExpr.l4"       (mkRange 2 5  2 13)   1 "has type Boolean but a subtype of Number was expected"
+      , testTypeErrs "incompatibleTps.l4      types are not compatible"                                 "RuleAssertionError/incompatibleTps.l4"       (mkRange 2 4  2 14)   1 "The types are not compatible (one is subtype of the other)"
+      , testTypeErrs "nonScalarTps.l4         at least one type is non-scalar"                          "RuleAssertionError/nonScalarTps.l4"          (mkRange 5 4  5 21)   1 "At least one type is not scalar (non-functional)"
+      , testTypeErrs "nonFunctionTp.l4        which is not a functional type"                           "RuleAssertionError/nonFunctionTp.l4"         (mkRange 8 40 8 49)   1 "which is not a functional type"
+      , testTypeErrs "incompatiblePattern.l4  variable pattern & expected type are incompatible"        "RuleAssertionError/incompatiblePattern.l4"   (mkRange 2 4  2 35)   1 "the variable pattern and its type are incompatible"
       , testTypeErrs "unknownFieldName.l4  access to an unknown field"
-      "RuleAssertionError/unknownFieldName.l4"   (mkRange 8 8 8 12)     1 "access to an unknown field"
+      "RuleAssertionError/unknownFieldName.l4"   (mkRange 9 9 9 13)     1 "access to an unknown field"
       , testTypeErrs "accessToNonObjectTp.l4  access to a field of a non-object type"
-      "RuleAssertionError/accessToNonObjectTp.l4"   (mkRange 3 4 3 8)     1 "access to a field of a non-object type"
+      "RuleAssertionError/accessToNonObjectTp.l4"   (mkRange 4 5 4 9)     1 "access to a field of a non-object type"
       ]
   ]
 
@@ -97,7 +97,7 @@ testHover testName filename position expectedRange containedText =
         doc <- openDoc filename "l4"
         diags <- waitForDiagnostics
         hover <- getHover doc position
-        (hoverText, hoverRange) <- case  hover of
+        (hoverText, hoverRange) <- case hover of
             Nothing -> liftIO . assertFailure $ "Got no hover"
             Just
               Hover{_contents = (HoverContents MarkupContent{_value = msg})

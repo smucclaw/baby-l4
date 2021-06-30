@@ -177,21 +177,21 @@ errorToErrs e = TypeCheckerErr $ case e of
                   (RuleErr (RuleErrorRE re)) -> getErrorCause "Rule Error: " <$> re
 
 getErrorCause :: String -> (SRng, ErrorCause) -> Err
-getErrorCause errTp (r, ec) = Err r (errTp ++ printErrorCause ec)
+getErrorCause errTp (r, ec) = Err (incrementSRng r) (errTp ++ printErrorCause ec)
 
 mkErr :: (b -> String) -> String -> (SRng, b) -> Err
-mkErr f msg (r, n) = Err r -- get range
+mkErr f msg (r, n) = Err (incrementSRng r) -- get range
                         (((msg ++) . f) n) -- concatenate err msg with class/field/assertion name as extracted by fn f
 
 mkErrs ::(b -> String) -> String -> [(SRng, b)] ->[Err]
 mkErrs f msg = map (mkErr f msg)
 
-mkErrsVarRule :: String -> (SRng, [Char]) -> Err
-mkErrsVarRule msg (r, n) = Err r -- get range
+mkErrsVarRule :: String -> (SRng, String) -> Err
+mkErrsVarRule msg (r, n) = Err (incrementSRng r) -- get range
                             (msg ++ n)-- concatenate err msg with var/rule name
 
 mkErrsField :: (SRng, ClassName, [(SRng, FieldName)]) -> Err
-mkErrsField (range, cls, fieldLs) = Err range ("Duplicate field names in the class: " ++ stringOfClassName cls ++ ": " ++ intercalate ", " (map fieldErrorRange fieldLs))
+mkErrsField (r, cls, fieldLs) = Err (incrementSRng r) ("Duplicate field names in the class: " ++ stringOfClassName cls ++ ": " ++ intercalate ", " (map fieldErrorRange fieldLs))
 
 fieldErrorRange :: (SRng, FieldName) -> String
 fieldErrorRange (range, field) = show range ++ ": " ++ stringOfFieldName field
@@ -241,6 +241,12 @@ posInRange (Position _line _col) (DummySRng _) = False
 posInRange (Position line col) (RealSRng (SRng (Pos top left) (Pos bottom right))) =
   (line == top && col >= left || line > top)
   && (line == bottom && col <= right || line < bottom)
+
+-- | Converts 0-based SRng to 1-based SRng (ratchet but it works. we welcome any changes)
+incrementSRng :: SRng -> SRng
+incrementSRng (RealSRng (SRng (Pos startline startcol) (Pos endline endcol))) =
+  RealSRng (SRng (Pos (startline + 1) (startcol + 1)) (Pos (endline + 1) (endcol + 1)))
+incrementSRng x = x
 
 -- | Convert l4 source ranges to lsp source ranges
 sRngToRange :: SRng -> Maybe Range
