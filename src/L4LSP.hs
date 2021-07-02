@@ -246,15 +246,13 @@ parseVirtualOrRealFile uri = do
 ----------------------------------------------------------------------
 -- Range & Pos utilities
 ----------------------------------------------------------------------
--- Range and Position = 0 indexed
--- SRng and Pos = 1 indexed
--- Range and Position come from lsp server & will be displayed on client-side, so should be converted to 1-indexed
--- SRng and Pos are our own constructs, so should be 0-indexed; only converted on client-side
+-- Range and Position come from lsp server & will be displayed on client-side, so should be left as 0-indexed
+-- SRng and Pos are our own constructs, so should be 1-indexed; only converted on client-side
 posInRange :: Position -> SRng -> Bool
 posInRange (Position line col) srng = case sRngToRange srng of
   Just (Range (Position top left) (Position bottom right)) ->
      (line == top && col >= left || line > top)
-     && (line== bottom && col <= right || line < bottom)
+     && (line == bottom && col <= right || line < bottom)
   Nothing -> False
 
 
