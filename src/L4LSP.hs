@@ -40,8 +40,7 @@ import Error
 import Data.List (intercalate)
 import Control.Monad.Trans.Maybe (MaybeT(..))
 
--- proposed change related to #67
--- change ReadFileErr Err to ReadFileErr Text, since ReadFileErr doesn't have location information
+
 data LspError = ReadFileErr T.Text | TypeCheckerErr [Err] | ParserErr Err deriving (Eq, Show)
 
 type Config = ()
@@ -177,21 +176,21 @@ errorToErrs e = TypeCheckerErr $ case e of
                   (RuleErr (RuleErrorRE re)) -> getErrorCause "Rule Error: " <$> re
 
 getErrorCause :: String -> (SRng, ErrorCause) -> Err
-getErrorCause errTp (r, ec) = Err (incrementSRng r) (errTp ++ printErrorCause ec)
+getErrorCause errTp (r, ec) = Err r (errTp ++ printErrorCause ec)
 
 mkErr :: (b -> String) -> String -> (SRng, b) -> Err
-mkErr f msg (r, n) = Err (incrementSRng r) -- get range
+mkErr f msg (r, n) = Err r -- get range
                         (((msg ++) . f) n) -- concatenate err msg with class/field/assertion name as extracted by fn f
 
 mkErrs ::(b -> String) -> String -> [(SRng, b)] ->[Err]
 mkErrs f msg = map (mkErr f msg)
 
 mkErrsVarRule :: String -> (SRng, String) -> Err
-mkErrsVarRule msg (r, n) = Err (incrementSRng r) -- get range
+mkErrsVarRule msg (r, n) = Err r -- get range
                             (msg ++ n)-- concatenate err msg with var/rule name
 
 mkErrsField :: (SRng, ClassName, [(SRng, FieldName)]) -> Err
-mkErrsField (r, cls, fieldLs) = Err (incrementSRng r) ("Duplicate field names in the class: " ++ stringOfClassName cls ++ ": " ++ intercalate ", " (map fieldErrorRange fieldLs))
+mkErrsField (r, cls, fieldLs) = Err r ("Duplicate field names in the class: " ++ stringOfClassName cls ++ ": " ++ intercalate ", " (map fieldErrorRange fieldLs))
 
 fieldErrorRange :: (SRng, FieldName) -> String
 fieldErrorRange (range, field) = show range ++ ": " ++ stringOfFieldName field
@@ -236,21 +235,19 @@ parseAndTypecheck uri contents = do
 tshow :: Show a => a -> T.Text
 tshow = T.pack . show
 
+-- Range and Position = 0 indexed
+-- SRng and Pos = 1 indexed
 posInRange :: Position -> SRng -> Bool
-posInRange (Position _line _col) (DummySRng _) = False
-posInRange (Position line col) (RealSRng (SRng (Pos top left) (Pos bottom right))) =
-  (line == top && col >= left || line > top)
-  && (line == bottom && col <= right || line < bottom)
+posInRange (Position line col) srng = case sRngToRange srng of
+  Just (Range (Position top left) (Position bottom right)) ->
+     (line == top && col >= left || line > top)
+     && (line == bottom && col <= right || line < bottom)
+  Nothing -> False
 
--- | Converts 0-based SRng to 1-based SRng (ratchet but it works. we welcome any changes)
-incrementSRng :: SRng -> SRng
-incrementSRng (RealSRng (SRng (Pos startline startcol) (Pos endline endcol))) =
-  RealSRng (SRng (Pos (startline + 1) (startcol + 1)) (Pos (endline + 1) (endcol + 1)))
-incrementSRng x = x
 
 -- | Convert l4 source ranges to lsp source ranges
 sRngToRange :: SRng -> Maybe Range
-sRngToRange (RealSRng (SRng (Pos l1 c1) (Pos l2 c2))) = Just $ Range (Position l1 c1) (Position l2 c2)
+sRngToRange (RealSRng (SRng (Pos l1 c1) (Pos l2 c2))) = Just $ Range (Position (l1-1) (c1-1)) (Position (l2-1) (c2-1))
 sRngToRange (DummySRng _) = Nothing
 
 -- | Extract the range from an alex/happy error
@@ -330,15 +327,11 @@ findAstAtPoint pos = selectSmallestContaining pos [] . SProg
 
 
 
--- proposed change related to issue #67
--- tokensToHover :: Position -> Program LocAndTp -> IO (Maybe Hover)
 tokensToHover :: Position -> Program LocAndTp -> IO Hover
 tokensToHover pos ast = do
       let astNode = findAstAtPoint pos ast
       return $ tokenToHover astNode
 
--- proposed change related to issue #67
--- tokenToHover :: [SomeAstNode LocAndTp] -> Maybe Hover
 tokenToHover :: [SomeAstNode LocAndTp] -> Hover
 tokenToHover astNode = Hover contents range
   where
@@ -351,8 +344,7 @@ tokenToHover astNode = Hover contents range
     txt = astText <> "\n\n" <> tpInfo <> "\n\n" <> dbgInfo <> "\n\n" <> dbgInfo2
     contents = HoverContents $ markedUpContent "haskell" txt
     annRange = getLoc $ head astNode
-    oneIndexed = incrementSRng annRange
-    range = sRngToRange oneIndexed
+    range = sRngToRange annRange
 
 astToTypeInfo :: [SomeAstNode LocAndTp] -> T.Text
 astToTypeInfo (x:_) = tshow $ getType $ getAnnot x
