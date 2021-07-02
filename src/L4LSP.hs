@@ -40,11 +40,20 @@ import Error
 import Data.List (intercalate)
 import Control.Monad.Trans.Maybe (MaybeT(..))
 
-
-data LspError = ReadFileErr T.Text | TypeCheckerErr [Err] | ParserErr Err deriving (Eq, Show)
-
 type Config = ()
 
+type Source = T.Text
+type LocAndTp = LocTypeAnnot Tp
+type ResErrOrAst = Either ResponseError (Maybe (Program (LocTypeAnnot Tp)))
+data LspError = ReadFileErr Source | TypeCheckerErr [Err] | ParserErr Err deriving (Eq, Show)
+
+tshow :: Show a => a -> T.Text
+tshow = T.pack . show
+
+
+----------------------------------------------------------------------
+-- LSP Handlers
+----------------------------------------------------------------------
 handlers :: Handlers (LspM Config)
 handlers = mconcat
   [ notificationHandler SInitialized $ \_not -> do
@@ -104,17 +113,12 @@ getVirtualOrRealFile uri = do
         -- TODO: Catch errors thrown by readFile
         liftIO $ TIO.readFile filename
 
-type ResErrOrAst = Either ResponseError (Maybe (Program (LocTypeAnnot Tp)))
 
 
-parseVirtualOrRealFile :: Uri -> ExceptT LspError (LspM Config) (Program (LocTypeAnnot Tp))
-parseVirtualOrRealFile uri = do
-    contents <- getVirtualOrRealFile uri
-    parseAndTypecheck uri contents
 
-
-type Source = T.Text
-
+----------------------------------------------------------------------
+-- Error Handling utilities
+----------------------------------------------------------------------
 makeDiagErr :: Source -> Err -> Diagnostic
 makeDiagErr source err =
   J.Diagnostic
@@ -127,35 +131,22 @@ makeDiagErr source err =
     (Just (J.List []))
 
 makeDiagErr' :: LspError -> [Diagnostic]
-
 makeDiagErr' (ParserErr err) = pure $ makeDiagErr "parser" err
 makeDiagErr' (TypeCheckerErr errs) = makeDiagErr "typechecker" <$> errs
-
 
 publishError :: NormalizedUri -> LspError -> LspM Config ()
 publishError uri err = publishDiagnostics 100 uri Nothing (partitionBySource $ makeDiagErr' err)
 
-
--- what to do with this?
 clearError :: Source -> NormalizedUri -> LspM Config ()
 clearError src uri = publishDiagnostics 100 uri Nothing (Map.singleton (Just src) mempty)
 
+-- This one doesn't seem to be used anymore
+-- publishResponseError :: NormalizedUri -> LspM Config ()
+-- publishResponseError = pure $ sendNotification J.SWindowShowMessage (J.ShowMessageParams J.MtError "readFileErr")
+
 sendDiagnosticsOnLeft :: NormalizedUri -> Either LspError a -> MaybeT (LspM Config) a
--- sendDiagnosticsOnLeft uri = either (publishError uri) (const $ clearError uri)
 sendDiagnosticsOnLeft uri (Left err) = MaybeT $ Nothing <$ publishError uri err
 sendDiagnosticsOnLeft uri (Right result) = MaybeT $ Just result <$ clearError "No Error?" uri
-
-readPrelude :: IO (Program SRng)
-readPrelude = do
-  l4PreludeFilepath <- getDataFileName "l4/Prelude.l4"
-  do
-    contents <- readFile l4PreludeFilepath
-    case parseProgram l4PreludeFilepath contents of
-      Right ast -> do
-        -- print ast
-        return ast
-      Left err -> do
-        error $ "Parser Error in Prelude: " ++ show err
 
 errorToErrs :: Error -> LspError
 errorToErrs e = TypeCheckerErr $ case e of
@@ -195,27 +186,39 @@ mkErrsField (r, cls, fieldLs) = Err r ("Duplicate field names in the class: " ++
 fieldErrorRange :: (SRng, FieldName) -> String
 fieldErrorRange (range, field) = show range ++ ": " ++ stringOfFieldName field
 
-type LocAndTp = LocTypeAnnot Tp
-
 handleUriErrs :: J.Uri -> Either LspError FilePath
 handleUriErrs uri =
   case uriToFilePath uri of
     Just loc -> Right loc
     Nothing  -> Left $ ReadFileErr $ "Unable to parse uri: " <> tshow (getUri uri)
 
-getProg :: J.Uri -> T.Text -> Either LspError (Program SRng)
-getProg uri contents = do
-  x <- handleUriErrs uri
-  mapLeft ParserErr $ parseProgram x (T.unpack contents)
-
-publishResponseError :: NormalizedUri -> LspM Config ()
-publishResponseError = pure $ sendNotification J.SWindowShowMessage (J.ShowMessageParams J.MtError "readFileErr")
-
 handleLspErr :: NormalizedUri -> Either LspError a -> LspM Config (Either ResponseError (Maybe a))
 handleLspErr _ (Left (ReadFileErr _)) = pure $ Left (ResponseError InvalidRequest "readFileErr" Nothing)
 handleLspErr nuri (Left err@(TypeCheckerErr _)) = Right Nothing <$ publishError nuri err
 handleLspErr nuri (Left err@(ParserErr _)) = Right Nothing <$ publishError nuri err
 handleLspErr nuri (Right a) = Right (Just a) <$ clearError "typechecker" nuri
+
+
+
+----------------------------------------------------------------------
+-- Parsing functionality
+----------------------------------------------------------------------
+getProg :: J.Uri -> T.Text -> Either LspError (Program SRng)
+getProg uri contents = do
+  x <- handleUriErrs uri
+  mapLeft ParserErr $ parseProgram x (T.unpack contents)
+
+readPrelude :: IO (Program SRng)
+readPrelude = do
+  l4PreludeFilepath <- getDataFileName "l4/Prelude.l4"
+  do
+    contents <- readFile l4PreludeFilepath
+    case parseProgram l4PreludeFilepath contents of
+      Right ast -> do
+        -- print ast
+        return ast
+      Left err -> do
+        error $ "Parser Error in Prelude: " ++ show err
 
 parseAndSendErrors :: J.Uri -> T.Text -> LspT Config IO ResErrOrAst
 parseAndSendErrors uri contents = do
@@ -231,10 +234,18 @@ parseAndTypecheck uri contents = do
   let typedAstOrTypeError = checkError preludeAst ast
   ExceptT $ pure $ mapLeft errorToErrs typedAstOrTypeError
 
+parseVirtualOrRealFile :: Uri -> ExceptT LspError (LspM Config) (Program (LocTypeAnnot Tp))
+parseVirtualOrRealFile uri = do
+    contents <- getVirtualOrRealFile uri
+    parseAndTypecheck uri contents
 
-tshow :: Show a => a -> T.Text
-tshow = T.pack . show
 
+
+
+
+----------------------------------------------------------------------
+-- Range & Pos utilities
+----------------------------------------------------------------------
 -- Range and Position = 0 indexed
 -- SRng and Pos = 1 indexed
 posInRange :: Position -> SRng -> Bool
@@ -273,6 +284,11 @@ findExprAt pos expr =
 findAnyExprAt :: (HasLoc t, Data t) => J.Position -> Program t -> Maybe (Expr t)
 findAnyExprAt pos = List.find (posInRange pos . getLoc) . findAllExpressions
 
+
+
+----------------------------------------------------------------------
+-- Hover utilities
+----------------------------------------------------------------------
 data SomeAstNode t
   = SProg (Program t)
   | SExpr (Expr t)
@@ -285,7 +301,6 @@ data SomeAstNode t
 
 instance HasLoc t => HasLoc (SomeAstNode t) where
   getLoc astNode = getLoc $ getAnnot astNode
-
 
 instance HasAnnot SomeAstNode where
   getAnnot (SProg pt) = getAnnot pt
@@ -306,7 +321,6 @@ instance HasAnnot SomeAstNode where
 
 selectSmallestContaining :: HasLoc t => Position -> [SomeAstNode t] -> SomeAstNode t -> [SomeAstNode t]
 selectSmallestContaining pos parents node =
-  -- QN: Does this handle all possible errors with ast traversal?
   case List.find (posInRange pos . getLoc) (getChildren node) of
     Nothing -> node:parents
     Just sub -> selectSmallestContaining pos (node:parents) sub
@@ -318,14 +332,16 @@ getChildren (SExpr et) = SExpr <$> childExprs et
 getChildren (SMapping _) = []
 getChildren (SClassDecl _) = []
 getChildren (SGlobalVarDecl _) = []
--- TODO: add code for getting children of Rule & Assertion
 getChildren (SRule r) = SExpr <$> [precondOfRule r, postcondOfRule r] -- Currently no VarDecl node to show type info, requires change in syntax
 getChildren (SAssertion a) = SExpr <$> [exprOfAssertion a]
 
+
+
+----------------------------------------------------------------------
+-- Hover functionality
+----------------------------------------------------------------------
 findAstAtPoint :: HasLoc t => Position -> Program t -> [SomeAstNode t]
 findAstAtPoint pos = selectSmallestContaining pos [] . SProg
-
-
 
 tokensToHover :: Position -> Program LocAndTp -> IO Hover
 tokensToHover pos ast = do
@@ -344,7 +360,7 @@ tokenToHover astNode = Hover contents range
     txt = astText <> "\n\n" <> tpInfo <> "\n\n" <> dbgInfo <> "\n\n" <> dbgInfo2
     contents = HoverContents $ markedUpContent "haskell" txt
     annRange = getLoc $ head astNode
-    range = sRngToRange annRange
+    range = sRngToRange $ decSRng annRange
 
 astToTypeInfo :: [SomeAstNode LocAndTp] -> T.Text
 astToTypeInfo (x:_) = tshow $ getType $ getAnnot x
@@ -357,12 +373,16 @@ astToText (SRule (Rule _ n _ _ _):_) = "Declaration of rule " <> T.pack n
 astToText (SAssertion (Assertion _ _):_) = "Declaration of Assertion " <> "rule of no name for now"
 astToText _ = "No hover info found"
 
-
 lookupTokenBare' :: Position -> Uri -> LspM Config (Either LspError Hover)
 lookupTokenBare' pos uri = runExceptT $ do
   ast <- parseVirtualOrRealFile uri
   liftIO $ tokensToHover pos ast
 
+
+
+----------------------------------------------------------------------
+--  Options & Main
+----------------------------------------------------------------------
 syncOptions :: J.TextDocumentSyncOptions
 syncOptions = J.TextDocumentSyncOptions
   { J._openClose         = Just True
