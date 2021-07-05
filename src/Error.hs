@@ -71,6 +71,7 @@ printExpectedTp (ExpectedSubTpOf t) = "a subtype of " ++ printTp t
 printPos :: Pos -> String
 printPos (Pos l c) = "(" ++ show l ++ "," ++ show c ++ ")"
 
+
 printSRng :: SRng -> String
 --printSRng = show
 printSRng (RealSRng(SRng spos epos)) = printPos spos ++ " .. " ++ printPos epos
