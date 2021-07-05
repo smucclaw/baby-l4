@@ -2,11 +2,7 @@
 # Part VIA - Notification of Data Breaches &
 # Personal Data Protection (Notification of Data Breaches) Regulations 2021
 
-#------------------------------ Classes ------------------------------ 
-
-# Class definitions
-
-
+#------------------------------ Class definitions ------------------------------ 
 
 # ---------------------------- Party definitions ----------------------
 class Individual  {
@@ -65,7 +61,6 @@ class OtherPrescribedCircumstances
 
 
 class SignificantScale  {
-    # Regulations state that 500 or more affected individuals constitute a data breach of significant scale
     AffectedIndividuals: Integer
 }
 
@@ -117,6 +112,7 @@ class UponNotification extends Notification
 
 # r5(1) of PDPR 
 # NOTE: How to account for r5(3), which specifies that notification to commission must be in a particular format
+
 class NotificationtoCommission extends UponNotification {
     
     # NOTE: We don't have a datetime datatype
@@ -152,7 +148,8 @@ class NotificationtoPublicAgency extends Notification
 
 
 #--------------------------- Time classes and misc ------------------------------
-# NOTE: Would be good to have an operator that signifies whether an event happens before or after another event (like > operator for ints)
+# NOTE: Would be good to have an comparison operator that signifies whether an event happens before or after another event (like > operator for ints)
+
 class PriorTo
 
 class Days
@@ -166,7 +163,7 @@ class RuleOfProfessionalConduct
 
 #------------------------------ Declarations ------------------------------ 
 
-# NOTE: Are there naming conventions for classes vs declarations?
+# NOTE: Are there established naming conventions for classes vs declarations?
 
 #------------------------------ s26B: Notifiable Data Breach ------------------------------ 
 
