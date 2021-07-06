@@ -188,7 +188,7 @@ class RuleOfProfessionalConduct
 # Definitions
 # NOTE: Do I need to convert the classes to booleans?
 # MS: significantharm should be a relation: 
-decl significantharm: DataBreach -> Individual -> Boolean
+decl significantHarm: DataBreach -> Individual -> Boolean
 # decl significantharm: SignificantHarmToIndividual -> Boolean
 
 decl significantscale: SignificantScale -> Boolean
@@ -254,18 +254,19 @@ decl dataintermediaryonbehalfofpublicagency: DataIntermediaryOnBehalfOfPublicAge
 
 rule <s26b_1_applies>
 for db: DataBreach, indiv: Individual
-if databreach db && (significantharm db indiv || isOfSignificantScale db)
+if significantHarm db indiv || isOfSignificantScale db
 then isNotifiableDataBreach db
 # isNotifiableDataBreach is the characteristic predicate of NotifiableDataBreach
 # The question is whether in the end, we will keep the class NotifiableDataBreach at all
 
 # MS: not clear what "without limiting subsection (1)(a)" means here
+# Rule still in a messy state ...
 rule <s26b_2_applies>
-for db: DataBreach, indiv: Individual, opc: OtherPrescribedCircumstances
+for db: DataBreach, indiv: Individual, pd: PersonalData
 if (
-    databreach db && (significantharm db indiv || otherprescribedcircumstances opc)
+    significantHarm db indiv || otherprescribedcircumstances opc)
 )
-then significantharm db indiv
+then significantHarm db indiv
 
 
 
