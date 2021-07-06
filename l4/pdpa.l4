@@ -9,6 +9,7 @@ class Individual  {
     NaturalPersonLivingOrDeceased: Boolean
 }
 
+
 class PublicAgency
 
 class Commission
@@ -24,14 +25,16 @@ class DataIntermediaryOnBehalfOfPublicAgency extends DataIntermediary
 
 
 
------------------------- What information constitutes data -------------------------------
+#------------------------ What information constitutes data -------------------------------
 
 class PersonalData  {
     IndividualIdentifiedFromData: Boolean
     IndividualIdentifiedFromDataAndInformationOrgHas: Boolean
 }
 
-class DataBreach  {
+class Event
+
+class DataBreach  extends Event {
     UnauthorisedAccess: Boolean
     UnauthorisedCollection: Boolean
     UnauthorisedUse: Boolean
@@ -42,6 +45,17 @@ class DataBreach  {
     LossofStorageMedium: Boolean
 }
 
+# MS: alternative?
+class UnauthorizedAccessBreach extends DataBreach
+
+#isDataBreach: Event -> Boolean
+#isUnauthorizedAccessBreach: Event -> Boolean
+
+#for x: Event
+#if isDataBreach x
+#then isUnauthorizedAccessBreach
+
+
 class NotifiableDataBreach extends DataBreach
 
 class DataBreachOnlyWithinOrg extends DataBreach
@@ -50,6 +64,7 @@ class DataBreachOnlyWithinOrg extends DataBreach
 #----------------------------"Reasonability" concepts--------------------------
 
 # To be written as predicate?
+# MS: we should try to make it a subclass of a general notion, like Event or Action
 class LikelytoOccur
 
 class ReasonToBelieve
@@ -64,6 +79,7 @@ class SignificantScale  {
     AffectedIndividuals: Integer
 }
 
+# MS: isn't that rather the individual and not the harm to the individual?
 class SignificantHarmToIndividual  {
     FullName: Boolean
     IDNumber: Boolean
@@ -149,6 +165,8 @@ class NotificationtoPublicAgency extends Notification
 
 #--------------------------- Time classes and misc ------------------------------
 # NOTE: Would be good to have an comparison operator that signifies whether an event happens before or after another event (like > operator for ints)
+# MS: the missing notion of time is one of the big problems of current L4. 
+# "prior to" looks like a relation between two events / time points and should not be a class.
 
 class PriorTo
 
@@ -169,8 +187,12 @@ class RuleOfProfessionalConduct
 
 # Definitions
 # NOTE: Do I need to convert the classes to booleans?
-decl significantharm: SignificantHarmToIndividual -> Boolean
+# MS: significantharm should be a relation: 
+decl significantharm: DataBreach -> Individual -> Boolean
+# decl significantharm: SignificantHarmToIndividual -> Boolean
+
 decl significantscale: SignificantScale -> Boolean
+decl isOfSignificantScale: DataBreach -> Boolean
 decl databreach: DataBreach -> Boolean
 decl notifiabledatabreach: NotifiableDataBreach -> Boolean
 decl databreachwithinorg: DataBreachOnlyWithinOrg -> Boolean
@@ -182,17 +204,72 @@ decl otherprescribedcircumstances: OtherPrescribedCircumstances -> Boolean
 # s26B(2) - Significant harm
 decl s26b_2_applies: DataBreach -> SignificantHarmToIndividual -> NotifiableDataBreach
 
+decl s26b_3_applies: DataBreach -> SignificantScale -> NotifiableDataBreach
+
+decl s26b_4_applies: DataBreach -> DataBreachOnlyWithinOrg -> Boolean
+
+decl s26b_1_applies: NotifiableDataBreach -> NotificationtoCommission
+
+
+# from s26C
+# Definitions
+decl reasontobelieve: ReasonToBelieve -> Boolean
+decl dataintermediary: DataIntermediary -> Boolean
+decl notification: Notification -> Boolean
+decl notificationootherorg: NotificationofOtherOrg -> Boolean
+
+decl s26c_3_a_applies: DataIntermediary -> ReasonToBelieve -> NotificationofOtherOrg
+decl s26c_3_b_applies: NotificationofOtherOrg -> AssessmentOfDataBreach
+decl s26c_2_applies: ReasonToBelieve -> DataIntermediary -> AssessmentOfDataBreach
+
+
+# from s26D
+# NOTE: Maybe these functions that convert the classes to booleans can be part of the local scope of the general rule? (ie. defined within an object called s26D)
+
+# MS: duplicate:
+# decl notifiabledatabreach: NotifiableDataBreach -> Boolean
+decl actiontaken: ActionTaken -> Boolean
+decl prescribedrequirements: PrescribedRequirements -> Boolean
+# MS: duplicate:
+# decl significantharm: SignificantHarmToIndividual -> Boolean
+decl technologicalmeasure: TechnologicalMeasure -> Boolean
+decl prescribedlawenforcement: PrescribedLawEnforcementInstructs -> Boolean
+decl priorto: PriorTo -> Boolean
+decl commissionsodirects: CommissionSoDirects -> Boolean
+decl applicationbyorg: ApplicationByOrg -> Boolean
+decl waiverbycommission: WavierByCommission -> Boolean
+
+# MS: The following are just rulenames and do not have to be declared --
+# unless one wants to reason about applicability of rules
+# decl s26d_1_applies: NotifiableDataBreach -> NotificationtoCommission
+# decl s26d_5_a_applies: NotifiableDataBreach -> ActionTaken -> PrescribedRequirements -> SignificantHarmToIndividual -> NotificationtoCommissionWithoutNotificationToIndividual
+# decl s26d_5_b_applies: NotifiableDataBreach -> TechnologicalMeasure -> PriorTo -> SignificantHarmToIndividual -> NotificationtoCommissionWithoutNotificationToIndividual
+
+decl dataintermediaryonbehalfofpublicagency: DataIntermediaryOnBehalfOfPublicAgency -> Boolean
+
+#=======================================================================================
+#== Rules
+#=======================================================================================
+
+
+rule <s26b_1_applies>
+for db: DataBreach, indiv: Individual
+if databreach db && (significantharm db indiv || isOfSignificantScale db)
+then isNotifiableDataBreach db
+# isNotifiableDataBreach is the characteristic predicate of NotifiableDataBreach
+# The question is whether in the end, we will keep the class NotifiableDataBreach at all
+
+# MS: not clear what "without limiting subsection (1)(a)" means here
 rule <s26b_2_applies>
-for db: DataBreach, sh: SignificantHarmToIndividual, opc: OtherPrescribedCircumstances
+for db: DataBreach, indiv: Individual, opc: OtherPrescribedCircumstances
 if (
-    databreach db && (significantharm sh || otherprescribedcircumstances opc)
+    databreach db && (significantharm db indiv || otherprescribedcircumstances opc)
 )
-then NotifiableDataBreach
+then significantharm db indiv
 
 
 
 # s26B(3) - Significant Scale
-decl s26b_3_applies: DataBreach -> SignificantScale -> NotifiableDataBreach
 
 rule <s26b_3_applies>
 for db: DataBreach, ss: SignificantScale
@@ -202,9 +279,8 @@ if (
 then NotifiableDataBreach
 
 
-
 # s26B(4) - Exception, breach within organisation
-decl s26b_4_applies: DataBreach -> DataBreachOnlyWithinOrg -> Boolean
+
 
 rule <s26b_4_applies>
 for db: DataBreach, wo: DataBreachOnlyWithinOrg
@@ -216,12 +292,11 @@ then not NotifiableDataBreach
 
 
 # s26B(1) - Notifiable Data Breach
-decl s26b_1_applies: NotifiableDataBreach -> NotificationtoCommission
 
 rule <s26b_1_applies>
 # NOTE: Does L4 accept other functions as arguments?
 # NOTE: Does L4 require a shortform for variable declaration in function?
-for s26b_2_applies, s26b_3_applies, s26b_4_applies
+for s26b_2_applies: Boolean, s26b_3_applies: Boolean, s26b_4_applies: Boolean
 if (
     (s26b_2_applies || s26b_3_applies) && (not s26b_4_applies)
 )
@@ -230,16 +305,8 @@ then NotificationtoCommission
 
 #------------------------------ s26C: Duty to Conduct Assessment of Breach ------------------------------ 
 
-# Definitions
-decl reasontobelieve: ReasonToBelieve -> Boolean
-decl dataintermediary: DataIntermediary -> Boolean
-decl notification: Notification -> Boolean
-decl notificationootherorg: NotificationofOtherOrg -> Boolean
-
-
 
 # s26C(3)(a): Duty for data intermediary to inform other organisation
-decl s26c_3_a_applies: DataIntermediary -> ReasonToBelieve -> NotificationofOtherOrg
 
 rule <s26c_3_a_applies>
 for di: DataIntermediary, rb: ReasonToBelieve
@@ -249,9 +316,7 @@ if (
 then NotificationofOtherOrg
 
 
-
 # s26C(3)(b): Duty for other organisation to conduct assessment
-decl s26c_3_b_applies: NotificationofOtherOrg -> AssessmentOfDataBreach
 
 rule <s26c_3_b_applies>
 for n: NotificationofOtherOrg
@@ -264,7 +329,6 @@ then AssessmentOfDataBreach
 
 
 # s26C(2) - Duty to conduct assessment of data breach
-decl s26c_2_applies: ReasonToBelieve -> DataIntermediary -> AssessmentOfDataBreach
 
 rule <s26c_2_applies>
 for rb: ReasonToBelieve, di: DataIntermediary
@@ -283,22 +347,11 @@ then AssessmentOfDataBreach
 
 #------------------------------ s26D: Duty to Notify Occurrence of Notifiable Data Breach ------------------------------ 
 
-# NOTE: Maybe these functions that convert the classes to booleans can be part of the local scope of the general rule? (ie. defined within an object called s26D)
-decl notifiabledatabreach: NotifiableDataBreach -> Boolean
-decl actiontaken: ActionTaken -> Boolean
-decl prescribedrequirements: PrescribedRequirements -> Boolean
-decl significantharm: SignificantHarmToIndividual -> Boolean
-decl technologicalmeasure: TechnologicalMeasure -> Boolean
-decl prescribedlawenforcement: PrescribedLawEnforcementInstructs -> Boolean
-decl priorto: PriorTo -> Boolean
-decl commissionsodirects: CommissionSoDirects -> Boolean
-decl applicationbyorg: ApplicationByOrg -> Boolean
-decl waiverbycommission: WavierByCommission -> Boolean
 
 
 
 # s26D(1) - Notification to commission
-decl s26d_1_applies: NotifiableDataBreach -> NotificationtoCommission
+
 
 rule <s26d_1_applies>
 for ndb: NotifiableDataBreach
@@ -310,7 +363,7 @@ then NotificationtoCommission
 
 
 # s26D(5)(a) - Exceptions to notification to individuals
-decl s26d_5_a_applies: NotifiableDataBreach -> ActionTaken -> PrescribedRequirements -> SignificantHarmToIndividual -> NotificationtoCommissionWithoutNotificationToIndividual
+
 
 rule <s26d_5_a_applies>
 for ndb: NotifiableDataBreach, at: ActionTaken, pr: PrescribedRequirements, sh: SignificantHarmToIndividual
@@ -322,7 +375,7 @@ then NotificationtoCommissionWithoutNotificationToIndividual
 
 
 # s26D(5)(b) - Exception to notification to individuals
-decl s26d_5_b_applies: NotifiableDataBreach -> TechnologicalMeasure -> PriorTo -> SignificantHarmToIndividual -> NotificationtoCommissionWithoutNotificationToIndividual
+
 
 rule <s26d_5_b_applies>
 for ndb: NotifiableDataBreach, tm: TechnologicalMeasure, pt: PriorTo, sh: SignificantHarmToIndividual
@@ -334,7 +387,7 @@ then NotificationtoCommissionWithoutNotificationToIndividual
 
 
 # s26D(6)(a) - Exception to notification to individuals
-decl s26d_6_a_applies: NotifiableDataBreach -> PrescribedLawEnforcementInstructs -> NotificationtoCommissionWithoutNotificationToIndividual
+#decl s26d_6_a_applies: NotifiableDataBreach -> PrescribedLawEnforcementInstructs -> NotificationtoCommissionWithoutNotificationToIndividual
 
 rule <s26d_6_a_applies>
 for ndb: NotifiableDataBreach, le: PrescribedLawEnforcementInstructs
@@ -346,7 +399,7 @@ then NotificationtoCommissionWithoutNotificationToIndividual
 
 
 # s26D(6)(b) - Exception to notification to individuals
-decl s26d_6_b_applies: NotifiableDataBreach -> CommissionSoDirects -> NotificationtoCommissionWithoutNotificationToIndividual
+#decl s26d_6_b_applies: NotifiableDataBreach -> CommissionSoDirects -> NotificationtoCommissionWithoutNotificationToIndividual
 
 rule <s26d_6_a_applies>
 for ndb: NotifiableDataBreach, cd: CommissionSoDirects
@@ -357,7 +410,7 @@ then NotificationtoCommissionWithoutNotificationToIndividual
 
 
 # s26D(7) - Wavier by Commission
-decl s26d_7_applies: NotifiableDataBreach -> ApplicationByOrg -> WavierByCommission -> NotificationtoCommissionWithoutNotificationToIndividual
+#decl s26d_7_applies: NotifiableDataBreach -> ApplicationByOrg -> WavierByCommission -> NotificationtoCommissionWithoutNotificationToIndividual
 
 rule <s26d_7_applies>
 for ndb: NotifiableDataBreach, ao: ApplicationByOrg, wc: WavierByCommission
@@ -371,10 +424,10 @@ then NotificationtoCommissionWithoutNotificationToIndividual
 # s26D(8)(a) - Organisation not in breach of law
 # NOTE: Is there a way to represent the conjunction of all the other rules from s26d(1) - s26d(7)?
 
-decl s26d_8_a_applies: s26d_1_applies -> s26d_2_applies -> ObligationUnderLawNotToDisclose
+#decl s26d_8_a_applies: s26d_1_applies -> s26d_2_applies -> ObligationUnderLawNotToDisclose
 
 rule <s26d_8_a_applies>
-for s26d_1_applies, s26d_2_applies
+for s26d_1_applies: Boolean, s26d_2_applies: Boolean
 if (
     s26d_1_applies || s26b_2_applies
 )
@@ -382,10 +435,10 @@ then (not ObligationUnderLawNotToDisclose)
 
 
 # s26D(8)(b) - Organisation not in breach of professional conduct
-decl s26d_8_b_applies: s26d_1_applies -> s26d_2_applies -> RuleOfProfessionalConduct
+#decl s26d_8_b_applies: s26d_1_applies -> s26d_2_applies -> RuleOfProfessionalConduct
 
 rule <s26d_8_b_applies>
-for s26d_1_applies, s26d_2_applies
+for s26d_1_applies: Boolean, s26d_2_applies: Boolean
 if (
     s26d_1_applies || s26d_2_applies
 )
@@ -394,23 +447,33 @@ then (not RuleOfProfessionalConduct)
 
 
 # s26D(2) - Notification to Individuals
-decl s26d_2_applies: NotifiableDataBreach -> s26d_5_a_applies -> s26d_5_b_applies -> s26d_6_a_applies -> s26d_6_b_applies -> s26d_7_applies -> NotificationtoCommission
+#decl s26d_2_applies: NotifiableDataBreach -> s26d_5_a_applies -> s26d_5_b_applies -> s26d_6_a_applies -> s26d_6_b_applies -> s26d_7_applies -> NotificationtoCommission
 
 rule <s26d_2_applies>
-for ndb: NotifiableDataBreach, s26d_5_a_applies, s26d_5_b_applies, s26d_6_a_applies, s26d_6_b_applies, s26d_7_applies
+for ndb: NotifiableDataBreach, 
+    s26d_5_a_applies: Boolean, s26d_5_b_applies: Boolean, 
+    s26d_6_a_applies: Boolean, s26d_6_b_applies: Boolean, s26d_7_applies: Boolean
 if (
     notifiabledatabreach ndb && (s26d_5_a_applies || s26d_5_b_applies || s26d_6_a_applies || s26d_6_b_applies || s26d_7_applies)
 )
 then NotificationtoCommissionWithoutNotificationToIndividual
-else NotificationtoCommission
+#else NotificationtoCommission
 # Note: Do we have an else branch
+# MS: No! The else-case is spelled out below
 
-
+rule <s26d_2_applies_else>
+for ndb: NotifiableDataBreach, 
+    s26d_5_a_applies: Boolean, s26d_5_b_applies: Boolean, 
+    s26d_6_a_applies: Boolean, s26d_6_b_applies: Boolean, s26d_7_applies: Boolean
+if not (
+    notifiabledatabreach ndb && (s26d_5_a_applies || s26d_5_b_applies || s26d_6_a_applies || s26d_6_b_applies || s26d_7_applies)
+)
+then NotificationtoCommission
 
 # s26E - Notification of public agency
-decl s26e_applies: DataIntermediaryOnBehalfOfPublicAgency -> ReasonToBelieve -> DataBreach -> NotificationtoPublicAgency
+#decl s26e_applies: DataIntermediaryOnBehalfOfPublicAgency -> ReasonToBelieve -> DataBreach -> NotificationtoPublicAgency
 
-decl dataintermediaryonbehalfofpublicagency: DataIntermediaryOnBehalfOfPublicAgency -> Boolean
+
 
 rule <s26e_applies>
 for di: DataIntermediaryOnBehalfOfPublicAgency, rb: ReasonToBelieve, db: DataBreach
