@@ -2,13 +2,16 @@
 // PDPA Data Breach Notification Rules
 //
 
-IMPORT "pdpa.l4"
--- brings in the "ontology" class definition, etc
+  MODULE PDPA.20 DataBreachNotifications
+         :en:"Data Breach Notifications"
 
-SOURCE PDPA         {revision:2020}      .6A
-     , AdvGuidelines{revision:2021-02-01}.20 AS guidelines
+  IMPORT "pdpa.l4"
+         -- brings in the "ontology" class definition, etc
 
-    RULE startAssessment
+  SOURCE PDPA         {revision:2020}      .6A
+       , AdvGuidelines{revision:2021-02-01}.20 AS guidelines
+
+      §§ startAssessment
   SOURCE guidelines 20.1--4
     UPON P.believe(DBEvent)
    PARTY P :: Organisation | DataIntermediary
@@ -23,22 +26,22 @@ SOURCE PDPA         {revision:2020}      .6A
                  }
                )
        }
-   WHERE P.believe(DBEvent)
-         WHEN NOTICE.from IN [ Public, DataIntermediary ]
-           OR DBEvent.self_discovery
+   WHERE DEFINE P.believe(DBEvent)
+             AS WHEN NOTICE.from IN [ Public, DataIntermediary ]
+                  OR DBEvent.self_discovery
          
-    RULE 20.5
+      §§ 20.5
   DEFINE conductAssessment AS
    PARTY P
     MUST documentSteps :en:"document all steps taken in assessing DB"
  SEEALSO 20.38--45
 
-    RULE 20.6
+      §§ 20.6
   DEFINE Breach.notifiable = False
     WHEN SAME [ Breach.recipient.organization
               , Breach.recipient.sender ]
 
-    RULE 20.7
+      §§ 20.7
          :en:"intermediary must inform principal"
     UPON DI.believe(DBEvent)
    PARTY DI :: DataIntermediary
