@@ -38,12 +38,31 @@
 
       §§ 20.6
   DEFINE Breach.notifiable = False
-    WHEN SAME [ Breach.recipient.organization
-              , Breach.recipient.sender ]
+    WHEN allSame [ Breach.recipient.organization
+                 , Breach.sender   .organization ]
+
+    TEST p130 :en:"Misplaced storage drive"
+   GIVEN Company :: Organisation { departments = [ HR ]
+                                 , staff, interns :: [NaturalPerson]
+                                 }
+         Device :: DataVessel    { contains = [ Company.staff.personalData
+                                              , Company.interns.personalData ]
+                                 , status :: Lost | Found
+                                 , accessLog = [ Date ]
+                                 }
+         Sarah :: Human          { role = "HR executive"
+                                 , employer = Company }
+         Rachel :: Human         { employer = Company }
+   TRACE Date1               NOTIFY (from = Sarah,  to = Company, body = { Device.status = Misplaced } )
+         Date2 === Date1 + 4 DELIVER(from = Rachel, to = Company.departments.HR, body = Device)
+         Date2               AVER   (from = Company, body = { Device.accessLog[Date1 .. Date2] == [] } )
+  EXPECT Breach.notifiable == False
 
       §§ 20.7
          :en:"intermediary must inform principal"
     UPON DI.believe(DBEvent)
    PARTY DI :: DataIntermediary
     MUST NOTIFY( to = DI.principal(for = DBEvent) )
+
+
 
