@@ -1,0 +1,46 @@
+//
+// PDPA Data Breach Notification Rules
+//
+
+IMPORT "pdpa.l4"
+-- brings in the "ontology" class definition, etc
+
+SOURCE PDPA         {revision:2020}      .6A
+     , AdvGuidelines{revision:2021-02-01}.20 AS guidelines
+
+    RULE startAssessment
+  SOURCE guidelines 20.1--4
+    UPON P.believe(DBEvent)
+   PARTY P :: Organisation | DataIntermediary
+    MUST conductAssessment :en:"take reasonable and expeditious steps to assess"
+      BY 30d
+    LEST -- lambda rule, inline and nameless
+       { PARTY PDPC MAY -- activate a new rule, that
+         NOTIFY( to = P
+               , body = {
+                   PARTY P
+                   MUST NOTIFY( to = PDPC , body = explanation(re = delay) )
+                 }
+               )
+       }
+   WHERE P.believe(DBEvent)
+         WHEN NOTICE.from IN [ Public, DataIntermediary ]
+           OR DBEvent.self_discovery
+         
+    RULE 20.5
+  DEFINE conductAssessment AS
+   PARTY P
+    MUST documentSteps :en:"document all steps taken in assessing DB"
+ SEEALSO 20.38--45
+
+    RULE 20.6
+  DEFINE Breach.notifiable = False
+    WHEN SAME [ Breach.recipient.organization
+              , Breach.recipient.sender ]
+
+    RULE 20.7
+         :en:"intermediary must inform principal"
+    UPON DI.believe(DBEvent)
+   PARTY DI :: DataIntermediary
+    MUST NOTIFY( to = DI.principal(for = DBEvent) )
+
