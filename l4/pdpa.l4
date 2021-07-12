@@ -24,6 +24,10 @@
 ################################################
 # Docstrings like in Python would greatly help documentation for the rule declarations
 
+# I find that I'm scrolling alot up and down to check whether I've declared a certain class to represent a legal concept when writing the rules.
+# Is there a way to "automatically" create the classes on the go when the user declares a rule below? And later he can edit it
+
+
 # How to access the attributes in a class declaration? For example:
 
 # class DataBreach {
@@ -171,9 +175,7 @@ class UponNotification extends Notification
 
 class NotificationtoCommission extends UponNotification {
     
-    # NOTE: We don't have a datetime datatype
     DateWhichBreachFirstOccurred: Integer 
-    
     StepsTakenByOrgAfterBreach: String
     HowTheBreachOccurred: String
     NumOfAffectedIndividuals: Integer
@@ -402,99 +404,36 @@ then AssessmentOfDataBreach
 
 # s26D(1) - Notification to commission
 
+# NOTE: How to represent the following when it is a requirement instead of a predicate:
+# NOTE: How to represent "no later than 3 days after the day that the organisation makes the assessment?"
+# NOTE: Also how to represent less than 3 days
+# NOTE: How to represent "best of knowledge and belief" when it is a requirement of the notification and not a predicate?
+
+# Define another construct that means that the organisation is in breach of the PDPA and use the else branch? Example below:
+
+decl bestofknowledgeandbelief: BestofKnowledgeAndBelief -> Boolean
+decl days: Days -> Integer -> Boolean
+
+class InBreachofPDPA
 
 rule <s26d_1_applies>
-for ndb: NotifiableDataBreach
+for ndb: NotifiableDataBreach, bfb: BestofKnowledgeAndBelief, d: Days
 if (
-    notifiabledatabreach ndb
+    notifiabledatabreach ndb && bestofknowledgeandbelief bfb && days 3
 )
 then NotificationtoCommission
 
 
-
-# s26D(5)(a) - Exceptions to notification to individuals
-
-
-rule <s26d_5_a_applies>
-for ndb: NotifiableDataBreach, at: ActionTaken, pr: PrescribedRequirements, sh: SignificantHarmToIndividual
+rule <s26d_1_else_in_breach>
+for ndb: NotifiableDataBreach, bfb: BestofKnowledgeAndBelief, d: Days
 if (
-    notifiabledatabreach ndb && actiontaken at && prescribedrequirements pr && (not significantharm sh)
+    notifiabledatabreach ndb && (not (bestofknowledgeandbelief bfb) || not (days 3))
 )
-then NotificationtoCommissionWithoutNotificationToIndividual
-
-
-
-# s26D(5)(b) - Exception to notification to individuals
-
-
-rule <s26d_5_b_applies>
-for ndb: NotifiableDataBreach, tm: TechnologicalMeasure, pt: PriorTo, sh: SignificantHarmToIndividual
-if (
-    notifiabledatabreach ndb && technologicalmeasure tm && priorto pt && (not significantharm sh)
-)
-then NotificationtoCommissionWithoutNotificationToIndividual
-
-
-
-# s26D(6)(a) - Exception to notification to individuals
-#decl s26d_6_a_applies: NotifiableDataBreach -> PrescribedLawEnforcementInstructs -> NotificationtoCommissionWithoutNotificationToIndividual
-
-rule <s26d_6_a_applies>
-for ndb: NotifiableDataBreach, le: PrescribedLawEnforcementInstructs
-if (
-    notifiabledatabreach ndb && prescribedlawenforcement le
-)
-then NotificationtoCommissionWithoutNotificationToIndividual
-
-
-
-# s26D(6)(b) - Exception to notification to individuals
-#decl s26d_6_b_applies: NotifiableDataBreach -> CommissionSoDirects -> NotificationtoCommissionWithoutNotificationToIndividual
-
-rule <s26d_6_a_applies>
-for ndb: NotifiableDataBreach, cd: CommissionSoDirects
-if (
-    notifiabledatabreach ndb && commissionsodirects cd
-)
-then NotificationtoCommissionWithoutNotificationToIndividual
-
-
-# s26D(7) - Wavier by Commission
-#decl s26d_7_applies: NotifiableDataBreach -> ApplicationByOrg -> WavierByCommission -> NotificationtoCommissionWithoutNotificationToIndividual
-
-rule <s26d_7_applies>
-for ndb: NotifiableDataBreach, ao: ApplicationByOrg, wc: WavierByCommission
-if (
-    notifiabledatabreach ndb && applicationbyorg ao && waiverbycommission wc
-)
-then NotificationtoCommissionWithoutNotificationToIndividual
-
-
-
-# s26D(8)(a) - Organisation not in breach of law
-# NOTE: Is there a way to represent the conjunction of all the other rules from s26d(1) - s26d(7)?
-
-rule <s26d_8_a_applies>
-for s26d_1_applies: Boolean, s26d_2_applies: Boolean
-if (
-    s26d_1_applies || s26b_2_applies
-)
-then (not ObligationUnderLawNotToDisclose)
-
-
-# s26D(8)(b) - Organisation not in breach of professional conduct
-
-rule <s26d_8_b_applies>
-for s26d_1_applies: Boolean, s26d_2_applies: Boolean
-if (
-    s26d_1_applies || s26d_2_applies
-)
-then (not RuleOfProfessionalConduct)
+then InBreachOfPDPA
 
 
 
 # s26D(2) - Notification to Individuals
-
 rule <s26d_2_applies>
 for ndb: NotifiableDataBreach, 
     s26d_5_a_applies: Boolean, s26d_5_b_applies: Boolean, 
@@ -503,10 +442,10 @@ if (
     notifiabledatabreach ndb && (s26d_5_a_applies || s26d_5_b_applies || s26d_6_a_applies || s26d_6_b_applies || s26d_7_applies)
 )
 then NotificationtoCommissionWithoutNotificationToIndividual
-#else NotificationtoCommission
+# else NotificationtoCommission
 # Note: Do we have an else branch
 # MS: No! The else-case is spelled out below
-
+# Do we need to add a predicate that if (not s26d_2_applies) then NotificationtoCommission?
 
 
 rule <s26d_2_applies_else>
@@ -519,7 +458,78 @@ if not (
 then NotificationtoCommission
 
 
-# s26E - Notification of public agency
+# s26D(5)(a) - Exceptions to notification to individuals
+rule <s26d_5_a_applies>
+for ndb: NotifiableDataBreach, at: ActionTaken, pr: PrescribedRequirements, sh: SignificantHarmToIndividual
+if (
+    notifiabledatabreach ndb && actiontaken at && prescribedrequirements pr && (not significantharm sh)
+)
+then NotificationtoCommissionWithoutNotificationToIndividual
+
+
+
+# s26D(5)(b) - Exception to notification to individuals
+rule <s26d_5_b_applies>
+for ndb: NotifiableDataBreach, tm: TechnologicalMeasure, pt: PriorTo, sh: SignificantHarmToIndividual
+if (
+    notifiabledatabreach ndb && technologicalmeasure tm && priorto pt && (not significantharm sh)
+)
+then NotificationtoCommissionWithoutNotificationToIndividual
+
+
+
+# s26D(6)(a) - Exception to notification to individuals
+rule <s26d_6_a_applies>
+for ndb: NotifiableDataBreach, le: PrescribedLawEnforcementInstructs
+if (
+    notifiabledatabreach ndb && prescribedlawenforcement le
+)
+then NotificationtoCommissionWithoutNotificationToIndividual
+
+
+
+# s26D(6)(b) - Exception to notification to individuals
+rule <s26d_6_a_applies>
+for ndb: NotifiableDataBreach, cd: CommissionSoDirects
+if (
+    notifiabledatabreach ndb && commissionsodirects cd
+)
+then NotificationtoCommissionWithoutNotificationToIndividual
+
+
+# s26D(7) - Wavier by Commission
+rule <s26d_7_applies>
+for ndb: NotifiableDataBreach, ao: ApplicationByOrg, wc: WavierByCommission
+if (
+    notifiabledatabreach ndb && applicationbyorg ao && waiverbycommission wc
+)
+then NotificationtoCommissionWithoutNotificationToIndividual
+
+
+
+# s26D(8)(a) - Organisation not in breach of law
+# NOTE: Not too sure how to express the concept "is not, by reason only of notifiying the Commission to be regarded in breach of any duty or obligation ..."
+# Seems to me that this implies that there is a not exhaustive list of predicates that could result in the rule being applied. 
+# Ie There could be other reasons in which the organisation would be in breach of any duty or obligation.
+
+rule <s26d_8_a_applies>
+for s26d_1_applies: Boolean, s26d_2_applies: Boolean
+if (
+    s26d_1_applies || s26b_2_applies
+)
+then (not ObligationUnderLawNotToDisclose)
+
+
+# s26D(8)(b) - Organisation not in breach of professional conduct
+rule <s26d_8_b_applies>
+for s26d_1_applies: Boolean, s26d_2_applies: Boolean
+if (
+    s26d_1_applies || s26d_2_applies
+)
+then (not RuleOfProfessionalConduct)
+
+
+#------------------------------ s26E: Notification of public agency ------------------------------ 
 
 rule <s26e_applies>
 for di: DataIntermediaryOnBehalfOfPublicAgency, rb: ReasonToBelieve, db: DataBreach
