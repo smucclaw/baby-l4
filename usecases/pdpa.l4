@@ -6,48 +6,10 @@
 ############################# Class definitions ##############################
 ##############################################################################
 
-################################################
-# Some general comments about class declarations:
-################################################
-
-# To think about what kinds of legal concepts should be packaged as primitive classes, 
-# and also when a user should be advised to extend a primitive class instead of creating a new class
-
-# Also not sure how to articulate the guidelines for grouping legal concepts into a general class with subclasses instead of creating multiple classes
-# What are the downstream effects on the rule declarations later when taking the first approach over the second?
-
-# Abit lost as to when I should use characteristic predicates (ie. isNotifiableDataBreach) vs just declaring NotifiableDataBreach or (not NotifiableDataBreach)
-
-
-################################################
-# Other general comments:
-################################################
-# Docstrings like in Python would greatly help documentation for the rule declarations
-
-# I find that I'm scrolling alot up and down to check whether I've declared a certain class to represent a legal concept when writing the rules.
-# Is there a way to "automatically" create the classes on the go when the user declares a rule below? And later he can edit it
-
-
-# How to access the attributes in a class declaration? For example:
-
-# class DataBreach {
-#    UnauthorisedAccess: Boolean
-#    UnauthorisedCollection: Boolean
-#    UnauthorisedUse: Boolean
-#    UnauthorisedDisclosure: Boolean
-#    UnauthorisedCopying: Boolean
-#    UnauthorisedModification: Boolean
-#    UnauthorisedDisposal: Boolean
-#    LossofStorageMedium: Boolean
-# }
-
-# How to access LossofStorageMedium? Like that: DataBreach.LossofStorageMedium?
-
 # ---------------------------- Party definitions ----------------------
 class Individual  {
     NaturalPersonLivingOrDeceased: Boolean
 }
-
 
 class PublicAgency
 
@@ -84,16 +46,7 @@ class DataBreach  extends Event {
     LossofStorageMedium: Boolean
 }
 
-# MS: alternative?
 class UnauthorizedAccessBreach extends DataBreach
-
-# isDataBreach: Event -> Boolean
-# isUnauthorizedAccessBreach: Event -> Boolean
-
-# for x: Event
-# if isDataBreach x
-# then isUnauthorizedAccessBreach
-
 
 class NotifiableDataBreach extends DataBreach
 
@@ -102,15 +55,10 @@ class DataBreachOnlyWithinOrg extends DataBreach
 
 #----------------------------"Reasonability" concepts--------------------------
 
-# To be written as predicate?
-# MS: we should try to make it a subclass of a general notion, like Event or Action
 class LikelytoOccur
 
-# NOTE: Probably need to clarify what "relates to" entails exactly, does it just mean "if X is true"?
 class DataBreachRelatesTo
 
-
-# Maybe this should be a primitive class, since there are alot of such "reasonable" qualifiers in law
 class Reasonable
 
 class ReasonToBelieve extends Reasonable
@@ -151,7 +99,6 @@ class ActionTaken
 
 class ApplicationByOrg
 
-# NOTE: Created new class to account for a direction / instruction given by an organisation to another organisation
 class DirectionBy
 
 class CommissionSoDirects extends DirectionBy
@@ -171,8 +118,6 @@ class NotificationofOtherOrg extends Notification
 class UponNotification extends Notification
 
 # r5(1) of PDPR 
-# NOTE: How to account for r5(3), which specifies that notification to commission must be in a particular format
-
 class NotificationtoCommission extends UponNotification {
     
     DateWhichBreachFirstOccurred: Integer 
@@ -196,7 +141,7 @@ class NotificationtoCommissionAfterExpiry extends NotificationtoCommission {
     SupportingEvidence: String
 }
 
-# To r5(3)
+# r5(3)
 class NotificationtoCommissionWithoutNotificationToIndividual extends NotificationtoCommission {
     GroundsForNotNotifyingIndividual: String
 }
@@ -213,12 +158,6 @@ class RestrictionOnTheDisclosureofInformation  {
 
 
 #--------------------------- Time classes and misc ------------------------------
-# NOTE: Would be good to have an comparison operator that signifies whether an event happens before or after another event (like > operator for ints)
-
-# MS: the missing notion of time is one of the big problems of current L4. 
-# "prior to" looks like a relation between two events / time points and should not be a class.
-# I would replace PriorTo with a comparison operator for time, but since we don't have it, just retain for now?
-
 class PriorTo
 
 class Days
@@ -235,10 +174,7 @@ class RuleOfProfessionalConduct
 ############################### Declarations ##############################
 ###########################################################################
 
-# NOTE: Are there established naming conventions for classes vs declarations?
-
 #------------------------------ s26B: Notifiable Data Breach ------------------------------ 
-# MS: significantharm should be a relation: 
 decl significantharm: DataBreach -> IndividualData -> Boolean
 
 decl significantscale: SignificantScale -> Boolean
@@ -284,22 +220,13 @@ decl commissionsodirects: CommissionSoDirects -> Boolean
 decl applicationbyorg: ApplicationByOrg -> Boolean
 decl waiverbycommission: WavierByCommission -> Boolean
 
-# MS: The following are just rulenames and do not have to be declared --
-# unless one wants to reason about applicability of rules
-
-# So for rules there is no explicit "type declaration" needed?
-
-# decl s26d_1_applies: NotifiableDataBreach -> NotificationtoCommission
-# decl s26d_5_a_applies: NotifiableDataBreach -> ActionTaken -> PrescribedRequirements -> SignificantHarmToIndividual -> NotificationtoCommissionWithoutNotificationToIndividual
-# decl s26d_5_b_applies: NotifiableDataBreach -> TechnologicalMeasure -> PriorTo -> SignificantHarmToIndividual -> NotificationtoCommissionWithoutNotificationToIndividual
-
 decl dataintermediaryonbehalfofpublicagency: DataIntermediaryOnBehalfOfPublicAgency -> Boolean
 
 #=======================================================================================
 #== Rules
 #=======================================================================================
 
-# s26B(1) - Notifiable Data Breach
+#------------------------------ s26B: Notifiable Data Breach ------------------------------ 
 
 rule <s26b_1_applies>
 for db: DataBreach, indiv: IndividualData
@@ -310,8 +237,7 @@ then isNotifiableDataBreach db
 
 
 # NOTE: Another formulation of rule s26b_1 that uses on the applicability of the other rules? 
-rule <s26b_1_applies>
-# NOTE: Does L4 accept other functions as arguments?
+rule <s26b_1_applies_alt>
 for s26b_2_applies: Boolean, s26b_3_applies: Boolean, s26b_4_applies: Boolean
 if (
     (s26b_2_applies || s26b_3_applies) && (not s26b_4_applies)
@@ -355,22 +281,20 @@ then not NotifiableDataBreach
 
 #------------------------------ s26C: Duty to Conduct Assessment of Breach ------------------------------ 
 
-# NOTE: Can I just declare a variable without a corresponding class?
 # This is supposed to be a date
-class Commencementofs13ofPDPA
+class Commencementofs13ofPDPA extends Days
 
 # s26C(1): Section applies to data breach that occurs on or after date of commencement of s13 of PDPA
 # >= here is used to represent "on or after"
 
-rule <s26c_1_applies>
-if (
-    DateofDataBreach >= Commencementofs13ofPDPA
-)
-then True
+# rule <s26c_1_applies>
+# if (
+#    DateofDataBreach >= Commencementofs13ofPDPA
+# )
+# then True
 
 
 # s26C(3)(a): Duty for data intermediary to inform other organisation
-
 rule <s26c_3_a_applies>
 for di: DataIntermediary, rb: ReasonToBelieve, db: DataBreach, pa: PublicAgency, s26c_1_applies: Boolean
 if (    
@@ -395,21 +319,10 @@ then AssessmentOfDataBreach
 
 # NOTE: s26C(4) can it be represented as the attribute of class AssessmentOfDataBreach?
 
-# NOTE: Is there a way to represent the direction of an obligation?
-# i.e. Whether the intermediary or the organisation is obliged to conduct and assessment
-# Also who needs to send a notification to whom, e.g. from the data intermediary to the organisation
-
 
 #------------------------------ s26D: Duty to Notify Occurrence of Notifiable Data Breach ------------------------------ 
 
 # s26D(1) - Notification to commission
-
-# NOTE: How to represent the following when it is a requirement instead of a predicate:
-# NOTE: How to represent "no later than 3 days after the day that the organisation makes the assessment?"
-# NOTE: Also how to represent less than 3 days
-# NOTE: How to represent "best of knowledge and belief" when it is a requirement of the notification and not a predicate?
-
-# Define another construct that means that the organisation is in breach of the PDPA and use the else branch? Example below:
 
 decl bestofknowledgeandbelief: BestofKnowledgeAndBelief -> Boolean
 decl days: Days -> Integer -> Boolean
@@ -424,12 +337,12 @@ if (
 then NotificationtoCommission
 
 
-rule <s26d_1_else_in_breach>
-for ndb: NotifiableDataBreach, bfb: BestofKnowledgeAndBelief, d: Days
-if (
-    notifiabledatabreach ndb && (not (bestofknowledgeandbelief bfb) || not (days 3))
-)
-then InBreachOfPDPA
+# rule <s26d_1_else_in_breach>
+# for ndb: NotifiableDataBreach, bfb: BestofKnowledgeAndBelief, d: Days
+# if (
+#    notifiabledatabreach ndb && (not (bestofknowledgeandbelief bfb) || not (days 3))
+# )
+# then InBreachOfPDPA
 
 
 
@@ -442,11 +355,6 @@ if (
     notifiabledatabreach ndb && (s26d_5_a_applies || s26d_5_b_applies || s26d_6_a_applies || s26d_6_b_applies || s26d_7_applies)
 )
 then NotificationtoCommissionWithoutNotificationToIndividual
-# else NotificationtoCommission
-# Note: Do we have an else branch
-# MS: No! The else-case is spelled out below
-# Do we need to add a predicate that if (not s26d_2_applies) then NotificationtoCommission?
-
 
 rule <s26d_2_applies_else>
 for ndb: NotifiableDataBreach, 
@@ -508,10 +416,6 @@ then NotificationtoCommissionWithoutNotificationToIndividual
 
 
 # s26D(8)(a) - Organisation not in breach of law
-# NOTE: Not too sure how to express the concept "is not, by reason only of notifiying the Commission to be regarded in breach of any duty or obligation ..."
-# Seems to me that this implies that there is a not exhaustive list of predicates that could result in the rule being applied. 
-# Ie There could be other reasons in which the organisation would be in breach of any duty or obligation.
-
 rule <s26d_8_a_applies>
 for s26d_1_applies: Boolean, s26d_2_applies: Boolean
 if (
