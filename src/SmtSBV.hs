@@ -145,7 +145,7 @@ transExprPredicate env (ValE _ _) =
     error "internal error in transExprPredicate: non-boolean value"
 transExprPredicate env (VarE _ (GlobalVar vn)) =
     return (lookupEnvSBool env vn)
-transExprPredicate env (UnaOpE _ (UBool UBneg) e) =
+transExprPredicate env (UnaOpE _ (UBool UBnot) e) =
     do re <- transExprPredicate env e
        return (sNot re)
        {-
@@ -226,7 +226,7 @@ transExprSBool env (ValE _ (BoolV b)) = if b then sTrue else sFalse
 transExprSBool env (ValE _ _) =
     error "internal error in transExprPredicate: non-boolean value"
 transExprSBool env (VarE _ (GlobalVar vn)) = lookupEnvSBool env vn
-transExprSBool env (UnaOpE _ (UBool UBneg) e) = sNot (transExprSBool env e)
+transExprSBool env (UnaOpE _ (UBool UBnot) e) = sNot (transExprSBool env e)
 transExprSBool env _ = error "in transExprSBool"
 
 --transToPredicateSingle:: Provable a => VarDecl t -> Expr t -> a
@@ -307,7 +307,7 @@ transUArithOpDyn :: UArithOp ->  SVal -> SVal
 transUArithOpDyn UAminus = svUNeg
 
 transUBoolOpDyn :: UBoolOp ->  SVal -> SVal
-transUBoolOpDyn UBneg = svNot
+transUBoolOpDyn UBnot = svNot
 
 transUnaOpDyn :: UnaOp -> SVal -> SVal
 transUnaOpDyn (UArith ua) = transUArithOpDyn ua

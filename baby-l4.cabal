@@ -72,6 +72,8 @@ library
                   -- from src
                   Annotation
                   Error
+                  KeyValueMap
+                  Model
                   Syntax
 
                   -- lsp
@@ -97,8 +99,10 @@ library
                   InterfaceNunchaku
                   --RuleToTa
                   --TaToUppaal
+                  PrintProg
+                  RuleTransfo
                   Smt
-                  SmtSBV
+                  -- SmtSBV
                   Typing
   other-modules: Paths_baby_l4
   hs-source-dirs:
@@ -127,6 +131,8 @@ library
                      -- required for SMT interaction
                      , simple-smt
                      , sbv
+                     -- required for graph processing (rule transformation)
+                     , fgl >= 5.7
                      -- required for lsp
                      , lsp        >=1.0.0.0
                      , lsp-types  >=1.0.0.0

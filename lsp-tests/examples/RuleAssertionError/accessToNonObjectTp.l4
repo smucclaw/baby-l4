@@ -1,4 +1,4 @@
-decl v: Bool
+decl v: Boolean
 
 rule <ra>
 if (v.De || 2 > 1)

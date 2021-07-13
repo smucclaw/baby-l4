@@ -1,0 +1,108 @@
+
+### Classes
+
+class Vehicle
+class Car extends Vehicle
+class Truck extends Vehicle
+
+class Day
+class Workday extends Day
+class Holiday extends Day
+
+class Road
+class Highway extends Road
+
+### Predicates 
+
+## uninteresting (the is... predicates should be generated)
+# decl isVehicle : Vehicle -> Boolean
+decl isCar : Vehicle -> Boolean
+decl isTruck : Vehicle -> Boolean
+
+# decl isDay : Day -> Boolean
+decl isWorkday : Day -> Boolean
+decl isHoliday : Day -> Boolean
+
+# decl isRoad : Road -> Boolean
+decl isHighway : Road -> Boolean
+
+## interesting: the maximal speed of a vehicle on a day on a road is ...
+# Could be modeled as a functional dependency, but this would
+# make it impossible to verify that the relation is functional
+decl maxSpeed : Vehicle -> Day -> Road -> Integer -> Boolean
+
+# typical representatives of their class
+decl instCar : Vehicle
+decl instDay : Day
+decl instRoad : Road
+decl instSpeed1: Integer
+decl instSpeed2: Integer
+
+### Facts and rules
+
+## Typing of the instances
+# (typing of instDay and instRoad is a tautology)
+
+fact <instCarType>
+isCar instCar
+
+
+## Class inclusion: follows from typing
+
+
+## Class disjointness (possible to automate)
+
+# top-level classes: follows from typing
+
+# subclasses of Vehicle
+fact <CarTrDistinct>
+for c: Vehicle
+not (isCar c && isTruck c)
+
+# subclasses of Day
+fact <WdHdDistinct>
+for c: Day
+not (isWorkday c && isHoliday c)
+
+
+## Domain-specific rules
+
+
+# General rule 
+# "Incorrect" version not excluding highways as roads
+rule <maxSpGeneral>
+for v: Vehicle, d: Day, r: Road
+if isCar v
+then maxSpeed v d r 90
+
+
+# Specific rule 1
+
+rule <maxSpCarWorkdayHighway>
+for v: Vehicle, d: Day, r: Road
+if isCar v && isHighway r
+then maxSpeed v d r 130
+
+# Specific rule 2
+
+rule <maxSpCarHoliday>
+for v: Vehicle, d: Day, r: Road
+if isCar v && isHoliday d
+then maxSpeed v d r 42
+
+
+# Inversion of the domain-specific rules
+rule <maxSpInversion>
+for v: Vehicle, d: Day, r: Road, s: Integer
+if maxSpeed v d r s
+then
+ (isCar v && s ==  90) ||
+ (isCar v && isHighway r && s == 130) ||
+ (isCar v && isHoliday d && s == 42)
+
+
+assert {SMT:  {valid}}
+maxSpeed instCar instDay instRoad instSpeed1 &&
+maxSpeed instCar instDay instRoad instSpeed2
+--> instSpeed1 == instSpeed2
+

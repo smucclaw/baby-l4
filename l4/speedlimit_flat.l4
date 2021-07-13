@@ -1,0 +1,207 @@
+### Fake example rules about speed limits of different kinds of vehicles
+### on different days on different kinds of roads.
+
+# The coding used here is *flat*, without distinguished sorts.
+# Typing is simulated via  predicates that have Class as codomain,
+# e.g. isDay: Class -> Boolean
+# Subtyping has to be expressed by numerous type inclusion axioms.
+# For a sorted version, see speedlimit_sorted.l4
+
+### Classes
+
+class Vehicle
+class Car extends Vehicle
+class Truck extends Vehicle
+
+class Day
+class Workday extends Day
+class Holiday extends Day
+
+class Road
+class Highway extends Road
+
+### Predicates 
+
+## uninteresting (the is... predicates should be generated)
+decl isVehicle : Class -> Boolean
+decl isCar : Class -> Boolean
+decl isTruck : Class -> Boolean
+
+decl isDay : Class -> Boolean
+decl isWorkday : Class -> Boolean
+decl isHoliday : Class -> Boolean
+
+decl isRoad : Class -> Boolean
+decl isHighway : Class -> Boolean
+
+## interesting: the maximal speed of a vehicle on a day on a road is ...
+# Could be modeled as a functional dependency, but this would
+# make it impossible to verify that the relation is functional
+decl maxSpeed : Class -> Class -> Class -> Integer -> Boolean
+
+# typical representatives of their class
+decl instCar : Class
+decl instDay : Class
+decl instRoad : Class
+decl instSpeed1: Integer
+decl instSpeed2: Integer
+
+### Facts and rules
+
+## Typing of the instances
+
+fact <instCarType>
+isCar instCar
+
+fact <instDayType>
+isDay instDay
+
+fact <instRoadType>
+isRoad instRoad
+
+## Class inclusion (should be generated)
+
+fact <CarClassIncl>
+for c: Class
+isCar c --> isVehicle c
+
+fact <TruckClassIncl>
+for c: Class
+isTruck c --> isVehicle c
+
+fact <WorkdayClassIncl>
+for c: Class
+isWorkday c --> isDay c
+
+fact <HolidayClassIncl>
+for c: Class
+isHoliday c --> isDay c
+
+fact <HighwayClassIncl>
+for c: Class
+isHighway c --> isRoad c
+
+
+## Class disjointness (possible to automate)
+
+# top level classes
+fact <VDRDistinct>
+for c: Class
+not (isVehicle c && isDay c) &&
+not (isVehicle c && isRoad c) &&
+not (isDay c && isRoad c)
+
+# subclasses of Vehicle
+fact <CarTrDistinct>
+for c: Class
+not (isCar c && isTruck c)
+
+# subclasses of Day
+fact <WdHdDistinct>
+for c: Class
+not (isWorkday c && isHoliday c)
+
+
+## Domain-specific rules
+
+rule <maxSpCarWorkdayHighway>
+for v: Class, d: Class, r: Class, s: Integer
+if isCar v && isWorkday d && isHighway r && s == 130
+then maxSpeed v d r s
+
+# "Incorrect" version not excluding highways as roads
+rule <maxSpCarWorkdayRoad>
+for v: Class, d: Class, r: Class, s: Integer
+if isCar v && isWorkday d && isRoad r && s == 90
+then maxSpeed v d r s
+
+# "Corrected" version making subjectTo clause explicit
+rule <maxSpCarWorkdayRoadRestrSubjectTo> 
+#     {subjectTo : maxSpCarWorkdayHighway}
+for v: Class, d: Class, r: Class, s: Integer
+if isCar v && isWorkday d && isRoad r && (s == 90)
+   && not (isCar v && isWorkday d && isHighway r && (s == 130))
+then maxSpeed v d r s
+
+# Inversion of rules maxSpCarWorkdayHighway and maxSpCarWorkdayRoad
+rule <maxSpInversion>
+for v: Class, d: Class, r: Class, s: Integer
+if maxSpeed v d r s
+then
+ (isCar v && isWorkday d && isHighway r && (s == 130)) ||
+ (isCar v && isWorkday d && isRoad r && (s ==  90))
+
+# Inversion of rules maxSpCarWorkdayHighway and maxSpCarWorkdayRoadRestrSubjectTo
+rule <maxSpInversionSubjectTo>
+for v: Class, d: Class, r: Class, s: Integer
+if maxSpeed v d r s
+then
+ (isCar v && isWorkday d && isHighway r && (s == 130)) ||
+ (isCar v && isWorkday d && isRoad r && (s ==  90) && not (isHighway r))
+
+
+# Non-functionality of maxSpeed is consistent with the assumption set
+# including the incorrect maxSpCarWorkdayRoad
+# --> satisfiable
+assert {SMT:
+           {consistent, 
+            rules: {only: {instCarType, instDayType, instRoadType,
+                          CarClassIncl, TruckClassIncl, WorkdayClassIncl,
+                          HolidayClassIncl, HighwayClassIncl,
+                          VDRDistinct, WdHdDistinct, CarTrDistinct,
+                          maxSpCarWorkdayHighway,
+                          maxSpCarWorkdayRoad,
+                          maxSpInversion
+                          }
+                   }
+           },
+        nsCASP: {}
+       }
+maxSpeed instCar instDay instRoad instSpeed1 &&
+maxSpeed instCar instDay instRoad instSpeed2 &&
+instSpeed1 < instSpeed2
+
+# Non-functionality of maxSpeed is consistent with the assumption set
+# including the correct maxSpCarWorkdayRoadRestrSubjectTo and maxSpInversionSubjectTo
+# --> unsatisfiable
+assert {nSMT:
+           {consistent, 
+            rules: {only: {instCarType, instDayType, instRoadType,
+                          CarClassIncl, TruckClassIncl, WorkdayClassIncl,
+                          HolidayClassIncl, HighwayClassIncl,
+                          VDRDistinct, WdHdDistinct, CarTrDistinct,
+                          maxSpCarWorkdayHighway,
+                          maxSpCarWorkdayRoadRestrSubjectTo,
+                          maxSpInversionSubjectTo
+                          }
+                   }
+           }
+       }
+maxSpeed instCar instDay instRoad instSpeed1 &&
+maxSpeed instCar instDay instRoad instSpeed2 &&
+instSpeed1 < instSpeed2
+
+
+# Functionality of maxSpeed follows from incorrect assumption set
+# excluding the correct maxSpCarWorkdayRoadRestrSubjectTo and maxSpInversionSubjectTo 
+# --> not valid, countermodel generated
+assert {nSMT:
+           {valid, 
+            rules: {del : {maxSpCarWorkdayRoadRestrSubjectTo, maxSpInversionSubjectTo}}
+           }
+       }
+maxSpeed instCar instDay instRoad instSpeed1 &&
+maxSpeed instCar instDay instRoad instSpeed2
+--> instSpeed1 == instSpeed2
+
+# Functionality of maxSpeed follows from incorrect assumption set
+# excluding the incorrect maxSpCarWorkdayRoad, maxSpInversion
+# --> valid
+assert {nSMT:
+           {valid, 
+            rules: {del : {maxSpCarWorkdayRoad, maxSpInversion}}
+           }
+       }
+maxSpeed instCar instDay instRoad instSpeed1 &&
+maxSpeed instCar instDay instRoad instSpeed2
+--> instSpeed1 == instSpeed2

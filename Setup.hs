@@ -25,7 +25,7 @@ userHooks = simpleUserHooks {
     hookedPreProcessors = gfPPSuffix : knownSuffixHandlers
   , postCopy = \args insF pDesc lbi -> do
         -- print $ buildDir lbi
-        let cdest = fromFlag $ copyDest insF
+        let cdest = fromFlag $ copyDest insF
         let dDir = datadir $ absoluteComponentInstallDirs pDesc lbi (localUnitId lbi) cdest
         let verbosity = fromFlag $ copyVerbosity insF
         let src = buildDir lbi </> "l4-generated" </> "ParsePredicates.pgf"

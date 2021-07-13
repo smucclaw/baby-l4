@@ -11,16 +11,16 @@
 # Game -> "game_1_N"
 
 class Sign {
-    beat : Sign -> Bool
+    beat : Sign -> Boolean
 }
 
 class Player {
-    throw : Sign -> Bool
+    throw : Sign -> Boolean
 }
 
 class Game {
-    participate_in : Player -> Bool
-    win : Player -> Bool
+    participate_in : Player -> Boolean
+    win : Player -> Boolean
 }
 
 

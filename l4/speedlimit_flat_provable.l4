@@ -54,7 +54,7 @@ decl tSpeed2: Integer
 ## to prove: Rules --> Assertion
 ## show: unsat (Rules && (not Assertion))
 
-assert
+assert {provable, with : {WdHdDistinct, maxSpCarWorkdayHighway : {normalized}}, without : {Foobar}}
 isCar tCar
 &&
 isDay tDay
@@ -100,7 +100,7 @@ isRoad tRoad
 # rule <maxSpCarWorkdayRoad>   # corrected, assuming in addition that not (isHighway r)
 (forall v: Class. forall d: Class. forall r: Class. forall s: Integer.
     isCar v && isWorkday d && isRoad r && s = 90
-    && not (isHighway r)
+    && not (isCar v && isWorkday d && isHighway r && s = 130)
 --> maxSpeed v d r s)
 
 &&

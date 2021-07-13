@@ -67,9 +67,6 @@ tokens :-
   fact                          { lex' TokenFact }
   rule                          { lex' TokenRule }
   derivable                     { lex' TokenDerivable }
-  -- Types
-  Bool                          { lex' TokenBool }
-  Int                           { lex' TokenInt }
 
   -- Expressions
   let                           { lex' TokenLet }
@@ -90,11 +87,12 @@ tokens :-
   "-->"                         { lex' TokenImpl }
   "||"                          { lex' TokenOr }
   "&&"                          { lex' TokenAnd }
-  \=                            { lex' TokenEq }
+  \==                           { lex' TokenEq }
   \<                            { lex' TokenLt }
   \<=                           { lex' TokenLte }
   \>                            { lex' TokenGt }
   \>=                           { lex' TokenGte }
+  "/="                          { lex' TokenNe }
   [\+]                          { lex' TokenAdd }
   [\-]                          { lex' TokenSub }
   [\*]                          { lex' TokenMul }
@@ -404,9 +402,6 @@ data TokenKind
   | TokenRule
   | TokenDerivable
 
-  | TokenBool
-  | TokenInt
-
   | TokenLet
   | TokenIn
   | TokenNot
@@ -429,6 +424,7 @@ data TokenKind
   | TokenLte
   | TokenGt
   | TokenGte
+  | TokenNe
   | TokenAdd
   | TokenSub
   | TokenMul
@@ -460,8 +456,6 @@ unLex TokenLexicon   = "lexicon"
 unLex TokenFact      = "fact"
 unLex TokenRule      = "rule"
 unLex TokenDerivable = "derivable"
-unLex TokenBool      = "Bool"
-unLex TokenInt       = "Int"
 unLex TokenLet       = "let"
 unLex TokenIn        = "in"
 unLex TokenNot       = "not"
@@ -478,11 +472,12 @@ unLex TokenLambda    = "\\"
 unLex TokenImpl      = "-->"
 unLex TokenOr        = "||"
 unLex TokenAnd       = "&&"
-unLex TokenEq        = "="
+unLex TokenEq        = "=="
 unLex TokenLt        = "<"
 unLex TokenLte       = "<="
 unLex TokenGt        = ">"
 unLex TokenGte       = ">="
+unLex TokenNe        = "/="
 unLex TokenAdd       = "+"
 unLex TokenSub       = "-"
 unLex TokenMul       = "*"

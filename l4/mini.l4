@@ -8,17 +8,17 @@ IncompatibleWithDignity -> "incompatible with dignity of legal profession"
 r34_1_a_applies -> "sole independent contractor"
 
 class Business {
-    Unfair: Bool
-    DescribedInFirstSchedule: Bool
-    Prohibited: Bool
+    Unfair: Boolean
+    DescribedInFirstSchedule: Boolean
+    Prohibited: Boolean
     # UnauthorizedSharingFees : Bool    # has lexicon entry
     # DetractsFromDignity: Bool         # has lexicon entry
     # IncompatibleWithDignity: Bool     # has lexicon entry
     # DerogatesFromDignity: Bool        # has lexicon entry
-    DescribedInSectionOne : Bool         # rest parsed from the predicate name
+    DescribedInSectionOne : Boolean         # rest parsed from the predicate name
 }
 
-decl r34_1_a_applies: Business -> Bool
+decl r34_1_a_applies: Business -> Boolean
 
 rule <r34_1_a>
 for b: Business

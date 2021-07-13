@@ -9,10 +9,11 @@ module Syntax where
 
 
 -- Class for annotated expressions
-import qualified Language.LSP.Types as J    -- TODO: is that used anywhere?
-import qualified Data.List as List
+--import qualified Language.LSP.Types as J    -- TODO: is that used anywhere?
+--import qualified Data.List as List
 import Data.Data (Data, Typeable)
 import Annotation
+import KeyValueMap
 
 
 ----------------------------------------------------------------------
@@ -22,10 +23,9 @@ import Annotation
 
 ----- Names
 type VarName = String
-type RuleName = String
+-- Assertion / Rule name 
+type ARName = Maybe String
 -- newtype VarName = VarName String
---   deriving (Eq, Ord, Show, Read, Data, Typeable)
--- newtype RuleName = RuleName String
 --   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 newtype ClassName = ClsNm {stringOfClassName :: String}
@@ -35,6 +35,12 @@ newtype FieldName = FldNm {stringOfFieldName :: String}
 newtype PartyName = PtNm {stringOfPartyName :: String}
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
+-- a qualified var name has an annotation (contrary to a simple var name)
+data QVarName t = QVarName {annotOfQVarName :: t, nameOfQVarName :: VarName}
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
+instance HasLoc t => HasLoc (QVarName t) where
+  getLoc v = getLoc (annotOfQVarName v)
 
 ----- Program
 
@@ -52,50 +58,63 @@ instance HasAnnot Program where
 
 data ExpectedType
   = ExpectedString  String
-  | ExpectedExactTp Tp
-  | ExpectedSubTpOf Tp
+  | ExpectedExactTp (Tp())
+  | ExpectedSubTpOf (Tp())
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 
 data ErrorCause
   = Inherited
+  | UndefinedType [(SRng, ClassName)]            -- cf with the UndefinedType... constructors in Errors.hs
+  | UndefinedTypeInClassT
   | UndeclaredVariable SRng VarName
   | IllTypedSubExpr { exprRangesITSE :: [SRng]    -- operators that require specific types  for their arguments
-                    , receivedITSE :: [Tp]
+                    , receivedITSE :: [Tp()]
                     , expectedITSE :: [ExpectedType] }
   | IncompatibleTp { exprRangesITSE :: [SRng]     -- when we need two types to be the same for an operation, or perhaps a subtype (to check)
-                    , receivedITSE :: [Tp] }
+                    , receivedITSE :: [Tp()] }
   | NonScalarExpr { exprRangesITSE :: [SRng]      -- functions are not scalar types and not comparable
-                    , receivedITSE :: [Tp] }
-  | NonFunctionTp { exprRangesITSE :: [SRng]      -- call function when not function
-                    , receivedFunTpITSE :: Tp }
-  | CastIncompatible { exprRangesITSE :: [SRng]                     -- typecasting from int to string for example (and its not compatible) [** what is the typecasting syntax?]
-                    , receivedCastITSE :: Tp
-                    , castToITSE :: Tp }
-  | IncompatiblePattern SRng                      -- pattern matching failure for tuples (l4)
-  | UnknownFieldName SRng FieldName ClassName     -- class has no such field
-  | AccessToNonObjectType SRng                    -- when using dot notation on something thats not an object
-  | Unspecified                                                     -- [** don't know, need clarification from martin?]
+                    , receivedITSE :: [Tp()] }
+  | NonFunctionTp { exprRangesITSE :: [SRng] -- call function when not function
+                    , receivedFunTpITSE :: Tp() }
+  | CastIncompatible { exprRangesITSE :: [SRng] -- typecasting from int to string for example (and its not compatible)
+                    , receivedCastITSE :: Tp()
+                    , castToITSE :: Tp() }
+  | IncompatiblePattern SRng          -- pattern matching failure for tuples (l4)
+  | UnknownFieldName SRng FieldName ClassName   -- class has no such field
+  | AccessToNonObjectType SRng  -- when using dot notation on something thats not an object
+  | Unspecified                 -- don't know, need clarification from martin?
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 
 ----- Types
 -- TODO: also types have to be annotated with position information
 -- for the parser to do the right job
-data Tp
-  = BoolT
-  | IntT
-  | ClassT ClassName
-  | FunT Tp Tp
-  | TupleT [Tp]
-  | ErrT ErrorCause
-  | OkT                    -- fake type appearing in constructs (classes, rules etc.) that do not have a genuine type
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
-
-data VarDecl t = VarDecl {annotOfVarDecl ::t
-                         , nameOfVarDecl :: VarName
-                         , tpOfVarDecl :: Tp }
+data Tp t
+  = ClassT {annotOfTp :: t, classNameOfTp :: ClassName}
+  | FunT {annotOfTp :: t, funTp :: Tp t, argTp :: Tp t}
+  | TupleT {annotOfTp :: t, componentsOfTpTupleT :: [Tp t]}
+  | ErrT {causeOfTpErrT :: ErrorCause}
+  | OkT        -- fake type appearing in constructs (classes, rules etc.) that do not have a genuine type
+  | KindT
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
+instance HasLoc t => HasLoc (Tp t) where
+  getLoc e = getLoc (annotOfTp e)
+
+instance HasDefault (Tp t) where
+  defaultVal = OkT
+
+booleanT :: Tp ()
+booleanT = ClassT () (ClsNm "Boolean")
+integerT :: Tp ()
+integerT = ClassT () (ClsNm "Integer")
+stringT :: Tp ()
+stringT = ClassT () (ClsNm "String")
+
+data VarDecl t = VarDecl {annotOfVarDecl :: t, nameOfVarDecl :: VarName, tpOfVarDecl :: Tp t}
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
 instance HasLoc t => HasLoc (VarDecl t) where
   getLoc = getLoc . annotOfVarDecl
 
@@ -114,10 +133,9 @@ instance HasAnnot Mapping where
 
 -- Field attributes: for example cardinality restrictions
 -- data FieldAttribs = FldAtt
-data FieldDecl t = FieldDecl {annotOfFieldDecl ::t
+data FieldDecl t = FieldDecl {annotOfFieldDecl :: t
                              , nameOfFieldDecl :: FieldName
-                             , tpOfFieldDecl ::  Tp }
-                            -- FieldAttribs
+                             , tpOfFieldDecl ::  Tp t }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 instance HasLoc t => HasLoc (FieldDecl t) where
   getLoc = getLoc . annotOfFieldDecl
@@ -195,20 +213,25 @@ data Val
     | ErrV
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-data Var
+trueV :: Expr (Tp ())
+trueV = ValE booleanT (BoolV True)
+falseV :: Expr (Tp ())
+falseV = ValE booleanT (BoolV False)
+
+data Var t
       -- global variable only known by its name
-    = GlobalVar { nameOfVar :: VarName }
+    = GlobalVar { nameOfVar :: QVarName t }
     -- local variable known by its provisional name and deBruijn index.
-    | LocalVar { nameOfVar :: VarName
+    | LocalVar { nameOfVar :: QVarName t
                , indexOfVar :: Int }
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 -- unary arithmetic operators
 data UArithOp = UAminus
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 -- unary boolean operators
-data UBoolOp = UBneg
+data UBoolOp = UBnot
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 -- unary operators (union of the above)
@@ -240,33 +263,33 @@ data BinOp
 data ListOp = AndList | OrList | XorList | CommaList
     deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-data Pattern
-    = VarP String
-    | VarListP [String]
-    deriving (Eq, Ord, Show, Read, Data, Typeable)
+data Pattern t
+    = VarP (QVarName t)
+    | VarListP [QVarName t]
+    deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
+patternLength :: Pattern t -> Int
+patternLength (VarP _) = 1
+patternLength (VarListP vs) = length vs
 
 data Quantif = All | Ex
     deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-type family Annot tpPhase
-type instance Annot SRng = SRng
-
 -- Expr t is an expression of type t (to be determined during type checking / inference)
 data Expr t
-    = ValE        t Val                          -- value
-    | VarE        t Var                          -- variable
-    | UnaOpE      t UnaOp (Expr t)               -- unary operator
-    | BinOpE      t BinOp (Expr t) (Expr t)      -- binary operator
-    | IfThenElseE t (Expr t) (Expr t) (Expr t)   -- conditional
-    | AppE        t (Expr t) (Expr t)            -- function application
-    | FunE        t Pattern Tp (Expr t)          -- function abstraction
-    | QuantifE    t Quantif VarName Tp (Expr t)  -- quantifier
-    -- | ClosE       SRng t [(VarName, Expr t)] (Expr t) -- closure  (not externally visible)
-    | FldAccE     t (Expr t) FieldName           -- field access
-    | TupleE      t [Expr t]                     -- tuples
-    | CastE       t Tp (Expr t)                  -- cast to type
-    | ListE       t ListOp [Expr t]              -- list expression
-    | NotDeriv    t Bool (Expr t)            -- Negation as failure "not".
+    = ValE        {annotOfExpr :: t, valOfExprValE :: Val}                       -- value
+    | VarE        {annotOfExpr :: t, varOfExprVarE :: Var t}                       -- variable
+    | UnaOpE      {annotOfExpr :: t, unaOpOfExprUnaOpE :: UnaOp, subEOfExprUnaOpE :: Expr t} -- unary operator
+    | BinOpE      {annotOfExpr :: t, binOpOfExprBinOpE :: BinOp, subE1OfExprBinOpE :: Expr t, subE2OfExprBinOpE :: Expr t}      -- binary operator
+    | IfThenElseE {annotOfExpr :: t, condOfExprIf :: Expr t, thenofExprIf :: Expr t, elseOfExprIf :: Expr t}   -- conditional
+    | AppE        {annotOfExpr :: t, funOfExprAppE :: Expr t, argOfExprAppE :: Expr t}           -- function application
+    | FunE        {annotOfExpr :: t, patternOfExprFunE :: Pattern t, tpOfExprFunE :: Tp t, bodyOfExprFunE :: Expr t}          -- function abstraction
+    | QuantifE    {annotOfExpr :: t, quantifOfExprQ :: Quantif, varNameOfExprQ :: QVarName t, tpOfExprQ :: Tp t, bodyOfExprQ :: Expr t}  -- quantifier
+    | FldAccE     {annotOfExpr :: t, subEOfExprFldAccE :: Expr t, fieldNameOfExprFldAccE :: FieldName}           -- field access
+    | TupleE      {annotOfExpr :: t, componentsOfExprTupleE :: [Expr t]}                     -- tuples
+    | CastE       {annotOfExpr :: t, tpOfExprCastE :: Tp t, subEOfExprCastE :: Expr t}               -- cast to type
+    | ListE       {annotOfExpr :: t, listOpOfExprListE :: ListOp, componentsOfExprListE :: [Expr t]}    -- list expression
+    | NotDeriv    {annotOfExpr :: t, isPosLitOfExprNotDeriv ::  Bool, subEOfExprNotDeriv :: Expr t}            -- Negation as failure "not".
                                                       -- The Bool expresses whether "not" precedes a positive literal (True)
                                                       -- or is itself classically negated (False)
                                                       -- The expresssion argument should be a predicate
@@ -275,7 +298,7 @@ data Expr t
 
 
 childExprs :: Expr t -> [Expr t]
-childExprs x = case x of
+childExprs ex = case ex of
     ValE        _ _       -> []
     VarE        _ _       -> []
     UnaOpE      _ _ a     -> [a]
@@ -293,38 +316,9 @@ childExprs x = case x of
 allSubExprs :: Expr t -> [Expr t]
 allSubExprs e = e : concatMap allSubExprs (childExprs e)
 
-annotOfExpr :: Expr t -> t
-annotOfExpr x = case x of
-  ValE        t _       -> t
-  VarE        t _       -> t
-  UnaOpE      t _ _     -> t
-  BinOpE      t _ _ _   -> t
-  IfThenElseE t _ _ _   -> t
-  AppE        t _ _     -> t
-  FunE        t _ _ _   -> t
-  QuantifE    t _ _ _ _ -> t
-  FldAccE     t _ _     -> t
-  TupleE      t _       -> t
-  CastE       t _ _     -> t
-  ListE       t _ _     -> t
-  NotDeriv    t _ _     -> t
 
 updAnnotOfExpr :: (a -> a) -> Expr a -> Expr a
-updAnnotOfExpr f x = case x of
-  ValE        t a       -> ValE (f t) a
-  VarE        t a       -> VarE (f t) a
-  UnaOpE      t a b     -> UnaOpE (f t) a b
-  BinOpE      t a b c   -> BinOpE (f t) a b c
-  IfThenElseE t a b c   -> IfThenElseE (f t) a b c
-  AppE        t a b     -> AppE (f t) a b
-  FunE        t a b c   -> FunE (f t) a b c
-  QuantifE    t a b c d -> QuantifE (f t) a b c d
-  FldAccE     t a b     -> FldAccE (f t) a b
-  TupleE      t a       -> TupleE (f t) a
-  CastE       t a b     -> CastE (f t) a b
-  ListE       t a b     -> ListE (f t) a b
-  NotDeriv    t a b     -> NotDeriv (f t) a b
-
+updAnnotOfExpr f e = e {annotOfExpr = f (annotOfExpr e)}
 
 instance HasLoc t => HasLoc (Expr t) where
   getLoc e = getLoc (annotOfExpr e)
@@ -336,13 +330,14 @@ instance HasAnnot Expr where
 -- Cmd t is a command of type t
 data Cmd t
     = Skip t                                      -- Do nothing
-    | VAssign t Var (Expr t)                   -- Assignment to variable
+    | VAssign t (Var  t) (Expr t)                   -- Assignment to variable
     | FAssign t (Expr t) FieldName (Expr t)         -- Assignment to field
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 
 data Rule t = Rule { annotOfRule :: t
-                   , nameOfRule :: RuleName
+                   , nameOfRule :: ARName
+                   , instrOfRule :: KVMap
                    , varDeclsOfRule :: [VarDecl t]
                    , precondOfRule :: Expr t
                    , postcondOfRule :: Expr t}
@@ -356,8 +351,9 @@ instance HasAnnot Rule where
   updateAnnot f p = p { annotOfRule = f (annotOfRule p)}
 
 data Assertion t = Assertion { annotOfAssertion :: t
+                             , nameOfAssertion :: ARName
+                             , instrOfAssertion :: KVMap
                              , exprOfAssertion :: Expr t}
-
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 instance HasLoc t => HasLoc (Assertion t) where
@@ -469,5 +465,5 @@ data Modality = Must | May
 -- rule name corresponding to HENCE clause
 -- rule name (optional) corresponding to LEST clause
 
-data EventRule t = EvRule RuleName [Event t] Modality [PartyName] Action [ClConstr] RuleName (Maybe RuleName)
+data EventRule t = EvRule ARName [Event t] Modality [PartyName] Action [ClConstr] ARName ARName
   deriving (Eq, Ord, Show, Read, Data, Typeable)

@@ -1,0 +1,57 @@
+class Residence
+
+class Person
+
+class Child extends Person
+
+class Parent extends Person
+
+# Person lives in residence
+decl res: Person -> Residence -> Boolean
+
+
+# parent c p  means: child c has p as parent
+decl parent: Person -> Person -> Boolean
+
+# the Alloy formalization had two predicates:
+# parents and is_parent_of
+# Both are subsumed by the above predicate
+
+# Parent has the right to care for child
+decl rc: Person -> Person -> Boolean
+
+decl isChild : Person -> Boolean
+decl isParent : Person -> Boolean
+
+decl adam: Person
+decl eve: Person
+decl cain: Person
+decl eden: Residence
+
+# Every person has at least one residence
+fact <noHomeless>
+   for p: Person
+   exists r: Residence. res p r
+
+rule <exactlyTwoParents>
+   for c: Person, p1: Person, p2: Person, p3: Person
+   if isChild c && isParent p1 && isParent p2 && isParent p3 &&
+      parent c p1 && parent c p2 && parent c p3
+   then (p1 == p2) || (p1 == p3) || (p2 == p3)
+
+rule <parentResidencesAreChildResidences>
+   for c: Person, p: Person, r: Residence
+   if isChild c && isParent p && parent c p && rc p c && res p r
+   then res c r
+
+
+#assert {SMT: {consistent}} res adam r && res eve r && isChild cain && rc adam cain && not (rc eve cain)
+
+assert <childNotInParentResidence>
+    {SMT: {consistent}}
+ isParent adam && isParent eve && isChild cain && not isChild adam && not isChild eve
+ && (cain /= adam) && (cain /= eve) &&  (adam /= eve) &&
+ forall p: Person. forall r: Residence. parent cain p --> res p r --> not res cain r
+ 
+
+              

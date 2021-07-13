@@ -1,0 +1,136 @@
+### The speedlimit scenario as presented in the CLAR 2021 paper
+
+### Classes
+
+class Vehicle {
+   weight: Integer
+}
+class Car extends Vehicle {
+   doors: Integer
+}
+class Truck extends Vehicle
+class SportsCar extends Car
+
+class Day
+class Workday extends Day
+class Holiday extends Day
+
+class Road
+class Highway extends Road 
+
+### Predicates 
+
+## uninteresting (the is... predicates should be generated)
+# decl isVehicle : Vehicle -> Boolean
+decl isCar : Vehicle -> Boolean
+decl isTruck : Vehicle -> Boolean
+decl isSportsCar : Vehicle -> Boolean
+
+# decl isDay : Day -> Boolean
+decl isWorkday : Day -> Boolean
+decl isHoliday : Day -> Boolean
+
+# decl isRoad : Road -> Boolean
+decl isHighway : Road -> Boolean
+
+## interesting: the maximal speed of a vehicle on a day on a road is ...
+# Could be modeled as a functional dependency, but this would
+# make it impossible to verify that the relation is functional
+decl maxSpeed : Vehicle -> Day -> Road -> Integer -> Boolean
+
+# typical representatives of their class
+decl instVeh : Vehicle
+decl instCar : Vehicle
+decl instDay : Day
+decl instRoad : Road
+decl instSpeed1: Integer
+decl instSpeed2: Integer
+
+### Facts and rules
+
+## Typing of the instances
+# (typing of instDay and instRoad is a tautology)
+
+fact <instCarType>
+isCar instCar
+
+
+## Class inclusion: follows from typing, except for:
+
+rule <inclusionSportsCar>
+for v: Vehicle
+if isSportsCar v
+then isCar v
+
+
+## Class disjointness (possible to automate)
+
+# top-level classes: follows from typing
+
+# subclasses of Vehicle
+fact <CarTrDistinct>
+for c: Vehicle
+not (isCar c && isTruck c)
+
+# subclasses of Day
+fact <WdHdDistinct>
+for c: Day
+not (isWorkday c && isHoliday c)
+
+
+## Domain-specific rules
+
+rule <maxSpeedCarWorkday>
+   for v: Vehicle, d: Day, r: Road
+   if isCar v && isWorkday d
+   then maxSpeed v d r 90
+
+rule <maxSpeedCarHighway>
+   {restrict: {subjectTo: maxSpeedCarWorkday}}
+   for v: Vehicle, d: Day, r: Road
+   if isCar v && isHighway r
+   then maxSpeed v d r 130
+
+rule <maxSpeedSportsCar>
+   {restrict: {subjectTo: maxSpeedCarWorkday, despite: maxSpeedCarHighway}}
+   for v: Vehicle, d: Day, r: Road
+   if isSportsCar v && isHighway r
+   then maxSpeed v d r 320
+
+# Inversion of rules maxSpeedCar and maxSpeedCarHighway
+rule <maxSpeedInversion>
+     {derived: {apply: {inversion,
+     	       	        apply: {normalize, maxSpeedCarWorkday},
+     	       	        apply: {normalize, maxSpeedCarHighway},
+     	       	        apply: {normalize, maxSpeedSportsCar}}}}
+
+
+assert <maxSpeedNotFunctionalWOsubjectToClause>
+       {SMT:
+           {valid, 
+            rules: {only: {instCarType,
+                          WdHdDistinct, CarTrDistinct,
+                          maxSpeedCarWorkday,
+                          maxSpeedCarHighway,
+                          maxSpeedSportsCar,
+                          maxSpeedInversion
+                          }
+                   },
+            config: {solver: z3, logic: LIA, loglevel: 0}
+           },
+        nsCASP: {}
+       }
+maxSpeed instCar instDay instRoad instSpeed1 -->
+maxSpeed instCar instDay instRoad instSpeed2 -->
+instSpeed1 == instSpeed2
+
+# For testing an assertion made in the paper
+assert {nSMT: valid}
+   forall v: Vehicle. forall d: Day. forall r: Road. 
+    (isCar v && isHighway r &&
+      not (isSportsCar v && isHighway r &&
+              not (isCar v && isWorkday d))  &&
+      not (isCar v && isWorkday d))
+      ==
+   (isCar v && isHighway r && not (isSportsCar v && isWorkday d))
+

@@ -49,9 +49,9 @@ getAtoms v = case v of
 -- [AA "foo" 2, AA "Business" 0, AA "Person" 0]
 -- Make a test out of it!
 
-getArity :: Tp -> Int
+getArity :: Tp t -> Int
 getArity t = case t of
-  FunT _ x -> 1 + getArity x
+  FunT _ _ x -> 1 + getArity x
   _ -> 0
 
 -- patterns
@@ -64,11 +64,11 @@ pattern Pred1 name arg1 <- VarDecl _ name (Arg1 arg1)  -- to create VarDecl Stri
 pattern Pred2 :: VarName -> String -> String -> VarDecl t
 pattern Pred2 name arg1 arg2 <- VarDecl _ name (Arg2 arg1 arg2)
 
-pattern Arg0 :: String -> Tp
-pattern Arg0 x <- ClassT (ClsNm x)
+pattern Arg0 :: String -> Tp t
+pattern Arg0 x <- ClassT _ (ClsNm x)
 
-pattern Arg1 :: String -> Tp
-pattern Arg1 x <- FunT (Arg0 x) BoolT
+pattern Arg1 :: String -> Tp t
+pattern Arg1 x <- FunT _ (Arg0 x) (ClassT _ (ClsNm "Boolean"))
 
-pattern Arg2 :: String -> String -> Tp
-pattern Arg2 x y <- FunT (Arg0 x) (Arg1 y)
+pattern Arg2 :: String -> String -> Tp t
+pattern Arg2 x y <- FunT _ (Arg0 x) (Arg1 y)

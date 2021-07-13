@@ -9,6 +9,7 @@ module Parser (
 
 import Lexer
 import Annotation
+import KeyValueMap
 import Syntax
 
 import Prelude
@@ -40,9 +41,6 @@ import Control.Monad.Except
     rule    { L _ TokenRule }
     derivable { L _ TokenDerivable }
 
-    Bool  { L _ TokenBool }
-    Int   { L _ TokenInt }
-
     let    { L _ TokenLet }
     in     { L _ TokenIn }
     not    { L _ TokenNot }
@@ -60,11 +58,12 @@ import Control.Monad.Except
     '-->' { L _ TokenImpl }
     '||'  { L _ TokenOr }
     '&&'  { L _ TokenAnd }
-    '='   { L _ TokenEq }
+    '=='  { L _ TokenEq }
     '<'   { L _ TokenLt }
     '<='  { L _ TokenLte }
     '>'   { L _ TokenGt }
     '>='  { L _ TokenGte }
+    '/='  { L _ TokenNe }
     '+'   { L _ TokenAdd }
     '-'   { L _ TokenSub }
     '*'   { L _ TokenMul }
@@ -97,8 +96,10 @@ import Control.Monad.Except
 %left AMINUS
 %%
 
+QualifVar : VAR { QVarName (getLoc $1) (tokenSym $1) }
+
 Program : Lexicon ClassDecls GlobalVarDecls Rules Assertions
-                                   { Program (tokenRangeList [getLoc $1, getLoc $2, getLoc $3, getLoc $4, getLoc $5]) (reverse $ unLoc $1) (reverse $2)  (reverse $3) (reverse $4) (reverse $5) }
+                                   { Program (tokenRangeList [getLoc $1, getLoc $2, getLoc $3, getLoc $4, getLoc $5]) (reverse $ unLoc $1) (reverse $2)  (reverse $3) (reverse $4) (reverse $5) }
 
 Lexicon :                   { L (DummySRng "No lexicon") [] }
         |  lexicon Mappings { L (tokenRangeList [getLoc $1, getLoc $2]) $2 }
@@ -132,63 +133,58 @@ Fields  :                          { ([], Nothing) }
 FieldDecls :                       { [] }
            | FieldDecls FieldDecl  { $2 : $1 }
 
-FieldDecl : VAR ':' Tp             { FieldDecl (tokenRange $1 $3) (FldNm $ tokenSym $1) (unLoc $3) }
+FieldDecl : VAR ':' Tp             { FieldDecl (tokenRange $1 $3) (FldNm $ tokenSym $1) $3 }
 
 GlobalVarDecls :                         { [] }
          | GlobalVarDecls GlobalVarDecl  { $2 : $1 }
 
-GlobalVarDecl : decl VAR ':' Tp          { VarDecl (tokenRange $1 $4) (tokenSym $2) (unLoc $4) }
+GlobalVarDecl : decl VAR ':' Tp          { VarDecl (tokenRange $1 $4) (tokenSym $2) $4 }
 
 VarDeclsCommaSep :  VarDecl              { [$1] }
          | VarDeclsCommaSep  ',' VarDecl { $3 : $1 }
 
-VarDecl : VAR ':' Tp                     { VarDecl (tokenRange $1 $3) (tokenSym $1) (unLoc $3) }
+VarDecl : VAR ':' Tp                     { VarDecl (tokenRange $1 $3) (tokenSym $1) $3 }
 
-
-Assertions :                       { [] }
-           | Assertions Assertion  { $2 : $1 }
-Assertion : assert Expr            { Assertion (tokenRange $1 $2) $2 }
 
 -- Atomic type
 -- Used to resolve ambigouity of     \x : A -> B -> x
 -- and force the use of parenthesis: \x : (A -> B) -> x
-ATp  : Bool                       { L (getLoc $1) BoolT }
-     | Int                        { L (getLoc $1) IntT }
-     | VAR                        { L (getLoc $1) $ ClassT (ClsNm $ tokenSym $1) }
-     | '(' TpsCommaSep ')'        { L (getLoc $2) $ case $2 of [t] -> unLoc t; tcs -> TupleT (map unLoc $ reverse tcs) }
+ATp  : VAR                        { ClassT (getLoc $1) (ClsNm $ tokenSym $1) }
+| '(' TpsCommaSep ')'        { case $2 of [t] -> t{annotOfTp = (tokenRange $1 $3)}; tcs -> TupleT (tokenRange $1 $3) (reverse tcs) }
 
 TpsCommaSep :                      { [] }
             | Tp                   { [$1] }
             | TpsCommaSep ',' Tp   { $3 : $1 }
 
 Tp   : ATp                        { $1 }
-     | Tp '->' Tp                 { L (tokenRange $1 $3) $ FunT (unLoc $1) (unLoc $3) }
+     | Tp '->' Tp                 { FunT (tokenRange $1 $3) $1 $3 }
 
 
-Pattern : VAR                      { VarP $ tokenSym $1 }
-    | '(' VarsCommaSep ')'         { let vcs = $2 in if length vcs == 1 then VarP (head vcs) else VarListP (reverse vcs) }
+Pattern : QualifVar                { VarP $1 }
+    | '(' QVarsCommaSep ')'        { let vcs = $2 in if length vcs == 1 then VarP (head vcs) else VarListP (reverse vcs) }
 
-VarsCommaSep :                      { [] }
-            | VAR                   { [tokenSym $1] }
-            | VarsCommaSep ',' VAR  { tokenSym $3 : $1 }
+QVarsCommaSep :                            { [] }
+            | QualifVar                    { [$1] }
+            | QVarsCommaSep ',' QualifVar  { $3 : $1 }
 
-Expr : '\\' Pattern ':' ATp '->' Expr  { FunE (tokenRange $1 $6) $2 (unLoc $4) $6 }
-     | forall VAR ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) All (tokenSym $2) (unLoc $4) $6 }
-     | exists VAR ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) Ex  (tokenSym $2) (unLoc $4) $6 }
+Expr : '\\' Pattern ':' ATp '->' Expr  { FunE (tokenRange $1 $6) $2 $4 $6 }
+     | forall QualifVar ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) All $2 $4 $6 }
+     | exists QualifVar ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) Ex  $2 $4 $6 }
      | Expr '-->' Expr             { BinOpE (tokenRange $1 $3) (BBool BBimpl) $1 $3 }
      | Expr '||' Expr              { BinOpE (tokenRange $1 $3) (BBool BBor) $1 $3 }
      | Expr '&&' Expr              { BinOpE (tokenRange $1 $3) (BBool BBand) $1 $3 }
      | if Expr then Expr else Expr { IfThenElseE (tokenRange $1 $6) $2 $4 $6 }
-     | not Expr                    { UnaOpE (tokenRange $1 $2) (UBool UBneg) $2 }
-     | not derivable VAR           { NotDeriv (tokenRange $1 $3) True (VarE (tokenPos $3) (GlobalVar $ tokenSym $3)) }
-     | not derivable not VAR       { NotDeriv (tokenRange $1 $4) False (VarE (tokenPos $4) (GlobalVar $ tokenSym $4)) }
-     | not derivable VAR Atom      { NotDeriv (tokenRange $1 $4) True (AppE (tokenRange $3 $4)  (VarE (tokenPos $3) (GlobalVar $ tokenSym $3)) $4) }
-     | not derivable not VAR Atom  { NotDeriv (tokenRange $1 $5) False (AppE (tokenRange $4 $5) (VarE (tokenPos $4) (GlobalVar $ tokenSym $4)) $5) }
+     | not Expr                    { UnaOpE (tokenRange $1 $2) (UBool UBnot) $2 }
+     | not derivable QualifVar           { NotDeriv (tokenRange $1 $3) True (VarE (getLoc $3) (GlobalVar $3)) }
+     | not derivable not QualifVar       { NotDeriv (tokenRange $1 $4) False (VarE (getLoc $4) (GlobalVar $4)) }
+     | not derivable QualifVar Atom      { NotDeriv (tokenRange $1 $4) True (AppE (tokenRange $3 $4)  (VarE (getLoc $3) (GlobalVar $3)) $4) }
+     | not derivable not QualifVar Atom  { NotDeriv (tokenRange $1 $5) False (AppE (tokenRange $4 $5) (VarE (getLoc $4) (GlobalVar $4)) $5) }
      | Expr '<' Expr               { BinOpE (tokenRange $1 $3) (BCompar BClt) $1 $3 }
      | Expr '<=' Expr              { BinOpE (tokenRange $1 $3) (BCompar BClte) $1 $3 }
      | Expr '>' Expr               { BinOpE (tokenRange $1 $3) (BCompar BCgt) $1 $3 }
      | Expr '>=' Expr              { BinOpE (tokenRange $1 $3) (BCompar BCgte) $1 $3 }
-     | Expr '=' Expr               { BinOpE (tokenRange $1 $3) (BCompar BCeq) $1 $3 }
+     | Expr '==' Expr              { BinOpE (tokenRange $1 $3) (BCompar BCeq) $1 $3 }
+     | Expr '/=' Expr              { BinOpE (tokenRange $1 $3) (BCompar BCne) $1 $3 }
      | Expr '+' Expr               { BinOpE (tokenRange $1 $3) (BArith BAadd) $1 $3 }
      | Expr '-' Expr               { BinOpE (tokenRange $1 $3) (BArith BAsub) $1 $3 }
      | '-' Expr %prec AMINUS       { UnaOpE (tokenRange $1 $2) (UArith UAminus) $2 }
@@ -211,7 +207,7 @@ Atom : '(' ExprsCommaSep ')'       { let ecs = $2
                                         else TupleE (tokenRange $1 $3) (reverse ecs) }
      | NUM                         { ValE (pos) (IntV $1) }
      | STR                         { ValE (tokenPos $1) (StringV (tokenString $1)) }
-     | VAR                         { VarE (tokenPos $1) (GlobalVar $ tokenSym $1) }
+     | QualifVar                   { VarE (getLoc $1) (GlobalVar $1) }
      | true                        { ValE (tokenPos $1) (BoolV True) }
      | false                       { ValE (tokenPos $1) (BoolV False) }
 
@@ -220,19 +216,52 @@ ExprsCommaSep :                      { [] }
             | ExprsCommaSep ',' Expr  { $3 : $1 }
 
 
+----------------------------------------------------------------------
+-- Rules and Assertions
+----------------------------------------------------------------------
+
+-- Assertion / Rule name
+ARName :                 { Nothing }
+       | '<' VAR '>'     { Just (tokenSym $2) }
+
 Rules  :                       { [] }
        | Rules Rule            { $2 : $1}
        | Rules Fact            { $2 : $1}
 
-Rule: rule '<' VAR '>'  RuleVarDecls RulePrecond RuleConcl { Rule (tokenRange $1 $7) (tokenSym $3) $5 $6 $7 }
-Fact: fact '<' VAR '>'  RuleVarDecls Expr { Rule (tokenRange $1 $6) (tokenSym $3) $5
-                                                 (ValE (nullSRng) (BoolV True)) $6 }
+-- TODO: KVMaps do not have a location, so the token range in the following is incomplete
+Rule : rule ARName KVMap { Rule (getLoc $1) $2 $3  [] (ValE (nullSRng) (BoolV True)) (ValE (nullSRng) (BoolV True)) }
+     | rule ARName KVMap RuleVarDecls RulePrecond RuleConcl { Rule (tokenRange $1 $6) $2 $3 $4 $5 $6 }
+
+Fact : fact ARName  KVMap RuleVarDecls Expr { Rule (tokenRange $1 $5) $2 $3 $4 (ValE (nullSRng) (BoolV True)) $5 }
 
 RuleVarDecls :                       { [] }
              | for VarDeclsCommaSep  { reverse $2 }
 
 RulePrecond : if Expr      { $2 }
 RuleConcl   : then Expr    { $2 }
+
+
+Assertions :                       { [] }
+           | Assertions Assertion  { $2 : $1 }
+
+-- TODO: same problem with locations as for Rule above
+Assertion : assert ARName KVMap        { Assertion (getLoc $1) $2 $3 (ValE (nullSRng) (BoolV True)) }
+          | assert ARName KVMap Expr   { Assertion (tokenRange $1 $4) $2 $3 $4 }
+
+
+KVMap :                        { [] }
+| '{' KVMapListCommaSep  '}'   { reverse $2 }
+
+KVMapListCommaSep :                      { [] }
+            | KVPair                   { [$1] }
+            | KVMapListCommaSep ',' KVPair  { $3 : $1 }
+
+KVPair : VAR             { (tokenSym $1, MapVM []) }
+       | VAR ':' VAR     { (tokenSym $1, IdVM $ tokenSym $3) }
+       | VAR ':' true    { (tokenSym $1, BoolVM True) }
+       | VAR ':' false   { (tokenSym $1, BoolVM False) }
+       | VAR ':' NUM     { (tokenSym $1, IntVM $3) }
+       | VAR ':' KVMap   { (tokenSym $1, MapVM $3) }
 
 {
 
