@@ -38,30 +38,40 @@ createPGFforAnswers filename prog = do
 -- get the atoms
 
 getAtoms :: VarDecl t -> [AtomWithArity]
-getAtoms v = case v of
-  Arity0 name typ -> [AA name 0, AA typ 0] -- Anything of form `rock : Sign`. Both the name (rock) and the type (Sign) are atoms.
-  Pred1 name arg -> [AA name 1, AA arg 0]  -- Any unary predicate: `is_player : Person -> Bool`. Has to return Bool.
-  Pred2 name arg1 arg2 -> [AA name 2, AA arg1 0, AA arg2 0] -- Any binary predicate: `win : Sign -> Sign -> Bool`. Has to return Bool.
-  VarDecl _ name tp -> [AA name (getArity tp)] -- Any other function type: `salary : Person -> Int`. TODO: include also the types for this more generic case.
+getAtoms (VarDecl _ name tp) =  --[AA name 2, AA (getArity tp1), AA (getArity tp2)]
+    AA name (getArity tp) : [ AA nm 0 | nm <- getNames tp]
 
 -- TODO: return AtomWithArity for the Tps in the main Tp.
 -- For instance, foo : Business -> Person -> Int should return
 -- [AA "foo" 2, AA "Business" 0, AA "Person" 0]
+
+-- getVarName :: Tp -> String
+-- getVarName vardecl _  =
 
 getArity :: Tp -> Int
 getArity t = case t of
   FunT _ x -> 1 + getArity x
   _ -> 0
 
+getNames :: Tp -> [String]
+getNames t = case t of
+  IntT -> []
+  BoolT -> []
+  ClassT (ClsNm x) -> [x]
+  FunT t1 t2 -> getNames t1 ++ getNames t2
+  TupleT tps -> concatMap getNames tps
+  _ -> []
+
+
 -- patterns
 pattern Arity0 :: VarName -> String           -> VarDecl t
-pattern Arity0 name typ <- VarDecl _ name (Arg0 typ)
+pattern Arity0 name typ <- Syntax.VarDecl _ name (Arg0 typ)
 
 pattern Pred1 :: VarName -> String           -> VarDecl t
-pattern Pred1 name arg1 <- VarDecl _ name (Arg1 arg1)  -- to create VarDecl String Tp
+pattern Pred1 name arg1 <- Syntax.VarDecl _ name (Arg1 arg1)  -- to create VarDecl String Tp
 
 pattern Pred2 :: VarName -> String -> String -> VarDecl t
-pattern Pred2 name arg1 arg2 <- VarDecl _ name (Arg2 arg1 arg2)
+pattern Pred2 name arg1 arg2 <- Syntax.VarDecl _ name (Arg2 arg1 arg2)
 
 pattern Arg0 :: String -> Tp
 pattern Arg0 x <- ClassT (ClsNm x)
@@ -71,3 +81,14 @@ pattern Arg1 x <- FunT (Arg0 x) BoolT
 
 pattern Arg2 :: String -> String -> Tp
 pattern Arg2 x y <- FunT (Arg0 x) (Arg1 y)
+
+pattern FunPattern :: String -> Tp -> Tp ->  VarDecl t
+-- VarDecl x y i
+-- FunT (ClassT (ClsNm x)) (FunT (ClassT (ClsNm y)) (IntT <- i)
+pattern FunPattern name tp1 tp2 <- VarDecl _ name (FunT tp1 tp2)
+
+-- foo (SomeConstructor a) = g (h i)
+--   where i = j k
+
+-- countArg :: Tp -> Int
+-- countArg FunT x y = length (x) + length y
