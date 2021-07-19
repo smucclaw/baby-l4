@@ -58,8 +58,8 @@ getNames t = case t of
   IntT -> []
   BoolT -> []
   ClassT (ClsNm x) -> [x]
-  FunT t1 t2 -> getNames t1 ++ getNames t2
-  TupleT tps -> concatMap getNames tps
+  FunT t1 t2 -> getNames t1 ++ getNames t2 -- handle tree recursiion in leaves
+  TupleT tps -> concatMap getNames tps     -- handle tree recursiion in leaves
   _ -> []
 
 
@@ -87,8 +87,3 @@ pattern FunPattern :: String -> Tp -> Tp ->  VarDecl t
 -- FunT (ClassT (ClsNm x)) (FunT (ClassT (ClsNm y)) (IntT <- i)
 pattern FunPattern name tp1 tp2 <- VarDecl _ name (FunT tp1 tp2)
 
--- foo (SomeConstructor a) = g (h i)
---   where i = j k
-
--- countArg :: Tp -> Int
--- countArg FunT x y = length (x) + length y
