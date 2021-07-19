@@ -9,7 +9,7 @@ module Syntax where
 
 
 -- Class for annotated expressions
-import qualified Language.LSP.Types as J    -- TODO: is that used anywhere?
+--import qualified Language.LSP.Types as J    -- TODO: is that used anywhere?
 import qualified Data.List as List
 import Data.Data (Data, Typeable)
 import Annotation

@@ -47,7 +47,6 @@ getAtoms v = case v of
 -- TODO: return AtomWithArity for the Tps in the main Tp.
 -- For instance, foo : Business -> Person -> Int should return
 -- [AA "foo" 2, AA "Business" 0, AA "Person" 0]
--- Make a test out of it!
 
 getArity :: Tp -> Int
 getArity t = case t of
