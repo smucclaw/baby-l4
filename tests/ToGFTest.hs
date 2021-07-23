@@ -42,3 +42,8 @@ testGetAtoms = testGroup "Test getAtoms"
                     ) IntT
                 )
             }
+testDescription :: TestTree
+testDescription = testGroup  "Test the parseDescription"
+    [testCase "parse gives the Descrption" $
+        parseDescription  "{Player} participates in {Game}" @?= Descr "participates in" ["Player", "Game"]
+    ]

@@ -35,6 +35,25 @@ newtype FieldName = FldNm {stringOfFieldName :: String}
 newtype PartyName = PtNm {stringOfPartyName :: String}
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
+data Description = Descr {predOfDescription :: String , argsOfDescription :: [String]}
+  deriving (Eq, Ord, Show, Read, Data, Typeable)
+
+parseDescription :: String -> Description
+parseDescription "{Player} participates in {Game}" = Descr "participates in" ["Player", "Game"]
+parseDescription _ = Descr "I am super high" []
+
+{-
+Basic description:
+
+participate_in : Player -> Game -> Bool
+'participates in', implicitly this means 'Player participates in Game'
+
+participate_in : Game -> Player -> Bool
+'participates in', implicitly this means 'Game participates in Player'
+
+Explicit: '{Player} participates in {Game}'
+-}
+
 
 ----- Program
 
@@ -103,7 +122,7 @@ instance HasAnnot VarDecl where
   getAnnot = annotOfVarDecl
   updateAnnot f p = p { annotOfVarDecl = f (annotOfVarDecl p)}
 
-data Mapping t = Mapping t VarName VarName
+data Mapping t = Mapping t VarName Description
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 instance HasLoc t => HasLoc (Mapping t) where
   getLoc (Mapping t _ _) = getLoc t

@@ -255,7 +255,7 @@ pattern IfThenElse e1 e2 e3 <- IfThenElseE _ e1 e2 e3
 updateVars :: [VarDecl Tp] -> Env -> Env
 updateVars vs env = env {vardecls = vs : vardecls env}
 
-findMapping :: [Mapping t] -> String -> [String]
+findMapping :: [Mapping t] -> String  -> [String]
 findMapping haystack needle =
   [ val
     | Mapping _ name val <- haystack,
@@ -264,7 +264,7 @@ findMapping haystack needle =
 
 type Lang = String
 
-createLexicon :: [Lang] -> [Mapping t] -> (String, [String])
+createLexicon :: [Lang] -> [Mapping t] -> (String , [String])
 createLexicon langs lexicon = (abstract, concretes)
   where
     abstract =
