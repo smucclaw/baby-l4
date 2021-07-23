@@ -46,4 +46,7 @@ testDescription :: TestTree
 testDescription = testGroup  "Test the parseDescription"
     [testCase "parse gives the Descrption" $
         parseDescription  "{Player} participates in {Game}" @?= Descr "participates in" ["Player", "Game"]
+    ,
+    testCase "parse with no arguments" $
+        parseDescription  "I am super high" @?= Descr "I am super high" []
     ]

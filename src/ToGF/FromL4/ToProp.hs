@@ -258,7 +258,7 @@ updateVars vs env = env {vardecls = vs : vardecls env}
 findMapping :: [Mapping t] -> String  -> [String]
 findMapping haystack needle =
   [ val
-    | Mapping _ name val <- haystack,
+    | Mapping _ name (Descr val _) <- haystack,
       name == needle
   ]
 
@@ -272,7 +272,7 @@ createLexicon langs lexicon = (abstract, concretes)
         ["abstract PropLexicon = Prop ** {"]
           ++ ["fun"]
           ++ [ printf "%s : %s ;" name (gfType val)
-               | Mapping _ name val <- lexicon
+               | Mapping _ name (Descr val _) <- lexicon
              ]
           ++ ["}"]
     concretes =
@@ -280,7 +280,7 @@ createLexicon langs lexicon = (abstract, concretes)
           [printf "concrete PropLexicon%s of PropLexicon = Prop%s ** open WordNet%s, Paradigms%s, Syntax%s, Extend%s in {" lang lang lang lang lang lang]
             ++ ["lin"]
             ++ [ printf "%s = %s ;" name val
-                 | Mapping _ name val <- lexicon
+                 | Mapping _ name (Descr val _) <- lexicon
                ]
             ++ [printf "oper associated_A = mkA \"%s\" ;" associated]
             ++ ["}"]
