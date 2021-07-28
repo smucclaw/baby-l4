@@ -28,6 +28,7 @@ DECLARE Notify
   - to :: Required Entity
   - body :: Required
     = SimpleRule
+    
 
 DECLARE SimpleRule
   - "PARTY" Party :: Entity

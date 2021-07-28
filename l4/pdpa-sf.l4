@@ -11,10 +11,18 @@
 	 -- standard library
 	 
 
-  SOURCE PDPA         {revision:2020}      .6A AS PDPA
-       , Regulations  {revision:2021-02-01}.20 AS regulations
-       , AdvGuidelines{revision:2021-02-01}    AS guidelines
-       , Guide        {revision:2021-03-15}    AS guide
+  SOURCE PDPA         { revision = 2020
+                      , url = "https://drive.google.com/file/d/1uxntfz1l2nuL2bbZuQnAz75cnbc_vcDy/view?usp=sharing"
+		      }.6A AS PDPA
+       , Regulations  { revision = 2021-02-01
+                      , url = "https://drive.google.com/file/d/1vIpdwZWnZg6ZKWzJPdGr8mAUZfs_84tN/view?usp=sharing"
+       		      }.20 AS regulations
+       , AdvGuidelines{ revision = 2021-02-01
+                      , url = "https://drive.google.com/file/d/1ut9hEdmfWs5I3OWeRp7EfMf78fEn6ZfF/view?usp=sharing"
+                      }    AS guidelines
+       , Guide        { revision = 2021-03-15
+                      , url = "https://drive.google.com/file/d/1uwwy6ZiJzTOypK1eCaXDjxDaOkKcS7lF/view?usp=sharing"
+		      }    AS guide
 
       §§ DBNO
   SOURCE guidelines 20.1
@@ -47,7 +55,7 @@
 	     AS x(reasonably=True)
              BY DEADLINE(expeditious=True)
 	        WHERE SOURCE 20.4
-		      expeditious = 30d
+		      expeditious x = x <= 30d
 
       §§ 20.5
   DEFINE conductAssessment AS
@@ -81,7 +89,7 @@
          :en:"intermediary must inform principal"
     UPON DI.believe(DBEvent)
    PARTY DI :: DataIntermediary
-    MUST NOTIFY( to = DI.principal(for = DBEvent) )
+    MUST NOTIFY( to = DI.principal(for = DBEvent), body = DBEvent )
 
 
 
