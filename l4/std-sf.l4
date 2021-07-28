@@ -1,0 +1,43 @@
+// Standard Library
+
+// when a thing is Oracular we require a human to decide if it is or isn't
+
+DEFINE reasonably   AS ORACULAR Boolean
+DEFINE expeditious  AS ORACULAR Boolean
+
+// by default, if a thing is not defined in further detail, then it is oracular.
+// so the above definitions are actually redundant; but we show what they look like explicitly.
+
+DECLARE Object
+
+// many of these class types can be inferred
+DECLARE explanation
+  - re :: Object
+
+// by default every attribute of an object is optional; see the Required keyword
+DECLARE Entity
+  - name :: Name
+  - grounds ::
+    - credible :: Boolean Default True
+    - to :: Action
+
+DECLARE Action
+  - to :: Maybe Action
+
+DECLARE Notify
+  - to :: Required Entity
+  - body :: Required
+    = SimpleRule
+
+DECLARE SimpleRule
+  - "PARTY" Party :: Entity
+  - d@("MAY" | "MUST" | "SHANT") :: Deontic
+  - act :: Action
+  - "BY" d :: Deadline
+
+DECLARE Deadline
+  - reltime :: RelativeTimeSpec
+  | abstime :: AbsoluteTimeSpec
+  | predtime :: Predicate
+
+

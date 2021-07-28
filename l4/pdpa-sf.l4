@@ -7,18 +7,31 @@
 
   IMPORT "pdpa.l4"
          -- brings in the "ontology" class definition, etc
+         "std-sf.l4"
+	 -- standard library
+	 
 
-  SOURCE PDPA         {revision:2020}      .6A
-       , AdvGuidelines{revision:2021-02-01}.20 AS guidelines
+  SOURCE PDPA         {revision:2020}      .6A AS PDPA
+       , Regulations  {revision:2021-02-01}.20 AS regulations
+       , AdvGuidelines{revision:2021-02-01}    AS guidelines
+       , Guide        {revision:2021-03-15}    AS guide
+
+      §§ DBNO
+  SOURCE guidelines 20.1
+  DEFINE DBNO :en:"Data Breach Notification Obligation"
+      AS SOURCE PDPA
+         [ startAssessment
+	 , notifyBreach(to = affectedIndividuals)
+	 , notifyBreach(to = principalOrganisation)
+	 ]
 
       §§ startAssessment
-  SOURCE guidelines 20.1--4
-    UPON P.believe(DBEvent)
+  SOURCE guidelines 20.2--4
+    UPON P.has.grounds(credible=True, to=believe(DBEvent))
    PARTY P :: Organisation | DataIntermediary
-    MUST conductAssessment :en:"take reasonable and expeditious steps to assess"
-      BY 30d
-    LEST -- lambda rule, inline and nameless
-       { PARTY PDPC MAY -- activate a new rule, that
+    MUST takeSteps(to=conductAssessment)
+    LEST 
+       { PARTY PDPC MAY
          NOTIFY( to = P
                , body = {
                    PARTY P
@@ -27,9 +40,15 @@
                )
        }
    WHERE DEFINE P.believe(DBEvent)
-             AS WHEN NOTICE.from IN [ Public, DataIntermediary ]
+             AS WHEN DBEvent.notice_from IN [ Public, DataIntermediary ]
                   OR DBEvent.self_discovery
-         
+         DEFINE takeSteps(to=x)
+	   :en: "take reasonable and expeditious steps to (x)"
+	     AS x(reasonably=True)
+             BY DEADLINE(expeditious=True)
+	        WHERE SOURCE 20.4
+		      expeditious = 30d
+
       §§ 20.5
   DEFINE conductAssessment AS
    PARTY P
@@ -53,9 +72,9 @@
          Sarah :: Human          { role = "HR executive"
                                  , employer = Company }
          Rachel :: Human         { employer = Company }
-   TRACE Date1               NOTIFY (from = Sarah,  to = Company, body = { Device.status = Misplaced } )
-         Date2 === Date1 + 4 DELIVER(from = Rachel, to = Company.departments.HR, body = Device)
-         Date2               AVER   (from = Company, body = { Device.accessLog[Date1 .. Date2] == [] } )
+   TRACE Date1                NOTIFY (from = Sarah,  to = Company, body = { Device.status = Misplaced } )
+         Date2 === Date1 + 4d DELIVER(from = Rachel, to = Company.departments.HR, body = Device)
+         Date2                AVER   (from = Company, body = { Device.accessLog[Date1 .. Date2] == [] } )
   EXPECT Breach.notifiable == False
 
       §§ 20.7
