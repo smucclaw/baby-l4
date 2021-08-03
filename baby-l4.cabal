@@ -95,6 +95,7 @@ library
                   ToGF.FromL4.ToAnswers
                   ToSCASP
                   ToDA2
+                  SimpleRules
 
                   --ExampleInput
                   Exec

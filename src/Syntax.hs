@@ -624,3 +624,127 @@ data Modality = Must | May
 
 data EventRule t = EvRule ARName [Event t] Modality [PartyName] Action [ClConstr] ARName ARName
   deriving (Eq, Ord, Show, Read, Data, Typeable)
+
+
+
+
+
+
+
+testRule :: Rule (LocTypeAnnot (Tp ()))
+testRule = Rule
+      { annotOfRule = LocTypeAnnot
+        { locAnnot = undefined
+        , typeAnnot = ClassT
+          { annotOfTp = ()
+          , classNameOfTp = ClsNm { stringOfClassName = "Boolean" }
+          }
+        }
+      , nameOfRule = Just "accInad"
+      , instrOfRule = []
+      , varDeclsOfRule = []
+      , precondOfRule = AppE
+        { annotOfExpr = LocTypeAnnot
+          { locAnnot = undefined
+          , typeAnnot = ClassT
+            { annotOfTp = ()
+            , classNameOfTp = ClsNm { stringOfClassName = "Boolean" }
+            }
+          }
+        , funOfExprAppE = VarE
+          { annotOfExpr = LocTypeAnnot
+            { locAnnot = undefined
+            , typeAnnot = FunT
+              { annotOfTp = ()
+              , funTp = ClassT
+                { annotOfTp = ()
+                , classNameOfTp = ClsNm { stringOfClassName = "FinancialStatus" }
+                }
+              , argTp = ClassT
+                { annotOfTp = ()
+                , classNameOfTp = ClsNm { stringOfClassName = "Boolean" }
+                }
+              }
+            }
+          , varOfExprVarE = GlobalVar
+            { nameOfVar = QVarName
+              { annotOfQVarName = LocTypeAnnot
+                { locAnnot = undefined
+                , typeAnnot = OkT
+                }
+              , nameOfQVarName = "savings_account"
+              }
+            }
+          }
+        , argOfExprAppE = VarE
+          { annotOfExpr = LocTypeAnnot
+            { locAnnot = undefined
+            , typeAnnot = ClassT
+              { annotOfTp = ()
+              , classNameOfTp = ClsNm { stringOfClassName = "FinancialStatus" }
+              }
+            }
+          , varOfExprVarE = GlobalVar
+            { nameOfVar = QVarName
+              { annotOfQVarName = LocTypeAnnot
+                { locAnnot = undefined
+                , typeAnnot = OkT
+                }
+              , nameOfQVarName = "inadequate"
+              }
+            }
+          }
+        }
+      , postcondOfRule = AppE
+        { annotOfExpr = LocTypeAnnot
+          { locAnnot = undefined
+          , typeAnnot = ClassT
+            { annotOfTp = ()
+            , classNameOfTp = ClsNm { stringOfClassName = "Boolean" }
+            }
+          }
+        , funOfExprAppE = VarE
+          { annotOfExpr = LocTypeAnnot
+            { locAnnot = undefined
+            , typeAnnot = FunT
+              { annotOfTp = ()
+              , funTp = ClassT
+                { annotOfTp = ()
+                , classNameOfTp = ClsNm { stringOfClassName = "InvestmentStrategy" }
+                }
+              , argTp = ClassT
+                { annotOfTp = ()
+                , classNameOfTp = ClsNm { stringOfClassName = "Boolean" }
+                }
+              }
+            }
+          , varOfExprVarE = GlobalVar
+            { nameOfVar = QVarName
+              { annotOfQVarName = LocTypeAnnot
+                { locAnnot = undefined
+                , typeAnnot = OkT
+                }
+              , nameOfQVarName = "investment"
+              }
+            }
+          }
+        , argOfExprAppE = VarE
+          { annotOfExpr = LocTypeAnnot
+            { locAnnot = undefined
+            , typeAnnot = ClassT
+              { annotOfTp = ()
+              , classNameOfTp = ClsNm { stringOfClassName = "InvestmentStrategy" }
+              }
+            }
+          , varOfExprVarE = GlobalVar
+            { nameOfVar = QVarName
+              { annotOfQVarName = LocTypeAnnot
+                { locAnnot = undefined 
+                , typeAnnot = OkT
+                }
+              , nameOfQVarName = "savings"
+              }
+            }
+          }
+        }
+      }
