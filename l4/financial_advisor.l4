@@ -161,8 +161,7 @@ earnings 25000 steady
 
 # 11
 fact <dependentsF>
-for x: Integer
-(dependents x --> x >= 2) && (x >= 2 --> dependents x)
+dependents 3
 
 assert {SMT: valid}
 income inadequate

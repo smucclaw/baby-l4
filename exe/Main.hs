@@ -30,6 +30,8 @@ import Data.Either (rights)
 
 import ToDA2 (createDSyaml)
 import TimedMC (runAut)
+import SimpleRules (expSysTest)
+import Text.Pretty.Simple (pPrint)
 
 readPrelude :: IO (Program SRng)
 readPrelude = do
@@ -70,13 +72,13 @@ process args input = do
                         createQuestions fpath normalAst
                         putStrLn "---------------"
                         createPGFforAnswers fpath normalAst
+            Fexpsys -> expSysTest tpAstNoSrc -- call expert systems tests with the parse tree
     Left err -> do
       putStrLn "Parser Error:"
       print err
 
 
-data Format   = Fast | Faut | Fgf GFOpts | Fscasp | Fsmt | Fyaml
- deriving Show
+data Format   = Fast | Faut | Fgf GFOpts | Fscasp | Fsmt | Fyaml | Fexpsys
 
 --  l4 gf en          output english only
 --  l4 gf en --ast    output english AND show the GF ast
@@ -105,6 +107,7 @@ optsParse = InputOpts <$>
                <> command "scasp" (info (pure Fscasp) (progDesc "output to sCASP for DocAssemble purposes"))
                <> command "smt"   (info (pure Fsmt) (progDesc "Check assertion with SMT solver"))
                <> command "yaml" (info (pure Fyaml) (progDesc "output to YAML for DocAssemble purposes"))
+               <> command "expsys" (info (pure Fexpsys) (progDesc "expert systems test test"))
                )
             <*> switch (long "testModels" <> help "Demo of NLG from sCASP models")
             <*> argument str (metavar "Filename")
