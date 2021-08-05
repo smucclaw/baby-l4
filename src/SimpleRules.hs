@@ -1,14 +1,14 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE InstanceSigs #-}
 
-module SimpleRules ( expSysTest ) where
+module SimpleRules ( expSysTest, esUnitTests )  where
 
 -- import Parser (parseProgram)
 -- import Annotation ( SRng )
 import Syntax
 import qualified Data.Set as S
 import Data.Graph.Inductive.Graph
-import Data.Graph.Inductive.PatriciaTree
+import Data.Graph.Inductive.PatriciaTree ( Gr )
 import qualified Data.Maybe as M
 import qualified Data.List as L
 import Data.GraphViz
@@ -16,6 +16,11 @@ import Data.Graph.Inductive.Query.DFS
 
 import Data.GraphViz.Attributes.Complete
 import qualified Data.Text.Lazy as T
+import Data.Either
+import Test.Tasty
+import Test.Tasty.HUnit
+        -- usefulrules = ["accInad", "accAdIncAd", "accAdIncInad", "savingsAd", "savingsInad", "incomeAd", "incomeInadESteady", "incomeInadEUnsteady"]
+        -- usefulsimple = [r | r <- validRules , nameOfSimpleRule r `elem` usefulrule
 
 data SimpleRule t = SimpleRule { 
                      nameOfSimpleRule :: String -- Maybe String
@@ -28,10 +33,11 @@ flattenConjs :: Expr t -> [Expr t]
 flattenConjs (BinOpE _ (BBool BBand) e1 e2) = flattenConjs e1 ++ flattenConjs e2
 flattenConjs x = [x]
 
--- 1: some sort of preprocesing that removes illegal expressions (not applications of predicates to arguments)
-ruleToSimpleRule :: Rule t -> SimpleRule t
-ruleToSimpleRule r = 
-    SimpleRule (M.fromJust $ nameOfRule r) (varDeclsOfRule r) (flattenConjs (precondOfRule r)) (postcondOfRule r)
+-- TODO 1: some sort of preprocesing that removes illegal expressions (not applications of predicates to arguments)
+ruleToSimpleRule :: Rule t -> Either String (SimpleRule t)
+ruleToSimpleRule r 
+  | isRule r = Right $ SimpleRule (M.fromJust $ nameOfRule r) (varDeclsOfRule r) (flattenConjs (precondOfRule r)) (postcondOfRule r)
+  | otherwise = Left $ "Not a valid rule: " ++ M.fromJust (nameOfRule r) ++ "\n"
 
 
 type PredName = String
@@ -136,22 +142,34 @@ type NInd = Int
 data LabelledGraph a = LG (Gr a String) [(NInd, a)] [(a, NInd)]
   deriving Show
 
+data GraphOut = Dependency | Propagation deriving (Eq, Show)
+
+
+mkPropagationGraph :: Eq a => S.Set a -> S.Set (a, a) -> LabelledGraph a
+mkPropagationGraph = mkLabelledGraph Propagation
+
+mkDependencyGraph :: Eq a => S.Set a -> S.Set (a, a) -> LabelledGraph a
+mkDependencyGraph = mkLabelledGraph Dependency
+
+
+-- | Makes either a propagation or dependency graph
 -- a ~ RuleNode
-mkLabelledGraph :: Eq a => S.Set a -> S.Set (a, a) -> LabelledGraph a
-mkLabelledGraph nodeset edgeset =
+mkLabelledGraph :: Eq a => GraphOut -> S.Set a -> S.Set (a, a) -> LabelledGraph a
+mkLabelledGraph gOut nodeset edgeset =
   let nodelist = S.toList nodeset
       edgelist = S.toList edgeset
       nodeIndSym = zip [0..length nodelist-1] nodelist
       nodeSymInd = zip nodelist [0..length nodelist-1]
-      ledges = edgeSetSymToInd nodeSymInd edgelist
-  in LG (mkGraph nodeIndSym ledges) nodeIndSym nodeSymInd
+      gEdges = edgeSetSymToInd gOut nodeSymInd edgelist
+  in LG (mkGraph nodeIndSym gEdges) nodeIndSym nodeSymInd
 
 -- NInd should occur in assoc list
 indToSym :: Eq a => [(a, b)] -> a -> b
 indToSym xs a = M.fromJust $ L.lookup a xs
 
-edgeSetSymToIndPropagation :: Eq a => [(a, NInd)] -> [(a, a)] -> [(NInd, NInd, String)]
-edgeSetSymToIndPropagation nodeSymInd = map (\(n1,n2) -> (indToSym nodeSymInd n2, indToSym nodeSymInd n1, ""))
+edgeSetSymToInd :: Eq a => GraphOut -> [(a, NInd)] -> [(a, a)] -> [(NInd, NInd, String)]
+edgeSetSymToInd Propagation nodeSymInd = map (\(n1,n2) -> (indToSym nodeSymInd n2, indToSym nodeSymInd n1, ""))
+edgeSetSymToInd Dependency nodeSymInd = map (\(n1,n2) -> (indToSym nodeSymInd n1, indToSym nodeSymInd n2, ""))
 
 labelledSCC :: LabelledGraph a -> [[a]]
 labelledSCC (LG gr indSym _) = map (map (indToSym indSym)) (scc gr)
@@ -160,25 +178,55 @@ labelledSCC (LG gr indSym _) = map (map (indToSym indSym)) (scc gr)
 -- topologically sort graph beginning from leaves
 -- find min and max dependency of each node
 
+
+
+ -- traverse :: (a -> Maybe b) -> [a] -> Maybe [b]
+ -- traverse :: (Rule t -> Either String (SimpleRule t)) -> [Rule t] -> Either String [SimpleRule t]
+-- traverse :: (Rule t -> Maybe (SimpleRule t)) -> [Rule t] -> Maybe [SimpleRule t]
+
 expSysTest :: Program (Tp ()) -> IO ()
 expSysTest x = do
-    -- print usnodes
-    -- print usedges
-    -- print $ mkLabelledGraph usnodes usedges
+    let myrules = rulesOfProgram x
+        errs = lefts $ map ruleToSimpleRule myrules
+        validRules = rights $ map ruleToSimpleRule myrules
+        (usnodes, usedges) = simpleRuleToRuleNode validRules 
+        myPropLGGraph = mkLabelledGraph Propagation usnodes usedges
+        myDepLGGraph = mkLabelledGraph Dependency usnodes usedges
+        (LG mypropgraph _ _) = myPropLGGraph
+        (LG mydepgraph _ _) = myDepLGGraph
+    _ <- runGraphviz (graphToDot quickParams mypropgraph) Pdf "compactPropGraph.pdf"
+    _ <- runGraphviz (graphToDot quickParams mydepgraph) Pdf "compactDepGraph.pdf"
+    print $ topsort' mypropgraph
+    print errs
+    print validRules
+        -- print $ labelledSCC mypropgraph
+        -- return ()
 
-    _ <- runGraphviz (graphToDot quickParams mygraph) Pdf "compactGraph.pdf"
-    print $ topsort' mygraph
-    print $ labelledSCC myLGGraph
-    -- return ()
-  where 
-    myrules = rulesOfProgram x 
-    simplerules = ruleToSimpleRule <$> myrules
-    usefulrules = ["accInad", "accAdIncAd", "accAdIncInad", "savingsAd", "savingsInad", "incomeAd", "incomeInadESteady", "incomeInadEUnsteady"]
-    usefulsimple = [r | r <- simplerules, nameOfSimpleRule r `elem` usefulrules]
-    (usnodes, usedges) = simpleRuleToRuleNode usefulsimple
-    myLGGraph = mkLabelledGraph usnodes usedges
-    (LG mygraph _ _) = myLGGraph
-    dotfile = runGraphviz (graphToDot quickParams mygraph) Pdf "graph.pdf"
+
+esUnitTests :: Program (Tp ()) -> IO () 
+esUnitTests xs = defaultMain $ testGroup "Expert System Tests" [
+        testGroup "isRule" [
+            testCase "returns True for basicRule.l4" ('a' @?= 'a')       
+        ]
+    ]
+-- TODO: Fix the tests
+-- iamanimport :: IO ()
+-- iamanimport = hspec $ do
+--   describe "why does this not work" $ do
+--     it "1 is 1 is 1 is 1" $ do
+--       1 `shouldBe` 1
+  -- describe "isRule" $ do
+  --   it "returns True for \"accInad\"" $ do
+  --     isRule (singleRule "accInad") `shouldBe` True
+  --   it "returns True for \"savingsAd\"" $ do
+  --     isRule (singleRule "savingsAd") `shouldBe` True
+  -- where 
+  --   myrules = rulesOfProgram x
+  --   usefulrules = ["accInad", "accAdIncAd", "accAdIncInad", "savingsAd", "savingsInad", "incomeAd", "incomeInadESteady", "incomeInadEUnsteady"]
+  --   singleRule x = head $ [r | r <- myrules, nameOfRule r == Just x]
+    
+
+
 
 
 -- -- Goal: get a DOT formatted output, or maybe an SVG output from 
@@ -192,28 +240,16 @@ expSysTest x = do
 -- --  3) postconditions of rule
 -- -- It might also have variable declarations
 
--- -- "Main"
--- outputDOT :: Program (Tp t) -> IO ()
--- outputDOT p = undefined 
+-- Helper function that determines if a rule structure is a predicate
+isRule :: Rule t -> Bool
+isRule x
+  | condValid (precondOfRule x) && condValid (postcondOfRule x) = True -- do i need to check if the rule has a name?
+  | otherwise = False
 
--- -- check through rule structures and return list of 
--- -- predicates
--- retainRules :: [Rule t] -> [Maybe (Rule t)]
--- retainRules (x:xs) 
---   | isRule x = Just x : retainRules xs  -- i feel like there's a better way to do this
---   | otherwise = retainRules xs
--- retainRules [] = []
-
--- -- Helper function that determines if a rule structure is a predicate
--- isRule :: Rule t -> Bool
--- isRule x
---   | condValid precondOfRule x && condValid postcondOfRule x = True -- do i need to check if the rule has a name?
---   | otherwise = False
-
--- -- Helper function for checking valid pre/post-condition
--- condValid :: (Rule t -> Expr t) -> Rule t -> Bool
--- condValid f x = case f x of 
---   -- BinOpE _ (BBool BBand) e1 e2-> condValid e1 && condValid e2 
---   AppE {} -> True
---   _ -> False 
+-- Helper function for checking valid pre/post-condition
+condValid :: Expr t -> Bool
+condValid x = case x of 
+  BinOpE _ (BBool BBand) e1 e2-> condValid e1 && condValid e2 
+  AppE {} -> True
+  _ -> False 
 

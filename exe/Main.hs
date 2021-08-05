@@ -72,7 +72,7 @@ process args input = do
                         createQuestions fpath normalAst
                         putStrLn "---------------"
                         createPGFforAnswers fpath normalAst
-            Fexpsys -> expSysTest tpAstNoSrc -- call expert systems tests with the parse tree
+            Fexpsys -> esUnitTests tpAstNoSrc -- call expert systems tests with the parse tree
     Left err -> do
       putStrLn "Parser Error:"
       print err
@@ -107,7 +107,7 @@ optsParse = InputOpts <$>
                <> command "scasp" (info (pure Fscasp) (progDesc "output to sCASP for DocAssemble purposes"))
                <> command "smt"   (info (pure Fsmt) (progDesc "Check assertion with SMT solver"))
                <> command "yaml" (info (pure Fyaml) (progDesc "output to YAML for DocAssemble purposes"))
-               <> command "expsys" (info (pure Fexpsys) (progDesc "expert systems test test"))
+               <> command "expsys" (info (pure Fexpsys) (progDesc "expert systems tests"))
                )
             <*> switch (long "testModels" <> help "Demo of NLG from sCASP models")
             <*> argument str (metavar "Filename")

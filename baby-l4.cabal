@@ -137,6 +137,9 @@ library
                      , sbv
                      -- required for graph processing (rule transformation)
                      , fgl >= 5.7
+                     , graphviz
+                     , tasty
+                     , tasty-hunit
                      -- required for lsp
                      , lsp        >=1.0.0.0
                      , lsp-types  >=1.0.0.0
@@ -149,7 +152,6 @@ library
                      , transformers
                      , rope-utf16-splay
                      , mmorph
-                     , graphviz
   default-language: Haskell2010
   ghc-options: -Wall
 
