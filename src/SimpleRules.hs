@@ -45,18 +45,42 @@ data RuleNode = AndN RuleName -- string is the name of the rule
 
 type RuleEdge = (RuleNode, RuleNode)
 
+data RuleNodeCompact =
+    PredOr PredName -- implicit Or
+  | RuleAnd RuleName -- implicit And
+  deriving (Eq, Ord, Show)
+
+type RuleEdgeCompact = (RuleNodeCompact, RuleNodeCompact)
+
 -- TODO: case match on RuleNode constructors for or/and nodes
 -- alternatively, remove or/and nodes altogether
 instance Labellable RuleNode where
   toLabelValue :: RuleNode -> Label
   toLabelValue x = StrLabel (T.pack $ show x)
 
+instance Labellable RuleNodeCompact where
+  toLabelValue :: RuleNodeCompact -> Label
+  toLabelValue x = StrLabel (T.pack $ show x)
 
 mkPredOr :: PredName -> RuleEdge
 mkPredOr x = (PredN x, OrN x)
 
 mkRuleAnd :: RuleName -> RuleEdge
 mkRuleAnd x = (RuleN x, AndN x)
+
+-- implicit Or
+mkPredRule :: [SimpleRule t] -> PredName -> S.Set RuleEdgeCompact
+mkPredRule xs pname =
+  let matchedRuleNames = [RuleAnd $ nameOfSimpleRule r | r <- xs, (funNameOfApp . postcondOfSimpleRule) r == S.singleton pname]
+  in S.fromList $ map ((,) (PredOr pname)) matchedRuleNames
+
+-- implicit And
+mkRulePred :: SimpleRule t -> S.Set RuleEdgeCompact
+mkRulePred r =
+  let rname = nameOfSimpleRule r
+      preConds = precondOfSimpleRule r
+      preCondNames = S.unions $ funNameOfApp <$> preConds
+  in S.map ((,) (RuleAnd rname)) $ S.map PredOr preCondNames
 
 -- TODO 2: Dependent on TODO 1, replace comparison of set to comparison of strings
 mkOrRule :: [SimpleRule t] -> PredName -> S.Set RuleEdge
@@ -74,21 +98,23 @@ mkAndPred x =
   S.map ((,) (AndN rname)) $ S.map PredN preCondNames
 
 -- TODO: flip direction of edges so that topologically sort begins with leaves
-simpleRuleToRuleNode :: [SimpleRule t] -> (S.Set RuleNode, S.Set RuleEdge)
+simpleRuleToRuleNode :: [SimpleRule t] -> (S.Set RuleNodeCompact, S.Set RuleEdgeCompact)
 simpleRuleToRuleNode xs = let
   prednames = getAllRulePreds xs
   rulenames = getAllRuleNames xs
-  prednodes = S.map PredN prednames
-  ornodes = S.map OrN prednames
-  predoredges = S.map mkPredOr prednames
-  rulenodes = S.map RuleN rulenames
-  andnodes = S.map AndN rulenames
-  ruleandedges = S.map mkRuleAnd rulenames
-  orruleedges = S.unions $ S.map (mkOrRule xs) prednames
-  andprededges = S.unions $ map mkAndPred xs
+  prednodes = S.map PredOr prednames
+  -- ornodes = S.map OrN prednames
+  -- predoredges = S.map mkPredOr prednames
+  rulenodes = S.map RuleAnd rulenames
+  -- andnodes = S.map AndN rulenames
+  -- ruleandedges = S.map mkRuleAnd rulenames
+  orruleedges = S.unions $ S.map (mkPredRule xs) prednames
+  andprededges = S.unions $ map mkRulePred xs
   in
-  (S.unions [prednodes,ornodes,rulenodes,andnodes],
-   S.unions [predoredges, andprededges, orruleedges, ruleandedges])
+  -- (S.unions [prednodes,ornodes,rulenodes,andnodes],
+  --  S.unions [predoredges, andprededges, orruleedges, ruleandedges])
+  (S.unions [prednodes,rulenodes],
+   S.unions [andprededges, orruleedges])
 
 getAllRulePreds :: [SimpleRule t] -> S.Set PredName
 getAllRulePreds xs = S.unions $ map rulePreds xs
@@ -124,8 +150,8 @@ mkLabelledGraph nodeset edgeset =
 indToSym :: Eq a => [(a, b)] -> a -> b
 indToSym xs a = M.fromJust $ L.lookup a xs
 
-edgeSetSymToInd :: Eq a => [(a, NInd)] -> [(a, a)] -> [(NInd, NInd, String)]
-edgeSetSymToInd nodeSymInd = map (\(n1,n2) -> (indToSym nodeSymInd n2, indToSym nodeSymInd n1, ""))
+edgeSetSymToIndPropagation :: Eq a => [(a, NInd)] -> [(a, a)] -> [(NInd, NInd, String)]
+edgeSetSymToIndPropagation nodeSymInd = map (\(n1,n2) -> (indToSym nodeSymInd n2, indToSym nodeSymInd n1, ""))
 
 labelledSCC :: LabelledGraph a -> [[a]]
 labelledSCC (LG gr indSym _) = map (map (indToSym indSym)) (scc gr)
@@ -140,7 +166,7 @@ expSysTest x = do
     -- print usedges
     -- print $ mkLabelledGraph usnodes usedges
 
-    _ <- runGraphviz (graphToDot quickParams mygraph) Pdf "graph4.pdf"
+    _ <- runGraphviz (graphToDot quickParams mygraph) Pdf "compactGraph.pdf"
     print $ topsort' mygraph
     print $ labelledSCC myLGGraph
     -- return ()
