@@ -149,6 +149,7 @@ library
                      , transformers
                      , rope-utf16-splay
                      , mmorph
+                     , graphviz
   default-language: Haskell2010
   ghc-options: -Wall
 

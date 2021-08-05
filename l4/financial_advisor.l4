@@ -115,7 +115,8 @@ then income inadequate
 # 8
 rule <incomeInadEUnsteady>
 for x: Integer
-if earnings x unsteady 
+# for demonstrating cycles: if earnings x unsteady && investment stocks
+if earnings x unsteady
 then income inadequate
 
 ## Derived rules

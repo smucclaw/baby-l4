@@ -1,14 +1,21 @@
 {-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE InstanceSigs #-}
+
 module SimpleRules ( expSysTest ) where
 
-import Parser (parseProgram)
+-- import Parser (parseProgram)
+-- import Annotation ( SRng )
 import Syntax
-import Annotation ( SRng )
 import qualified Data.Set as S
 import Data.Graph.Inductive.Graph
 import Data.Graph.Inductive.PatriciaTree
 import qualified Data.Maybe as M
+import qualified Data.List as L
+import Data.GraphViz
+import Data.Graph.Inductive.Query.DFS
+
+import Data.GraphViz.Attributes.Complete
+import qualified Data.Text.Lazy as T
 
 data SimpleRule t = SimpleRule { 
                      nameOfSimpleRule :: String -- Maybe String
@@ -21,15 +28,10 @@ flattenConjs :: Expr t -> [Expr t]
 flattenConjs (BinOpE _ (BBool BBand) e1 e2) = flattenConjs e1 ++ flattenConjs e2
 flattenConjs x = [x]
 
--- TODO 1: some sort of preprocesing that removes illegal expressions (not applications of predicates to arguments)
+-- 1: some sort of preprocesing that removes illegal expressions (not applications of predicates to arguments)
 ruleToSimpleRule :: Rule t -> SimpleRule t
 ruleToSimpleRule r = 
     SimpleRule (M.fromJust $ nameOfRule r) (varDeclsOfRule r) (flattenConjs (precondOfRule r)) (postcondOfRule r)
-
-data AndOrTree i 
-    = LeafT i 
-    | AndT i [AndOrTree i]
-    | OrT i [AndOrTree i]
 
 
 type PredName = String
@@ -41,21 +43,27 @@ data RuleNode = AndN RuleName -- string is the name of the rule
               | RuleN RuleName
               deriving (Eq, Ord, Show)
 
-data RuleEdge = RuleEdge RuleNode RuleNode deriving (Eq,Ord,Show)
- 
+type RuleEdge = (RuleNode, RuleNode)
+
+-- TODO: case match on RuleNode constructors for or/and nodes
+-- alternatively, remove or/and nodes altogether
+instance Labellable RuleNode where
+  toLabelValue :: RuleNode -> Label
+  toLabelValue x = StrLabel (T.pack $ show x)
+
 
 mkPredOr :: PredName -> RuleEdge
-mkPredOr x = RuleEdge (PredN x) (OrN x)
+mkPredOr x = (PredN x, OrN x)
 
 mkRuleAnd :: RuleName -> RuleEdge
-mkRuleAnd x = RuleEdge (RuleN x) (AndN x)
+mkRuleAnd x = (RuleN x, AndN x)
 
 -- TODO 2: Dependent on TODO 1, replace comparison of set to comparison of strings
 mkOrRule :: [SimpleRule t] -> PredName -> S.Set RuleEdge
 mkOrRule xs pname =
   let matchedRuleNames = [RuleN $ nameOfSimpleRule r | r <- xs, (funNameOfApp . postcondOfSimpleRule) r == S.singleton pname]
   in 
-  S.fromList $ map (RuleEdge (OrN pname)) matchedRuleNames
+  S.fromList $ map ((,) (OrN pname)) matchedRuleNames
 
 mkAndPred :: SimpleRule t -> S.Set RuleEdge
 mkAndPred x =
@@ -63,9 +71,9 @@ mkAndPred x =
       preConds = precondOfSimpleRule x
       preCondNames = S.unions $ funNameOfApp <$> preConds
   in
-  S.map (RuleEdge (AndN rname)) $ S.map PredN preCondNames
+  S.map ((,) (AndN rname)) $ S.map PredN preCondNames
 
-
+-- TODO: flip direction of edges so that topologically sort begins with leaves
 simpleRuleToRuleNode :: [SimpleRule t] -> (S.Set RuleNode, S.Set RuleEdge)
 simpleRuleToRuleNode xs = let
   prednames = getAllRulePreds xs
@@ -97,26 +105,56 @@ funNameOfApp _ = S.empty
 getAllRuleNames :: [SimpleRule t] -> S.Set RuleName
 getAllRuleNames xs = S.fromList $ map nameOfSimpleRule xs
 
+type NInd = Int
+-- a is the node type
+data LabelledGraph a = LG (Gr a String) [(NInd, a)] [(a, NInd)]
+  deriving Show
 
+-- a ~ RuleNode
+mkLabelledGraph :: Eq a => S.Set a -> S.Set (a, a) -> LabelledGraph a
+mkLabelledGraph nodeset edgeset =
+  let nodelist = S.toList nodeset
+      edgelist = S.toList edgeset
+      nodeIndSym = zip [0..length nodelist-1] nodelist
+      nodeSymInd = zip nodelist [0..length nodelist-1]
+      ledges = edgeSetSymToInd nodeSymInd edgelist
+  in LG (mkGraph nodeIndSym ledges) nodeIndSym nodeSymInd
 
+-- NInd should occur in assoc list
+indToSym :: Eq a => [(a, b)] -> a -> b
+indToSym xs a = M.fromJust $ L.lookup a xs
 
+edgeSetSymToInd :: Eq a => [(a, NInd)] -> [(a, a)] -> [(NInd, NInd, String)]
+edgeSetSymToInd nodeSymInd = map (\(n1,n2) -> (indToSym nodeSymInd n2, indToSym nodeSymInd n1, ""))
 
+labelledSCC :: LabelledGraph a -> [[a]]
+labelledSCC (LG gr indSym _) = map (map (indToSym indSym)) (scc gr)
 
-
+-- TODO 4
+-- topologically sort graph beginning from leaves
+-- find min and max dependency of each node
 
 expSysTest :: Program (Tp ()) -> IO ()
 expSysTest x = do
-    print usnodes
-    print usedges
+    -- print usnodes
+    -- print usedges
+    -- print $ mkLabelledGraph usnodes usedges
+
+    _ <- runGraphviz (graphToDot quickParams mygraph) Pdf "graph4.pdf"
+    print $ topsort' mygraph
+    print $ labelledSCC myLGGraph
+    -- return ()
   where 
     myrules = rulesOfProgram x 
     simplerules = ruleToSimpleRule <$> myrules
-    usefulrules = ["accInad", "accAdIncAd", "accAdIncInad"]
+    usefulrules = ["accInad", "accAdIncAd", "accAdIncInad", "savingsAd", "savingsInad", "incomeAd", "incomeInadESteady", "incomeInadEUnsteady"]
     usefulsimple = [r | r <- simplerules, nameOfSimpleRule r `elem` usefulrules]
     (usnodes, usedges) = simpleRuleToRuleNode usefulsimple
+    myLGGraph = mkLabelledGraph usnodes usedges
+    (LG mygraph _ _) = myLGGraph
+    dotfile = runGraphviz (graphToDot quickParams mygraph) Pdf "graph.pdf"
 
-    
-    
+
 -- -- Goal: get a DOT formatted output, or maybe an SVG output from 
 
 -- -- an input l4 file. The program should only act on predicates 
