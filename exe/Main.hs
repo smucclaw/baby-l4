@@ -63,7 +63,7 @@ process args input = do
                         createQuestions fpath normalAst
                         putStrLn "---------------"
                         createPGFforAnswers fpath normalAst
-            Fexpsys ->  expSysTest tpAstNoSrc -- call expert systems tests with the parse tree
+            Fexpsys ->  expSys tpAstNoSrc -- call expert systems tests with the parse tree
     Left err -> do
       putStrLn "Parser Error:"
       print err

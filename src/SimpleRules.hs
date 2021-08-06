@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE InstanceSigs #-}
 
-module SimpleRules ( expSysTest, esUnitTests )  where
+module SimpleRules (isRule, expSys ) where
 
 -- import Parser (parseProgram)
 -- import Annotation ( SRng )
@@ -203,18 +203,14 @@ expSysTest x = do
         -- return ()
 
 
-esUnitTests :: Program (Tp ()) -> IO () 
-esUnitTests xs = defaultMain $ testGroup "Expert System Tests" [
-        testGroup "isRule" [
-            testCase "returns True for basicRule.l4" ('a' @?= 'a')       
-        ]
-    ]
 -- TODO: Fix the tests
--- iamanimport :: IO ()
--- iamanimport = hspec $ do
---   describe "why does this not work" $ do
---     it "1 is 1 is 1 is 1" $ do
---       1 `shouldBe` 1
+-- esUnitTests :: Program (Tp ()) -> IO ()
+-- esUnitTests xs = defaultMain $ testGroup "Expert System Tests" [
+--         testGroup "isRule" [
+--             testCase "returns True for basicRule.l4" $ do
+--                 '1' @?= '1'    
+--         ]
+--     ]
   -- describe "isRule" $ do
   --   it "returns True for \"accInad\"" $ do
   --     isRule (singleRule "accInad") `shouldBe` True
