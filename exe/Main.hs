@@ -28,22 +28,13 @@ import Text.Pretty.Simple ( pPrint, pPrintString, pPrint )
 import Error (printError)
 import Data.Either (rights)
 
-import ToDA2 (createDSyaml)
+import MainHelpers (readPrelude)
 import TimedMC (runAut)
-import SimpleRules (expSysTest)
-import Text.Pretty.Simple (pPrint)
+import SimpleRules ( expSysTest, esUnitTests ) 
+import ToDA2 (createDSyaml)
 
-readPrelude :: IO (Program SRng)
-readPrelude = do
-  l4PreludeFilepath <- getDataFileName "l4/Prelude.l4"
-  do
-    contents <- readFile l4PreludeFilepath
-    case parseProgram l4PreludeFilepath contents of
-      Right ast -> do
-        -- print ast
-        return ast
-      Left err -> do
-        error "Parser Error in Prelude"
+
+
 
 process :: InputOpts -> String -> IO ()
 process args input = do
@@ -72,7 +63,7 @@ process args input = do
                         createQuestions fpath normalAst
                         putStrLn "---------------"
                         createPGFforAnswers fpath normalAst
-            Fexpsys -> esUnitTests tpAstNoSrc -- call expert systems tests with the parse tree
+            Fexpsys ->  expSysTest tpAstNoSrc -- call expert systems tests with the parse tree
     Left err -> do
       putStrLn "Parser Error:"
       print err

@@ -76,11 +76,8 @@ library
                   KeyValueMap
                   Model
                   Syntax
-<<<<<<< HEAD
                   SyntaxManipulation
-=======
                   MainHelpers
->>>>>>> 518508b (Move readPrelude into MainHelpers)
 
                   -- lsp
                   L4LSP

@@ -3,17 +3,17 @@ module MainHelpers (readPrelude) where
 import Syntax
 import Annotation
 import Paths_baby_l4 (getDataFileName)
-import Parser (parseProgram)
+import Parser (parseNewProgram)
 
 
 
 
-readPrelude :: IO (Program SRng)
+readPrelude :: IO (NewProgram SRng)
 readPrelude = do
-  l3PreludeFilepath <- getDataFileName "l4/Prelude.l4"
+  l4PreludeFilepath <- getDataFileName "l4/Prelude.l4"
   do
-    contents <- readFile l3PreludeFilepath
-    case parseProgram l3PreludeFilepath contents of
+    contents <- readFile l4PreludeFilepath
+    case parseNewProgram l4PreludeFilepath contents of
       Right ast -> do
         -- print ast
         return ast
