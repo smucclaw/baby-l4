@@ -184,8 +184,8 @@ labelledSCC (LG gr indSym _) = map (map (indToSym indSym)) (scc gr)
  -- traverse :: (Rule t -> Either String (SimpleRule t)) -> [Rule t] -> Either String [SimpleRule t]
 -- traverse :: (Rule t -> Maybe (SimpleRule t)) -> [Rule t] -> Maybe [SimpleRule t]
 
-expSysTest :: Program (Tp ()) -> IO ()
-expSysTest x = do
+expSys :: Program (Tp ()) -> IO ()
+expSys x = do
     let myrules = rulesOfProgram x
         errs = lefts $ map ruleToSimpleRule myrules
         validRules = rights $ map ruleToSimpleRule myrules
