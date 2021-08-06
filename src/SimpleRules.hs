@@ -2,10 +2,8 @@
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE TupleSections #-}
 
-module SimpleRules (isRule, expSys )where
+module SimpleRules where
 
--- import Parser (parseProgram)
--- import Annotation ( SRng )
 import Syntax
 import qualified Data.Set as S
 import Data.Graph.Inductive.Graph
@@ -30,7 +28,9 @@ data SimpleRule t = SimpleRule {
 
 flattenConjs :: Expr t -> [Expr t]
 flattenConjs (BinOpE _ (BBool BBand) e1 e2) = flattenConjs e1 ++ flattenConjs e2
-flattenConjs x = [x]
+flattenConjs fApp@AppE {} = [fApp]
+flattenConjs _ = []
+
 
 -- TODO 1: some sort of preprocesing that removes illegal expressions (not applications of predicates to arguments)
 ruleToSimpleRule :: Rule t -> Either String (SimpleRule t)

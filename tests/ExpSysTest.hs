@@ -2,7 +2,7 @@ module ExpSysTest where
 
 import Syntax
 import Annotation
-import MainHelpers ( readPrelude, getTpAst )
+import MainHelpers ( getTpAst )
 
 import Control.Monad.Except (runExceptT)
 import qualified SimpleRules as SR
@@ -27,6 +27,17 @@ esUnitTests = withResource acquire release $ \progIO->
             , testCase "returns True for <savingsAd>" $ do
                 rule <- progToRule progIO "savingsAd"
                 SR.isRule rule @?= True
+            ]
+        , testGroup "flattenConjs"
+            [ testCase "returns 1 AppE for preconds of <accInad>" $ do
+                rule <- progToRule progIO "accInad"
+                length (SR.flattenConjs . precondOfRule $ rule) @?= 1
+            , testCase "returns 2 AppE for preconds of <accAdIncInad>" $ do
+                rule <- progToRule progIO "accAdIncInad"
+                length (SR.flattenConjs . precondOfRule $ rule) @?= 2
+            , testCase "returns 2 AppE for preconds of <savingsAd>" $ do
+                rule <- progToRule progIO "savingsAd"
+                length (SR.flattenConjs . precondOfRule $ rule) @?= 2
             ]
         ]
     where acquire = getProg "tests/ExpSysTestFiles/financial_advisor.l4"
