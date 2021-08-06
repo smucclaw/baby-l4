@@ -76,7 +76,11 @@ library
                   KeyValueMap
                   Model
                   Syntax
+<<<<<<< HEAD
                   SyntaxManipulation
+=======
+                  MainHelpers
+>>>>>>> 518508b (Move readPrelude into MainHelpers)
 
                   -- lsp
                   L4LSP
@@ -167,6 +171,7 @@ test-suite unit-tests
   other-modules:       DisambiguateTest
                      , ToGFTest
                      , Paths_baby_l4
+                     , ExpSysTest
   build-depends:
       base >= 4 && < 5
     , baby-l4
