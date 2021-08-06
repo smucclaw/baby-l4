@@ -26,13 +26,30 @@ data SimpleRule t = SimpleRule {
                    , postcondOfSimpleRule :: Expr t}
   deriving (Eq, Ord, Show, Read, Functor)
 
+
+-- Helper function that determines if a rule structure is a predicate
+isRule :: Rule t -> Bool
+isRule x
+  | condValid (precondOfRule x) && condValid (postcondOfRule x) = True -- do i need to check if the rule has a name?
+  | otherwise = False
+
+-- Helper function for checking valid pre/post-condition
+condValid :: Expr t -> Bool
+condValid x = case x of
+  BinOpE _ (BBool BBand) e1 e2-> condValid e1 || condValid e2
+  AppE {} -> True
+  _ -> False
+
+-- Helper function to extract useful expressions within conjunctions
 flattenConjs :: Expr t -> [Expr t]
-flattenConjs (BinOpE _ (BBool BBand) e1 e2) = flattenConjs e1 ++ flattenConjs e2
+flattenConjs (BinOpE _ (BBool BBand) e1 e2) = flattenConjs e1 <> flattenConjs e2
 flattenConjs fApp@AppE {} = [fApp]
 flattenConjs _ = []
 
 
 -- TODO 1: some sort of preprocesing that removes illegal expressions (not applications of predicates to arguments)
+-- DONE, to review
+--    a note: isRule filters the rules that need processing, flattenConjs filters & processes the conjugates of said rules
 ruleToSimpleRule :: Rule t -> Either String (SimpleRule t)
 ruleToSimpleRule r
   | isRule r = Right $ SimpleRule (M.fromJust $ nameOfRule r) (varDeclsOfRule r) (flattenConjs (precondOfRule r)) (postcondOfRule r)
@@ -42,82 +59,45 @@ ruleToSimpleRule r
 type PredName = String
 type RuleName = String
 
-data RuleNode = AndN RuleName -- string is the name of the rule 
-              | OrN PredName
-              | PredN PredName
-              | RuleN RuleName
-              deriving (Eq, Ord, Show)
-
-type RuleEdge = (RuleNode, RuleNode)
-
-data RuleNodeCompact =
+data RuleNode =
     PredOr PredName -- implicit Or
   | RuleAnd RuleName -- implicit And
   deriving (Eq, Ord, Show)
 
-type RuleEdgeCompact = (RuleNodeCompact, RuleNodeCompact)
+type RuleEdge = (RuleNode, RuleNode)
 
 -- TODO: case match on RuleNode constructors for or/and nodes
 -- alternatively, remove or/and nodes altogether
+-- DONE: See RuleNode
 instance Labellable RuleNode where
   toLabelValue :: RuleNode -> Label
   toLabelValue x = StrLabel (T.pack $ show x)
 
-instance Labellable RuleNodeCompact where
-  toLabelValue :: RuleNodeCompact -> Label
-  toLabelValue x = StrLabel (T.pack $ show x)
-
-mkPredOr :: PredName -> RuleEdge
-mkPredOr x = (PredN x, OrN x)
-
-mkRuleAnd :: RuleName -> RuleEdge
-mkRuleAnd x = (RuleN x, AndN x)
-
 -- implicit Or
-mkPredRule :: [SimpleRule t] -> PredName -> S.Set RuleEdgeCompact
+mkPredRule :: [SimpleRule t] -> PredName -> S.Set RuleEdge
 mkPredRule xs pname =
   let matchedRuleNames = [RuleAnd $ nameOfSimpleRule r | r <- xs, (funNameOfApp . postcondOfSimpleRule) r == S.singleton pname]
   in S.fromList $ map (PredOr pname,) matchedRuleNames
 
 -- implicit And
-mkRulePred :: SimpleRule t -> S.Set RuleEdgeCompact
+mkRulePred :: SimpleRule t -> S.Set RuleEdge
 mkRulePred r =
   let rname = nameOfSimpleRule r
       preConds = precondOfSimpleRule r
       preCondNames = S.unions $ funNameOfApp <$> preConds
   in S.map (RuleAnd rname,) $ S.map PredOr preCondNames
 
--- TODO 2: Dependent on TODO 1, replace comparison of set to comparison of strings
-mkOrRule :: [SimpleRule t] -> PredName -> S.Set RuleEdge
-mkOrRule xs pname =
-  let matchedRuleNames = [RuleN $ nameOfSimpleRule r | r <- xs, (funNameOfApp . postcondOfSimpleRule) r == S.singleton pname]
-  in
-  S.fromList $ map (OrN pname,) matchedRuleNames
-
-mkAndPred :: SimpleRule t -> S.Set RuleEdge
-mkAndPred x =
-  let rname = nameOfSimpleRule x
-      preConds = precondOfSimpleRule x
-      preCondNames = S.unions $ funNameOfApp <$> preConds
-  in
-  S.map (AndN rname,) $ S.map PredN preCondNames
 
 -- TODO: flip direction of edges so that topologically sort begins with leaves
-simpleRuleToRuleNode :: [SimpleRule t] -> (S.Set RuleNodeCompact, S.Set RuleEdgeCompact)
+simpleRuleToRuleNode :: [SimpleRule t] -> (S.Set RuleNode, S.Set RuleEdge)
 simpleRuleToRuleNode xs = let
   prednames = getAllRulePreds xs
   rulenames = getAllRuleNames xs
   prednodes = S.map PredOr prednames
-  -- ornodes = S.map OrN prednames
-  -- predoredges = S.map mkPredOr prednames
   rulenodes = S.map RuleAnd rulenames
-  -- andnodes = S.map AndN rulenames
-  -- ruleandedges = S.map mkRuleAnd rulenames
   orruleedges = S.unions $ S.map (mkPredRule xs) prednames
   andprededges = S.unions $ map mkRulePred xs
   in
-  -- (S.unions [prednodes,ornodes,rulenodes,andnodes],
-  --  S.unions [predoredges, andprededges, orruleedges, ruleandedges])
   (S.unions [prednodes,rulenodes],
    S.unions [andprededges, orruleedges])
 
@@ -212,17 +192,4 @@ expSys x = do
 -- --  2) preconditions of rule
 -- --  3) postconditions of rule
 -- -- It might also have variable declarations
-
--- Helper function that determines if a rule structure is a predicate
-isRule :: Rule t -> Bool
-isRule x
-  | condValid (precondOfRule x) && condValid (postcondOfRule x) = True -- do i need to check if the rule has a name?
-  | otherwise = False
-
--- Helper function for checking valid pre/post-condition
-condValid :: Expr t -> Bool
-condValid x = case x of
-  BinOpE _ (BBool BBand) e1 e2-> condValid e1 || condValid e2
-  AppE {} -> True
-  _ -> False
 
