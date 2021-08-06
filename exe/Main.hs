@@ -28,45 +28,44 @@ import Text.Pretty.Simple ( pPrint, pPrintString, pPrint )
 import Error (printError)
 import Data.Either (rights)
 
-import MainHelpers (readPrelude)
 import TimedMC (runAut)
-import SimpleRules ( expSysTest, esUnitTests ) 
-import ToDA2 (createDSyaml)
 
+import MainHelpers (readPrelude, getTpAst, HelperErr(..) )
+import Control.Monad.Except (runExceptT)
+
+import ToDA2 (createDSyaml)
+import SimpleRules ( expSys ) 
+import Text.Pretty.Simple (pPrint)
 
 
 
 process :: InputOpts -> String -> IO ()
 process args input = do
   let fpath = filepath args
-      ast = parseProgram fpath input
-  case ast of
-    Right ast -> do
-      preludeAst <- readPrelude
-
-      case checkError preludeAst ast of
-        Left err -> putStrLn (printError err)
-        Right tpAst -> do
-          let tpAstNoSrc = fmap typeAnnot  tpAst
-          let normalAst = normalizeProg tpAstNoSrc -- Creates predicates of class fields
-
-          case format args of
-            Fast                     ->  pPrint tpAst
-            Faut                     ->  runAut (fmap typeAnnot tpAst)
-            (Fgf GFOpts { gflang = gfl, showast = True } ) -> GF.nlgAST gfl fpath normalAst
-            (Fgf GFOpts { gflang = gfl, showast = False} ) -> GF.nlg    gfl fpath normalAst
-            Fsmt -> proveProgram tpAstNoSrc
-            Fscasp -> createSCasp normalAst
-            Fyaml -> do createDSyaml tpAstNoSrc
-                        putStrLn "---------------"
-                        putStrLn "WIP: create the questions with GF. Below is the current progress. They are not used yet in the yaml."
-                        createQuestions fpath normalAst
-                        putStrLn "---------------"
-                        createPGFforAnswers fpath normalAst
-            Fexpsys ->  expSys tpAstNoSrc -- call expert systems tests with the parse tree
-    Left err -> do
+  errOrTpAstNoSrc <- runExceptT $ getTpAst fpath input 
+  case errOrTpAstNoSrc of
+    Left (LexErr err) -> do
       putStrLn "Parser Error:"
       print err
+    Left (TpErr error) -> do
+      putStrLn (printError error)
+    Right tpAst -> do
+      let tpAstNoSrc = typeAnnot <$> tpAst 
+          normalAst = normalizeProg tpAstNoSrc -- Creates predicates of class fields
+
+      case format args of
+        Fast                     ->  pPrint tpAst
+        (Fgf GFOpts { gflang = gfl, showast = True } ) -> GF.nlgAST gfl tpAstNoSrc
+        (Fgf GFOpts { gflang = gfl, showast = False} ) -> GF.nlg    gfl tpAstNoSrc
+        Fsmt -> proveProgram tpAst
+        Fscasp -> createSCasp normalAst
+        Fyaml -> do createDSyaml tpAstNoSrc
+                    putStrLn "---------------"
+                    putStrLn "WIP: create the questions with GF. Below is the current progress. They are not used yet in the yaml."
+                    createQuestions fpath normalAst
+                    putStrLn "---------------"
+                    createPGFforAnswers fpath normalAst
+        Fexpsys ->  expSys tpAstNoSrc -- call expert systems tests with the parse tree
 
 
 data Format   = Fast | Faut | Fgf GFOpts | Fscasp | Fsmt | Fyaml | Fexpsys
