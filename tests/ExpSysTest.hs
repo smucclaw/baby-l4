@@ -22,7 +22,7 @@ esUnitTests = withResource acquire release $ \progIO->
                 rule <- progToRule progIO "accInad"
                 SR.isRule rule @?= True
             , testCase "returns True for <accAdIncInad>" $ do
-                rule <- progToRule progIO "accAdInad"
+                rule <- progToRule progIO "accAdIncInad"
                 SR.isRule rule @?= True
             , testCase "returns True for <savingsAd>" $ do
                 rule <- progToRule progIO "savingsAd"

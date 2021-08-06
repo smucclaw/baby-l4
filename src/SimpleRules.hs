@@ -202,28 +202,6 @@ expSys x = do
         -- return ()
 
 
--- TODO: Fix the tests
--- esUnitTests :: Program (Tp ()) -> IO ()
--- esUnitTests xs = defaultMain $ testGroup "Expert System Tests" [
---         testGroup "isRule" [
---             testCase "returns True for basicRule.l4" $ do
---                 '1' @?= '1'    
---         ]
---     ]
-  -- describe "isRule" $ do
-  --   it "returns True for \"accInad\"" $ do
-  --     isRule (singleRule "accInad") `shouldBe` True
-  --   it "returns True for \"savingsAd\"" $ do
-  --     isRule (singleRule "savingsAd") `shouldBe` True
-  -- where 
-  --   myrules = rulesOfProgram x
-  --   usefulrules = ["accInad", "accAdIncAd", "accAdIncInad", "savingsAd", "savingsInad", "incomeAd", "incomeInadESteady", "incomeInadEUnsteady"]
-  --   singleRule x = head $ [r | r <- myrules, nameOfRule r == Just x]
-
-
-
-
-
 -- -- Goal: get a DOT formatted output, or maybe an SVG output from 
 
 -- -- an input l4 file. The program should only act on predicates 
@@ -244,7 +222,7 @@ isRule x
 -- Helper function for checking valid pre/post-condition
 condValid :: Expr t -> Bool
 condValid x = case x of
-  BinOpE _ (BBool BBand) e1 e2-> condValid e1 && condValid e2
+  BinOpE _ (BBool BBand) e1 e2-> condValid e1 || condValid e2
   AppE {} -> True
   _ -> False
 
