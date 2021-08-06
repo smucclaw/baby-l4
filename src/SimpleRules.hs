@@ -1,7 +1,8 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE TupleSections #-}
 
-module SimpleRules (isRule, expSys ) where
+module SimpleRules (isRule, expSys )where
 
 -- import Parser (parseProgram)
 -- import Annotation ( SRng )
@@ -17,12 +18,10 @@ import Data.Graph.Inductive.Query.DFS
 import Data.GraphViz.Attributes.Complete
 import qualified Data.Text.Lazy as T
 import Data.Either
-import Test.Tasty
-import Test.Tasty.HUnit
         -- usefulrules = ["accInad", "accAdIncAd", "accAdIncInad", "savingsAd", "savingsInad", "incomeAd", "incomeInadESteady", "incomeInadEUnsteady"]
         -- usefulsimple = [r | r <- validRules , nameOfSimpleRule r `elem` usefulrule
 
-data SimpleRule t = SimpleRule { 
+data SimpleRule t = SimpleRule {
                      nameOfSimpleRule :: String -- Maybe String
                    , varDeclsOfSimpleRule :: [VarDecl t]
                    , precondOfSimpleRule :: [Expr t]
@@ -35,13 +34,13 @@ flattenConjs x = [x]
 
 -- TODO 1: some sort of preprocesing that removes illegal expressions (not applications of predicates to arguments)
 ruleToSimpleRule :: Rule t -> Either String (SimpleRule t)
-ruleToSimpleRule r 
+ruleToSimpleRule r
   | isRule r = Right $ SimpleRule (M.fromJust $ nameOfRule r) (varDeclsOfRule r) (flattenConjs (precondOfRule r)) (postcondOfRule r)
   | otherwise = Left $ "Not a valid rule: " ++ M.fromJust (nameOfRule r) ++ "\n"
 
 
 type PredName = String
-type RuleName = String 
+type RuleName = String
 
 data RuleNode = AndN RuleName -- string is the name of the rule 
               | OrN PredName
@@ -78,7 +77,7 @@ mkRuleAnd x = (RuleN x, AndN x)
 mkPredRule :: [SimpleRule t] -> PredName -> S.Set RuleEdgeCompact
 mkPredRule xs pname =
   let matchedRuleNames = [RuleAnd $ nameOfSimpleRule r | r <- xs, (funNameOfApp . postcondOfSimpleRule) r == S.singleton pname]
-  in S.fromList $ map ((,) (PredOr pname)) matchedRuleNames
+  in S.fromList $ map (PredOr pname,) matchedRuleNames
 
 -- implicit And
 mkRulePred :: SimpleRule t -> S.Set RuleEdgeCompact
@@ -86,22 +85,22 @@ mkRulePred r =
   let rname = nameOfSimpleRule r
       preConds = precondOfSimpleRule r
       preCondNames = S.unions $ funNameOfApp <$> preConds
-  in S.map ((,) (RuleAnd rname)) $ S.map PredOr preCondNames
+  in S.map (RuleAnd rname,) $ S.map PredOr preCondNames
 
 -- TODO 2: Dependent on TODO 1, replace comparison of set to comparison of strings
 mkOrRule :: [SimpleRule t] -> PredName -> S.Set RuleEdge
 mkOrRule xs pname =
   let matchedRuleNames = [RuleN $ nameOfSimpleRule r | r <- xs, (funNameOfApp . postcondOfSimpleRule) r == S.singleton pname]
-  in 
-  S.fromList $ map ((,) (OrN pname)) matchedRuleNames
+  in
+  S.fromList $ map (OrN pname,) matchedRuleNames
 
 mkAndPred :: SimpleRule t -> S.Set RuleEdge
 mkAndPred x =
-  let rname = nameOfSimpleRule x 
+  let rname = nameOfSimpleRule x
       preConds = precondOfSimpleRule x
       preCondNames = S.unions $ funNameOfApp <$> preConds
   in
-  S.map ((,) (AndN rname)) $ S.map PredN preCondNames
+  S.map (AndN rname,) $ S.map PredN preCondNames
 
 -- TODO: flip direction of edges so that topologically sort begins with leaves
 simpleRuleToRuleNode :: [SimpleRule t] -> (S.Set RuleNodeCompact, S.Set RuleEdgeCompact)
@@ -189,7 +188,7 @@ expSys x = do
     let myrules = rulesOfProgram x
         errs = lefts $ map ruleToSimpleRule myrules
         validRules = rights $ map ruleToSimpleRule myrules
-        (usnodes, usedges) = simpleRuleToRuleNode validRules 
+        (usnodes, usedges) = simpleRuleToRuleNode validRules
         myPropLGGraph = mkLabelledGraph Propagation usnodes usedges
         myDepLGGraph = mkLabelledGraph Dependency usnodes usedges
         (LG mypropgraph _ _) = myPropLGGraph
@@ -220,7 +219,7 @@ expSys x = do
   --   myrules = rulesOfProgram x
   --   usefulrules = ["accInad", "accAdIncAd", "accAdIncInad", "savingsAd", "savingsInad", "incomeAd", "incomeInadESteady", "incomeInadEUnsteady"]
   --   singleRule x = head $ [r | r <- myrules, nameOfRule r == Just x]
-    
+
 
 
 
@@ -244,8 +243,8 @@ isRule x
 
 -- Helper function for checking valid pre/post-condition
 condValid :: Expr t -> Bool
-condValid x = case x of 
-  BinOpE _ (BBool BBand) e1 e2-> condValid e1 && condValid e2 
+condValid x = case x of
+  BinOpE _ (BBool BBand) e1 e2-> condValid e1 && condValid e2
   AppE {} -> True
-  _ -> False 
+  _ -> False
 

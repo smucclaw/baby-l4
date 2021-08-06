@@ -4,8 +4,7 @@ module Main where
 import Test.Tasty
 import DisambiguateTest
 import ToGFTest
-
-
+import ExpSysTest (esUnitTests)
 
 main :: IO ()
 main = do
@@ -15,6 +14,7 @@ main = do
     , testGetAtoms -- from ToGFTest
     , testDescription -- from ToGFTest
     , testFlipDescription -- from ToGFTest
+    , esUnitTests -- from ExpSysTest 
     ]
 
 
