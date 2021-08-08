@@ -88,7 +88,7 @@ simpSmtBinInts binop e1@(Atom i1) e2@(Atom i2) =
          then Atom (show (smtBinopArith binop (read i1) (read i2)))
          else SMT.bool (smtBinopCompar binop (read i1) (read i2))
     else List [Atom binop, e1, e2]
-simpSmtBinInts s e1 e2 = error ("simpSmtExpr: binary operator " ++ s ++ " not supported")
+simpSmtBinInts binop e1 e2 = List [Atom binop, e1, e2]
 
 -- see the definition of theory Core, theory Ints in the SMT-LIB standard
 simpSmtExpr :: Argmap -> SMT.SExpr -> SMT.SExpr

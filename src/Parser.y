@@ -90,7 +90,7 @@ import Control.Monad.Except
 %right '||'
 %right '&&'
 %left not
-%nonassoc '<' '<=' '=' '>' '>='
+%nonassoc '<' '<=' '==' '/=' '>' '>='
 %left '+' '-'
 %left '*' '/' '%'
 %left AMINUS
