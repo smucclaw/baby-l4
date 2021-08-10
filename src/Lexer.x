@@ -82,6 +82,10 @@ tokens :-
   False                         { lex' TokenFalse }
 
   -- Symbols
+  "A<>"                         { lex' TokenAF }
+  "A[]"                         { lex' TokenAG }
+  "E<>"                         { lex' TokenEF }
+  "E[]"                         { lex' TokenEG }
   "->"                          { lex' TokenArrow }
   \\                            { lex' TokenLambda }
   "-->"                         { lex' TokenImpl }
@@ -413,7 +417,10 @@ data TokenKind
   | TokenFor
   | TokenTrue
   | TokenFalse
-
+  | TokenAF
+  | TokenAG
+  | TokenEF
+  | TokenEG
   | TokenLambda
   | TokenArrow
   | TokenImpl
@@ -467,6 +474,10 @@ unLex TokenElse      = "else"
 unLex TokenFor       = "for"
 unLex TokenTrue      = "True"
 unLex TokenFalse     = "False"
+unLex TokenAF        = "A<>"
+unLex TokenAG        = "A[]"
+unLex TokenEF        = "E<>"
+unLex TokenEG        = "E[]"
 unLex TokenArrow     = "->"
 unLex TokenLambda    = "\\"
 unLex TokenImpl      = "-->"

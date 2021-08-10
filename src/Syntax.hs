@@ -234,10 +234,18 @@ data UArithOp = UAminus
 data UBoolOp = UBnot
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
+data UTemporalOp 
+  = UTAF -- always finally
+  | UTAG -- always generally
+  | UTEF -- exists finally
+  | UTEG -- exists generally
+  deriving (Eq, Ord, Show, Read, Data, Typeable)
+
 -- unary operators (union of the above)
 data UnaOp
     = UArith UArithOp
     | UBool UBoolOp
+    | UTemporal UTemporalOp
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 -- binary arithmetic operators
@@ -389,9 +397,9 @@ data Action
   | Act ClassName Sync
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-action_name :: Action -> [ClassName]
-action_name Internal = []
-action_name (Act cn s) = [cn]
+actionName :: Action -> [ClassName]
+actionName Internal = []
+actionName (Act cn s) = [cn]
 
 -- Transition condition: clock constraints and Boolean expression
 data TransitionCond t = TransCond [ClConstr] (Expr t)
@@ -401,8 +409,8 @@ data TransitionCond t = TransCond [ClConstr] (Expr t)
 data TransitionAction t = TransAction Action [Clock] (Cmd t)
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-transition_action_name :: TransitionAction t -> [ClassName]
-transition_action_name (TransAction act _ _) = action_name act
+transitionActionName :: TransitionAction t -> [ClassName]
+transitionActionName (TransAction act _ _) = actionName act
 
 -- Transition relation from location to location via Action,
 -- provided [ClConstr] are satisfied; and resetting [Clock]
@@ -422,7 +430,17 @@ data Transition t = Trans Loc (TransitionCond t) (TransitionAction t) Loc
 -- for AP a type of atomic propositioons and which is here taken to be [(Loc, Expr t)].
 -- Note: the set of locations, actions, clocks could in principle be inferred from the remaining info.
 -- Type parameter t: type of expressions: () or Tp, see function Typing/tpExprr
-data TA t = TmdAut String [Loc] [ClassName] [Clock] [Transition t] [Loc] [(Loc, [ClConstr])] [(Loc, Expr t)]
+data TA t = 
+  TmdAut {
+    nameOfTA :: String,
+    locsOfTA :: [Loc],
+    channelsOfTA :: [ClassName],
+    clocksOfTA :: [Clock],
+    transitionsOfTA :: [Transition t],
+    initialLocsOfTA :: [Loc],
+    invarsOfTA ::  [(Loc, [ClConstr])],
+    labellingOfTA :: [(Loc, Expr t)]
+  }
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 -- Timed Automata System: a set of TAs running in parallel
@@ -430,12 +448,13 @@ data TA t = TmdAut String [Loc] [ClassName] [Clock] [Transition t] [Loc] [(Loc, 
 data TASys t ext = TmdAutSys [TA t] ext
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-name_of_ta :: TA t -> String
-name_of_ta (TmdAut nm ta_locs ta_act_clss ta_clks trans init_locs invs lbls) = nm
+{- Obsolete with record names
+nameOfTA :: TA t -> String
+nameOfTA (TmdAut nm ta_locs ta_act_clss ta_clks trans init_locs invs lbls) = nm
 
-channels_of_ta :: TA t -> [ClassName]
-channels_of_ta (TmdAut nm ta_locs ta_act_clss ta_clks trans init_locs invs lbls) = ta_act_clss
-
+channelsOfTA :: TA t -> [ClassName]
+channelsOfTA (TmdAut nm ta_locs ta_act_clss ta_clks trans init_locs invs lbls) = ta_act_clss
+-}
 
 ----------------------------------------------------------------------
 -- L4 Event Rules

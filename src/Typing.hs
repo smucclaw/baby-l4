@@ -340,8 +340,9 @@ tpUarith env locs t ua =
   then t
   else ErrT (IllTypedSubExpr locs  [eraseAnn t] [ExpectedSubTpOf (ClassT () (ClsNm "Number"))])
 
-tpUbool :: Environment te -> [SRng] -> Tp t -> UBoolOp -> Tp t
-tpUbool env locs t ub =
+-- applicable to both unary boolean as temporal modal operators
+tpUbool :: [SRng] -> Tp t -> Tp t
+tpUbool locs t =
   if isBooleanTp t
   then t
   else ErrT (IllTypedSubExpr locs [eraseAnn t] [ExpectedExactTp (ClassT () (ClsNm "Boolean"))])
@@ -351,7 +352,8 @@ tpUnaop env locs t uop =
   propagateError [t]
   (case uop of
     UArith ua  -> tpUarith env locs t ua
-    UBool ub   -> tpUbool env locs t ub
+    UBool _   -> tpUbool locs t
+    UTemporal _ -> tpUbool locs t
   )
 
 

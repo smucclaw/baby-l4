@@ -2,6 +2,19 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {- HLINT ignore -}
 
+{-
+
+    Checklist what to do when modifying the language:
+    * In Lexer.x (when introducing new lexical items):
+    - Below "tokens :-", add the textual representations and tokens
+    - Below "data TokenKind", add the tokens
+    - Extend the "unlex" function definition
+    * in Parser.y:
+    - Below "%tokens", add the tokens
+    - Below "Operators", possibly specify associativity / priorities of operators
+    - Modify the grammar
+-}
+
 module Parser (
   parseProgram
 --  , parseTokens,
@@ -53,6 +66,11 @@ import Control.Monad.Except
     true   { L _ TokenTrue }
     false  { L _ TokenFalse }
 
+    'A<>'  { L _ TokenAF }
+    'A[]'  { L _ TokenAG }
+    'E<>'  { L _ TokenEF }
+    'E[]'  { L _ TokenEG }
+
     '\\'  { L _ TokenLambda }
     '->'  { L _ TokenArrow }
     '-->' { L _ TokenImpl }
@@ -84,7 +102,8 @@ import Control.Monad.Except
 
 -- Operators
 %right '->'
-%left '.'
+%nonassoc '.'                          -- required for quantifier rules
+%nonassoc 'A<>' 'A[]' 'E<>' 'E[]'
 %nonassoc if then else
 %right '-->'
 %right '||'
@@ -170,6 +189,10 @@ QVarsCommaSep :                            { [] }
 Expr : '\\' Pattern ':' ATp '->' Expr  { FunE (tokenRange $1 $6) $2 $4 $6 }
      | forall QualifVar ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) All $2 $4 $6 }
      | exists QualifVar ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) Ex  $2 $4 $6 }
+     | 'A<>' Expr                  { UnaOpE (tokenRange $1 $2) (UTemporal UTAF) $2 }
+     | 'A[]' Expr                  { UnaOpE (tokenRange $1 $2) (UTemporal UTAG) $2 }
+     | 'E<>' Expr                  { UnaOpE (tokenRange $1 $2) (UTemporal UTEF) $2 }
+     | 'E[]' Expr                  { UnaOpE (tokenRange $1 $2) (UTemporal UTEG) $2 }
      | Expr '-->' Expr             { BinOpE (tokenRange $1 $3) (BBool BBimpl) $1 $3 }
      | Expr '||' Expr              { BinOpE (tokenRange $1 $3) (BBool BBor) $1 $3 }
      | Expr '&&' Expr              { BinOpE (tokenRange $1 $3) (BBool BBand) $1 $3 }
