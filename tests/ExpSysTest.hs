@@ -8,6 +8,8 @@ import Control.Monad.Except (runExceptT)
 import qualified SimpleRules as SR
 import Test.Tasty
 import Test.Tasty.HUnit
+import Data.Either (rights, fromRight)
+import Data.Set as S
 
 
 
@@ -39,6 +41,16 @@ esUnitTests = withResource acquire release $ \progIO->
                 rule <- progToRule progIO "savingsAd"
                 length (SR.flattenConjs . precondOfRule $ rule) @?= 2
             ]
+        , testCase "print the set of nodes and edges for a single rule" $ do
+                rule <- progToRule progIO "accInad"
+                print $ SR.simpleRulesToGrNodes $ rights [SR.ruleToSimpleRule rule]
+                'a' @?= 'a'
+        , testCase "mapping a single rule twice = convert a list of simple rules" $ do
+            rule1 <- progToRule progIO "accInad"
+            rule2 <- progToRule progIO "savingsAd"
+            let (nodes1, edges1) = SR.simpleRuleToGrNodes $ head . rights $ [SR.ruleToSimpleRule rule1]
+                (nodes2, edges2) = SR.simpleRuleToGrNodes $ head . rights $ [SR.ruleToSimpleRule rule2]
+            SR.simpleRulesToGrNodes (rights $ Prelude.map SR.ruleToSimpleRule [rule1, rule2]) @?= (S.union nodes1 nodes2, S.union edges1 edges2)
         ]
     where acquire = getProg "tests/ExpSysTestFiles/financial_advisor.l4"
           release = mempty
