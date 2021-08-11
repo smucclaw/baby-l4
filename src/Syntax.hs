@@ -109,6 +109,8 @@ booleanT :: Tp ()
 booleanT = ClassT () (ClsNm "Boolean")
 integerT :: Tp ()
 integerT = ClassT () (ClsNm "Integer")
+floatT :: Tp ()
+floatT = ClassT () (ClsNm "Float")
 stringT :: Tp ()
 stringT = ClassT () (ClsNm "String")
 
@@ -207,9 +209,10 @@ customCs = [objectC, qualifNumC, currencyC] ++ currencyCs ++ [timeC] ++ timeCs +
 data Val
     = BoolV Bool
     | IntV Integer
+    | FloatV Float 
     | StringV String
     -- TODO: instead of RecordV, introduce RecordE in type Expr
-    | RecordV ClassName [(FieldName, Val)]
+    -- | RecordV ClassName [(FieldName, Val)]
     | ErrV
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 

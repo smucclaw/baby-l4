@@ -227,6 +227,7 @@ instance Arg (Tp t) where
 instance SCasp Val where
   showSingle (BoolV b) = pretty "Bool"
   showSingle (IntV i) = pretty "Int"
+  showSingle (FloatV f) = pretty "Float"
   showSingle (StringV l_c) = pretty l_c
-  showSingle (RecordV c l_p_fv) = pretty "unsupported, sorry"
+  -- showSingle (RecordV c l_p_fv) = pretty "unsupported, sorry"
   showSingle ErrV = pretty "Error"

@@ -95,7 +95,8 @@ import Control.Monad.Except
     '{'   { L _ TokenLBrace }
     '}'   { L _ TokenRBrace }
 
-    NUM   { L pos (TokenNum $$) }
+    INT   { L pos (TokenInteger $$) }
+    FLT   { L pos (TokenFloat $$) }
     VAR   { L _ (TokenSym _) }
     STRLIT { L _ (TokenStringLit _)}
     STR   { L _ (TokenString _) }
@@ -228,7 +229,8 @@ Atom : '(' ExprsCommaSep ')'       { let ecs = $2
                                         if length ecs == 1
                                         then updAnnotOfExpr (const (tokenRange $1 $3)) (head ecs)
                                         else TupleE (tokenRange $1 $3) (reverse ecs) }
-     | NUM                         { ValE (pos) (IntV $1) }
+     | INT                         { ValE (pos) (IntV $1) }
+     | FLT                         { ValE (pos) (FloatV $1) }
      | STR                         { ValE (tokenPos $1) (StringV (tokenString $1)) }
      | QualifVar                   { VarE (getLoc $1) (GlobalVar $1) }
      | true                        { ValE (tokenPos $1) (BoolV True) }
@@ -283,7 +285,7 @@ KVPair : VAR             { (tokenSym $1, MapVM []) }
        | VAR ':' VAR     { (tokenSym $1, IdVM $ tokenSym $3) }
        | VAR ':' true    { (tokenSym $1, BoolVM True) }
        | VAR ':' false   { (tokenSym $1, BoolVM False) }
-       | VAR ':' NUM     { (tokenSym $1, IntVM $3) }
+       | VAR ':' INT     { (tokenSym $1, IntVM $3) }
        | VAR ':' KVMap   { (tokenSym $1, MapVM $3) }
 
 {

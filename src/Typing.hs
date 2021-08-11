@@ -262,6 +262,10 @@ isFloatTp :: Tp t -> Bool
 isFloatTp (ClassT _ (ClsNm "Float")) = True
 isFloatTp _ = False
 
+isTimeTp :: Tp t -> Bool
+isTimeTp (ClassT _ (ClsNm "Time")) = True
+isTimeTp _ = False
+
 isScalarTp :: Tp t -> Bool
 isScalarTp FunT {} = False
 isScalarTp (TupleT _ ts) = all isScalarTp ts
@@ -317,7 +321,10 @@ tpConstval ::  Val -> Tp ()
 tpConstval x = case x of
   BoolV _ -> booleanT
   IntV _ -> integerT
+  FloatV _ -> floatT 
   StringV _ -> stringT
+  ErrV -> ErrT Inherited
+
   {-
   -- for record values to be well-typed, the fields have to correspond exactly (incl. order of fields) to the class fields.
   -- TODO: maybe relax some of these conditions.
@@ -332,8 +339,7 @@ tpConstval x = case x of
          else error ("record fields do not correspond to fields of class " ++ (case cn of (ClsNm n) -> n))
        _ -> error "internal error: duplicate class definition"
   -}
-  ErrV -> ErrT Inherited
-
+  
 tpUarith :: Environment te -> [SRng] -> Tp t -> UArithOp -> Tp t
 tpUarith env locs t ua =
   if isNumberTp env t
@@ -356,12 +362,20 @@ tpUnaop env locs t uop =
     UTemporal _ -> tpUbool locs t
   )
 
+-- TODO: The error message is inappropriate. Change when reworking the type checking algorithm
+tpTime :: [SRng] -> Tp () -> Tp () -> BArithOp -> Tp ()
+tpTime _ _ _  BAadd = ClassT () (ClsNm "Time")
+tpTime _ _ _  BAsub = ClassT () (ClsNm "Time")
+tpTime locs t1 t2 _ = ErrT (IllTypedSubExpr [locs!!0,locs!!1] [t1] [ExpectedSubTpOf (ClassT () (ClsNm "Number"))])
 
 tpBarith :: Environment te -> [SRng] -> Tp () -> Tp () -> BArithOp -> Tp ()
 tpBarith env locs t1 t2 ba =
   if isNumberTp env t1
   then if isNumberTp env t2
-       then leastCommonSuperType env t1 t2
+       then 
+         if isTimeTp t1 || isTimeTp t2
+         then tpTime locs t1 t2 ba
+         else leastCommonSuperType env t1 t2
        else ErrT (IllTypedSubExpr [locs!!0,locs!!2] [t2] [ExpectedSubTpOf (ClassT () (ClsNm "Number"))])
   else ErrT (IllTypedSubExpr [locs!!0,locs!!1] [t1] [ExpectedSubTpOf (ClassT () (ClsNm "Number"))])
 

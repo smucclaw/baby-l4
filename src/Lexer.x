@@ -113,7 +113,8 @@ tokens :-
 
   -- Numbers and identifiers
 
-  $digit+                       { lex (TokenNum . read) }
+  $digit+                       { lex (TokenInteger . read) }
+  $digit+ \. $digit+            { lex (TokenFloat . read) }
   $alpha [$alpha $digit \_ \']* { lex TokenSym }
   @string                       { lex (TokenStringLit . read) }
 
@@ -447,7 +448,8 @@ data TokenKind
   | TokenEOF
   | TokenStringLit String
 
-  | TokenNum Integer
+  | TokenInteger Integer
+  | TokenFloat Float
   | TokenSym String
   | TokenString String
   deriving (Eq,Show)
@@ -502,7 +504,8 @@ unLex TokenRParen    = ")"
 unLex TokenLBrace    = "{"
 unLex TokenRBrace    = "}"
 unLex TokenEOF       = "<EOF>"
-unLex (TokenNum i)   = show i
+unLex (TokenInteger i)   = show i
+unLex (TokenFloat i)   = show i
 unLex (TokenSym s)   = show s
 unLex (TokenString s)   = show s
 unLex (TokenStringLit s) = show s
