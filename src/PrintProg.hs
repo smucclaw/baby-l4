@@ -112,14 +112,15 @@ printVarDeclsCommaSep vds = "for " ++ foldr1 (\w s -> w ++ ", "++s) (map printVa
 printVal :: Val -> String
 printVal (BoolV b) = show b
 printVal (IntV i) = show i
+printVal (FloatV i) = show i
 printVal (StringV s) = show s
 printVal v = show v    -- TODO - rest still to be done
 
 printVar :: Var t -> String
-printVar = nameOfQVarName . nameOfVar
+-- printVar = nameOfQVarName . nameOfVar
 -- For debugging:
---printVar (GlobalVar qvn) = nameOfQVarName qvn
---printVar (LocalVar qvn i) = nameOfQVarName qvn ++ "@" ++ show i
+printVar (GlobalVar qvn) = nameOfQVarName qvn
+printVar (LocalVar qvn i) = nameOfQVarName qvn ++ "@" ++ show i
 
 printUnaOpE :: UnaOp -> String
 printUnaOpE (UArith UAminus) = "-"
@@ -162,7 +163,7 @@ printExpr (UnaOpE t u et) = "(" ++ printUnaOpE u ++ printExpr et ++ ")"
 printExpr (BinOpE t b et1 et2) = "(" ++ printExpr et1 ++ printBinOpE b ++ printExpr et2 ++ ")"
 printExpr (IfThenElseE t c et1 et2) = " if " ++ printExpr c ++ " then " ++ printExpr et1 ++ " else " ++ printExpr et2
 printExpr (AppE t f a) = "(" ++ printExpr f ++ " " ++ printExpr a ++ ")"
-printExpr (FunE t p pt et) = "( \\ " ++ printPattern p ++ ": " ++ printTp pt ++ " " ++ printExpr et ++ ")"
+printExpr (FunE t p pt et) = "( \\ " ++ printPattern p ++ ": " ++ printTp pt ++ " -> " ++ printExpr et ++ ")"
 printExpr (QuantifE t q vn vt et) = "(" ++ printQuantif q ++ printQVarName vn ++ ": " ++ printTp vt ++ ". " ++ printExpr et ++ ")"
 printExpr (FldAccE t et f) = printExpr et ++ "." ++ stringOfFieldName f
 printExpr e = show e  -- TODO - incomplete

@@ -2,7 +2,7 @@
 {-# LANGUAGE LambdaCase #-}
 module RuleTransfo where
 
-import Annotation ( HasDefault(defaultVal) )
+import Annotation ( HasDefault(defaultVal), updType)
 import KeyValueMap
     ( ValueKVM(..), KVMap, KeyKVM, selectAssocOfMap, hasPathValue, hasPathMap, getAssocOfPathMap, stringListAsKVMap, putAssocOfPathMap )
 import Syntax
@@ -101,6 +101,13 @@ liftVar :: Int -> Var t -> Var t
 liftVar n (LocalVar vn i) = if n <= i then LocalVar vn (i + 1) else LocalVar vn i
 liftVar n v = v
 
+-- lift variables with index >= n by increment inc. 
+-- Thus, liftVar n v = liftVarBy n 1 v
+liftVarBy :: Int -> Int -> Var t -> Var t
+liftVarBy n inc (LocalVar vn i) = if n <= i then LocalVar vn (i + inc) else LocalVar vn i
+liftVarBy n inc v = v
+
+
 liftExpr :: Int -> Expr t -> Expr t
 liftExpr n e@(ValE t v) = e
 liftExpr n (VarE t v) = VarE t (liftVar n v)
@@ -163,13 +170,33 @@ prenexForm e = e
 
 
 ruleToFormula :: Rule (Tp ()) -> Expr (Tp ())
-ruleToFormula r = abstract All (varDeclsOfRule r) (implExpr (precondOfRule r) (postcondOfRule r))
+ruleToFormula r = abstractQD All (varDeclsOfRule r) (implExpr (precondOfRule r) (postcondOfRule r))
 
-abstract :: Quantif -> [VarDecl (Tp ())] -> Expr (Tp ()) -> Expr (Tp ())
-abstract q vds e
+-- abstract a Quantified expression over a list of variable Declarations
+abstractQD :: Quantif -> [VarDecl (Tp ())] -> Expr (Tp ()) -> Expr (Tp ())
+abstractQD q vds e
   = foldr
       (\ vd -> QuantifE booleanT q (QVarName (annotOfVarDecl vd) (nameOfVarDecl vd)) (tpOfVarDecl vd)) e
       vds
+
+-- abstract a Quantified expression over a list of variables
+abstractQ :: Quantif -> [Var (Tp ())] -> Expr (Tp ()) -> Expr (Tp ())
+abstractQ q vs e
+  = foldr
+      (\ v -> QuantifE booleanT q (nameOfVar v) (liftType (annotOfQVarName (nameOfVar v)))) e
+      vs
+
+
+-- abstract an expression over a list of variables to obtain a FunE
+abstractF :: [Var (Tp ())] -> Expr (Tp ()) -> Expr (Tp ())
+abstractF vs e
+  = foldr
+      (\ v re ->
+        let t = annotOfQVarName (nameOfVar v)
+        in FunE (FunT () t (annotOfExpr re))  (VarP (nameOfVar v)) (liftType t) re) e
+      vs
+
+
 
 -------------------------------------------------------------
 -- Rule transformations

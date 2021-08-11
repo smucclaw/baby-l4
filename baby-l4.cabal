@@ -96,12 +96,13 @@ library
 
                   --ExampleInput
                   --Exec
-                  InterfaceNunchaku
+                  --InterfaceNunchaku
                   --RuleToTa
                   --TaToUppaal
                   PrintProg
                   RuleTransfo
                   Smt
+                  TimedMC
                   -- SmtSBV
                   Typing
   other-modules: Paths_baby_l4
