@@ -1,0 +1,41 @@
+decl lawnWet : Boolean
+decl streetWet : Boolean
+decl rain : Boolean
+decl sprinkler : Boolean
+
+rule <rlw> 
+if rain
+then lawnWet
+
+rule <splw> 
+if sprinkler
+then lawnWet
+
+rule <rstw>
+if rain
+then streetWet
+
+rule <lstwr>
+if lawnWet && streetWet
+then rain
+
+# it is consistent to assume that the lawn is wet and there is rain
+# (the following is provable)
+assert {SMT: consistent} 
+lawnWet && rain
+
+# but the fact that the lawn is wet doees not necessarily entail that there is rain
+# (the following is not provable - the countermodel shows that the lawn can be wet and there is not rain)
+assert {SMT: valid} 
+lawnWet --> rain
+
+# ... this is so because it is also consistent to assume that the lawn is wet and there is no rain
+# (the following is provable)
+assert {SMT: consistent} 
+lawnWet && not rain
+
+# it is not consistent to assume that the lawn and the street are wet and there is no rain
+# (the following is not provable)
+assert {SMT: consistent} 
+lawnWet && streetWet && not rain
+
