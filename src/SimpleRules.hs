@@ -24,16 +24,7 @@ data SimpleRule t = SimpleRule {
                    , varDeclsOfSimpleRule :: [VarDecl t]
                    , precondOfSimpleRule :: [Expr t]
                    , postcondOfSimpleRule :: Expr t }
-                  --  , precondOfSimpleRule :: [ValidExpr t]
-                  --  , postcondOfSimpleRule :: ValidExpr t}
   deriving (Eq, Ord, Show, Read, Functor)
-
--- data ValidExpr t = FApp (Expr t) | VExp (Expr t) deriving (Eq, Show)
-
--- exprToValidExpr :: Expr t -> Maybe (ValidExpr t)
--- exprToValidExpr fapp@AppE {} = Just $ FApp fapp
--- exprToValidExpr vexp@VarE {} = Just $ VExp vexp
--- exprToValidExpr _ = Nothing
 
 -- Helper function that determines if a rule structure is a predicate
 isRule :: Rule t -> Bool
@@ -54,20 +45,6 @@ flattenConjs (BinOpE _ (BBool BBand) e1 e2) = flattenConjs e1 <> flattenConjs e2
 flattenConjs fApp@AppE {} = [fApp]
 flattenConjs _ = []
 
--- validateConjs :: [Expr t] -> [ValidExpr t]
--- validateConjs = M.mapMaybe exprToValidExpr
-
-
--- rule <asodko>
--- for x : integer, y : integer
--- if makesMoney x && lotsSaved y && x                  -- [FApp (makesMoney...), FApp (lotsSaved...)]
--- then invest stocks
-
--- rule <vacuously true>
--- for x : boolean
-
-
-
 -- TODO 1: some sort of preprocesing that removes illegal expressions (not applications of predicates to arguments)
 -- DONE, to review
 --    a note: isRule filters the rules that need processing, flattenConjs filters & processes the conjugates of said rules
@@ -78,7 +55,6 @@ ruleToSimpleRule r
                         (varDeclsOfRule r) 
                         (flattenConjs (precondOfRule r)) 
                         (postcondOfRule r)
-                        -- (exprToValidExpr $ postcondOfRule r)
   | otherwise = Left $ "Not a valid rule: " ++ M.fromJust (nameOfRule r) ++ "\n"
 
 
@@ -107,13 +83,10 @@ mkRulePred :: SimpleRule t -> S.Set GrEdge
 mkRulePred r =
   let rname = nameOfSimpleRule r
       preConds = precondOfSimpleRule r
-  --     preCondNames = S.unions $ funNameOfApp <$> preConds -- duplicates? 
-  -- in S.map (RuleAnd rname,) $ S.map PredOr preCondNames
       preCondName = M.mapMaybe funNameOfApp preConds 
   in S.fromList $ map ((RuleAnd rname,) . PredOr) preCondName
 
 
--- TODO: flip direction of edges so that topologically sort begins with leaves
 simpleRulesToGrNodes :: [SimpleRule t] -> (S.Set GrNode, S.Set GrEdge)
 simpleRulesToGrNodes xs = let
   prednames = getAllRulePreds xs      -- prednames : Set PredName         -- we don't want duplicate predicate names
@@ -151,7 +124,6 @@ rulePreds' (SimpleRule _ _ preConds postConds) =
   ( S.fromList . M.mapMaybe funNameOfApp $ preConds
   , M.fromJust . funNameOfApp $ postConds )
 
--- TODO 3 : Dependent on TODO 1, change output to Expr t -> PredName
 funNameOfApp :: Expr t -> Maybe PredName
 funNameOfApp (AppE _ x _) = funNameOfApp x
 funNameOfApp (VarE _ x) = Just $ nameOfQVarName $ nameOfVar x
@@ -198,20 +170,10 @@ edgeSetSymToInd Dependency nodeSymInd = map (\(n1,n2) -> (indToSym nodeSymInd n1
 labelledSCC :: LabelledGraph a -> [[a]]
 labelledSCC (LG gr indSym _) = map (map (indToSym indSym)) (scc gr)
 
--- TODO: case match on GrNode constructors for or/and nodes
--- alternatively, remove or/and nodes altogether
--- DONE: See GrNode
 
 -- TODO 4
 -- topologically sort graph beginning from leaves
 -- find min and max dependency of each node
-
-
-
- -- traverse :: (a -> Maybe b) -> [a] -> Maybe [b]
- -- traverse :: (Rule t -> Either String (SimpleRule t)) -> [Rule t] -> Either String [SimpleRule t]
--- traverse :: (Rule t -> Maybe (SimpleRule t)) -> [Rule t] -> Maybe [SimpleRule t]
-
 expSys :: Program (Tp ()) -> IO ()
 expSys x = do
     let myrules = rulesOfProgram x
@@ -230,17 +192,6 @@ expSys x = do
         -- print $ labelledSCC mypropgraph
         -- return ()
 
-
--- -- Goal: get a DOT formatted output, or maybe an SVG output from 
-
--- -- an input l4 file. The program should only act on predicates 
--- -- defined by "Rule" syntax.
-
--- -- Specifically, a predicate in l4 has 3 components
--- --  1) the name of the rule,
--- --  2) preconditions of rule
--- --  3) postconditions of rule
--- -- It might also have variable declarations
 
 propagate :: LabelledGraph a -> [Node] -> [(Node, S.Set Node)] -> [(Node, S.Set Node)] -- [(a,b)] is the association list between the nodes and the information required by them
 -- [Node] : topologically sorted list of nodes
