@@ -159,16 +159,17 @@ mkLabelledGraph gOut nodeset edgeset =
       gEdges = edgeSetSymToInd gOut nodeSymInd edgelist
   in LG (mkGraph nodeIndSym gEdges) nodeIndSym nodeSymInd
 
--- NInd should occur in assoc list
-indToSym :: Eq a => [(a, b)] -> a -> b
-indToSym xs a = M.fromJust $ L.lookup a xs
+-- fromJust: whatever that is queried (NInd/Sym) should occur in assoc list
+-- | Given a list of [(Nind, Sym)]/[(Sym,Nind)] and a Nind/Sym to query, returns Sym/Nind
+bidirLookup :: Eq a => [(a, b)] -> a -> b          
+bidirLookup xs a = M.fromJust $ L.lookup a xs
 
 edgeSetSymToInd :: Eq a => GraphOut -> [(a, NInd)] -> [(a, a)] -> [(NInd, NInd, String)]
-edgeSetSymToInd Propagation nodeSymInd = map (\(n1,n2) -> (indToSym nodeSymInd n2, indToSym nodeSymInd n1, ""))
-edgeSetSymToInd Dependency nodeSymInd = map (\(n1,n2) -> (indToSym nodeSymInd n1, indToSym nodeSymInd n2, ""))
+edgeSetSymToInd Propagation nodeSymInd = map (\(n1,n2) -> (bidirLookup nodeSymInd n2, bidirLookup nodeSymInd n1, ""))
+edgeSetSymToInd Dependency nodeSymInd = map (\(n1,n2) -> (bidirLookup nodeSymInd n1, bidirLookup nodeSymInd n2, ""))
 
 labelledSCC :: LabelledGraph a -> [[a]]
-labelledSCC (LG gr indSym _) = map (map (indToSym indSym)) (scc gr)
+labelledSCC (LG gr indSym _) = map (map (bidirLookup indSym)) (scc gr)
 
 
 -- TODO 4
@@ -182,20 +183,25 @@ expSys x = do
         (usnodes, usedges) = simpleRulesToGrNodes validRules
         myPropLGGraph = mkLabelledGraph Propagation usnodes usedges
         myDepLGGraph = mkLabelledGraph Dependency usnodes usedges
-        (LG mypropgraph _ _) = myPropLGGraph
-        (LG mydepgraph _ _) = myDepLGGraph
+        (LG mypropgraph _ siprop) = myPropLGGraph
+        (LG mydepgraph _ sidep) = myDepLGGraph
+        sortedNodes = topsort' mypropgraph
+        propInfos = propagate myPropLGGraph sortedNodes []
     _ <- runGraphviz (graphToDot quickParams mypropgraph) Pdf "compactPropGraph.pdf"
     _ <- runGraphviz (graphToDot quickParams mydepgraph) Pdf "compactDepGraph.pdf"
     print $ topsort' mypropgraph
-    print errs
-    print validRules
+    -- print errs
+    -- print validRules
+    print $ suc mypropgraph (bidirLookup siprop $ PredOr "earnings")
+    print $ suc mydepgraph (bidirLookup sidep $ PredOr "earnings")
+    print $ propagate myDepLGGraph sortedNodes [] -- Note that we are using the dep graph as the "context", but the topologically sorted list from the prop graph as the "queue"
         -- print $ labelledSCC mypropgraph
         -- return ()
 
 
-propagate :: LabelledGraph a -> [Node] -> [(Node, S.Set Node)] -> [(Node, S.Set Node)] -- [(a,b)] is the association list between the nodes and the information required by them
--- [Node] : topologically sorted list of nodes
--- [(Node, Set Node)] : assoc list of (node, annot) which is progressively built
+propagate :: (Eq a, Ord a) => LabelledGraph a -> [a] -> [(a, S.Set a)] -> [(a, S.Set a)] -- [(a,b)] is the association list between the nodes and the information required by them
+-- [a] : topologically sorted list of nodes by sym
+-- [(a, Set a)] : assoc list of (node, annot) which is progressively built
 -- a node's annotation is the unioned set of its children nodes (max info for now)
 propagate _ [] assoc = assoc                                  -- when the queue is complete, return association list
 propagate gr (x:xs) assoc =                                   -- When queue is not complete, and association list is not empty,
@@ -204,13 +210,19 @@ propagate gr (x:xs) assoc =                                   -- When queue is n
   in                                                          --    3. repeat for next node in queue
   propagate gr xs newAssoc
 
--- annotate :: (Monoid b) => Node -> LabelledGraph a -> [(Node,b)] -> b
-getAnnotate :: Node -> LabelledGraph a -> [(Node, S.Set Node)] -> S.Set Node 
-getAnnotate x lg@(LG gr _ _) nodeDeps =                       -- if leaf node, then return self, else return children information 
-  case suc gr x of
-    [] -> S.singleton x
-    succs ->  getMax succs nodeDeps
 
-getMax :: [Node] -> [(Node, S.Set Node)] -> S.Set Node
-getMax (a:as) nodeDeps = M.fromJust (lookup a nodeDeps) <> getMax as nodeDeps 
-getMax [] _ = mempty
+-- annotate :: (Monoid b) => a -> LabelledGraph a -> [(a,b)] -> b
+getAnnotate :: (Eq a, Ord a) => a -> LabelledGraph a -> [(a, S.Set a)] -> S.Set a 
+getAnnotate x (LG gr indsym symind) nodeDeps =                       -- if leaf node, then return self, else return children information 
+  let xInd = bidirLookup symind x
+      sucSyms = bidirLookup indsym <$> suc gr xInd 
+  in case sucSyms of
+    [] -> S.singleton x
+    succs -> getMax succs nodeDeps
+
+getMax :: (Ord a) => [a] -> [(a, S.Set a)] -> S.Set a
+-- [a] : labels of successor nodes
+-- flip lookup :: [(a, Set a)] -> a -> Maybe (Set a)
+-- if succ node (index) is found in nodeDeps, return set of node's children info, otherwise return empty set
+-- repeat for all succ nodes
+getMax xs nodeDeps = S.unions $ M.fromMaybe mempty . flip lookup nodeDeps <$> xs
