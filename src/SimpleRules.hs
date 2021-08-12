@@ -242,3 +242,24 @@ expSys x = do
 -- --  3) postconditions of rule
 -- -- It might also have variable declarations
 
+propagate :: LabelledGraph a -> [Node] -> [(Node, S.Set Node)] -> [(Node, S.Set Node)] -- [(a,b)] is the association list between the nodes and the information required by them
+-- [Node] : topologically sorted list of nodes
+-- [(Node, Set Node)] : assoc list of (node, annot) which is progressively built
+-- a node's annotation is the unioned set of its children nodes (max info for now)
+propagate _ [] assoc = assoc                                  -- when the queue is complete, return association list
+propagate gr (x:xs) assoc =                                   -- When queue is not complete, and association list is not empty,
+  let xInfo = getAnnotate x gr assoc                          --    1. obtain annotation information of current node in queue (see getAnnotate; leaf node cases handled)
+      newAssoc = (x, xInfo) : assoc                           --    2. add (current node, annotation info) to association list
+  in                                                          --    3. repeat for next node in queue
+  propagate gr xs newAssoc
+
+-- annotate :: (Monoid b) => Node -> LabelledGraph a -> [(Node,b)] -> b
+getAnnotate :: Node -> LabelledGraph a -> [(Node, S.Set Node)] -> S.Set Node 
+getAnnotate x lg@(LG gr _ _) nodeDeps =                       -- if leaf node, then return self, else return children information 
+  case suc gr x of
+    [] -> S.singleton x
+    succs ->  getMax succs nodeDeps
+
+getMax :: [Node] -> [(Node, S.Set Node)] -> S.Set Node
+getMax (a:as) nodeDeps = M.fromJust (lookup a nodeDeps) <> getMax as nodeDeps 
+getMax [] _ = mempty
