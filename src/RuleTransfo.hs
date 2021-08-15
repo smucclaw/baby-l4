@@ -2,11 +2,12 @@
 {-# LANGUAGE LambdaCase #-}
 module RuleTransfo where
 
-import Annotation ( HasDefault(defaultVal), updType)
+import Annotation ( HasDefault(defaultVal))
 import KeyValueMap
-    ( ValueKVM(..), KVMap, KeyKVM, selectAssocOfMap, hasPathValue, hasPathMap, getAssocOfPathMap, stringListAsKVMap, putAssocOfPathMap )
+    ( ValueKVM(..), KVMap, KeyKVM, hasPathMap, getAssocOfPathMap, stringListAsKVMap, putAssocOfPathMap )
 import Syntax
-import Typing (appToFunArgs, funArgsToApp, distinct, eraseAnn)
+import SyntaxManipulation (appToFunArgs, funArgsToApp, conjExpr, conjsExpr, liftType, notExpr, disjsExpr, remapExpr, eqExpr, liftExpr, isLocalVar, fv )
+import Typing (distinct, eraseAnn)
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
 import Data.List (sortBy)
@@ -35,167 +36,6 @@ hasName _ = True
 
 isNamedRule :: Rule t -> Bool
 isNamedRule  = hasName . nameOfRule
-
-----------------------------------------------------------------------
--- Logical infrastructure: macros for simplifying formula construction
-----------------------------------------------------------------------
-
-notExpr :: Expr (Tp ()) -> Expr (Tp())
-notExpr = UnaOpE booleanT (UBool UBnot)
-
-conjExpr :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
-conjExpr = BinOpE booleanT (BBool BBand)
-
-disjExpr :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
-disjExpr = BinOpE booleanT (BBool BBor)
-
-implExpr :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
-implExpr = BinOpE booleanT (BBool BBimpl)
-
-conjsExpr :: [Expr (Tp ())] -> Expr (Tp ())
-conjsExpr [] = trueV
-conjsExpr [e] = e
-conjsExpr (e:es) = conjExpr e (conjsExpr es)
-
-disjsExpr :: [Expr (Tp ())] -> Expr (Tp ())
-disjsExpr [] = falseV
-disjsExpr [e] = e
-disjsExpr (e:es) = disjExpr e (disjsExpr es)
-
-eqExpr  :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
-eqExpr = BinOpE booleanT (BCompar BCeq)
-
-----------------------------------------------------------------------
--- Logical infrastructure: computing normal forms
-----------------------------------------------------------------------
-
-dropVarBy :: Int -> Var t -> Var t
-dropVarBy n (LocalVar vn i) = LocalVar vn (i - n)
-dropVarBy n v = v
-
-localVarLowerThan :: Int -> Var t -> Bool
-localVarLowerThan n (LocalVar vn i) = i <= n
-localVarLowerThan n _ = True
-
--- Free variables of an expression. Also LocalVar count as free variables.
-fv :: Ord t => Expr t -> Set.Set (Var t)
-fv ValE {} = Set.empty
-fv (VarE _ v) = Set.singleton v
-fv (UnaOpE _  _ e) = fv e
-fv (BinOpE _  _ e1 e2) = Set.union (fv e1) (fv e2)
-fv (IfThenElseE _ c e1 e2) = Set.unions [fv c, fv e1, fv e2]
-fv (AppE _ f a) = Set.union (fv f) (fv a)
-fv (FunE _ p _ e) = Set.map (dropVarBy (patternLength p)) (Set.filter (localVarLowerThan (patternLength p - 1)) (fv e))
-fv QuantifE {bodyOfExprQ = e} = Set.map (dropVarBy 1) (Set.filter (localVarLowerThan 0) (fv e))
-fv (FldAccE _ e _) = fv e
-fv (TupleE _ es) = Set.unions (map fv es)
-fv (CastE _ _ e) = fv e
-fv (ListE _ _ es) = Set.unions (map fv es)
-fv (NotDeriv _ _ e) = fv e
-
--- Lift variables and expressions: 
--- Increase by one all indices of bound variables with index number >= n
--- Used for pushing an expression below a quantifier
-
-liftVar :: Int -> Var t -> Var t
-liftVar n (LocalVar vn i) = if n <= i then LocalVar vn (i + 1) else LocalVar vn i
-liftVar n v = v
-
--- lift variables with index >= n by increment inc. 
--- Thus, liftVar n v = liftVarBy n 1 v
-liftVarBy :: Int -> Int -> Var t -> Var t
-liftVarBy n inc (LocalVar vn i) = if n <= i then LocalVar vn (i + inc) else LocalVar vn i
-liftVarBy n inc v = v
-
-
-liftExpr :: Int -> Expr t -> Expr t
-liftExpr n e@(ValE t v) = e
-liftExpr n (VarE t v) = VarE t (liftVar n v)
-liftExpr n (UnaOpE t u et) = UnaOpE t u (liftExpr n et)
-liftExpr n (BinOpE t b et1 et2) = BinOpE t b (liftExpr n et1) (liftExpr n et2)
-liftExpr n (IfThenElseE t et1 et2 et3) = IfThenElseE t (liftExpr n et1) (liftExpr n et2) (liftExpr n et3)
-liftExpr n (AppE t et1 et2) = AppE t (liftExpr n et1) (liftExpr n et2)
-liftExpr n (FunE t p ptp et) = FunE t p ptp (liftExpr (n + patternLength p) et)
-liftExpr n (QuantifE t q vn vt et) = QuantifE t q vn vt (liftExpr (n+1) et)
-liftExpr n (FldAccE t et f) = FldAccE t (liftExpr n et) f
-liftExpr n (TupleE t ets) = TupleE t (map (liftExpr n) ets)
-liftExpr n (CastE t tp et) = CastE t tp (liftExpr n et)
-liftExpr n (ListE t lop ets) = ListE t lop (map (liftExpr n) ets)
-liftExpr n (NotDeriv t b et) = NotDeriv t b (liftExpr n et)
-
--- Remap variables and expressions: 
--- Exchange indices of bound variables as indicated in the map
--- Used for permuting quantifiers
-remapVar :: [(Int, Int)] -> Var t -> Var t
-remapVar m (LocalVar vn i) = LocalVar vn (fromMaybe i (lookup i m))
-remapVar _ v = v
-
-remapExpr :: [(Int, Int)] -> Expr t -> Expr t
-remapExpr m e@(ValE t v) = e
-remapExpr m (VarE t v) = VarE t (remapVar m v)
-remapExpr m (UnaOpE t u et) = UnaOpE t u (remapExpr m et)
-remapExpr m (BinOpE t b et1 et2) = BinOpE t b (remapExpr m et1) (remapExpr m et2)
-remapExpr m (IfThenElseE t et1 et2 et3) = IfThenElseE t (remapExpr m et1) (remapExpr m et2) (remapExpr m et3)
-remapExpr m (AppE t et1 et2) = AppE t (remapExpr m et1) (remapExpr m et2)
-remapExpr m (FunE t p ptp et) = FunE t p ptp (remapExpr (map (\(x, y) -> (x + patternLength p, y + patternLength p)) m) et)
-remapExpr m (QuantifE t q vn vt et) = QuantifE t q vn vt (remapExpr (map (\(x, y) -> (x+1, y+1)) m) et)
-remapExpr m (FldAccE t et f) = FldAccE t (remapExpr m et) f
-remapExpr m (TupleE t ets) = TupleE t (map (remapExpr m) ets)
-remapExpr m (CastE t tp et) = CastE t tp (remapExpr m et)
-remapExpr m (ListE t lop ets) = ListE t lop (map (remapExpr m) ets)
-remapExpr m (NotDeriv t b et) = NotDeriv t b (remapExpr m et)
-
-swapQuantif :: Quantif -> Quantif
-swapQuantif All = Ex
-swapQuantif Ex  = All
-
-prenexUnary :: t -> UBoolOp -> Expr t -> Expr t
-prenexUnary t UBnot (QuantifE tq q vn vt et) = QuantifE tq (swapQuantif q) vn vt (UnaOpE t (UBool UBnot) et)
-prenexUnary t u e = UnaOpE t (UBool u) e
-
-prenexBinary :: t -> BBoolOp -> Expr t -> Expr t -> Expr t
-prenexBinary t b e1 (QuantifE t2 q2 vn2 vt2 e2) = QuantifE t2 q2 vn2 vt2 (prenexBinary t b (liftExpr 0 e1) e2)
-prenexBinary t b (QuantifE t1 q1 vn1 vt1 e1) e2 =
-    let q = case b of
-              BBimpl -> swapQuantif q1
-              _ -> q1
-    in QuantifE t1 q vn1 vt1 (prenexBinary t b e1 (liftExpr 0 e2))
-prenexBinary t b e1 e2 = BinOpE t (BBool b) e1 e2
-
-prenexForm :: Expr t -> Expr t
-prenexForm (UnaOpE t (UBool u) et) = prenexUnary t u (prenexForm et)
-prenexForm (BinOpE t (BBool b) et1 et2) = prenexBinary t b (prenexForm et1) (prenexForm et2)
-prenexForm (QuantifE t q vn vt et) = QuantifE t q vn vt (prenexForm et)
-prenexForm e = e
-
-
-ruleToFormula :: Rule (Tp ()) -> Expr (Tp ())
-ruleToFormula r = abstractQD All (varDeclsOfRule r) (implExpr (precondOfRule r) (postcondOfRule r))
-
--- abstract a Quantified expression over a list of variable Declarations
-abstractQD :: Quantif -> [VarDecl (Tp ())] -> Expr (Tp ()) -> Expr (Tp ())
-abstractQD q vds e
-  = foldr
-      (\ vd -> QuantifE booleanT q (QVarName (annotOfVarDecl vd) (nameOfVarDecl vd)) (tpOfVarDecl vd)) e
-      vds
-
--- abstract a Quantified expression over a list of variables
-abstractQ :: Quantif -> [Var (Tp ())] -> Expr (Tp ()) -> Expr (Tp ())
-abstractQ q vs e
-  = foldr
-      (\ v -> QuantifE booleanT q (nameOfVar v) (liftType (annotOfQVarName (nameOfVar v)))) e
-      vs
-
-
--- abstract an expression over a list of variables to obtain a FunE
-abstractF :: [Var (Tp ())] -> Expr (Tp ()) -> Expr (Tp ())
-abstractF vs e
-  = foldr
-      (\ v re ->
-        let t = annotOfQVarName (nameOfVar v)
-        in FunE (FunT () t (annotOfExpr re))  (VarP (nameOfVar v)) (liftType t) re) e
-      vs
-
 
 
 -------------------------------------------------------------
@@ -241,8 +81,6 @@ newArgCondition (VarE t (LocalVar vn i)) es =
     ) es
 newArgCondition e es = True
 
-liftType :: Tp () -> Tp (Tp ())
-liftType t = KindT <$ t
 
 constrNewArgs :: Int -> [Expr (Tp ())] -> ([Expr (Tp ())], [Expr (Tp ())], [VarDecl (Tp ())])
 constrNewArgs n [] = ([], [], [])
@@ -287,11 +125,6 @@ splitDecls fvs (lowers,this,u:us) =
   if Set.member (length lowers) fvs
   then splitDecls fvs (lowers++[u],this,us)
   else (lowers,[u],us)
-
--- TODO: move elsewhere
-isLocalVar :: Var t -> Bool
-isLocalVar (LocalVar _ _) = True
-isLocalVar _ = False
 
 -- lifts an existential quantifier in the preconditions into the var decls of the rule
 ruleExLStep :: RuleTransformer (Tp ())
@@ -358,7 +191,7 @@ ruleNormalizeVarOrder r =
             let idcs = map (\(VarE _ (LocalVar vn i)) -> i) args  -- the sequence of indices of the argument vars
                 varrmp = zip idcs  (reverse [0 .. length idcs -1])   -- remap of variables
                 idcsdecls = zip (reverse [0 .. length idcs -1]) vds  -- current correspondence index -> vardecl
-                idcsdeclsSorted = reverse (sortBy (\(a,_) (b,_) -> compare (lookup a varrmp) (lookup b varrmp)) idcsdecls)
+                idcsdeclsSorted = sortBy (flip (\(a,_) (b,_) -> compare (lookup a varrmp) (lookup b varrmp))) idcsdecls
                 newPostc = remapExpr varrmp postc
                 newPrec = remapExpr varrmp (precondOfRule r)
             in r{varDeclsOfRule = map snd idcsdeclsSorted}{precondOfRule = newPrec}{postcondOfRule = newPostc}

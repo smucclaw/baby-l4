@@ -2,21 +2,29 @@
 
 module Smt(proveProgram) where
 
-import Annotation (TypeAnnot (getType), LocTypeAnnot (typeAnnot))
+import Annotation (LocTypeAnnot (typeAnnot))
 import KeyValueMap
+    ( ValueKVM(MapVM, IntVM, IdVM),
+      selectOneOfInstr,
+      selectAssocOfValue )
 import Syntax
-import Typing (getTypeOfExpr, isBooleanTp, isIntegerTp, isFloatTp, superClassesOfClassDecl, spine)
-import RuleTransfo (isNamedRule)
+import SyntaxManipulation (
+      spine,
+      ruleToFormula,
+      conjsExpr,
+      notExpr)
+import Typing (isBooleanTp, isIntegerTp, isFloatTp, superClassesOfClassDecl)
+import RuleTransfo
+    ( isNamedRule,
+      rewriteRuleSetDespite,
+      rewriteRuleSetSubjectTo,
+      rewriteRuleSetDerived )
 
 import SimpleSMT as SMT
-import qualified Data.Maybe
-import Control.Monad ( when, unless, foldM )
-import Text.Pretty.Simple (pPrint, pPrintString)
-import RuleTransfo ( ruleToFormula,
-                    conjsExpr, notExpr, rewriteRuleSetDespite, rewriteRuleSetSubjectTo, rewriteRuleSetDerived )
-import PrintProg (printRule, renameAndPrintRule, namesUsedInProgram )
+import Control.Monad ( when, foldM )
+import PrintProg (renameAndPrintRule, namesUsedInProgram )
 import Data.Maybe (fromMaybe)
-import Model (constructRelModel, instanceNameMap, displayableModel, printDisplayableModel)
+import Model (displayableModel, printDisplayableModel)
 
 
 -------------------------------------------------------------
@@ -181,7 +189,7 @@ selectLogLevel config =
     Just _ -> 0
 
 createSolver :: Maybe ValueKVM -> Maybe Logger -> IO Solver
-createSolver config lg = 
+createSolver config lg =
   let defaultConfig = ("z3", ["-in"])
       (solverName, solverParams) = case config of
                                       Nothing -> defaultConfig
@@ -199,7 +207,7 @@ createSolver config lg =
 -- mathsat terminates with an error (quantifiers not supported), simple boolean or arithmetic queries supported
 -- yices does not support logics like LIA
 selectLogic :: Solver -> Maybe ValueKVM -> IO ()
-selectLogic s config = 
+selectLogic s config =
   let defaultConfig = "LIA"
       logicName = case config of
                      Nothing -> defaultConfig
@@ -314,7 +322,7 @@ proveProgram p = do
 
 proveProgramTest :: Program (LocTypeAnnot (Tp ())) -> IO ()
 proveProgramTest p =
-  do 
+  do
     putStrLn "First transfo: rewrite Despite and SubjectTo"
     putStrLn (concatMap (renameAndPrintRule (namesUsedInProgram p)) (rewriteRuleSetSubjectTo (rewriteRuleSetDespite (rulesOfProgram (fmap typeAnnot p)))))
     putStrLn "Second transfo: rewrite Derived"

@@ -279,32 +279,6 @@ isClassTp :: Tp t -> Bool
 isClassTp ClassT {} = True
 isClassTp _ = False
 
-
-----------------------------------------------------------------------
--- Utility functions
-----------------------------------------------------------------------
-
--- decomposes a function type T1 -> T2 ... -> Tn -> Tres
--- into ([T1, ... Tn], Tres)
-spine :: [Tp t] -> Tp t -> ([Tp t], Tp t)
-spine acc (FunT _ t1 t2) = spine (t1:acc) t2
-spine acc t = (reverse acc, t)
-
-
--- decompose application (f a1 .. an) into (f, [a1 .. an])
-appToFunArgs :: [Expr t] -> Expr t -> (Expr t, [Expr t])
-appToFunArgs acc (AppE _ f a) = appToFunArgs (a:acc) f
-appToFunArgs acc t = (t, acc)
-
-forceArgTp :: Tp () -> Tp ()
-forceArgTp (FunT _ ftp atp) = atp
-forceArgTp _ = ErrT Unspecified
-
--- compose (f, [a1 .. an]) to (f a1 .. an)
-funArgsToApp :: Expr (Tp ()) -> [Expr (Tp ())] -> Expr (Tp ())
-funArgsToApp = foldl (\ f -> AppE (forceArgTp (annotOfExpr f)) f)
-
-
 ----------------------------------------------------------------------
 -- Typing functions
 ----------------------------------------------------------------------
