@@ -91,6 +91,9 @@ disjsExpr (e:es) = disjExpr e (disjsExpr es)
 eqExpr  :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
 eqExpr = BinOpE booleanT (BCompar BCeq)
 
+gteExpr  :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
+gteExpr = BinOpE booleanT (BCompar BCgte)
+
 mkEq :: Var (Tp()) -> Var (Tp()) -> Expr (Tp())
 mkEq v1 v2 = eqExpr (mkVarE v1) (mkVarE v2)
 

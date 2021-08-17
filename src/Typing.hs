@@ -762,7 +762,7 @@ tpCmd env (VAssign annot v e) =
 tpCmd env FAssign {} = error "typing of FAssign not implemented yet"
 
 clockOfConstraint :: ClConstr -> Clock
-clockOfConstraint (ClCn c _ _) = c
+clockOfConstraint (ClConstr c _ _) = c
 
 -- TODO: move into preamble file
 listSubset :: Eq a => [a] -> [a] -> Bool
@@ -775,34 +775,34 @@ wellFormedAction ta_act_clss (Act cn _) = cn `elem` ta_act_clss
 
 
 -- TODO: still type-check expression e
-wellFormedTransitionCond :: TypeAnnot f => [Clock] -> TransitionCond (f a) -> Bool
-wellFormedTransitionCond ta_clks (TransCond ccs e) =
+wellFormedTransitionGuard :: TypeAnnot f => [Clock] -> TransitionGuard (f a) -> Bool
+wellFormedTransitionGuard ta_clks (TransitionGuard ccs e) =
   listSubset (map clockOfConstraint ccs) ta_clks
 
 -- TODO: still type-check command c
 wellFormedTransitionAction :: TypeAnnot f => [ClassName] -> [Clock] -> TransitionAction (f a) -> Bool
-wellFormedTransitionAction ta_act_clss ta_clks (TransAction act clks c) =
+wellFormedTransitionAction ta_act_clss ta_clks (TransitionAction act clks c) =
   wellFormedAction ta_act_clss act &&
   listSubset clks ta_clks
 
 wellFormedTransition :: TypeAnnot f => [Loc] -> [ClassName] -> [Clock] -> Transition (f a) -> Bool
 wellFormedTransition ta_locs ta_act_clss ta_clks (Trans l1 trcond tract l2) =
   elem l1 ta_locs && elem l2 ta_locs &&
-  wellFormedTransitionCond ta_clks trcond &&
+  wellFormedTransitionGuard ta_clks trcond &&
   wellFormedTransitionAction ta_act_clss ta_clks tract
 
-typeTransitionCond :: (TypeAnnot f, HasLoc (f a)) => Environment [ClassName] -> TransitionCond (f a) -> TransitionCond (f Tp)
-typeTransitionCond env (TransCond ccs e) = TransCond ccs (tpExpr env e)
+typeTransitionGuard :: (TypeAnnot f, HasLoc (f a)) => Environment [ClassName] -> TransitionGuard (f a) -> TransitionGuard (f Tp)
+typeTransitionGuard env (TransitionGuard ccs e) = TransitionGuard ccs (tpExpr env e)
 
 typeTransitionAction :: (TypeAnnot f, HasLoc (f a)) => Environment [ClassName] -> TransitionAction (f a) -> TransitionAction (f Tp)
-typeTransitionAction env (TransAction act clks c) = TransAction act clks (tpCmd env c)
+typeTransitionAction env (TransitionAction act clks c) = TransitionAction act clks (tpCmd env c)
 
 typeTransition :: (TypeAnnot f, HasLoc (f a)) => Environment [ClassName] -> Transition (f a) -> Transition (f Tp)
 typeTransition env (Trans l1 trcond tract l2) =
-  Trans l1 (typeTransitionCond env trcond) (typeTransitionAction env tract) l2
+  Trans l1 (typeTransitionGuard env trcond) (typeTransitionAction env tract) l2
 
 wellFormedTA :: (TypeAnnot f, HasLoc (f a)) => Environment [ClassName] -> TA (f a) -> TA (f Tp)
-wellFormedTA env (TmdAut nm ta_locs ta_act_clss ta_clks trans init_locs invs lbls) =
+wellFormedTA env (TA nm ta_locs ta_act_clss ta_clks trans init_locs invs lbls) =
   if
     all (wellFormedTransition ta_locs ta_act_clss ta_clks) trans &&
     all (\c -> isSubclassOf env c (ClsNm "Event")) ta_act_clss &&
@@ -813,14 +813,14 @@ wellFormedTA env (TmdAut nm ta_locs ta_act_clss ta_clks trans init_locs invs lbl
         ttrans = map (typeTransition env) trans
     in
       if all (`elem` ta_locs) lbls_locs && all (\te -> getTypeOfExpr te == booleanT) tes
-      then TmdAut nm ta_locs ta_act_clss ta_clks ttrans init_locs invs (zip lbls_locs tes)
+      then TA nm ta_locs ta_act_clss ta_clks ttrans init_locs invs (zip lbls_locs tes)
       else error "ill-formed timed automaton (labels)"
   else error "ill-formed timed automaton (transitions)"
 
 wellFormedTASys :: (TypeAnnot f, HasLoc (f a)) => Environment [ClassName] -> TASys (f a) ext -> TASys (f Tp) ext
-wellFormedTASys env (TmdAutSys tas ext) =
+wellFormedTASys env (TASys tas ext) =
   if distinct (map name_of_ta tas)
-  then TmdAutSys (map (wellFormedTA env) tas) ext
+  then TASys (map (wellFormedTA env) tas) ext
   else error "duplicate TA names"
 
 -}

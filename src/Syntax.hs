@@ -379,15 +379,15 @@ instance HasAnnot Assertion where
 -- Definition of Timed Automata
 ----------------------------------------------------------------------
 
-data Clock = Cl String
+newtype Clock = Clock {nameOfClock :: String}
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 -- Clock constraint of the form x < c.
 -- TODO: Reconsider the Integer. Might also be a subclass of the "Time" class
-data ClConstr = ClCn Clock BComparOp Integer
+data ClConstr = ClConstr Clock BComparOp Integer
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-data Loc = Lc String
+newtype Loc = Loc String
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 -- Synchronization type: send or receive
@@ -402,22 +402,27 @@ data Action
 
 actionName :: Action -> [ClassName]
 actionName Internal = []
-actionName (Act cn s) = [cn]
+actionName (Act cn _) = [cn]
 
 -- Transition condition: clock constraints and Boolean expression
-data TransitionCond t = TransCond [ClConstr] (Expr t)
+data TransitionGuard t = TransitionGuard [ClConstr] (Expr t)
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 -- Transition action: synchronization action; clock resets; and execution of command (typically assignments)
-data TransitionAction t = TransAction Action [Clock] (Cmd t)
+data TransitionAction t = TransitionAction Action [Clock] (Cmd t)
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 transitionActionName :: TransitionAction t -> [ClassName]
-transitionActionName (TransAction act _ _) = actionName act
+transitionActionName (TransitionAction act _ _) = actionName act
 
 -- Transition relation from location to location via Action,
 -- provided [ClConstr] are satisfied; and resetting [Clock]
-data Transition t = Trans Loc (TransitionCond t) (TransitionAction t) Loc
+data Transition t = Trans {
+    sourceOfTrans :: Loc
+  , guardOfTrans :: TransitionGuard t
+  , actionOfTrans :: TransitionAction t
+  , targetOfTrans :: Loc
+  }
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 -- Timed Automaton having:
@@ -434,7 +439,7 @@ data Transition t = Trans Loc (TransitionCond t) (TransitionAction t) Loc
 -- Note: the set of locations, actions, clocks could in principle be inferred from the remaining info.
 -- Type parameter t: type of expressions: () or Tp, see function Typing/tpExprr
 data TA t = 
-  TmdAut {
+  TA {
     nameOfTA :: String,
     locsOfTA :: [Loc],
     channelsOfTA :: [ClassName],
@@ -448,15 +453,15 @@ data TA t =
 
 -- Timed Automata System: a set of TAs running in parallel
 -- Type parameter ext: Environment-specific extension
-data TASys t ext = TmdAutSys [TA t] ext
+data TASys t ext = TASys [TA t] ext
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 {- Obsolete with record names
 nameOfTA :: TA t -> String
-nameOfTA (TmdAut nm ta_locs ta_act_clss ta_clks trans init_locs invs lbls) = nm
+nameOfTA (TA nm ta_locs ta_act_clss ta_clks trans init_locs invs lbls) = nm
 
 channelsOfTA :: TA t -> [ClassName]
-channelsOfTA (TmdAut nm ta_locs ta_act_clss ta_clks trans init_locs invs lbls) = ta_act_clss
+channelsOfTA (TA nm ta_locs ta_act_clss ta_clks trans init_locs invs lbls) = ta_act_clss
 -}
 
 ----------------------------------------------------------------------
