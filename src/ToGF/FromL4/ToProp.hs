@@ -5,17 +5,18 @@ module ToGF.FromL4.ToProp where
 
 -- the generated Haskell abstract syntax from the GF
 
-import Control.Monad (forM_)
 import Control.Monad.Reader (MonadReader (local), Reader, asks, runReader)
-import qualified GF
-import PGF
+import qualified Data.Set as S
+import PGF ( PGF, showExpr, linearizeAll )
 import Prop
 import Syntax
-import System.Environment (withArgs)
 import System.IO (stderr, hPutStrLn)
 import Text.Printf (printf)
-import ToGF.FromL4.TransProp
-import ToGF.NormalizeSyntax ( varName, normalizeQuantifGF ) 
+import ToGF.FromL4.TransProp ( transfer, Mode(MOptimize) )
+import ToGF.NormalizeSyntax ( varName, normalizeQuantifGF )
+import ToGF.GenerateLexicon
+    ( AtomWithArity(..), GrName, createGF' )
+import Debug.Trace (trace)
 
 -- moved this here from exe/Main.hs, needed to tell optparse which languages to output
 data GFlang  = GFall | GFeng | GFswe deriving (Show,Eq)
@@ -27,30 +28,45 @@ gfl2lang gfLang =
     GFeng -> ["Eng"]
     GFswe -> ["Swe"]
 
-createPGF :: (Show et) => GFlang -> Program et -> IO PGF.PGF
-createPGF gfl (Program _ lexicon _2 _3 _4 _5) = do
-  let langs = gfl2lang gfl
-  let (abstract,concretes) = createLexicon langs lexicon
-  -- Generate lexicon
-  writeFile "grammars/PropLexicon.gf" abstract
-  forM_ (zip langs concretes) $
-    \(lang, concrete) -> writeFile (concrName "PropLexicon" lang) concrete
-  -- Generate Top module
-  let topAbs = "abstract PropTop = Prop, PropLexicon ;"
-  let topCnc lang = printf "concrete PropTop%s of PropTop = Prop%s, PropLexicon%s ;" lang lang lang
-  writeFile "grammars/PropTop.gf" topAbs
-  forM_ langs $
-    \lang -> writeFile (concrName "PropTop" lang) (topCnc lang)
-  withArgs (["-make", "--output-dir=generated", "-v=0"] ++ map (concrName "PropTop") langs) GF.main
-  PGF.readPGF "generated/PropTop.pgf"
+-- Helper functions from GenerateLexicon specialised for Answers
+grName :: GrName
+grName = "Prop"
 
-nlg, nlgAST :: GFlang -> Program Tp -> IO ()
+createGF :: FilePath -> Program t -> IO PGF
+createGF fname prog = trace ("allPreds: " ++ show allPreds) $ createGF' fname grName (lexiconOfProgram prog) allPreds
+  where
+    allPreds = S.toList $ S.fromList $ concat
+      [ getAtoms vardecl
+      | vardecl <- globalsOfProgram prog
+      ]
+
+getAtoms :: VarDecl t -> [AtomWithArity]
+getAtoms (VarDecl _ name tp) =
+    AA name (getArity tp) : [ AA nm 0 | nm <- getNames tp]
+  where
+    getArity :: Tp -> Int
+    getArity t = case t of
+      FunT _ x -> 1 + getArity x
+      _ -> 0
+
+    getNames :: Tp -> [String]
+    getNames t = case t of
+      IntT -> []
+      BoolT -> []
+      ClassT (ClsNm x) -> [x]
+      FunT t1 t2 -> getNames t1 ++ getNames t2 -- handle tree recursion in leaves
+      TupleT tps -> concatMap getNames tps     -- handle tree recursion in leaves
+      _ -> []
+
+nlg, nlgAST :: GFlang -> FilePath -> Program Tp -> IO ()
 nlg = nlg' False
 nlgAST = nlg' True
 
-nlg' :: Bool -> GFlang -> Program Tp -> IO ()
-nlg' showAST gfl prog = do
-    gr <- createPGF gfl prog
+
+
+nlg' :: Bool -> GFlang -> FilePath -> Program Tp -> IO ()
+nlg' showAST gfl fpath prog = do
+    gr <- createGF fpath prog
     sequence_
       [ do
           if showAST
