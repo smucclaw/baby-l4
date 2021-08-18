@@ -104,3 +104,31 @@ normalizeProg (Program annP lex classdecs globals rules assert) =
     getFieldNmNType :: ClassDef t -> [(String, Tp)]
     getFieldNmNType (ClassDef  _ fields) = map getFieldNmNType' fields
     getFieldNmNType' (FieldDecl _ (FldNm name) tp) = (name, tp)
+
+{- TODO: something like this
+-- but make it actually work! Feel free to define more helper funs or other structure in other modules
+normalizeProg :: Program t -> Program t
+normalizeProg (Program annP mappings classdecs globals rules assert) =
+  Program annP mappings classdecs (newGlobals++globals) rules assert
+  where
+    newGlobals = concatMap cd2vd classdecs
+    cd2vd (ClassDecl annot clsname def) =
+      [flipIfNecessary mappings $ VarDecl annot functname (FunT argtype returntype)
+      | (functname, returntype) <- getFieldNmNType def]
+      where argtype = ClassT clsname
+
+    getFieldNmNType :: ClassDef t -> [(String, Tp)]
+    getFieldNmNType (ClassDef  _ fields) = map getFieldNmNType' fields
+    getFieldNmNType' (FieldDecl _ (FldNm name) tp) = (name, tp)
+
+    flipIfNecessary :: [Mapping t] -> VarDecl t -> VarDecl t
+    flipIfNecessary mappings vd = case vd of
+      VarDecl t predname (FunT tp1 tp2) ->
+        -- if predname is foo, and FunT is like, Game -> Player -> Bool
+        -- and there is a mapping foo -> "{Player} _ {Game}"
+        VarDecl t predname (FunT tp2 tp1)
+
+        -- Otherwise, return the original
+      _ -> vd
+
+-}
