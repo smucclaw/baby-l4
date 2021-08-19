@@ -63,10 +63,13 @@ constrEFStepAbstr fnv stv clvs transv =
 constrCompos :: [Var (Tp())] -> Var (Tp()) -> Var (Tp()) -> Expr (Tp())
 constrCompos sclvs r1 r2 =
   let n = length sclvs
+      scls   = indexListFromTo (2 * n) (3 * n - 1) sclvs
+      scls'  = indexListFromTo n (2 * n - 1) sclvs
+      scls'' = indexListFromTo 0 (n - 1) sclvs
   in abstractF (sclvs ++ sclvs)
         (abstractQ Ex sclvs
-          (conjExpr (applyVars r1 ( indexListFromTo (2 * n) (3 * n - 1) sclvs ++ indexListFromTo 0 (n - 1) sclvs ) )
-                    (applyVars r2 ( indexListFromTo 0 (n - 1) sclvs ++ indexListFromTo n (2 * n - 1) sclvs ) ) ))
+          (conjExpr (applyVars r1 ( scls ++ scls'' ) )
+                    (applyVars r2 ( scls'' ++ scls' ) ) ))
 
 delayTransInv :: Var (Tp ()) -> [Var (Tp ())] -> (Loc, [ClConstr]) -> Expr (Tp ())
 delayTransInv st cls' (l, cnstrs) =
@@ -138,11 +141,11 @@ actionToExpr clvars clvars' (TransitionAction _act resetcls _cmd) =
 constrActionTransition :: TA (Tp()) -> Var (Tp()) ->[Var (Tp())] -> Var (Tp()) ->[Var (Tp())] -> Transition (Tp()) -> Expr (Tp())
 constrActionTransition ta st cls st' cls' t =
  conjsExpr [
-    mkEq st (varOfLoc (sourceOfTrans t)),
-    mkEq st' (varOfLoc (targetOfTrans t)),
-    guardToExpr cls (guardOfTrans t),
-    actionToExpr cls cls' (actionOfTrans t),
-    conjsExpr (concatMap (map (clockConstrToExpr cls')) [cnstrts | (l, cnstrts) <- invarsOfTA ta, l == targetOfTrans t ])
+    mkEq st (varOfLoc (sourceOfTransition t)),
+    mkEq st' (varOfLoc (targetOfTransition t)),
+    guardToExpr cls (guardOfTransition t),
+    actionToExpr cls cls' (actionOfTransition t),
+    conjsExpr (concatMap (map (clockConstrToExpr cls')) [cnstrts | (l, cnstrts) <- invarsOfTA ta, l == targetOfTransition t ])
   ]
 
 constrActionTransitions :: TA (Tp()) -> Var (Tp()) ->[Var (Tp())] -> Expr (Tp())
@@ -204,7 +207,7 @@ constrDelayTransitionTest :: String
 constrDelayTransitionTest = renameAndPrintExpr [] (constrDelayTransition myTA mystv myclvs)
 
 myTrans :: Transition (Tp ())
-myTrans = Trans (Loc "loc0")
+myTrans = Transition (Loc "loc0")
                 (TransitionGuard [ClConstr (Clock "c1") BCgte 3] trueV)
                 (TransitionAction Internal [Clock "c2"] (Skip OkT))
                 (Loc "loc1")

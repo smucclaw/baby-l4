@@ -68,6 +68,14 @@ tokens :-
   rule                          { lex' TokenRule }
   derivable                     { lex' TokenDerivable }
 
+  process                       { lex' TokenProcess }
+  clock                         { lex' TokenClock }
+  state                         { lex' TokenState }
+  init                          { lex' TokenInit }
+  trans                         { lex' TokenTrans }
+  guard                         { lex' TokenGuard }
+  assign                        { lex' TokenAssign }
+
   -- Expressions
   let                           { lex' TokenLet }
   in                            { lex' TokenIn }
@@ -97,6 +105,7 @@ tokens :-
   \>                            { lex' TokenGt }
   \>=                           { lex' TokenGte }
   "/="                          { lex' TokenNe }
+  \=                            { lex' TokenAssignTo }  -- NB: there is a keyword "assign"
   [\+]                          { lex' TokenAdd }
   [\-]                          { lex' TokenSub }
   [\*]                          { lex' TokenMul }
@@ -105,6 +114,7 @@ tokens :-
   \.                            { lex' TokenDot }
   \,                            { lex' TokenComma }
   \:                            { lex' TokenColon }
+  \;                            { lex' TokenSemicolon }
   \(                            { lex' TokenLParen }
   \)                            { lex' TokenRParen }
   \{                            { lex' TokenLBrace }
@@ -407,6 +417,15 @@ data TokenKind
   | TokenRule
   | TokenDerivable
 
+  -- Automata
+  | TokenProcess
+  | TokenClock
+  | TokenState
+  | TokenInit
+  | TokenTrans
+  | TokenGuard
+  | TokenAssign
+
   | TokenLet
   | TokenIn
   | TokenNot
@@ -433,6 +452,7 @@ data TokenKind
   | TokenGt
   | TokenGte
   | TokenNe
+  | TokenAssignTo
   | TokenAdd
   | TokenSub
   | TokenMul
@@ -441,6 +461,7 @@ data TokenKind
   | TokenDot
   | TokenComma
   | TokenColon
+  | TokenSemicolon
   | TokenLBrace
   | TokenRBrace
   | TokenLParen
@@ -465,6 +486,13 @@ unLex TokenLexicon   = "lexicon"
 unLex TokenFact      = "fact"
 unLex TokenRule      = "rule"
 unLex TokenDerivable = "derivable"
+unLex TokenProcess   = "process"
+unLex TokenClock     = "clock"
+unLex TokenState     = "state"
+unLex TokenInit      = "init"
+unLex TokenTrans     = "trans"
+unLex TokenGuard     = "guard"
+unLex TokenAssign    = "assign"
 unLex TokenLet       = "let"
 unLex TokenIn        = "in"
 unLex TokenNot       = "not"
@@ -491,6 +519,7 @@ unLex TokenLte       = "<="
 unLex TokenGt        = ">"
 unLex TokenGte       = ">="
 unLex TokenNe        = "/="
+unLex TokenAssignTo  = "="
 unLex TokenAdd       = "+"
 unLex TokenSub       = "-"
 unLex TokenMul       = "*"
@@ -499,6 +528,7 @@ unLex TokenMod       = "%"
 unLex TokenDot       = "."
 unLex TokenComma     = ","
 unLex TokenColon     = ":"
+unLex TokenSemicolon = ";"
 unLex TokenLParen    = "("
 unLex TokenRParen    = ")"
 unLex TokenLBrace    = "{"

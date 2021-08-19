@@ -786,7 +786,7 @@ wellFormedTransitionAction ta_act_clss ta_clks (TransitionAction act clks c) =
   listSubset clks ta_clks
 
 wellFormedTransition :: TypeAnnot f => [Loc] -> [ClassName] -> [Clock] -> Transition (f a) -> Bool
-wellFormedTransition ta_locs ta_act_clss ta_clks (Trans l1 trcond tract l2) =
+wellFormedTransition ta_locs ta_act_clss ta_clks (Transition l1 trcond tract l2) =
   elem l1 ta_locs && elem l2 ta_locs &&
   wellFormedTransitionGuard ta_clks trcond &&
   wellFormedTransitionAction ta_act_clss ta_clks tract
@@ -798,8 +798,8 @@ typeTransitionAction :: (TypeAnnot f, HasLoc (f a)) => Environment [ClassName] -
 typeTransitionAction env (TransitionAction act clks c) = TransitionAction act clks (tpCmd env c)
 
 typeTransition :: (TypeAnnot f, HasLoc (f a)) => Environment [ClassName] -> Transition (f a) -> Transition (f Tp)
-typeTransition env (Trans l1 trcond tract l2) =
-  Trans l1 (typeTransitionGuard env trcond) (typeTransitionAction env tract) l2
+typeTransition env (Transition l1 trcond tract l2) =
+  Transition l1 (typeTransitionGuard env trcond) (typeTransitionAction env tract) l2
 
 wellFormedTA :: (TypeAnnot f, HasLoc (f a)) => Environment [ClassName] -> TA (f a) -> TA (f Tp)
 wellFormedTA env (TA nm ta_locs ta_act_clss ta_clks trans init_locs invs lbls) =

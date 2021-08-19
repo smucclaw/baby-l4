@@ -343,7 +343,7 @@ data Cmd t
     = Skip t                                      -- Do nothing
     | VAssign t (Var  t) (Expr t)                   -- Assignment to variable
     | FAssign t (Expr t) FieldName (Expr t)         -- Assignment to field
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 
 data Rule t = Rule { annotOfRule :: t
@@ -361,10 +361,16 @@ instance HasAnnot Rule where
   getAnnot = annotOfRule
   updateAnnot f p = p { annotOfRule = f (annotOfRule p)}
 
+-- TODO: AssertionTA is a hack to get TimedAutomata parsed. 
+-- Instead, the type Program should be changed to be a list of 
+-- top-level elements which can appear in any order in a file.
+-- The type of top-level elements can then be easily extended.
 data Assertion t = Assertion { annotOfAssertion :: t
                              , nameOfAssertion :: ARName
                              , instrOfAssertion :: KVMap
                              , exprOfAssertion :: Expr t}
+                  | AssertionTA { annotOfAssertion :: t
+                                , taOfAssertion :: TA t}
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 instance HasLoc t => HasLoc (Assertion t) where
@@ -406,24 +412,24 @@ actionName (Act cn _) = [cn]
 
 -- Transition condition: clock constraints and Boolean expression
 data TransitionGuard t = TransitionGuard [ClConstr] (Expr t)
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 -- Transition action: synchronization action; clock resets; and execution of command (typically assignments)
 data TransitionAction t = TransitionAction Action [Clock] (Cmd t)
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 transitionActionName :: TransitionAction t -> [ClassName]
 transitionActionName (TransitionAction act _ _) = actionName act
 
 -- Transition relation from location to location via Action,
 -- provided [ClConstr] are satisfied; and resetting [Clock]
-data Transition t = Trans {
-    sourceOfTrans :: Loc
-  , guardOfTrans :: TransitionGuard t
-  , actionOfTrans :: TransitionAction t
-  , targetOfTrans :: Loc
+data Transition t = Transition {
+    sourceOfTransition :: Loc
+  , guardOfTransition :: TransitionGuard t
+  , actionOfTransition :: TransitionAction t
+  , targetOfTransition :: Loc
   }
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 -- Timed Automaton having:
 -- a name
@@ -449,7 +455,7 @@ data TA t =
     invarsOfTA ::  [(Loc, [ClConstr])],
     labellingOfTA :: [(Loc, Expr t)]
   }
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 -- Timed Automata System: a set of TAs running in parallel
 -- Type parameter ext: Environment-specific extension

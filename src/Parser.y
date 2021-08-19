@@ -27,6 +27,7 @@ import Syntax
 
 import Prelude
 import Control.Monad.Except
+import Data.Maybe (fromMaybe)
 
 }
 
@@ -53,6 +54,15 @@ import Control.Monad.Except
     fact    { L _ TokenFact }
     rule    { L _ TokenRule }
     derivable { L _ TokenDerivable }
+
+    process     { L _ TokenProcess }
+    clock       { L _ TokenClock }
+    state       { L _ TokenState }
+    init        { L _ TokenInit }
+    trans       { L _ TokenTrans }
+    guard       { L _ TokenGuard }
+    assign      { L _ TokenAssign }
+
 
     let    { L _ TokenLet }
     in     { L _ TokenIn }
@@ -82,6 +92,7 @@ import Control.Monad.Except
     '>'   { L _ TokenGt }
     '>='  { L _ TokenGte }
     '/='  { L _ TokenNe }
+    '='   { L _ TokenAssignTo }
     '+'   { L _ TokenAdd }
     '-'   { L _ TokenSub }
     '*'   { L _ TokenMul }
@@ -90,6 +101,7 @@ import Control.Monad.Except
     '.'   { L _ TokenDot }
     ','   { L _ TokenComma }
     ':'   { L _ TokenColon }
+    ';'   { L _ TokenSemicolon }
     '('   { L _ TokenLParen }
     ')'   { L _ TokenRParen }
     '{'   { L _ TokenLBrace }
@@ -187,6 +199,10 @@ QVarsCommaSep :                            { [] }
             | QualifVar                    { [$1] }
             | QVarsCommaSep ',' QualifVar  { $3 : $1 }
 
+VarsCommaSep :                            { [] }
+            | VAR                    { [tokenSym $1] }
+            | VarsCommaSep ',' VAR  { (tokenSym $3) : $1 }
+
 Expr : '\\' Pattern ':' ATp '->' Expr  { FunE (tokenRange $1 $6) $2 $4 $6 }
      | forall QualifVar ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) All $2 $4 $6 }
      | exists QualifVar ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) Ex  $2 $4 $6 }
@@ -253,11 +269,79 @@ Rules  :                       { [] }
        | Rules Rule            { $2 : $1}
        | Rules Fact            { $2 : $1}
 
+
 -- TODO: KVMaps do not have a location, so the token range in the following is incomplete
 Rule : rule ARName KVMap { Rule (getLoc $1) $2 $3  [] (ValE (nullSRng) (BoolV True)) (ValE (nullSRng) (BoolV True)) }
      | rule ARName KVMap RuleVarDecls RulePrecond RuleConcl { Rule (tokenRange $1 $6) $2 $3 $4 $5 $6 }
 
 Fact : fact ARName  KVMap RuleVarDecls Expr { Rule (tokenRange $1 $5) $2 $3 $4 (ValE (nullSRng) (BoolV True)) $5 }
+
+
+
+-- TODO: labellings still to be added, channels to be added
+Automaton : Clocks 
+  process VAR '(' ')' '{' States Initial Transitions '}'
+  { TA {nameOfTA = (tokenSym $3), locsOfTA = (map fst $7), channelsOfTA = [], clocksOfTA = $1,
+        transitionsOfTA = $9, initialLocsOfTA = $8, invarsOfTA = $7, labellingOfTA = []}}
+
+
+-- Channels : channels VARsCommaSep ';' { map ClsNm $2 }
+
+Clocks : clock VarsCommaSep ';' { map Clock $2 }
+
+States : state StatesCommaSep ';' { $2 }
+
+StatesCommaSep :                            { [] }
+            | StateWithInvar                    { [$1] }
+            | StatesCommaSep ',' StateWithInvar  { $3 : $1 }
+
+StateWithInvar : VAR { (Loc (tokenSym $1), []) }
+               | VAR '{' InvarsAndSep '}' { (Loc (tokenSym $1), $3) }
+		 
+InvarsAndSep :                        { [] }
+            | Invar                     { [$1] }
+            | InvarsAndSep '&&' Invar  { $3 : $1 }
+
+-- TODO: refine the notion of invariant
+Invar : VAR '<' INT  { ClConstr (Clock (tokenSym $1)) BClt $3 }
+      | VAR '<=' INT { ClConstr (Clock (tokenSym $1)) BClte $3 }
+      | VAR '>' INT  { ClConstr (Clock (tokenSym $1)) BCgt $3 }
+      | VAR '>=' INT { ClConstr (Clock (tokenSym $1)) BCgte $3 }
+      | VAR '==' INT { ClConstr (Clock (tokenSym $1)) BCeq $3 }
+      | VAR '/=' INT { ClConstr (Clock (tokenSym $1)) BCne $3 }
+
+-- Here just one initial variable
+Initial : init VAR  ';' { [Loc (tokenSym $2)] }
+
+Transitions : trans TransitionsCommaSep ';' { $2 }
+
+TransitionsCommaSep :                            { [] }
+            | TransitionWithInfo                 { [$1] }
+            | TransitionsCommaSep ',' TransitionWithInfo  { $3 : $1 }
+
+TransitionWithInfo : VAR '->' VAR '{' TrGuard TrAssign '}'
+                 { Transition {sourceOfTransition = (Loc (tokenSym $1)),
+		   	       guardOfTransition = $5,
+			       actionOfTransition = $6,
+			       targetOfTransition = (Loc (tokenSym $3))} }
+
+-- TODO: so far, guard expressions are not taken into account, only clock constraints
+TrGuard :                                   { TransitionGuard [] (ValE (nullSRng) (BoolV True)) }
+| guard InvarsAndSep ';' { TransitionGuard $2 (ValE (nullSRng) (BoolV True)) }
+
+-- TODO: only clock resets taken into account
+TrAssign :                                   { TransitionAction Internal [] (Skip (nullSRng)) }
+	 | assign TrAssignmentsCommaSep ';'  { TransitionAction Internal $2 (Skip (nullSRng)) }
+
+
+TrAssignmentsCommaSep :                             { [] }
+            | TrAssignment                          { [$1] }
+            | TrAssignmentsCommaSep ',' TrAssignment  { $3 : $1 }
+
+-- TODO: assignments in Uppaal can also be to other variables and other than clock resets
+-- The value assigned is here not taken into account
+TrAssignment : VAR '=' INT { Clock (tokenSym $1)  }
+
 
 RuleVarDecls :                       { [] }
              | for VarDeclsCommaSep  { reverse $2 }
@@ -268,6 +352,7 @@ RuleConcl   : then Expr    { $2 }
 
 Assertions :                       { [] }
            | Assertions Assertion  { $2 : $1 }
+           | Assertions Automaton  { (AssertionTA (nullSRng) $2) : $1 }
 
 -- TODO: same problem with locations as for Rule above
 Assertion : assert ARName KVMap        { Assertion (getLoc $1) $2 $3 (ValE (nullSRng) (BoolV True)) }
