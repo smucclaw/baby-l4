@@ -50,10 +50,10 @@ flattenConjs _ = []
 --    a note: isRule filters the rules that need processing, flattenConjs filters & processes the conjugates of said rules
 ruleToSimpleRule :: Rule t -> Either String (SimpleRule t)
 ruleToSimpleRule r
-  | isRule r = Right $ SimpleRule 
-                        (M.fromJust $ nameOfRule r) 
-                        (varDeclsOfRule r) 
-                        (flattenConjs (precondOfRule r)) 
+  | isRule r = Right $ SimpleRule
+                        (M.fromJust $ nameOfRule r)
+                        (varDeclsOfRule r)
+                        (flattenConjs (precondOfRule r))
                         (postcondOfRule r)
   | otherwise = Left $ "Not a valid rule: " ++ M.fromJust (nameOfRule r) ++ "\n"
 
@@ -83,7 +83,7 @@ mkRulePred :: SimpleRule t -> S.Set GrEdge
 mkRulePred r =
   let rname = nameOfSimpleRule r
       preConds = precondOfSimpleRule r
-      preCondName = M.mapMaybe funNameOfApp preConds 
+      preCondName = M.mapMaybe funNameOfApp preConds
   in S.fromList $ map ((RuleAnd rname,) . PredOr) preCondName
 
 
@@ -107,7 +107,7 @@ simpleRuleToGrNodes r = let
   postcondnode = PredOr postcond
   rulenode = RuleAnd rulename   -- rulenodes : Set GrNode
   orruleedges = (postcondnode, rulenode) -- orruleedges: Set GrEdge
-  andprededges = S.map (rulenode, ) precondnodes 
+  andprededges = S.map (rulenode, ) precondnodes
   in
   (S.union precondnodes $ S.fromList [postcondnode, rulenode],
    S.union andprededges $ S.singleton orruleedges)
@@ -120,7 +120,7 @@ rulePreds :: SimpleRule t -> S.Set PredName
 rulePreds (SimpleRule _ _ preConds postConds) = S.fromList $ M.mapMaybe funNameOfApp (postConds : preConds)
 
 rulePreds' :: SimpleRule t -> (S.Set PredName, PredName)
-rulePreds' (SimpleRule _ _ preConds postConds) = 
+rulePreds' (SimpleRule _ _ preConds postConds) =
   ( S.fromList . M.mapMaybe funNameOfApp $ preConds
   , M.fromJust . funNameOfApp $ postConds )
 
@@ -129,7 +129,7 @@ funNameOfApp (AppE _ x _) = funNameOfApp x
 funNameOfApp (VarE _ x) = Just $ nameOfQVarName $ nameOfVar x
 funNameOfApp _ = Nothing
 
- 
+
 getAllRuleNames :: [SimpleRule t] -> S.Set RuleName
 getAllRuleNames xs = S.fromList $ map nameOfSimpleRule xs
 
@@ -161,7 +161,7 @@ mkLabelledGraph gOut nodeset edgeset =
 
 -- fromJust: whatever that is queried (NInd/Sym) should occur in assoc list
 -- | Given a list of [(Nind, Sym)]/[(Sym,Nind)] and a Nind/Sym to query, returns Sym/Nind
-bidirLookup :: Eq a => [(a, b)] -> a -> b          
+bidirLookup :: Eq a => [(a, b)] -> a -> b
 bidirLookup xs a = M.fromJust $ L.lookup a xs
 
 edgeSetSymToInd :: Eq a => GraphOut -> [(a, NInd)] -> [(a, a)] -> [(NInd, NInd, String)]
@@ -186,7 +186,8 @@ expSys x = do
         (LG mypropgraph _ siprop) = myPropLGGraph
         (LG mydepgraph _ sidep) = myDepLGGraph
         sortedNodes = topsort' mypropgraph
-        propInfos = propagate myPropLGGraph sortedNodes []
+        annotsMax = propagate myDepLGGraph sortedNodes Max []
+        annotsMin = propagate myDepLGGraph sortedNodes Min []
     _ <- runGraphviz (graphToDot quickParams mypropgraph) Pdf "compactPropGraph.pdf"
     _ <- runGraphviz (graphToDot quickParams mydepgraph) Pdf "compactDepGraph.pdf"
     print $ topsort' mypropgraph
@@ -194,35 +195,76 @@ expSys x = do
     -- print validRules
     print $ suc mypropgraph (bidirLookup siprop $ PredOr "earnings")
     print $ suc mydepgraph (bidirLookup sidep $ PredOr "earnings")
-    print $ propagate myDepLGGraph sortedNodes [] -- Note that we are using the dep graph as the "context", but the topologically sorted list from the prop graph as the "queue"
+    putStrLn $ "max graph: " ++ show (propagate myDepLGGraph sortedNodes Max []) -- Note that we are using the dep graph as the "context", but the topologically sorted list from the prop graph as the "queue"
+    putStrLn $ "min graph: " ++ show (propagate myDepLGGraph sortedNodes Min [])
         -- print $ labelledSCC mypropgraph
         -- return ()
 
+    -- putStrLn $ "min savings_account " ++ show (annotateMin (PredOr "savings_account") myDepLGGraph annotsMin)
+    -- putStrLn $ "max savings_account " ++ show (annotateMax (PredOr "savings_account") myDepLGGraph annotsMax)
 
-propagate :: (Eq a, Ord a) => LabelledGraph a -> [a] -> [(a, S.Set a)] -> [(a, S.Set a)] -- [(a,b)] is the association list between the nodes and the information required by them
--- [a] : topologically sorted list of nodes by sym
--- [(a, Set a)] : assoc list of (node, annot) which is progressively built
--- a node's annotation is the unioned set of its children nodes (max info for now)
-propagate _ [] assoc = assoc                                  -- when the queue is complete, return association list
-propagate gr (x:xs) assoc =                                   -- When queue is not complete, and association list is not empty,
-  let xInfo = getAnnotate x gr assoc                          --    1. obtain annotation information of current node in queue (see getAnnotate; leaf node cases handled)
-      newAssoc = (x, xInfo) : assoc                           --    2. add (current node, annotation info) to association list
-  in                                                          --    3. repeat for next node in queue
-  propagate gr xs newAssoc
+data Annot = Min | Max deriving Show
 
+propagate :: LabelledGraph GrNode -- dependency graph
+          -> [GrNode] -- topologically sorted list of nodes as symbols from propagation graph
+          -> Annot
+          -> [(GrNode, S.Set GrNode)] -- interim assoc list of each node and its annotation
+          -> [(GrNode, S.Set GrNode)] -- final assoc list of each node and its annotation
+-- a node's annotation is the set of all reachable leaf preds
+propagate _ [] _ assoc = assoc                                            -- when the queue is complete, return association list
+propagate gr (x:xs) annot assoc = propagate gr xs annot newAssoc          -- when queue is not complete, and association list is not empty,
+  where xInfo =
+          case annot of
+            Max -> annotateMax x gr assoc                                 --    1. obtain annot of current node in queue (see getAnnotate; leaf node cases handled)
+            Min -> annotateMin x gr assoc
+        newAssoc = (x, xInfo) : assoc                                     --    2. add (current node, annot) to assoc list
 
--- annotate :: (Monoid b) => a -> LabelledGraph a -> [(a,b)] -> b
-getAnnotate :: (Eq a, Ord a) => a -> LabelledGraph a -> [(a, S.Set a)] -> S.Set a 
-getAnnotate x (LG gr indsym symind) nodeDeps =                       -- if leaf node, then return self, else return children information 
-  let xInd = bidirLookup symind x
-      sucSyms = bidirLookup indsym <$> suc gr xInd 
-  in case sucSyms of
-    [] -> S.singleton x
-    succs -> getMax succs nodeDeps
+annotateMax :: GrNode -- node as symbol
+            -> LabelledGraph GrNode -- dependency graph
+            -> [(GrNode, S.Set GrNode)] -- assoc list of each node and its annotation (all reachable leaves)
+            -> S.Set GrNode -- annot corresponding to input node
+annotateMax node lg nodeAnnots =
+-- if leaf node, then return self, else return reachable leaves
+  case sucLG lg node of
+    []    -> S.singleton node
+    succs -> getUnions succs nodeAnnots
 
-getMax :: (Ord a) => [a] -> [(a, S.Set a)] -> S.Set a
--- [a] : labels of successor nodes
--- flip lookup :: [(a, Set a)] -> a -> Maybe (Set a)
--- if succ node (index) is found in nodeDeps, return set of node's children info, otherwise return empty set
--- repeat for all succ nodes
-getMax xs nodeDeps = S.unions $ M.fromMaybe mempty . flip lookup nodeDeps <$> xs
+-- predicates: intersection of children's reachable leaves
+-- rules: union of children's reachable leaves
+annotateMin :: GrNode
+            -> LabelledGraph GrNode
+            -> [(GrNode, S.Set GrNode)]
+            -> S.Set GrNode
+annotateMin predN@(PredOr _) lg nodeAnnots =
+  case sucLG lg predN of
+    []    -> S.singleton predN
+    succs -> getIntersections succs nodeAnnots
+annotateMin ruleN@(RuleAnd _) lg nodeAnnots =
+  getUnions (sucLG lg ruleN) nodeAnnots
+
+sucLG :: Eq a => LabelledGraph a -- dependency graph
+      -> a -- node as symbol
+      -> [a] -- node successors
+sucLG (LG gr indSym symInd) nSym =
+  let nInd = bidirLookup symInd nSym
+      sInds = suc gr nInd
+  in map (bidirLookup indSym) sInds
+
+getUnions :: Ord a => [a] -- successor nodes as symbols
+          -> [(a, S.Set a)] -- assoc list of each node and its annotation
+          -> S.Set a -- unioned set of reachable leaf preds from all successors
+getUnions succs nodeAnnots = S.unions $ M.fromMaybe mempty . flip lookup nodeAnnots <$> succs
+
+getIntersections :: Ord a => [a] -- successor nodes as symbols
+                 -> [(a, S.Set a)] -- assoc list of each node and its annotation
+                 -> S.Set a -- intersection of reachable leaf preds from all successors
+getIntersections succs nodeAnnots = foldr1 S.intersection leaves
+  where leaves = M.fromMaybe mempty . flip lookup nodeAnnots <$> succs
+
+-- getAnnotate' :: (Eq a, Ord a) => a -> LabelledGraph a -> [(a, S.Set a)] -> S.Set a
+-- getAnnotate' x (LG gr indsym symind) nodeDeps =                       -- if leaf node, then return self, else return children information
+--   let xInd = bidirLookup symind x
+--       sucSyms = bidirLookup indsym <$> suc gr xInd
+--   in case sucSyms of
+--     [] -> S.singleton x
+--     succs -> getMax succs nodeDeps
