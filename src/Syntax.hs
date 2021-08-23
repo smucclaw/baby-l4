@@ -15,7 +15,6 @@ import Data.Data (Data, Typeable)
 import Annotation
 import Text.Megaparsec
 import Text.Megaparsec.Char
-import Replace.Megaparsec
 import Data.Void
 import Control.Monad
 
