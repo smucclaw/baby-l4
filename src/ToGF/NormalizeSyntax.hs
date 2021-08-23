@@ -134,10 +134,10 @@ normalizeProg (Program annP mappings classdecs globals rules assert) =
 -}
 
 
-flipIfNecessary :: [Mapping t] -> VarDecl t -> VarDecl t
-flipIfNecessary mappings vd = case vd of
+-- flipIfNecessary :: [Mapping t] -> VarDecl t -> VarDecl t
+-- flipIfNecessary mappings vd = case vd of
 
-  FunPattern name tp1 tp2 ->  [tp1,tp2]
+--   FunPattern name tp1 tp2 ->  [tp1,tp2]
     -- if predname is foo, and FunT is like, Game -> Player -> Bool
     -- and there is a mapping foo -> "{Player} _ {Game}"
     -- VarDecl t predname FunT tp2 tp1 where
@@ -146,31 +146,42 @@ flipIfNecessary mappings vd = case vd of
 -- flipIfNecessary =
 --   case   mapping foo = "{Player} _ {Game}" -> mappinv
 
-
--- ToAnswer
-
-pattern FunPattern :: String -> Tp -> Tp ->  VarDecl t
 -- VarDecl x y i
 -- FunT (ClassT (ClsNm x)) (FunT (ClassT (ClsNm y)) (IntT <- i)
-pattern FunPattern name tp1 tp2 = VarDecl _ name (FunT tp1 tp2)
+pattern FunPattern :: String -> Tp -> Tp ->  VarDecl t
+pattern FunPattern name tp1 tp2 <- VarDecl _ name (FunT tp1 tp2)
 
+-- getMapArgs (Mapping t foo (Descr "whatever" [player, game]))
+--            = [player, game]
+-- getMapArgs :: Mapping t -> [String]
+-- getMapArgs (Mapping t _ (Descr _ x)) = x
+
+-- getVardeclArgs :: VarDecl t -> [String]
+-- getVarDeclArgs (FunPattern _ tp1 tp2) = [tp1, tp2]
+
+-- (VarDecl t "whatever" FunT player game)
+checkNFlip :: Mapping t -> VarDecl t -> VarDecl t
+checkNFlip (Mapping t _ (Descr _ x)) (FunPattern _ tp1 tp2)
+  | x == [tp1, tp2] = VarDecl _ name (FunT tp1 tp2)
+  | x == [tp2, tp1] = VarDecl _ name (FunT tp2 tp1)
+  | otherwise = error $ "mapping doesn't exist " ++ show e
 
 --  pattern FunPattern varname tp1 tp2 -- = VarDecl t varname pattern Arg2 tp1 tp2
 -- checkFoo :: VarDecl -> VarDecl
 -- checkFoo (VarDecl t varname (FunT tp1 tp2))  =
 
-parseDescriptionM :: String -> Description
-parseDescriptionM x
-  | '{' `elem` x =
-          let allWords = words $ filter (`notElem` "{}") x
-          in Descr {predOfDescription = unwords (tail (init allWords)), argsOfDescription =[head allWords, last allWords]}
-  | otherwise = Descr {predOfDescription = x, argsOfDescription = []}
+-- parseDescriptionM :: String -> Description
+-- parseDescriptionM x
+--   | '{' `elem` x =
+--           let allWords = words $ filter (`notElem` "{}") x
+--           in Descr {predOfDescription = unwords (tail (init allWords)), argsOfDescription =[head allWords, last allWords]}
+--   | otherwise = Descr {predOfDescription = x, argsOfDescription = []}
 
 
-checkMappings :: Mapping t -> Mapping t
-checkMappings  ( Mapping t VarName Description)  = Mapping t varName (Desr {predOfDescription :: String , argsOfDescription :: [String]})
+-- checkMappings :: Mapping t -> Mapping t
+-- checkMappings  ( Mapping t VarName Description)  = Mapping t varName (Desr {predOfDescription :: String , argsOfDescription :: [String]})
 
-rearrange ::  [String] -> [String]
-rearrange argsOfDescription = case argsOfDescription of
-  [tp1, tp2] -> [tp1, tp2]
-  [tp2, tp1] -> [tp1, tp2]
+-- rearrange ::  [String] -> [String]
+-- rearrange argsOfDescription = case argsOfDescription of
+--   [tp1, tp2] -> [tp1, tp2]
+--   [tp2, tp1] -> [tp1, tp2]
