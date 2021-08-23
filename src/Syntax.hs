@@ -14,6 +14,7 @@ module Syntax where
 import Data.Data (Data, Typeable)
 import Annotation
 import KeyValueMap
+import PGF (Probabilities)
 
 
 ----------------------------------------------------------------------
@@ -52,9 +53,132 @@ data Program t = Program{ annotOfProgram :: t
                             , assertionsOfProgram :: [Assertion t] }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
+data TopLevelElement t
+  = MappingTLE (Mapping t)
+  | ClassDeclTLE (ClassDecl t)
+  | VarDeclTLE (VarDecl t)
+  | RuleTLE (Rule t)
+  | AssertionTLE (Assertion t)
+  | AutomatonTLE (TA t)
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
+-- TODO: annotations of automata
+getAnnotOfTLE :: TopLevelElement t -> t
+getAnnotOfTLE e = case e of
+     MappingTLE mp -> annotOfMapping mp
+     ClassDeclTLE cd -> annotOfClassDecl cd
+     VarDeclTLE vd -> annotOfVarDecl vd
+     RuleTLE ru -> annotOfRule ru
+     AssertionTLE as -> annotOfAssertion as
+     AutomatonTLE _ta -> undefined 
+
+-- TODO: annotations of automata
+updateAnnotOfTLE :: (t -> t) -> TopLevelElement t -> TopLevelElement t
+updateAnnotOfTLE f e = case e of
+     MappingTLE mp -> MappingTLE $ mp { annotOfMapping = f (annotOfMapping mp) }
+     ClassDeclTLE cd -> ClassDeclTLE $ cd { annotOfClassDecl = f (annotOfClassDecl cd) }
+     VarDeclTLE vd -> VarDeclTLE $ vd { annotOfVarDecl = f (annotOfVarDecl vd) }
+     RuleTLE ru -> RuleTLE $ ru { annotOfRule = f (annotOfRule ru) }
+     AssertionTLE as -> AssertionTLE $ as { annotOfAssertion = f (annotOfAssertion as) }
+     AutomatonTLE _ta -> undefined
+     
+instance HasLoc t => HasLoc (TopLevelElement t) where
+  getLoc = getLoc . getAnnotOfTLE
+
+instance HasAnnot TopLevelElement where
+  getAnnot = getAnnotOfTLE 
+  updateAnnot = updateAnnotOfTLE
+
+data NewProgram t = NewProgram { annotOfNewProgram :: t
+                               , elementsOfNewProgram :: [TopLevelElement t] }
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
+instance HasAnnot NewProgram where
+  getAnnot = annotOfNewProgram
+  updateAnnot f p = p { annotOfNewProgram = f (annotOfNewProgram p)}
+
+
+isMapping :: TopLevelElement t -> Bool
+isMapping (MappingTLE _) = True
+isMapping _ = False
+
+isClassDecl :: TopLevelElement t -> Bool
+isClassDecl (ClassDeclTLE _) = True
+isClassDecl _ = False
+
+isVarDecl :: TopLevelElement t -> Bool
+isVarDecl (VarDeclTLE _) = True
+isVarDecl _ = False
+
+isRule :: TopLevelElement t -> Bool
+isRule (RuleTLE _) = True
+isRule _ = False
+
+isAssertion :: TopLevelElement t -> Bool
+isAssertion (AssertionTLE _) = True
+isAssertion _ = False
+
+isAutomaton :: TopLevelElement t -> Bool
+isAutomaton (AutomatonTLE _) = True
+isAutomaton _ = False
+
+getMapping :: TopLevelElement t -> Mapping t
+getMapping (MappingTLE e) = e
+getMapping _ = error "wrong selection"
+
+getClassDecl :: TopLevelElement t -> ClassDecl t
+getClassDecl (ClassDeclTLE e) = e
+getClassDecl _ = error "wrong selection"
+
+getVarDecl :: TopLevelElement t -> VarDecl t
+getVarDecl (VarDeclTLE e) = e
+getVarDecl _ = error "wrong selection"
+
+getRule :: TopLevelElement t -> Rule t
+getRule (RuleTLE e) = e
+getRule _ = error "wrong selection"
+
+getAssertion :: TopLevelElement t -> Assertion t
+getAssertion (AssertionTLE e) = e
+getAssertion _ = error "wrong selection"
+
+getAutomaton :: TopLevelElement t -> TA t
+getAutomaton (AutomatonTLE e) = e
+getAutomaton _ = error "wrong selection"
+
+lexiconOfNewProgram :: NewProgram t -> [Mapping t]
+lexiconOfNewProgram = map getMapping . filter isMapping . elementsOfNewProgram
+
+classDeclsOfNewProgram :: NewProgram t -> [ClassDecl t]
+classDeclsOfNewProgram = map getClassDecl . filter isClassDecl . elementsOfNewProgram
+
+globalsOfNewProgram :: NewProgram t -> [VarDecl t]
+globalsOfNewProgram = map getVarDecl . filter isVarDecl . elementsOfNewProgram
+
+rulesOfNewProgram :: NewProgram t -> [Rule t]
+rulesOfNewProgram = map getRule . filter isRule . elementsOfNewProgram
+
+assertionsOfNewProgram :: NewProgram t -> [Assertion t]
+assertionsOfNewProgram = map getAssertion . filter isAssertion . elementsOfNewProgram
+
+automataOfNewProgram :: NewProgram t -> [TA t]
+automataOfNewProgram = map getAutomaton . filter isAutomaton . elementsOfNewProgram
+
+
+newProgramToProgram :: NewProgram t -> Program t
+newProgramToProgram np = Program {
+  annotOfProgram = annotOfNewProgram np,
+  lexiconOfProgram = lexiconOfNewProgram np,
+  classDeclsOfProgram = classDeclsOfNewProgram np,
+  globalsOfProgram = globalsOfNewProgram np,
+  rulesOfProgram = rulesOfNewProgram np,
+  assertionsOfProgram = assertionsOfNewProgram np
+}
+
 instance HasAnnot Program where
   getAnnot = annotOfProgram
   updateAnnot f p = p { annotOfProgram = f (annotOfProgram p)}
+
 
 data ExpectedType
   = ExpectedString  String
@@ -124,7 +248,10 @@ instance HasAnnot VarDecl where
   getAnnot = annotOfVarDecl
   updateAnnot f p = p { annotOfVarDecl = f (annotOfVarDecl p)}
 
-data Mapping t = Mapping t VarName VarName
+data Mapping t = Mapping { annotOfMapping :: t
+                          , fromMapping :: VarName
+                          , toMapping :: VarName}
+
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 instance HasLoc t => HasLoc (Mapping t) where
   getLoc (Mapping t _ _) = getLoc t
@@ -209,7 +336,7 @@ customCs = [objectC, qualifNumC, currencyC] ++ currencyCs ++ [timeC] ++ timeCs +
 data Val
     = BoolV Bool
     | IntV Integer
-    | FloatV Float 
+    | FloatV Float
     | StringV String
     -- TODO: instead of RecordV, introduce RecordE in type Expr
     -- | RecordV ClassName [(FieldName, Val)]
@@ -237,7 +364,7 @@ data UArithOp = UAminus
 data UBoolOp = UBnot
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-data UTemporalOp 
+data UTemporalOp
   = UTAF -- always finally
   | UTAG -- always generally
   | UTEF -- exists finally
@@ -444,7 +571,7 @@ data Transition t = Transition {
 -- for AP a type of atomic propositioons and which is here taken to be [(Loc, Expr t)].
 -- Note: the set of locations, actions, clocks could in principle be inferred from the remaining info.
 -- Type parameter t: type of expressions: () or Tp, see function Typing/tpExprr
-data TA t = 
+data TA t =
   TA {
     nameOfTA :: String,
     locsOfTA :: [Loc],

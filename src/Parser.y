@@ -16,6 +16,7 @@
 -}
 
 module Parser (
+  parseNewProgram,
   parseProgram
 --  , parseTokens,
 ) where
@@ -28,6 +29,7 @@ import Syntax
 import Prelude
 import Control.Monad.Except
 import Data.Maybe (fromMaybe)
+import Data.Either.Combinators (mapRight)
 
 }
 
@@ -130,8 +132,19 @@ import Data.Maybe (fromMaybe)
 
 QualifVar : VAR { QVarName (getLoc $1) (tokenSym $1) }
 
-Program : Lexicon ClassDecls GlobalVarDecls Rules Assertions
-                                   { Program (tokenRangeList [getLoc $1, getLoc $2, getLoc $3, getLoc $4, getLoc $5]) (reverse $ unLoc $1) (reverse $2)  (reverse $3) (reverse $4) (reverse $5) }
+--Program : Lexicon ClassDecls GlobalVarDecls Rules Assertions
+--                                   { Program (tokenRangeList [getLoc $1, getLoc $2, getLoc $3, getLoc $4, getLoc $5]) (reverse $ unLoc $1) (reverse $2)  (reverse $3) (reverse $4) (reverse $5) }
+
+Program : TopLevelElements { NewProgram (tokenRangeList (map getLoc $1)) (reverse $1) }
+
+TopLevelElements :  TopLevelElement                 { [$1] }
+                 | TopLevelElements TopLevelElement { $2 : $1 }
+TopLevelElement : Mapping { MappingTLE $1 } 
+                | ClassDecl { ClassDeclTLE $1 } 
+                | GlobalVarDecl { VarDeclTLE $1 } 
+                | RuleOrFact { RuleTLE $1 }
+                | Assertion { AssertionTLE $1 }
+                | Automaton { AutomatonTLE $1 }
 
 Lexicon :                   { L (DummySRng "No lexicon") [] }
         |  lexicon Mappings { L (tokenRangeList [getLoc $1, getLoc $2]) $2 }
@@ -269,7 +282,8 @@ Rules  :                       { [] }
        | Rules Rule            { $2 : $1}
        | Rules Fact            { $2 : $1}
 
-
+RuleOrFact : Rule { $1 }
+           | Fact { $1 }
 -- TODO: KVMaps do not have a location, so the token range in the following is incomplete
 Rule : rule ARName KVMap { Rule (getLoc $1) $2 $3  [] (ValE (nullSRng) (BoolV True)) (ValE (nullSRng) (BoolV True)) }
      | rule ARName KVMap RuleVarDecls RulePrecond RuleConcl { Rule (tokenRange $1 $6) $2 $3 $4 $5 $6 }
@@ -389,16 +403,9 @@ parseError (L p t) =
 -- parseError (l:ls) = throwError (show l)
 -- parseError [] = throwError "Unexpected end of Input"
 
+parseNewProgram :: FilePath -> String -> Either Err (NewProgram SRng)
+parseNewProgram = runAlex' program
+
 parseProgram :: FilePath -> String -> Either Err (Program SRng)
-parseProgram = runAlex' program
-
--- parseProgram:: String -> Either String (Program (Maybe ClassName) ())
--- parseProgram input = runExcept $ do
---   tokenStream <- scanTokens input
---   program tokenStream
-
--- still needed ???
--- parseTokens :: String -> Either String [Token]
--- parseTokens = runExcept . scanTokens
-
+parseProgram fp inp = mapRight newProgramToProgram (parseNewProgram fp inp)
 }

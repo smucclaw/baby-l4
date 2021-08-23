@@ -4,8 +4,8 @@
 module Main where
 
 
-import Parser (parseProgram)
-import Syntax (Program, ClassName)
+import Parser (parseNewProgram, parseProgram)
+import Syntax (NewProgram, Program, ClassName)
 import Typing ( checkError )
 --import SmtSBV (proveProgram)
 import Smt (proveProgram)
