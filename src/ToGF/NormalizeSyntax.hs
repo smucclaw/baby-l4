@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE PatternSynonyms #-}
 module ToGF.NormalizeSyntax where
 
 import Annotation (TypeAnnot (updType))
