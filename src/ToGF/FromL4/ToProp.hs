@@ -110,35 +110,24 @@ var2ind var = do
   let name = varName var
   lex <- asks lexicon
   return $ case findMapping lex name of
-    val : _ | gfType val == "Noun" -> GIVarN (LexNoun name)
-    _ -> GIVar (GVString (GString name)) -- Fall back to string literal
+     _:_  -> GIVarN (GAtomNoun (LexAtom name)) -- the var is in lexicon
+     _    -> GIVar (GVString (GString name)) -- Fall back to string literal
 
 var2pred :: Var -> CuteCats GPred1
 var2pred var = do
   let name = varName var
-  lex <- asks lexicon
-  return $ case findMapping lex name of
-    val : _
-      | gfType val == "Adj" -> GPAdj1 (LexAdj name)
-      | gfType val == "Verb" -> GPVerb1 (LexVerb name)
-      | gfType val == "Noun" -> GPNoun1 (LexNoun name)
-    _ -> GPVar1 (GVString (GString name))
+  return $ GAtomPred1 (LexAtom name)
 
 var2pred2 :: Var -> CuteCats GPred2
 var2pred2 var = do
   let name = varName var
-  lex <- asks lexicon
-  return $ case findMapping lex name of
-    val : _ | gfType val == "Adj2" -> GPAdj2 (LexAdj2 name)
-    val : _ | gfType val == "Verb2" -> GPVerb2 (LexVerb2 name)
-    val : _ | gfType val == "Noun2" -> GPNoun2 (LexNoun2 name)
-    _ -> GPVar2 (GVString (GString name))
+  return $ GAtomPred2 (LexAtom name)
 
 tp2kind :: Var -> Tp -> CuteCats GKind
 tp2kind v e = case e of
   BoolT -> pure GBoolean
   IntT -> pure GNat
-  ClassT (ClsNm name) -> pure $ GKNoun (var2quant v) (LexNoun name)
+  ClassT (ClsNm name) -> pure $ GKNoun (var2quant v) (GAtomNoun (LexAtom name))
   FunT arg ret -> GKFun <$> tp2kind v arg <*> tp2kind v ret
   -- TupleT [Tp]
   -- ErrT
@@ -148,7 +137,7 @@ tp2ind :: Var -> Tp -> CuteCats GInd
 tp2ind v e = case e of
   --BoolT -> pure GBoolean
   --IntT -> pure GNat
-  ClassT (ClsNm name) -> pure $ GINoun (var2quant v) (LexNoun name)
+  ClassT (ClsNm name) -> pure $ GINoun (var2quant v) (GAtomNoun (LexAtom name))
   --FunT arg ret -> GKFun <$> tp2kind arg <*> tp2kind ret
   -- TupleT [Tp]
   -- ErrT
@@ -156,10 +145,10 @@ tp2ind v e = case e of
   -- _ -> error $ "tp2kind: not yet supported: " ++ show e
 
 var2quant :: Var -> GQuantifier
-var2quant = GQString . GString . varName 
+var2quant = GQString . GString . varName
 
 rule2prop :: Rule Tp -> CuteCats GProp
-rule2prop r = 
+rule2prop r =
   let r'@(Rule _ nm vars ifE thenE) = normalizeQuantifGF r in local (updateVars vars) $
   do
     ifProp <- expr2prop ifE
@@ -211,7 +200,7 @@ expr2prop e = case e of
   --VarE _ var -> var2prop var
   _ -> error $ "expr2prop: not yet supported: " ++ show e
 
-val2atom :: Val -> GAtom
+val2atom :: Val -> GPropAtom
 val2atom e = case e of
   BoolV True -> GAKind GBoolean GBTrue
   BoolV False -> GAKind GBoolean GBFalse

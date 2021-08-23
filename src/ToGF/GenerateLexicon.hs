@@ -166,8 +166,8 @@ concreteLexicon gname userlexicon poses = let lName = pretty $ lexName gname in
       (indent' . vsep) (concrEntryPOS <$> poses),
       (indent' . vsep) (concrEntryUserLex <$> userlexicon),
       "oper",
-      "    p1 : {pred : VPS} -> LinAtom = \\vps -> mkAtom <vps.pred : VPS> ;",
-      "    p2 : {pred : VPS2} -> LinAtom = \\vps2 -> mkAtom <vps2.pred : VPS2> ;",
+      "    p1 : {pred : VPS} -> LinAtom = \\vps -> mkAtom <vps.pred : VPS> <vps.pred : VPS> ; -- TODO: second one should be negation!!!!!",
+      "    p2 : {pred : VPS2} -> LinAtom = \\vps2 -> mkAtom <vps2.pred : VPS2> <vps2.pred : VPS2> ; -- TODO: second one should be negation!!!!!",
       "}"
     ]
 
@@ -176,7 +176,7 @@ abstractLexicon gname userlexicon poses =
   vsep
     [ "abstract" <+> pretty (lexName gname) <+> "=" <+> "Atoms ** {",
       "fun",
-      indent' $ sep $ punctuate "," $ map (pretty . map toLower)
+      indent' $ sep $ punctuate "," $ map pretty -- . map toLower)
         (map origName poses ++ map name userlexicon),
       indent' ": Atom ;",
       "}"
