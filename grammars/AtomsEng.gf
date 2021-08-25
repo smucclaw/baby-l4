@@ -36,6 +36,8 @@ concrete AtomsEng of Atoms = open Prelude, SyntaxEng, ExtendEng, (S=SyntaxEng), 
       mkAtom : S.V -> LinAtom = \v  -> dummyAtom ** {v  = v2vps v ; atype = AV} ;
       mkAtom : V2  -> LinAtom = \v2 -> dummyAtom ** {v2 = v2vps2 v2 ; atype = AV2} ;
       mkAtom : N2  -> LinAtom = \n2 -> dummyAtom ** {n2 = n2 ; atype = AN2} ;
+      mkAtom : PolVPS -> LinAtom = \v  -> dummyAtom ** {v = v ; atype = AV} ;
+      mkAtom : PolVPS2  -> LinAtom = \v2 -> dummyAtom ** {v2 = v2 ; atype = AV2} ;
       mkAtom : (pos, neg : VPS) -> LinAtom = \pos,neg -> dummyAtom ** {
         v  = table {MyPos => pos ; MyNeg => neg} ;
         atype = AV} ;

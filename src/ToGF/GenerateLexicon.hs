@@ -14,7 +14,7 @@ import ToGF.ParsePred
 import System.Environment (withArgs, getEnv)
 import System.IO (IOMode (WriteMode), withFile)
 import Text.Printf (printf)
-import Data.List.Extra (splitOn, trim, intercalate)
+import Data.List.Extra (splitOn, trim, intercalate, replace)
 import Syntax (Mapping(..))
 import Data.Maybe (listToMaybe)
 import Data.Char (toLower)
@@ -209,8 +209,10 @@ concrEntryUserLex pr =
 -- TODO: handle this function as Gf trees to other Gf trees, not string processing
 hackyRemoveFullPred :: String -> String
 hackyRemoveFullPred str = case words $ hackyChangeIntToCard $ trim str of
-                       "PredAP":_pol:ws -> printf "p1 (ComplAP %s)" $ unwords ws
-                       "PredNP":_pol:ws -> printf "p1 (ComplNP %s)" $ unwords ws
+                       "PredAP":_pol:ws -> printf "mkAtom (myVPS (mkVP %s))" $ unwords ws
+                       "PredNP":_pol:ws -> printf "mkAtom (myVPS (mkVP %s))" $ unwords ws
+                       "p1":"(ComplVPSlash1":vps -> printf "mkAtom (%s (%s" (unwords vps) (negPol vps)
+                       "p2":"(ComplVPSlash2":vps -> printf "mkAtom (%s (%s" (unwords vps) (negPol vps)
                        "p0":ws -> printf "mkAtom %s" $ unwords ws
                       --  "V2PartAdv":_pol:v2:adv
                       --    -> printf "p1 (ComplAP (AdvAP (PastPartAP (mkVPSlash %s)) %s))" v2 (unwords adv)
@@ -221,6 +223,8 @@ hackyChangeIntToCard str = case splitOn "(Int2Card 1)" str of
                         [] -> str
                         xs -> intercalate "(mkCard \"1\")" xs
 
+negPol :: [String] -> String
+negPol = unwords . replace ["PPos"] ["PNeg"]
 
 
 --- TODO: filter out predicates based on arity
