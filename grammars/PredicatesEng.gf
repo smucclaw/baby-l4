@@ -125,8 +125,8 @@ lin
       } ;
 
     headlessVP = overload {
-      headlessVP : AP -> LinGenPred = \np -> {subj = dummyNP ; pred = myVPS (mkVP np)} ;
-      headlessVP : NP -> LinGenPred = \np -> {subj = dummyNP ; pred = myVPS (mkVP np)} ;
+      headlessVP : AP -> LinGenPred = \ap -> {subj = dummyNP ; pred = myVPS (mkVP ap) ! MyPos} ;
+      headlessVP : NP -> LinGenPred = \np -> {subj = dummyNP ; pred = myVPS (mkVP np) ! MyPos} ;
       headlessVP : VPS -> LinGenPred = \vp -> {subj = dummyNP ; pred = vp}
       } ;
     headlessVP2 = overload {
@@ -141,8 +141,8 @@ lin
       } ;
 
     vpSlash = overload {
-      vpSlash : NP -> Prep -> VPS2 = \np,prep -> myVPS2 (VE.VPSlashPrep (mkVP np) prep) ;
-      vpSlash : AP -> Prep -> VPS2 = \ap,prep -> myVPS2 (VE.VPSlashPrep (mkVP ap) prep) ;
+      vpSlash : NP -> Prep -> VPS2 = \np,prep -> myVPS2 (VE.VPSlashPrep (mkVP np) prep) ! MyPos ;
+      vpSlash : AP -> Prep -> VPS2 = \ap,prep -> myVPS2 (VE.VPSlashPrep (mkVP ap) prep) ! MyPos ;
       vpSlash : VPS -> Prep -> VPS2 = \vps,prep -> vps ** {c2 = prep.s} ;
       } ;
 
