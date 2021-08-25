@@ -4,7 +4,6 @@ incomplete concrete PropI of Prop = Atoms ** open
   Syntax,
   Symbolic,
   Sentence, ---- ExtAdvS
-  WordNet,
   Extend,
   Verb,
   Prelude in {
@@ -24,7 +23,6 @@ lincat
   Quantifier = {ap : AP ; np : NP ; qt : QType} ;
 
 param
---  MyPol = MyPos | MyNeg ;
   QType = QQuant | QStr | QNothing ;
 
 lin
@@ -94,7 +92,7 @@ lin
     } ;
 
   PConjs c ps = case ps.c of {
-    True  => {s = mkS <colonConj : Conj> c.c (mkS <bulletConj : Conj> ps.s) ; c = False} ; ----
+    True  => {s = mkS <colonConj : Syntax.Conj> c.c (mkS <bulletConj : Syntax.Conj> ps.s) ; c = False} ; ----
     False => {s = mkS c.s ps.s ; c = True}
     } ;
   PUnivs vs k p = {
@@ -165,7 +163,7 @@ lin
 
   BTrue = {s = symb "true" ; isSymbolic = True} ;
   BFalse = {s = symb "false" ; isSymbolic = True} ;
-  KInd ind = {s = mkCN type_5_N ind.s ; isClass = True} ;
+  KInd ind = {s = mkCN type_N ind.s ; isClass = True} ;
 
   KNoun qnt noun = {
     s = case qnt.qt of {
@@ -187,8 +185,8 @@ lin
   Second = {ap = mkAP (mkOrd (mkNumeral n2_Unit)) ; np = nothing_NP ; qt = QQuant} ;
   Third = {ap = mkAP (mkOrd (mkNumeral n3_Unit)) ; np = nothing_NP ; qt = QQuant} ;
   Fourth = {ap = mkAP (mkOrd (mkNumeral n4_Unit)) ; np = nothing_NP ; qt = QQuant} ;
-  Other = {ap = mkAP other_1_A ; np = nothing_NP ; qt = QQuant} ;
-  QString str = {ap = mkAP other_1_A ; np = symb str ; qt = QStr} ;
+  Other = {ap = mkAP other_A ; np = nothing_NP ; qt = QQuant} ;
+  QString str = {ap = mkAP other_A ; np = symb str ; qt = QStr} ;
   NoQuant q = q ** {qt = QNothing} ;
 
 oper
