@@ -29,7 +29,7 @@ flags
 
 lin
   PPos = {s = [] ; p = CPos} ;
-  PNeg = {s = [] ; p = CNeg (variants {True; False})} ; -- contracted: don't
+  PNeg = {s = [] ; p = CNeg True} | {s = [] ; p = CNeg False} ; -- contracted: don't
 
   UseCl = variants {SentenceEng.UseCl; ExtraEng.ContractedUseCl} ;
 
