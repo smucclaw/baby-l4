@@ -61,7 +61,6 @@ tokens :-
   assert                        { lex' TokenAssert }
   class                         { lex' TokenClass }
   decl                          { lex' TokenDecl }
-  defn                          { lex' TokenDefn }
   extends                       { lex' TokenExtends }
   lexicon                       { lex' TokenLexicon }
   fact                          { lex' TokenFact }
@@ -77,8 +76,6 @@ tokens :-
   assign                        { lex' TokenAssign }
 
   -- Expressions
-  let                           { lex' TokenLet }
-  in                            { lex' TokenIn }
   not                           { lex' TokenNot }
   forall                        { lex' TokenForall }
   exists                        { lex' TokenExists }
@@ -410,7 +407,6 @@ data TokenKind
   = TokenAssert
   | TokenClass
   | TokenDecl
-  | TokenDefn
   | TokenExtends
   | TokenLexicon
   | TokenFact
@@ -426,8 +422,6 @@ data TokenKind
   | TokenGuard
   | TokenAssign
 
-  | TokenLet
-  | TokenIn
   | TokenNot
   | TokenForall
   | TokenExists
@@ -480,7 +474,6 @@ unLex :: TokenKind -> String
 unLex TokenAssert    = "assert"
 unLex TokenClass     = "class"
 unLex TokenDecl      = "decl"
-unLex TokenDefn      = "defn"
 unLex TokenExtends   = "extends"
 unLex TokenLexicon   = "lexicon"
 unLex TokenFact      = "fact"
@@ -493,8 +486,6 @@ unLex TokenInit      = "init"
 unLex TokenTrans     = "trans"
 unLex TokenGuard     = "guard"
 unLex TokenAssign    = "assign"
-unLex TokenLet       = "let"
-unLex TokenIn        = "in"
 unLex TokenNot       = "not"
 unLex TokenForall    = "forall"
 unLex TokenExists    = "exists"

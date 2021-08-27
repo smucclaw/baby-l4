@@ -62,7 +62,6 @@ data TopLevelElement t
   | AutomatonTLE (TA t)
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
--- TODO: annotations of automata
 getAnnotOfTLE :: TopLevelElement t -> t
 getAnnotOfTLE e = case e of
      MappingTLE mp -> annotOfMapping mp
@@ -70,9 +69,8 @@ getAnnotOfTLE e = case e of
      VarDeclTLE vd -> annotOfVarDecl vd
      RuleTLE ru -> annotOfRule ru
      AssertionTLE as -> annotOfAssertion as
-     AutomatonTLE _ta -> undefined 
+     AutomatonTLE ta -> annotOfTA ta
 
--- TODO: annotations of automata
 updateAnnotOfTLE :: (t -> t) -> TopLevelElement t -> TopLevelElement t
 updateAnnotOfTLE f e = case e of
      MappingTLE mp -> MappingTLE $ mp { annotOfMapping = f (annotOfMapping mp) }
@@ -80,7 +78,7 @@ updateAnnotOfTLE f e = case e of
      VarDeclTLE vd -> VarDeclTLE $ vd { annotOfVarDecl = f (annotOfVarDecl vd) }
      RuleTLE ru -> RuleTLE $ ru { annotOfRule = f (annotOfRule ru) }
      AssertionTLE as -> AssertionTLE $ as { annotOfAssertion = f (annotOfAssertion as) }
-     AutomatonTLE _ta -> undefined
+     AutomatonTLE ta -> AutomatonTLE $ ta { annotOfTA = f (annotOfTA ta) }
      
 instance HasLoc t => HasLoc (TopLevelElement t) where
   getLoc = getLoc . getAnnotOfTLE
@@ -164,6 +162,20 @@ assertionsOfNewProgram = map getAssertion . filter isAssertion . elementsOfNewPr
 automataOfNewProgram :: NewProgram t -> [TA t]
 automataOfNewProgram = map getAutomaton . filter isAutomaton . elementsOfNewProgram
 
+mapClassDecl :: (ClassDecl t -> ClassDecl t)-> TopLevelElement t -> TopLevelElement t
+mapClassDecl f e = case e of
+  ClassDeclTLE cd -> ClassDeclTLE (f cd)
+  x -> x
+
+mapRule :: (Rule t -> Rule t) -> TopLevelElement t -> TopLevelElement t
+mapRule f e = case e of
+  RuleTLE r -> RuleTLE (f r)
+  x -> x  
+
+mapAssertion :: (Assertion t -> Assertion t) -> TopLevelElement t -> TopLevelElement t
+mapAssertion f e = case e of
+  AssertionTLE r -> AssertionTLE (f r)
+  x -> x  
 
 newProgramToProgram :: NewProgram t -> Program t
 newProgramToProgram np = Program {
@@ -488,16 +500,10 @@ instance HasAnnot Rule where
   getAnnot = annotOfRule
   updateAnnot f p = p { annotOfRule = f (annotOfRule p)}
 
--- TODO: AssertionTA is a hack to get TimedAutomata parsed. 
--- Instead, the type Program should be changed to be a list of 
--- top-level elements which can appear in any order in a file.
--- The type of top-level elements can then be easily extended.
 data Assertion t = Assertion { annotOfAssertion :: t
                              , nameOfAssertion :: ARName
                              , instrOfAssertion :: KVMap
                              , exprOfAssertion :: Expr t}
-                  | AssertionTA { annotOfAssertion :: t
-                                , taOfAssertion :: TA t}
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 instance HasLoc t => HasLoc (Assertion t) where
@@ -573,6 +579,7 @@ data Transition t = Transition {
 -- Type parameter t: type of expressions: () or Tp, see function Typing/tpExprr
 data TA t =
   TA {
+    annotOfTA :: t,
     nameOfTA :: String,
     locsOfTA :: [Loc],
     channelsOfTA :: [ClassName],

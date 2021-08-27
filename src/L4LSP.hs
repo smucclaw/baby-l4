@@ -19,13 +19,14 @@ import qualified Language.LSP.Types.Lens       as J
 import           Language.LSP.Diagnostics
 import           System.Log.Logger
 -- import Control.Monad.Identity (Identity(runIdentity))
-import Parser (parseProgram)
+-- import Control.Monad.Identity (Identity(runIdentity))
+import Parser (parseProgram, parseNewProgram)
 import Data.Foldable (for_)
 import qualified Data.List as List
 import Syntax
 import Control.Lens.Extras (template)
 import Data.Data (Data)
-import Data.Either.Combinators (maybeToRight, mapLeft)
+import Data.Either.Combinators (maybeToRight, mapLeft, mapRight)
 import Control.Monad.Trans.Except (except)
 import Control.Monad.Except
 -- import Syntax (Pos(..),SRng(..))
@@ -146,12 +147,12 @@ sendDiagnosticsOnLeft :: NormalizedUri -> Either LspError a -> MaybeT (LspM Conf
 sendDiagnosticsOnLeft uri (Left err) = MaybeT $ Nothing <$ publishError uri err
 sendDiagnosticsOnLeft uri (Right result) = MaybeT $ Just result <$ clearError "No Error?" uri
 
-readPrelude :: IO (Program SRng)
+readPrelude :: IO (NewProgram SRng)
 readPrelude = do
   l4PreludeFilepath <- getDataFileName "l4/Prelude.l4"
   do
     contents <- readFile l4PreludeFilepath
-    case parseProgram l4PreludeFilepath contents of
+    case parseNewProgram l4PreludeFilepath contents of
       Right ast -> do
         -- print ast
         return ast
@@ -216,10 +217,10 @@ handleUriErrs uri =
     Just loc -> Right loc
     Nothing  -> Left $ ReadFileErr $ "Unable to parse uri: " <> tshow (getUri uri)
 
-getProg :: J.Uri -> T.Text -> Either LspError (Program SRng)
+getProg :: J.Uri -> T.Text -> Either LspError (NewProgram SRng)
 getProg uri contents = do
   x <- handleUriErrs uri
-  mapLeft ParserErr $ parseProgram x (T.unpack contents)
+  mapLeft ParserErr $ parseNewProgram x (T.unpack contents)
 
 publishResponseError :: NormalizedUri -> LspM Config ()
 publishResponseError = pure $ sendNotification J.SWindowShowMessage (J.ShowMessageParams J.MtError "readFileErr")
@@ -242,7 +243,7 @@ parseAndTypecheck uri contents = do
   ast <- ExceptT $ pure errOrProg
   preludeAst <- liftIO readPrelude -- TODO: Handle errors
   let typedAstOrTypeError = checkError preludeAst ast
-  ExceptT $ pure $ mapLeft errorToErrs typedAstOrTypeError
+  ExceptT $ pure $ mapLeft errorToErrs (mapRight newProgramToProgram typedAstOrTypeError)
 
 
 tshow :: Show a => a -> T.Text

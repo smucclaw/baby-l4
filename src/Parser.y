@@ -50,7 +50,6 @@ import Data.Either.Combinators (mapRight)
     assert  { L _ TokenAssert }
     class   { L _ TokenClass }
     decl    { L _ TokenDecl }
-    defn    { L _ TokenDefn }
     extends { L _ TokenExtends }
     lexicon { L _ TokenLexicon }
     fact    { L _ TokenFact }
@@ -65,9 +64,6 @@ import Data.Either.Combinators (mapRight)
     guard       { L _ TokenGuard }
     assign      { L _ TokenAssign }
 
-
-    let    { L _ TokenLet }
-    in     { L _ TokenIn }
     not    { L _ TokenNot }
     forall { L _ TokenForall }
     exists { L _ TokenExists }
@@ -137,21 +133,31 @@ QualifVar : VAR { QVarName (getLoc $1) (tokenSym $1) }
 
 Program : TopLevelElements { NewProgram (tokenRangeList (map getLoc $1)) (reverse $1) }
 
-TopLevelElements :  TopLevelElement                 { [$1] }
+TopLevelElements : TopLevelElement                  { [$1] }
+                 | TopLevelElementGroup             { $1 }
                  | TopLevelElements TopLevelElement { $2 : $1 }
-TopLevelElement : Mapping { MappingTLE $1 } 
-                | ClassDecl { ClassDeclTLE $1 } 
+
+-- TopLevelElementGroup: list of top level elements grouped together below one keyword
+TopLevelElementGroup : Mappings { map MappingTLE $1 } 
+
+TopLevelElement : ClassDecl     { ClassDeclTLE $1 } 
                 | GlobalVarDecl { VarDeclTLE $1 } 
-                | RuleOrFact { RuleTLE $1 }
-                | Assertion { AssertionTLE $1 }
-                | Automaton { AutomatonTLE $1 }
+                | RuleOrFact    { RuleTLE $1 }
+                | Assertion     { AssertionTLE $1 }
+                | Automaton     { AutomatonTLE $1 }
 
-Lexicon :                   { L (DummySRng "No lexicon") [] }
-        |  lexicon Mappings { L (tokenRangeList [getLoc $1, getLoc $2]) $2 }
+-- { L (DummySRng "No lexicon") [] }
+--Lexicon :  lexicon Mapping  { L (tokenRange $1 $2) [$2] }
+--|  lexicon Mapping Mappings { L (coordFromTo (getLoc $1) (tokenRangeList $3)) $2 }
+--        |  lexicon Mapping Mappings { L (tokenRangeList [getLoc $1, getLoc $2]) $2 }
 
-Mappings :  Mapping          { [$1] }
+-- Lexicon : lexicon '{' Mappings '}' { L (tokenRange $1 $4) $3 }
+
+Mappings :  LexiconMapping  { [$1] }
           | Mappings Mapping { $2 : $1 }
-Mapping : VAR '->' STRLIT { Mapping (tokenRange $1 $3) (tokenSym $1) (tokenStringLit $3) }
+
+LexiconMapping : lexicon VAR '->' STRLIT { Mapping (tokenRange $1 $4) (tokenSym $2) (tokenStringLit $4) }
+Mapping        : VAR '->' STRLIT { Mapping (tokenRange $1 $3) (tokenSym $1) (tokenStringLit $3) }
 
 ClassDecls :                       { [] }
            | ClassDecls ClassDecl  { $2 : $1 }
@@ -293,9 +299,11 @@ Fact : fact ARName  KVMap RuleVarDecls Expr { Rule (tokenRange $1 $5) $2 $3 $4 (
 
 
 -- TODO: labellings still to be added, channels to be added
+-- TODO: annotation is a rough approximation, to be synthesized from annotations of subexpressions
 Automaton : Clocks 
   process VAR '(' ')' '{' States Initial Transitions '}'
-  { TA {nameOfTA = (tokenSym $3), locsOfTA = (map fst $7), channelsOfTA = [], clocksOfTA = $1,
+  { TA {annotOfTA = (tokenRange $2 $5),
+        nameOfTA = (tokenSym $3), locsOfTA = (map fst $7), channelsOfTA = [], clocksOfTA = $1,
         transitionsOfTA = $9, initialLocsOfTA = $8, invarsOfTA = $7, labellingOfTA = []}}
 
 
@@ -366,7 +374,6 @@ RuleConcl   : then Expr    { $2 }
 
 Assertions :                       { [] }
            | Assertions Assertion  { $2 : $1 }
-           | Assertions Automaton  { (AssertionTA (nullSRng) $2) : $1 }
 
 -- TODO: same problem with locations as for Rule above
 Assertion : assert ARName KVMap        { Assertion (getLoc $1) $2 $3 (ValE (nullSRng) (BoolV True)) }

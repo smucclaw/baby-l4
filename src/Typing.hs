@@ -8,10 +8,10 @@
 module Typing where
 
 import Data.List ( elemIndex, nub )
-import Data.Maybe
-import Data.Either (isLeft, lefts, fromRight)
-import Data.Either.Utils (fromLeft)
-import Data.List.Utils
+import Data.Maybe ( fromMaybe )
+import Data.Either (isLeft, lefts)
+import Data.Either.Combinators (mapLeft)
+import Data.List.Utils ( countElem )
 
 
 import Annotation
@@ -114,12 +114,13 @@ localFields :: [(ClassName, [FieldDecl t])] -> ClassName -> [FieldDecl t]
 localFields fd_assoc cn =
   fromMaybe [] (lookup cn fd_assoc)
 
+elaborateFieldsInClassDecl :: [(ClassName, [FieldDecl t])] -> ClassDecl t -> ClassDecl t
+elaborateFieldsInClassDecl fdAssoc (ClassDecl annot cn (ClassDef scs _)) = 
+  ClassDecl annot cn (ClassDef scs (concatMap (localFields fdAssoc) scs))
+
 -- in a class declaration, replace the list of local fields of the class by the list of all fields (local and inherited)
 elaborateFieldsInClassDecls :: [ClassDecl t] -> [ClassDecl t]
-elaborateFieldsInClassDecls cds =
-  let fd_assoc = fieldAssoc cds
-  in map (\(ClassDecl annot cn (ClassDef scs locfds)) ->
-            ClassDecl annot cn (ClassDef scs (concatMap (localFields fd_assoc) scs))) cds
+elaborateFieldsInClassDecls cds = map (elaborateFieldsInClassDecl (fieldAssoc cds)) cds
 
 -- the class decl cdc does not reference a superclass undefined in the list of defined class names cns
 definedSuperclass :: [ClassName] -> ClassDecl t -> Bool
@@ -205,6 +206,7 @@ kndType kenv t@(FunT _ a b)  = kndTypeCombine t (map (kndType kenv) [a, b])
 kndType kenv t@(TupleT _ ts) = kndTypeCombine t (map (kndType kenv) ts)
 kndType kenv t = Right t
 
+{-
 -- instance
 kndTypeI :: KindEnvironment -> Tp SRng -> Either [ClassName] (Tp (LocTypeAnnot (Tp ())))
 kndTypeI kenv c@(ClassT ann cn) = if cn `elem` kenv then Right (ClassT (setType ann KindT) cn) else Left [cn]
@@ -216,7 +218,7 @@ kndTypeI kenv t@(FunT ann a b)  =
      else Right (FunT (setType ann KindT) (fromRight KindT aI) (fromRight KindT bI))
 --kndTypeI kenv t@(TupleT _ ts) = kndTypeCombine t (map (kndTypeI kenv) ts)
 --kndTypeI kenv t = Right t
-
+-}
 
 -- simple
 -- ClassT (Annot Rng0 (Errt Undefinedtypeinclasst))
@@ -238,7 +240,6 @@ kndTypeS kenv (TupleT ann ts) =
 kndTypeS kenv (ErrT c) = ErrT c
 kndTypeS kenv OkT = OkT
 kndTypeS kenv KindT = KindT
-
 
 
 ----------------------------------------------------------------------
@@ -295,7 +296,7 @@ tpConstval ::  Val -> Tp ()
 tpConstval x = case x of
   BoolV _ -> booleanT
   IntV _ -> integerT
-  FloatV _ -> floatT 
+  FloatV _ -> floatT
   StringV _ -> stringT
   ErrV -> ErrT Inherited
 
@@ -313,7 +314,7 @@ tpConstval x = case x of
          else error ("record fields do not correspond to fields of class " ++ (case cn of (ClsNm n) -> n))
        _ -> error "internal error: duplicate class definition"
   -}
-  
+
 tpUarith :: Environment te -> [SRng] -> Tp t -> UArithOp -> Tp t
 tpUarith env locs t ua =
   if isNumberTp env t
@@ -346,7 +347,7 @@ tpBarith :: Environment te -> [SRng] -> Tp () -> Tp () -> BArithOp -> Tp ()
 tpBarith env locs t1 t2 ba =
   if isNumberTp env t1
   then if isNumberTp env t2
-       then 
+       then
          if isTimeTp t1 || isTimeTp t2
          then tpTime locs t1 t2 ba
          else leastCommonSuperType env t1 t2
@@ -581,7 +582,7 @@ tpAssertion env (Assertion ann nm md e) =
 -- Class declaration errors
 
 
-checkClassesForWfError :: HasLoc t => [ClassDecl t] -> Program t -> Either ClassDeclsError (Program t)
+checkClassesForWfError :: HasLoc t => [ClassDecl t] -> p -> Either ClassDeclsError p
 checkClassesForWfError cds prg =
   let class_names = map nameOfClassDecl cds
   in
@@ -592,8 +593,8 @@ checkClassesForWfError cds prg =
                     [(getLoc cd, nameOfClassDecl cd) | cd <- cds, nameOfClassDecl cd `elem` ds])
       undefs -> Left (UndefinedSuperclassCDE (map (\cd -> (getLoc cd, nameOfClassDecl cd)) undefs))
 
-checkClassesForCyclicError :: HasLoc t => [ClassDecl t] -> Program t -> Either ClassDeclsError (Program t)
-checkClassesForCyclicError cds prg =
+checkClassesForCyclicErrorOld :: HasLoc t => [ClassDecl t] -> Program t -> Either ClassDeclsError (Program t)
+checkClassesForCyclicErrorOld cds prg =
   let cdf_assoc = classDefAssoc cds
       cyclicClassNames = lefts (map (superClassesConstr cdf_assoc [] . nameOfClassDecl) cds)
   in case cyclicClassNames of
@@ -601,21 +602,44 @@ checkClassesForCyclicError cds prg =
      cycs -> Left (CyclicClassHierarchyCDE
               [ (getLoc cd, nameOfClassDecl cd)| cd <- cds, nameOfClassDecl cd `elem` cycs])
 
-checkClassDeclsError :: HasLoc t => Program t -> Program t -> Either ClassDeclsError (Program t)
-checkClassDeclsError prelude prg@(Program  annot lex cds gvars rls asrt) =
+checkClassDeclsErrorOld :: HasLoc t => Program t -> Program t -> Either ClassDeclsError (Program t)
+checkClassDeclsErrorOld prelude prg@(Program  annot lex cds gvars rls asrt) =
   let pcds = classDeclsOfProgram prelude
       initialClassDecls = (pcds ++ cds)
   in do
-    checkClassesForWfError initialClassDecls prg
-    checkClassesForCyclicError initialClassDecls prg
+    _ <- checkClassesForWfError initialClassDecls prg
+    checkClassesForCyclicErrorOld initialClassDecls prg
 
+
+-- ATTENTION, difference wrt. checkClassesForCyclicError: the first parameter is the list of prelude class decls and not the list of all class decls
+-- TODO: In this function, the prelude class decs are prefixed to the program elements. 
+checkClassesForCyclicError :: HasLoc t => [ClassDecl t] -> NewProgram t -> Either ClassDeclsError (NewProgram t)
+checkClassesForCyclicError preludeCds prg =
+  let cds = preludeCds ++ classDeclsOfNewProgram prg
+      cdfAssoc = classDefAssoc cds
+      cyclicClassNames = lefts (map (superClassesConstr cdfAssoc [] . nameOfClassDecl) cds)
+  in case cyclicClassNames of
+     []   -> let newProgElems = map ClassDeclTLE preludeCds ++ elementsOfNewProgram prg
+                 elabSupers = map (mapClassDecl (elaborateSupersInClassDecl (superClasses cdfAssoc))) newProgElems
+                 elabFields = map (mapClassDecl (elaborateFieldsInClassDecl (fieldAssoc cds))) elabSupers
+             in Right (prg {elementsOfNewProgram = elabFields})
+     cycs -> Left (CyclicClassHierarchyCDE
+              [ (getLoc cd, nameOfClassDecl cd)| cd <- cds, nameOfClassDecl cd `elem` cycs])
+
+checkClassDeclsError :: HasLoc t => NewProgram t -> NewProgram t -> Either ClassDeclsError (NewProgram t)
+checkClassDeclsError prelude prg =
+  let pcds = classDeclsOfNewProgram prelude
+      initialClassDecls = (pcds ++ classDeclsOfNewProgram prg)
+  in do
+    _ <- checkClassesForWfError initialClassDecls prg
+    checkClassesForCyclicError pcds prg
 
 ----------------------------------------------------------------------
 -- Field declaration errors
 
-checkDuplicateFieldNamesFDE ::HasLoc t =>  Program t -> Either FieldDeclsError (Program t)
+checkDuplicateFieldNamesFDE ::HasLoc t =>  NewProgram t -> Either FieldDeclsError (NewProgram t)
 checkDuplicateFieldNamesFDE prg =
-  let classDeclsWithDup = [cd | cd <- classDeclsOfProgram prg, not (null (duplicates (map nameOfFieldDecl ((fieldsOfClassDef . defOfClassDecl)  cd)))) ]
+  let classDeclsWithDup = [cd | cd <- classDeclsOfNewProgram prg, not (null (duplicates (map nameOfFieldDecl ((fieldsOfClassDef . defOfClassDecl)  cd)))) ]
   in case classDeclsWithDup of
     [] -> Right prg
     cds -> Left (DuplicateFieldNamesFDE
@@ -623,42 +647,42 @@ checkDuplicateFieldNamesFDE prg =
                         map (\fd -> (getLoc fd, nameOfFieldDecl fd)) (duplicatesWrtFun nameOfFieldDecl (fieldsOfClassDef (defOfClassDecl cd)))))
                    cds))
 
-checkUndefinedTypeFDE :: HasLoc t => Program t -> Either FieldDeclsError (Program t)
+checkUndefinedTypeFDE :: HasLoc t => NewProgram t -> Either FieldDeclsError (NewProgram t)
 checkUndefinedTypeFDE prg =
-  let kenv = map nameOfClassDecl (classDeclsOfProgram prg)
-      classDeclsWithUndefTp = [cd | cd <- classDeclsOfProgram prg, not (null (lefts (map (kndType kenv . tpOfFieldDecl) (fieldsOfClassDef (defOfClassDecl cd)))))]
+  let kenv = map nameOfClassDecl (classDeclsOfNewProgram prg)
+      classDeclsWithUndefTp = [cd | cd <- classDeclsOfNewProgram prg, not (null (lefts (map (kndType kenv . tpOfFieldDecl) (fieldsOfClassDef (defOfClassDecl cd)))))]
   in case classDeclsWithUndefTp of
     [] -> Right prg
     cds -> Left (UndefinedTypeFDE (concatMap (\cd -> [(getLoc fd, nameOfFieldDecl fd) | fd <- fieldsOfClassDef (defOfClassDecl cd), isLeft (kndType kenv (tpOfFieldDecl fd))  ]) cds))
 
-checkFieldDeclsError ::HasLoc t =>  Program t -> Either FieldDeclsError (Program t)
+checkFieldDeclsError ::HasLoc t =>  NewProgram t -> Either FieldDeclsError (NewProgram t)
 checkFieldDeclsError prg =
   do
-    checkDuplicateFieldNamesFDE prg
+    _ <- checkDuplicateFieldNamesFDE prg
     checkUndefinedTypeFDE prg
 
 
 ----------------------------------------------------------------------
 -- Global variable declaration errors
 
-checkDuplicateVarNamesVDE :: HasLoc t => Program t -> Either VarDeclsError (Program t)
+checkDuplicateVarNamesVDE :: HasLoc t => NewProgram t -> Either VarDeclsError (NewProgram t)
 checkDuplicateVarNamesVDE prg =
-  case duplicatesWrtFun nameOfVarDecl (globalsOfProgram  prg) of
+  case duplicatesWrtFun nameOfVarDecl (globalsOfNewProgram  prg) of
     [] -> Right prg
     vds -> Left (DuplicateVarNamesVDE (map (\vd -> (getLoc vd, nameOfVarDecl vd)) vds))
 
-checkUndefinedTypeVDE :: HasLoc t => Program t -> Either VarDeclsError (Program t)
+checkUndefinedTypeVDE :: HasLoc t => NewProgram t -> Either VarDeclsError (NewProgram t)
 checkUndefinedTypeVDE prg =
-  let kenv = map nameOfClassDecl (classDeclsOfProgram prg)
-      varDeclsWithUndefTp = [vd | vd <- globalsOfProgram prg, isLeft (kndType kenv (tpOfVarDecl vd))]
+  let kenv = map nameOfClassDecl (classDeclsOfNewProgram prg)
+      varDeclsWithUndefTp = [vd | vd <- globalsOfNewProgram prg, isLeft (kndType kenv (tpOfVarDecl vd))]
   in case varDeclsWithUndefTp of
     [] -> Right prg
     vds -> Left (UndefinedTypeVDE (map (\vd -> (getLoc vd, nameOfVarDecl vd)) vds))
 
-checkVarDeclsError :: HasLoc t => Program t -> Either VarDeclsError (Program t)
+checkVarDeclsError :: HasLoc t => NewProgram t -> Either VarDeclsError (NewProgram t)
 checkVarDeclsError prg =
   do
-    checkDuplicateVarNamesVDE prg
+    _ <- checkDuplicateVarNamesVDE prg
     checkUndefinedTypeVDE prg
 
 
@@ -683,61 +707,58 @@ displayableErrors rng annot = [(rng, extractErrorCause (getType annot)) | isSpec
 
 extractRuleErrors::  (TypeAnnot f, HasLoc (f (Tp()))) => Rule (f (Tp())) -> [(SRng, ErrorCause)]
 extractRuleErrors rl =
-  let rng = getLoc (annotOfRule rl) 
+  let rng = getLoc (annotOfRule rl)
   in concatMap (displayableErrors rng . annotOfVarDecl) (varDeclsOfRule rl) ++
      concatMap (displayableErrors rng . annotOfExpr) (allSubExprs (precondOfRule rl)) ++
      concatMap (displayableErrors rng . annotOfExpr) (allSubExprs (postcondOfRule rl)) ++
      displayableErrors rng (annotOfRule rl)
 
-checkRuleError :: Program (LocTypeAnnot (Tp ())) -> Either RuleError (Program (LocTypeAnnot (Tp ())))
+-- TODO: This function (and similarly checkAssertionError) is doing double work. 
+-- first type checking the tree to find whether there are errors, 
+-- and then a second time to annotate the tree if there are no errors. 
+checkRuleError :: NewProgram (LocTypeAnnot (Tp ())) -> Either RuleError (NewProgram (LocTypeAnnot (Tp ())))
 checkRuleError prg =
-  let env = initialEnvOfProgram (classDeclsOfProgram prg) (globalsOfProgram prg)
-      tpdRules = map (tpRule env) (rulesOfProgram prg)
+  let env = initialEnvOfProgram (classDeclsOfNewProgram prg) (globalsOfNewProgram prg)
+      tpdRules = map (tpRule env) (rulesOfNewProgram prg)
       errs = concatMap extractRuleErrors tpdRules
   in
     case errs of
-      [] -> Right (prg {rulesOfProgram = tpdRules})
+      [] -> Right (prg {elementsOfNewProgram = map (mapRule (tpRule env)) (elementsOfNewProgram prg)})
       _ ->  Left (RuleErrorRE  errs)
 
 
 extractAssertionErrors :: (TypeAnnot f, HasLoc (f (Tp()))) => Assertion (f (Tp())) -> [(SRng, ErrorCause)]
 extractAssertionErrors ass =
-  let rng = getLoc (annotOfAssertion ass) 
+  let rng = getLoc (annotOfAssertion ass)
   in concatMap (displayableErrors rng . annotOfExpr) (allSubExprs (exprOfAssertion ass)) ++
      displayableErrors rng (annotOfAssertion ass)
 
---checkAssertionError :: (TypeAnnot f, HasLoc (f (Tp()))) => Program (f (Tp())) -> Either AssertionError (Program (f (Tp())))
-checkAssertionError :: Program (LocTypeAnnot (Tp ())) -> Either AssertionError (Program (LocTypeAnnot (Tp ())))
+checkAssertionError :: NewProgram (LocTypeAnnot (Tp ())) -> Either AssertionError (NewProgram (LocTypeAnnot (Tp ())))
 checkAssertionError prg =
-  let env = initialEnvOfProgram (classDeclsOfProgram prg) (globalsOfProgram prg)
-      tpdAss = map (tpAssertion env) (assertionsOfProgram prg)
+  let env = initialEnvOfProgram (classDeclsOfNewProgram prg) (globalsOfNewProgram prg)
+      tpdAss = map (tpAssertion env) (assertionsOfNewProgram prg)
   in
     if any (isErrTp . getType . annotOfAssertion) tpdAss || any (isErrTp . getTypeOfExpr . exprOfAssertion) tpdAss
     then Left (AssertionErrAE (concatMap extractAssertionErrors tpdAss))
-    else Right (prg {assertionsOfProgram = tpdAss})
+    else Right (prg {elementsOfNewProgram = map (mapAssertion (tpAssertion env)) (elementsOfNewProgram prg)})
 
 ----------------------------------------------------------------------
 -- Summing up: all errors
-
-liftLeft :: (a -> la) -> Either a b -> Either la b
-liftLeft f (Left a) = Left (f a)
-liftLeft f (Right r) = Right r
-
 -- the lifted version of the checkError function below
 -- checkErrorGen :: (TypeAnnot f, HasLoc (f (Tp()))) => Program (f (Tp())) -> Program (f (Tp())) -> Either Error (Program (f (Tp())))
-checkErrorLift :: Program (LocTypeAnnot (Tp ())) -> Program (LocTypeAnnot (Tp ())) -> Either Error (Program (LocTypeAnnot (Tp ())))
+checkErrorLift :: NewProgram (LocTypeAnnot (Tp ())) -> NewProgram (LocTypeAnnot (Tp ())) -> Either Error (NewProgram (LocTypeAnnot (Tp ())))
 checkErrorLift prelude prg =
   do
-    prgClsDecls <- liftLeft ClassDeclsErr (checkClassDeclsError prelude prg)
-    liftLeft FieldDeclsErr (checkFieldDeclsError prgClsDecls)
-    liftLeft VarDeclsErr (checkVarDeclsError prgClsDecls)
-    prgCheckRule <- liftLeft RuleErr (checkRuleError prgClsDecls)
-    liftLeft AssertionErr (checkAssertionError prgCheckRule)
+    prgClsDecls <- mapLeft ClassDeclsErr (checkClassDeclsError prelude prg)
+    _ <- mapLeft FieldDeclsErr (checkFieldDeclsError prgClsDecls)
+    _ <- mapLeft VarDeclsErr (checkVarDeclsError prgClsDecls)
+    prgCheckRule <- mapLeft RuleErr (checkRuleError prgClsDecls)
+    mapLeft AssertionErr (checkAssertionError prgCheckRule)
 
 liftLoc :: SRng -> LocTypeAnnot (Tp ())
 liftLoc rng  = LocTypeAnnot rng OkT
 
-checkError :: Program SRng -> Program SRng -> Either Error (Program (LocTypeAnnot (Tp())))
+checkError :: NewProgram SRng -> NewProgram SRng -> Either Error (NewProgram (LocTypeAnnot (Tp())))
 checkError prelude prg = checkErrorLift (fmap liftLoc prelude) (fmap liftLoc prg)
 
 

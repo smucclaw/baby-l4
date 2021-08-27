@@ -213,7 +213,7 @@ myTrans = Transition (Loc "loc0")
                 (Loc "loc1")
 
 myTA :: TA (Tp ())
-myTA = TA "myTA" [Loc "loc0", Loc "loc1"] [] [Clock "c1", Clock "c2"] [myTrans] [Loc "loc0"] [(Loc "loc0", [ClConstr (Clock "c1") BClt 3]), (Loc "loc1", [ClConstr (Clock "c2") BClt 2])] []
+myTA = TA OkT "myTA" [Loc "loc0", Loc "loc1"] [] [Clock "c1", Clock "c2"] [myTrans] [Loc "loc0"] [(Loc "loc0", [ClConstr (Clock "c1") BClt 3]), (Loc "loc1", [ClConstr (Clock "c2") BClt 2])] []
 
 constrActionTransitionTest :: String
 constrActionTransitionTest = renameAndPrintExpr [] (constrActionTransitions myTA mystv myclvs)

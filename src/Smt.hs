@@ -311,11 +311,10 @@ proveAssertion p asrt = foldM (\r (k,instr) ->
               _ -> return ())
           () (instrOfAssertion asrt)
 
-proveProgram :: Program (LocTypeAnnot (Tp ())) -> IO ()
+proveProgram :: Program (Tp ()) -> IO ()
 proveProgram p = do
-  let cleanedProg = fmap typeAnnot p
-  let transfRules = rewriteRuleSetDerived (rewriteRuleSetSubjectTo (rewriteRuleSetDespite (rulesOfProgram cleanedProg)))
-  let transfProg = cleanedProg {rulesOfProgram = transfRules}
+  let transfRules = rewriteRuleSetDerived (rewriteRuleSetSubjectTo (rewriteRuleSetDespite (rulesOfProgram p)))
+  let transfProg = p {rulesOfProgram = transfRules}
   putStrLn "Generated rules:"
   putStrLn (concatMap (renameAndPrintRule (namesUsedInProgram transfProg)) transfRules)
   foldM (\r a -> proveAssertion transfProg a) () (assertionsOfProgram transfProg)
