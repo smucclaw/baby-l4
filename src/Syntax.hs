@@ -220,6 +220,17 @@ data ErrorCause
   | UnknownFieldName SRng FieldName ClassName   -- class has no such field
   | AccessToNonObjectType SRng  -- when using dot notation on something thats not an object
   | Unspecified                 -- don't know, need clarification from martin?
+
+  -- Previously spread out in several other types
+  | DuplicateClassNamesCDEErr [(SRng, ClassName)]  -- classes whose name is defined multiple times
+  | UndefinedSuperclassCDEErr [(SRng, ClassName)]  -- classes having undefined superclasses
+  | CyclicClassHierarchyCDEErr [(SRng, ClassName)]  -- classes involved in a cyclic class definition
+
+  | DuplicateFieldNamesFDEErr [(SRng, ClassName, [(SRng, FieldName)])]     -- field names with duplicate defs
+  | UndefinedTypeFDEErr [(SRng, FieldName)]                                -- field names containing undefined types
+
+  | DuplicateVarNamesVDEErr [(SRng, VarName)]
+  | UndefinedTypeVDEErr [(SRng, VarName)]
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 
@@ -231,6 +242,7 @@ data Tp t
   | FunT {annotOfTp :: t, funTp :: Tp t, argTp :: Tp t}
   | TupleT {annotOfTp :: t, componentsOfTpTupleT :: [Tp t]}
   | ErrT {causeOfTpErrT :: ErrorCause}
+  | ErrTWOCause
   | OkT        -- fake type appearing in constructs (classes, rules etc.) that do not have a genuine type
   | KindT
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)

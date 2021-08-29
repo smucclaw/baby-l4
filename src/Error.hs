@@ -29,12 +29,15 @@ data AssertionError
   = AssertionErrAE [(SRng, ErrorCause)]
   deriving (Eq, Ord, Show, Read)
 
+-- TODO: after restructuring, only ErrorCauseErr remain. 
+-- It will then be possible to remove the Error type altogether
 data Error
     = ClassDeclsErr ClassDeclsError
     | FieldDeclsErr FieldDeclsError
     | VarDeclsErr VarDeclsError
     | RuleErr RuleError
     | AssertionErr AssertionError
+    | ErrorCauseErr [ErrorCause]
   deriving (Eq, Ord, Show, Read)
 
 ----------------------------------------------------------------------
@@ -156,6 +159,7 @@ printError e = case e of
   VarDeclsErr vde -> printVarDeclsError vde
   RuleErr re -> printRuleErr re
   AssertionErr ae -> printAssertionErr ae
+  ErrorCauseErr ecs -> unlines (map printErrorCause ecs)
 
 
 

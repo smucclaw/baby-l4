@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE TupleSections #-}
 module L4LSP where
 
 import Language.LSP.Server
@@ -176,6 +177,7 @@ errorToErrs e = TypeCheckerErr $ case e of
                       DuplicateFieldNamesFDE dupf ->  mkErrsField <$> dupf
                   (AssertionErr (AssertionErrAE ae)) -> getErrorCause "Assertion Error: " <$> ae
                   (RuleErr (RuleErrorRE re)) -> getErrorCause "Rule Error: " <$> re
+                  (ErrorCauseErr ecs) -> getErrorCause "Error Cause: " <$> map (\ec -> (DummySRng "Error cause treatment to be implemented", ec)) ecs
 
 getErrorCause :: String -> (SRng, ErrorCause) -> Err
 getErrorCause errTp r@(_, ec) = Err (getErrLocation r) (errTp ++ printErrorCause ec)
