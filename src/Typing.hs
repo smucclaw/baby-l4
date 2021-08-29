@@ -479,17 +479,6 @@ tpBinopTCEither _env _locs _ _ _bop = Left []
 
 
 
-tpIfThenElseTCEither :: Environment te -> [SRng] -> TCEither (Tp ()) -> TCEither (Tp ()) -> TCEither (Tp ()) -> TCEither (Tp ())  
-tpIfThenElseTCEither env locs (Right tc) (Right t1) (Right t2) =
-  if isBooleanTp tc
-  then  if compatibleType env t1 t2
-        then Right t2
-        else  if compatibleType env t2 t1
-              then Right t1
-              else Left [IncompatibleTp locs [t1, t2]]
-  else Left [IllTypedSubExpr locs [tc] [ExpectedExactTp (ClassT () (ClsNm "Boolean"))]] 
-tpIfThenElseTCEither _env _locs _ _ _ = Left []
-
 -- the first type can be cast to the second type
 -- TODO: still to be defined
 castCompatible :: Tp t -> Tp t -> Bool
@@ -595,12 +584,6 @@ liftresTCEither resexps f restp =
             Left x -> Left x
     errs -> Left errs
 
-guardErrorTCEither :: [TCEither e] -> TCEither t -> TCEither t
-guardErrorTCEither resexps restp = 
-  case concat (lefts resexps) of
-    [] -> restp
-    _  -> Left []
-
 -- TODO: check well-formedness of types in function abstraction and in quantification
 tpExprTCEither :: Environment te -> Expr (LocTypeAnnot (Tp())) -> TCEither (Expr (LocTypeAnnot (Tp())))
 tpExprTCEither env expr = case expr of
@@ -625,53 +608,58 @@ tpExprTCEither env expr = case expr of
     let tec = tpExprTCEither env ec
         te1 = tpExprTCEither env e1
         te2 = tpExprTCEither env e2
-        tres = tpIfThenElseTCEither env [getLoc annot] (mapRight getTypeOfExpr tec) (mapRight getTypeOfExpr te1) (mapRight getTypeOfExpr te2)
+        tc = getTypeOfExpr (fromRight' tec)
+        t1 = getTypeOfExpr (fromRight' te1)
+        t2 = getTypeOfExpr (fromRight' te2)
+        tres = if isBooleanTp tc
+               then if compatibleType env t1 t2
+                    then Right t2
+                    else if compatibleType env t2 t1
+                         then Right t1
+                         else Left [IncompatibleTp [getLoc annot, getLoc e1, getLoc e2] [t1, t2]]
+               else Left [IllTypedSubExpr [getLoc annot, getLoc ec] [tc] [ExpectedExactTp (ClassT () (ClsNm "Boolean"))]]
     in liftresTCEither [tec, te1, te2] (\t -> IfThenElseE (updType annot t) (fromRight' tec) (fromRight' te1) (fromRight' te2)) tres
 
   AppE annot fe ae ->
     let tfe = tpExprTCEither env fe
         tae = tpExprTCEither env ae
-        tres = guardErrorTCEither [tfe, tae]
-                (let tf  = getTypeOfExpr (fromRight' tfe)
-                     ta  = getTypeOfExpr (fromRight' tae)
-                 in (case tf of
+        tf  = getTypeOfExpr (fromRight' tfe)
+        ta  = getTypeOfExpr (fromRight' tae)
+        tres = (case tf of
                       FunT _ tpar tbody ->
                         if compatibleType env ta tpar
                         then Right tbody
                         else Left [IllTypedSubExpr [getLoc annot, getLoc ae] [ta] [ExpectedSubTpOf tpar]]
-                      _ -> Left [NonFunctionTp [getLoc annot, getLoc fe] tf]))
+                      _ -> Left [NonFunctionTp [getLoc annot, getLoc fe] tf])
     in liftresTCEither [tfe, tae] (\t -> AppE (updType annot t) (fromRight' tfe) (fromRight' tae)) tres
 
   FunE annot pt tparam e ->
     let te = tpExprTCEither (pushPatternEnv pt tparam env) e
-        tres = guardErrorTCEither [te]
-                 (let t  = getTypeOfExpr (fromRight' te)
-                  in if compatiblePatternType pt tparam
-                     then Right (FunT () (eraseAnn tparam) t)
-                     else Left [IncompatiblePattern (getLoc annot)])
-    in liftresTCEither [te] (\t -> FunE (updType annot t) pt tparam (fromRight' te)) tres
+        t  = getTypeOfExpr (fromRight' te)
+        tres = if compatiblePatternType pt tparam
+               then Right (FunT () (eraseAnn tparam) t)
+               else Left [IncompatiblePattern (getLoc annot)]
+    in liftresTCEither [te] (\tl -> FunE (updType annot tl) pt tparam (fromRight' te)) tres
 
   QuantifE annot q vn vt e ->
     let te = tpExprTCEither (pushLocalVarEnv [(nameOfQVarName vn, eraseAnn vt)] env) e
-        tres = guardErrorTCEither [te]
-                (let t  = getTypeOfExpr (fromRight' te)
-                 in if isBooleanTp t
-                    then Right booleanT
-                    else Left [IllTypedSubExpr [getLoc annot, getLoc e] [t] [ExpectedExactTp (ClassT () (ClsNm "Boolean"))]])
-    in liftresTCEither [te] (\t -> QuantifE (updType annot t) q vn vt (fromRight' te)) tres
+        t  = getTypeOfExpr (fromRight' te)
+        tres = if isBooleanTp t
+               then Right booleanT
+               else Left [IllTypedSubExpr [getLoc annot, getLoc e] [t] [ExpectedExactTp (ClassT () (ClsNm "Boolean"))]]
+    in liftresTCEither [te] (\tl -> QuantifE (updType annot tl) q vn vt (fromRight' te)) tres
 
   FldAccE annot e fn ->
     let te = tpExprTCEither env e
-        tres = guardErrorTCEither [te]
-                (let t  = getTypeOfExpr (fromRight' te)
-                 in (case t of
+        t  = getTypeOfExpr (fromRight' te)
+        tres = (case t of
                       ClassT _ cn ->
                          case lookup fn (map (\(FieldDecl _ fnl tp) -> (fnl, tp)) (fieldsOf env cn)) of
                            Nothing -> Left [UnknownFieldName (getLoc e) fn cn]
                            Just ft -> Right (eraseAnn ft)
                       _ -> Left [AccessToNonObjectType (getLoc e)]
-                  ))
-    in liftresTCEither [te] (\t -> FldAccE (updType annot t) (fromRight' te) fn) tres
+                  )
+    in liftresTCEither [te] (\tl -> FldAccE (updType annot tl) (fromRight' te) fn) tres
 
   TupleE annot es ->
     let tes = map (tpExprTCEither env) es
@@ -680,12 +668,11 @@ tpExprTCEither env expr = case expr of
   CastE annot ctp e ->
     let te = tpExprTCEither env e
         ctpEr = eraseAnn ctp
-        tres = guardErrorTCEither [te]
-                (let t  = getTypeOfExpr (fromRight' te)
-                 in if castCompatible t ctpEr
-                    then Right ctpEr
-                    else Left [CastIncompatible [getLoc annot, getLoc e] t ctpEr])
-    in liftresTCEither [te] (\t -> CastE (updType annot t) ctp (fromRight' te)) tres
+        t  = getTypeOfExpr (fromRight' te)
+        tres = if castCompatible t ctpEr
+               then Right ctpEr
+               else Left [CastIncompatible [getLoc annot, getLoc e] t ctpEr]
+    in liftresTCEither [te] (\tl -> CastE (updType annot tl) ctp (fromRight' te)) tres
 
   NotDeriv annot sign e -> error "NotDeriv not supported"
   _ -> error "typing of lists not implemented yet"
