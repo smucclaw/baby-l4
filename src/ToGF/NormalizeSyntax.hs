@@ -2,7 +2,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 module ToGF.NormalizeSyntax where
 
-import Annotation (TypeAnnot (updType))
 import Data.Char (toLower)
 import Data.List (intercalate)
 import Data.Maybe (fromMaybe)

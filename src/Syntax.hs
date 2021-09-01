@@ -2,21 +2,14 @@
 {-# LANGUAGE DeriveFunctor #-}
 -- {-# OPTIONS_GHC -Wpartial-fields #-}
 {-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Syntax where
 
 
 -- Class for annotated expressions
---import qualified Language.LSP.Types as J    -- TODO: is that used anywhere?
-import qualified Data.List as List
 import Data.Data (Data, Typeable)
 import Annotation
-import Text.Megaparsec
-import Text.Megaparsec.Char
-import Data.Void
-import Control.Monad
 
 ----------------------------------------------------------------------
 -- Definition of expressions
