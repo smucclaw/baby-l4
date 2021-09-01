@@ -105,7 +105,7 @@ Lexicon :                   { L (DummySRng "No lexicon") [] }
 
 Mappings :  Mapping          { [$1] }
           | Mappings Mapping { $2 : $1 }
-Mapping : VAR '->' STRLIT { Mapping (tokenRange $1 $3) (tokenSym $1) (tokenStringLit $3) }
+Mapping : VAR '->' STRLIT { Mapping (tokenRange $1 $3) (tokenSym $1) (parseDescription $ tokenStringLit $3) }
 
 ClassDecls :                       { [] }
            | ClassDecls ClassDecl  { $2 : $1 }

@@ -2,18 +2,14 @@
 {-# LANGUAGE DeriveFunctor #-}
 -- {-# OPTIONS_GHC -Wpartial-fields #-}
 {-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Syntax where
 
 
 -- Class for annotated expressions
---import qualified Language.LSP.Types as J    -- TODO: is that used anywhere?
-import qualified Data.List as List
 import Data.Data (Data, Typeable)
 import Annotation
-
 
 ----------------------------------------------------------------------
 -- Definition of expressions
@@ -34,6 +30,37 @@ newtype FieldName = FldNm {stringOfFieldName :: String}
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 newtype PartyName = PtNm {stringOfPartyName :: String}
   deriving (Eq, Ord, Show, Read, Data, Typeable)
+
+data Description = Descr {predOfDescription :: String , argsOfDescription :: [String]}
+  deriving (Eq, Ord, Show, Read, Data, Typeable)
+
+--parseDescription :: String -> Description
+--parseDescription "{Player} participates in {Game}" = Descr "participates in" ["Player", "Game"]
+--parseDescription _ = Descr "I am super high" []
+--parseDescription "{Game} participates in" = Descr "participates in" ["Game"]
+
+-- todo:
+-- get all string between {} and stick in an array for argsOfDescription
+-- concat everything else in predOfDescription as a string
+
+parseDescription :: String -> Description
+parseDescription x
+  | '{' `elem` x =
+          let allWords = words $ filter (`notElem` "{}") x
+          in Descr {predOfDescription = unwords (tail (init allWords)), argsOfDescription =[head allWords, last allWords]}
+  | otherwise = Descr {predOfDescription = x, argsOfDescription = []}
+
+{-
+Basic description:
+
+participate_in : Player -> Game -> Bool
+'participates in', implicitly this means 'Player participates in Game'
+
+participate_in : Game -> Player -> Bool
+'participates in', implicitly this means 'Game participates in Player'
+
+Explicit: '{Player} participates in {Game}'
+-}
 
 
 ----- Program
@@ -103,7 +130,7 @@ instance HasAnnot VarDecl where
   getAnnot = annotOfVarDecl
   updateAnnot f p = p { annotOfVarDecl = f (annotOfVarDecl p)}
 
-data Mapping t = Mapping t VarName VarName
+data Mapping t = Mapping t VarName Description
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 instance HasLoc t => HasLoc (Mapping t) where
   getLoc (Mapping t _ _) = getLoc t

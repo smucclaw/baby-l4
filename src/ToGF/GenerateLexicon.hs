@@ -15,7 +15,7 @@ import System.Environment (withArgs, getEnv)
 import System.IO (IOMode (WriteMode), withFile)
 import Text.Printf (printf)
 import Data.List.Extra (splitOn, trim, intercalate, replace)
-import Syntax (Mapping(..))
+import Syntax (Mapping(..), Description(..))
 import Data.Maybe (listToMaybe)
 import Data.Char (toLower)
 import Control.Applicative ((<|>))
@@ -105,9 +105,9 @@ mkLexicon fname udenv gname userlex atoms = do
       , let ar' = ar --max ar (length $ filter (=='>') funname) -- TODO see if these are ever different?
       ]
     parsePredFromUserLex funnm ar = listToMaybe [ pr
-                                   | Mapping _ nm value <- userlex
+                                   | Mapping _ nm (Descr val _) <- userlex
                                    , nm == funnm
-                                   , let pr = parsePred udenv ar (nm) value
+                                   , let pr = parsePred udenv ar (nm) val
                                    , not $ null $ trees pr ] -- is empty if the funnm doesn't appear in user lex, or if there's no parse
     parsePredFromName funnm ar = listToMaybe [ pr
                                  | let pr = parsePred udenv ar funnm ""

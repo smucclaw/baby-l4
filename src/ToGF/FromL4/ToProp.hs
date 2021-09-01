@@ -255,16 +255,16 @@ pattern IfThenElse e1 e2 e3 <- IfThenElseE _ e1 e2 e3
 updateVars :: [VarDecl Tp] -> Env -> Env
 updateVars vs env = env {vardecls = vs : vardecls env}
 
-findMapping :: [Mapping t] -> String -> [String]
+findMapping :: [Mapping t] -> String  -> [String]
 findMapping haystack needle =
   [ val
-    | Mapping _ name val <- haystack,
+    | Mapping _ name (Descr val _) <- haystack,
       name == needle
   ]
 
 type Lang = String
 
-createLexicon :: [Lang] -> [Mapping t] -> (String, [String])
+createLexicon :: [Lang] -> [Mapping t] -> (String , [String])
 createLexicon langs lexicon = (abstract, concretes)
   where
     abstract =
@@ -272,7 +272,7 @@ createLexicon langs lexicon = (abstract, concretes)
         ["abstract PropLexicon = Prop ** {"]
           ++ ["fun"]
           ++ [ printf "%s : %s ;" name (gfType val)
-               | Mapping _ name val <- lexicon
+               | Mapping _ name (Descr val _) <- lexicon
              ]
           ++ ["}"]
     concretes =
@@ -280,7 +280,7 @@ createLexicon langs lexicon = (abstract, concretes)
           [printf "concrete PropLexicon%s of PropLexicon = Prop%s ** open WordNet%s, Paradigms%s, Syntax%s, Extend%s in {" lang lang lang lang lang lang]
             ++ ["lin"]
             ++ [ printf "%s = %s ;" name val
-                 | Mapping _ name val <- lexicon
+                 | Mapping _ name (Descr val _) <- lexicon
                ]
             ++ [printf "oper associated_A = mkA \"%s\" ;" associated]
             ++ ["}"]
