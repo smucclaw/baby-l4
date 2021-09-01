@@ -111,83 +111,26 @@ normalizeProg (Program annP lex classdecs globals rules assert) =
     getFieldNmNType (ClassDef  _ fields) = map getFieldNmNType' fields
     getFieldNmNType' (FieldDecl _ (FldNm name) tp) = (name, tp)
 
-{- TODO: something like this
--- but make it actually work! Feel free to define more helper funs or other structure in other modules
-normalizeProg :: Program t -> Program t
-normalizeProg (Program annP mappings classdecs globals rules assert) =
-  Program annP mappings classdecs (newGlobals++globals) rules assert
-  where
-    newGlobals = concatMap cd2vd classdecs
-    cd2vd (ClassDecl annot clsname def) =
-      [flipIfNecessary mappings $ VarDecl annot functname (FunT argtype returntype)
-      | (functname, returntype) <- getFieldNmNType def]
-      where argtype = ClassT clsname
-
-    getFieldNmNType :: ClassDef t -> [(String, Tp)]
-    getFieldNmNType (ClassDef  _ fields) = map getFieldNmNType' fields
-    getFieldNmNType' (FieldDecl _ (FldNm name) tp) = (name, tp)
-
-    flipIfNecessary :: [Mapping t] -> VarDecl t -> VarDecl t
-    flipIfNecessary mappings vd = case vd of
-      VarDecl t predname (FunT tp1 tp2) ->
-        -- if predname is foo, and FunT is like, Game -> Player -> Bool
-        -- and there is a mapping foo -> "{Player} _ {Game}"
-        VarDecl t predname (FunT tp2 tp1)
-
-        -- Otherwise, return the original
-      _ -> vd
-
--}
-
-
--- flipIfNecessary :: [Mapping t] -> VarDecl t -> VarDecl t
--- flipIfNecessary mappings vd = case vd of
-
---   FunPattern name tp1 tp2 ->  [tp1,tp2]
-    -- if predname is foo, and FunT is like, Game -> Player -> Bool
-    -- and there is a mapping foo -> "{Player} _ {Game}"
-    -- VarDecl t predname FunT tp2 tp1 where
-    --   FunT tp2 tp1 = "(" ++ printTp t
-
--- flipIfNecessary =
---   case   mapping foo = "{Player} _ {Game}" -> mappinv
-
--- VarDecl x y i
--- FunT (ClassT (ClsNm x)) (FunT (ClassT (ClsNm y)) (IntT <- i)
-pattern FunPattern :: String -> Tp -> Tp ->  VarDecl t
-pattern FunPattern name tp1 tp2 <- VarDecl _ name (FunT tp1 tp2)
-
--- getMapArgs (Mapping t foo (Descr "whatever" [player, game]))
---            = [player, game]
--- getMapArgs :: Mapping t -> [String]
--- getMapArgs (Mapping t _ (Descr _ x)) = x
-
--- getVardeclArgs :: VarDecl t -> [String]
--- getVarDeclArgs (FunPattern _ tp1 tp2) = [tp1, tp2]
-
--- (VarDecl t "whatever" FunT player game)
+-- | Flip the arguments of binary predicates if lexicon indicates so:
+-- |    decl    win  : Game -> Player -> Bool
+-- |    lexicon win -> "{Player} wins {Game}"
+-- | will flip the predicate win into Player -> Game -> Bool
 checkNFlip :: Mapping t -> VarDecl t -> VarDecl t
-checkNFlip (Mapping t _ (Descr _ x)) (FunPattern _ tp1 tp2)
-  | x == [tp1, tp2] = VarDecl _ name (FunT tp1 tp2)
-  | x == [tp2, tp1] = VarDecl _ name (FunT tp2 tp1)
-  | otherwise = error $ "mapping doesn't exist " ++ show e
+checkNFlip (Mapping _t lexName e@(Descr _ args)) vd@(Fun2 ann funName arg1 arg2)
+  | lexName == funName &&
+    args == [arg2, arg1] = Fun2 ann funName arg2 arg1
+--  | args == [arg1, arg2] = vd
+--  | otherwise = error $ "mapping doesn't exist " ++ show e
+checkNFlip _ vd = vd
 
---  pattern FunPattern varname tp1 tp2 -- = VarDecl t varname pattern Arg2 tp1 tp2
--- checkFoo :: VarDecl -> VarDecl
--- checkFoo (VarDecl t varname (FunT tp1 tp2))  =
+pattern Fun2 :: t -> VarName -> String -> String -> VarDecl t
+pattern Fun2 ann name arg1 arg2 = Syntax.VarDecl ann name (Arg2 arg1 arg2)
 
--- parseDescriptionM :: String -> Description
--- parseDescriptionM x
---   | '{' `elem` x =
---           let allWords = words $ filter (`notElem` "{}") x
---           in Descr {predOfDescription = unwords (tail (init allWords)), argsOfDescription =[head allWords, last allWords]}
---   | otherwise = Descr {predOfDescription = x, argsOfDescription = []}
+pattern Arg0 :: String -> Tp
+pattern Arg0 x = ClassT (ClsNm x)
 
+pattern Arg1 :: String -> Tp
+pattern Arg1 x = FunT (Arg0 x) BoolT
 
--- checkMappings :: Mapping t -> Mapping t
--- checkMappings  ( Mapping t VarName Description)  = Mapping t varName (Desr {predOfDescription :: String , argsOfDescription :: [String]})
-
--- rearrange ::  [String] -> [String]
--- rearrange argsOfDescription = case argsOfDescription of
---   [tp1, tp2] -> [tp1, tp2]
---   [tp2, tp1] -> [tp1, tp2]
+pattern Arg2 :: String -> String -> Tp
+pattern Arg2 x y = FunT (Arg0 x) (Arg1 y)
