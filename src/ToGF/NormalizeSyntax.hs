@@ -45,22 +45,27 @@ normalizeQuantifGF r = r { varDeclsOfRule = [],
     decls = varDeclsOfRule r
     wrapInExistential [] e = e
     wrapInExistential (VarDecl ann nm tp:xs) e = wrapInExistential xs (QuantifE ann Ex nm tp e)
+
 negateExpr :: Expr t -> Expr t
 negateExpr e = UnaOpE (annotOfExpr e) (UBool UBneg) e
 
 extractName :: Expr t -> String
-extractName (ValE t v) = "someVal"
-extractName (VarE t v) = map toLower $ varName v
-extractName (UnaOpE t u et) = show u ++ extractName et
-extractName (BinOpE t b et et4) = extractName et ++ "_" ++ extractName et4
-extractName (IfThenElseE t et et3 et4) = extractName et ++ "_" ++ extractName et3 ++ "_" ++ extractName et4
-extractName (AppE t et et3) = extractName et ++ "_" ++ extractName et3
-extractName (FunE t p t3 et) = extractName et
-extractName (QuantifE t q l_c t4 et) = extractName et
-extractName (FldAccE t et f) = extractName et
-extractName (TupleE t l_et) = intercalate "_" (map extractName l_et)
-extractName (CastE t t2 et) = extractName et
-extractName (ListE t l l_et) = intercalate "_" (map extractName l_et)
+extractName (ValE _t (BoolV b)) = show b
+extractName (ValE _t (IntV n)) = show n
+extractName (ValE _t (StringV s)) = s
+extractName (ValE _t (RecordV cn _)) = show cn
+extractName (ValE _t ErrV) = "error"
+extractName (VarE _t v) = map toLower $ varName v
+extractName (UnaOpE _t u et) = show u ++ extractName et
+extractName (BinOpE _t _b et et4) = extractName et ++ "_" ++ extractName et4
+extractName (IfThenElseE _t et et3 et4) = extractName et ++ "_" ++ extractName et3 ++ "_" ++ extractName et4
+extractName (AppE _t et et3) = extractName et ++ "_" ++ extractName et3
+extractName (FunE _t _p _t3 et) = extractName et
+extractName (QuantifE _t _q _lc _t4 et) = extractName et
+extractName (FldAccE _t et _f) = extractName et
+extractName (TupleE _t l_et) = intercalate "_" (map extractName l_et)
+extractName (CastE _t _t2 et) = extractName et
+extractName (ListE _t _l l_et) = intercalate "_" (map extractName l_et)
 extractName (NotDeriv _ _ et) = extractName et
 
 varName :: Var -> VarName
