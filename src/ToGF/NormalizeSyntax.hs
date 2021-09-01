@@ -80,12 +80,12 @@ normalizeAndExpr e@(BinOpE ann (BBool BBand) e1 e2) = ListE ann AndList (go e)
     go e = [e]
 normalizeAndExpr e = e
 
--- Handles rules with multiple options:
--- rule <blah>
---   for foo : Foo
---   if Legal foo || Edible foo
---   then Good foo && MayBeEaten foo
--- becomes 4 new rules, with all permutations
+-- | Handles rules with multiple options:
+-- | rule <blah>
+-- |  for foo : Foo
+-- |  if Legal foo || Edible foo
+-- |  then Good foo && MayBeEaten foo
+-- | becomes 4 new rules, with all permutations
 normaliseConditionsAndConclusions :: Rule t -> [Rule t]  -- takes a rule t and returns a list of rules
 normaliseConditionsAndConclusions (Rule ann nm decls ifE thenE) =
   [Rule ann nm decls condition conclusion
@@ -98,8 +98,8 @@ normaliseConditionsAndConclusions (Rule ann nm decls ifE thenE) =
 
 -- Make VarDecls out of ClassDecls
 normalizeProg :: Program t -> Program t
-normalizeProg (Program annP lex classdecs globals rules assert) =
-  Program annP lex classdecs (newGlobals++globals) rules assert
+normalizeProg (Program annP lexicon classdecs globals rules assert) =
+  Program annP lexicon classdecs (newGlobals++globals) rules assert
   where
     newGlobals = concatMap cd2vd classdecs
     cd2vd (ClassDecl annot clsname def) =
