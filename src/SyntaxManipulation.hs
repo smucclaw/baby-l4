@@ -26,7 +26,7 @@ liftType t = KindT <$ t
 
 forceArgTp :: Tp () -> Tp ()
 forceArgTp (FunT _ ftp atp) = atp
-forceArgTp _ = ErrT Unspecified
+forceArgTp _ = ErrT 
 
 isLocalVar :: Var t -> Bool
 isLocalVar (LocalVar _ _) = True
