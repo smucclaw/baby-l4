@@ -14,6 +14,7 @@ main = do
     [ disambiguateTests pgf -- from DisambiguateTest
     , testGetAtoms -- from ToGFTest
     , testDescription -- from ToGFTest
+    , testFlipDescription -- from ToGFTest
     ]
 
 
