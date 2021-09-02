@@ -1,0 +1,286 @@
+### Fake example rules about speed limits of different kinds of vehicles
+### on different days on different kinds of roads.
+
+
+# The coding used here is *sorted*, with three distinguished sorts
+# (Vehicle, Day, Road) that are the immediate subclasses of Class.
+# Subtypes of these sorts are coded by predicates. 
+# All predicates have Class as codomain, e.g. isDay: Class -> Boolean
+# For a flat version without sorts, see speedlimit_flat.l4
+
+
+# Annotations in rules:
+
+# * rule R1 subjectTo R2:
+
+# - Applicability:
+#   postcond(R1) && postcond(R2) are incompatible
+#   (directly or under certain consistency requirements,
+#   e.g. that maxSpeed is functional)
+
+# - Effect:
+#   add not(precond(R2)) to precond(R1)
+
+# - R2 has priority over R1: R2 < R1
+
+# - Synonymes:
+#   rule R1 except as provided in R2
+  
+
+# * rule R1 despite R2:
+
+# - Applicability:
+#   postcond(R1) && postcond(R2) are incompatible
+
+# - Effect:
+#   add not(precond(R1)) to precond(R2)
+#   the same has having:
+#   rule R2 subjectTo R1
+
+# - R1 has priority over R2: R1 < R2
+
+# - Synonymes:
+#   rule R1 notwithstanding R2
+
+# - Remark:
+#   for drafting purposes and modularity, "despite" seems preferable to "subjectTo"
+#   because the overriding / more specialized rule references the overridden / more general rule
+
+# ---> Conclusion: There is only one genuine prioritizing operator: subjectTo
+
+
+### Classes
+
+class Vehicle
+class Car extends Vehicle
+class Truck extends Vehicle
+
+class Day
+class Workday extends Day
+class Holiday extends Day
+
+class Road
+class Highway extends Road
+
+### Predicates 
+
+## uninteresting (the is... predicates should be generated)
+# decl isVehicle : Vehicle -> Boolean
+decl isCar : Vehicle -> Boolean
+decl isTruck : Vehicle -> Boolean
+
+# decl isDay : Day -> Boolean
+decl isWorkday : Day -> Boolean
+decl isHoliday : Day -> Boolean
+
+# decl isRoad : Road -> Boolean
+decl isHighway : Road -> Boolean
+
+## interesting: the maximal speed of a vehicle on a day on a road is ...
+# Could be modeled as a functional dependency, but this would
+# make it impossible to verify that the relation is functional
+decl maxSpeed : Vehicle -> Day -> Road -> Integer -> Boolean
+
+# typical representatives of their class
+decl instVeh : Vehicle
+decl instCar : Vehicle
+decl instDay : Day
+decl instRoad : Road
+decl instSpeed1: Integer
+decl instSpeed2: Integer
+
+### Facts and rules
+
+## Typing of the instances
+# (typing of instDay and instRoad is a tautology)
+
+fact <instCarType>
+isCar instCar
+
+
+## Class inclusion: follows from typing
+
+
+## Class disjointness (possible to automate)
+
+# top-level classes: follows from typing
+
+# subclasses of Vehicle
+fact <CarTrDistinct>
+for c: Vehicle
+not (isCar c && isTruck c)
+
+# subclasses of Day
+fact <WdHdDistinct>
+for c: Day
+not (isWorkday c && isHoliday c)
+
+
+## Domain-specific rules
+
+# General rule
+
+rule <maxSpeedCar> 
+for v: Vehicle, d: Day, r: Road
+if isCar v 
+then maxSpeed v d r 90
+
+# the same as above, but not affected by "despite" clause
+rule <maxSpeedCarNotRestricted> 
+for v: Vehicle, d: Day, r: Road
+if isCar v 
+then maxSpeed v d r 90
+
+
+# Specific rule overriding general rule
+
+rule <maxSpeedCarHighway>
+    {restrict: {despite: maxSpeedCar}}
+for v: Vehicle, d: Day, r: Road
+if isCar v && isHighway r
+then maxSpeed v d r 130
+
+
+# Inversion of rules maxSpeedCar and maxSpeedCarHighway
+rule <maxSpeedInversion>
+     {derived: {apply: {inversion,
+     	       	        apply: {normalize, maxSpeedCar},
+     	       	        apply: {normalize, maxSpeedCarHighway}}}}
+
+# Inversion of rules maxSpeedCarNotRestricted and maxSpeedCarHighway
+rule <maxSpeedInversionNotRestricted>
+     {derived: {apply: {inversion,
+     	       	        apply: {normalize, maxSpeedCarNotRestricted},
+     	       	        apply: {normalize, maxSpeedCarHighway}}}}
+
+
+
+# Non-functionality of maxSpeed is consistent with the assumption set
+# including the "incorrect" 
+# --> satisfiable
+assert <maxSpeedNotFunctionalWOsubjectToClause>
+       {nSMT:
+           {consistent, 
+            rules: {only: {instCarType,
+                          WdHdDistinct, CarTrDistinct,
+                          maxSpeedCarNotRestricted,
+                          maxSpeedCarHighway,
+                          maxSpeedInversionNotRestricted
+                          }
+                   },
+            config: {solver: z3, logic: LIA, loglevel: 0}
+           },
+        nsCASP: {}
+       }
+maxSpeed instCar instDay instRoad instSpeed1 &&
+maxSpeed instCar instDay instRoad instSpeed2 &&
+instSpeed1 < instSpeed2
+
+# Non-functionality of maxSpeed is consistent with the assumption set
+# including the correct maxSpCarWorkdayRoadRestrSubjectTo and maxSpInversionSubjectTo
+# --> unsatisfiable
+assert {nSMT:
+           {consistent, 
+            rules: {only: {instCarType,
+                          WdHdDistinct, CarTrDistinct,
+                          maxSpeedCar,
+                          maxSpeedCarHighway,
+                          maxSpeedInversion
+                          }
+                   }
+           }
+       }
+maxSpeed instCar instDay instRoad instSpeed1 &&
+maxSpeed instCar instDay instRoad instSpeed2 &&
+instSpeed1 < instSpeed2
+
+
+# Functionality of maxSpeed follows from correct assumption set
+# excluding the incorrect maxSpCarWorkdayRoad, maxSpInversion
+# --> valid
+assert {nSMT:
+           {valid, 
+            rules: {del : {maxSpeedCarNotRestricted, maxSpeedInversionNotRestricted, maxSpeedCar'Orig}}
+           }
+       }
+maxSpeed instCar instDay instRoad instSpeed1 &&
+maxSpeed instCar instDay instRoad instSpeed2
+--> instSpeed1 == instSpeed2
+
+
+# Query: max speed of a car on a highway
+assert {nSMT:
+           {consistent,
+            rules: {del : {maxSpeedCarNotRestricted, maxSpeedInversionNotRestricted, maxSpeedCar'Orig}}
+           }
+       }
+isHighway instRoad &&
+maxSpeed instCar instDay instRoad instSpeed1
+
+# Query: max speed of a car.
+# Returns answer:
+# maxSpeed instCar instDay instRoad intArg3 = (= intArg3 90)
+# Adding this as a negation forces the next interpretation, which is:
+# isHighway instRoad = true
+# maxSpeed instCar instDay instRoad intArg3 = (and (not (= intArg3 90)) (= intArg3 130))
+
+assert {nSMT:
+           {consistent,
+            rules: {del : {maxSpeedCarNotRestricted, maxSpeedInversionNotRestricted, maxSpeedCar'Orig}}
+           }
+       }
+not (maxSpeed instCar instDay instRoad 90) &&
+maxSpeed instCar instDay instRoad instSpeed1
+
+
+# Exhaustiveness: is there a situation for which maxSpeed gives no answer?
+# Not valid, countermodel for example for a vehicle that is not a car.
+assert {SMT:
+           {valid,
+            rules: {del : {maxSpeedCarNotRestricted, maxSpeedInversionNotRestricted, maxSpeedCar'Orig}}
+           }
+       }
+#forall iv: Vehicle. forall id: Day. forall ir: Road. exists sp: Integer. maxSpeed iv id ir sp
+exists sp: Integer. maxSpeed instVeh instDay instRoad sp
+
+
+# TODO: construct the above assertion (but universally quantified):
+# maxSpeed is functional in its 4th argument
+# assert <maxSpeedFunctionalDerived>
+#        {derived: {functional: {maxSpeed: 4},
+#                   rules: {del : {maxSpCarWorkdayRoad, maxSpInversion}}},
+#         valid}
+
+
+# TODO: also admit assertions as facts
+# assert <maxSpeedNoConflict>
+#        {derived: {apply: {conjunction, rules: {only: foo1, foo2, maxSpeedFunctionalDerived}}},
+#         consistent}
+       
+# assert {nSMT:
+#            {valid, 
+#             rules: {del : {maxSpCarWorkdayRoad, maxSpInversion}},
+#             config: {loglevel: 1}
+#            }
+#        }
+# isCar instCar -->
+# isWorkday instDay -->
+# isHighway instRoad -->
+# maxSpeed instCar instDay instRoad 90
+
+# assert {SMT: {valid,
+#               rules:
+#               {only: {CarTrDistinct, WdHdDistinct, maxSpCarWorkdayHighway, maxSpCarWorkdayRoadRestrSubjectTo, maxSpInversionSubjectTo}},
+#               config: {loglevel: 1}}}
+# forall v: Vehicle. forall d: Day. forall r: Road. forall s: Integer.
+# (isCar v && isWorkday d && not (isCar v && isWorkday d && isHighway r))
+# =
+# (isCar v && isWorkday d )
+
+
+
+# assert {nSMT: {valid, rules: {only:}, config: {loglevel: 1}}}
+# forall v: Vehicle. forall d: Day. forall r: Road. forall s: Integer.
+# (isCar v && isWorkday d ) -->
+# (isCar v && isWorkday d && not (isCar v && isWorkday d && isHighway r))
+

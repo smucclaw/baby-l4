@@ -9,10 +9,12 @@ module Syntax where
 
 
 -- Class for annotated expressions
-import qualified Language.LSP.Types as J    -- TODO: is that used anywhere?
-import qualified Data.List as List
+--import qualified Language.LSP.Types as J    -- TODO: is that used anywhere?
+--import qualified Data.List as List
 import Data.Data (Data, Typeable)
 import Annotation
+import KeyValueMap
+import PGF (Probabilities)
 
 
 ----------------------------------------------------------------------
@@ -22,10 +24,9 @@ import Annotation
 
 ----- Names
 type VarName = String
-type RuleName = String
+-- Assertion / Rule name 
+type ARName = Maybe String
 -- newtype VarName = VarName String
---   deriving (Eq, Ord, Show, Read, Data, Typeable)
--- newtype RuleName = RuleName String
 --   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 newtype ClassName = ClsNm {stringOfClassName :: String}
@@ -35,6 +36,12 @@ newtype FieldName = FldNm {stringOfFieldName :: String}
 newtype PartyName = PtNm {stringOfPartyName :: String}
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
+-- a qualified var name has an annotation (contrary to a simple var name)
+data QVarName t = QVarName {annotOfQVarName :: t, nameOfQVarName :: VarName}
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
+instance HasLoc t => HasLoc (QVarName t) where
+  getLoc v = getLoc (annotOfQVarName v)
 
 ----- Program
 
@@ -46,56 +53,217 @@ data Program t = Program{ annotOfProgram :: t
                             , assertionsOfProgram :: [Assertion t] }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
+data TopLevelElement t
+  = MappingTLE (Mapping t)
+  | ClassDeclTLE (ClassDecl t)
+  | VarDeclTLE (VarDecl t)
+  | RuleTLE (Rule t)
+  | AssertionTLE (Assertion t)
+  | AutomatonTLE (TA t)
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
+getAnnotOfTLE :: TopLevelElement t -> t
+getAnnotOfTLE e = case e of
+     MappingTLE mp -> annotOfMapping mp
+     ClassDeclTLE cd -> annotOfClassDecl cd
+     VarDeclTLE vd -> annotOfVarDecl vd
+     RuleTLE ru -> annotOfRule ru
+     AssertionTLE as -> annotOfAssertion as
+     AutomatonTLE ta -> annotOfTA ta
+
+updateAnnotOfTLE :: (t -> t) -> TopLevelElement t -> TopLevelElement t
+updateAnnotOfTLE f e = case e of
+     MappingTLE mp -> MappingTLE $ mp { annotOfMapping = f (annotOfMapping mp) }
+     ClassDeclTLE cd -> ClassDeclTLE $ cd { annotOfClassDecl = f (annotOfClassDecl cd) }
+     VarDeclTLE vd -> VarDeclTLE $ vd { annotOfVarDecl = f (annotOfVarDecl vd) }
+     RuleTLE ru -> RuleTLE $ ru { annotOfRule = f (annotOfRule ru) }
+     AssertionTLE as -> AssertionTLE $ as { annotOfAssertion = f (annotOfAssertion as) }
+     AutomatonTLE ta -> AutomatonTLE $ ta { annotOfTA = f (annotOfTA ta) }
+     
+instance HasLoc t => HasLoc (TopLevelElement t) where
+  getLoc = getLoc . getAnnotOfTLE
+
+instance HasAnnot TopLevelElement where
+  getAnnot = getAnnotOfTLE 
+  updateAnnot = updateAnnotOfTLE
+
+data NewProgram t = NewProgram { annotOfNewProgram :: t
+                               , elementsOfNewProgram :: [TopLevelElement t] }
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
+instance HasAnnot NewProgram where
+  getAnnot = annotOfNewProgram
+  updateAnnot f p = p { annotOfNewProgram = f (annotOfNewProgram p)}
+
+
+isMapping :: TopLevelElement t -> Bool
+isMapping (MappingTLE _) = True
+isMapping _ = False
+
+isClassDecl :: TopLevelElement t -> Bool
+isClassDecl (ClassDeclTLE _) = True
+isClassDecl _ = False
+
+isVarDecl :: TopLevelElement t -> Bool
+isVarDecl (VarDeclTLE _) = True
+isVarDecl _ = False
+
+isRule :: TopLevelElement t -> Bool
+isRule (RuleTLE _) = True
+isRule _ = False
+
+isAssertion :: TopLevelElement t -> Bool
+isAssertion (AssertionTLE _) = True
+isAssertion _ = False
+
+isAutomaton :: TopLevelElement t -> Bool
+isAutomaton (AutomatonTLE _) = True
+isAutomaton _ = False
+
+getMapping :: TopLevelElement t -> Mapping t
+getMapping (MappingTLE e) = e
+getMapping _ = error "wrong selection"
+
+getClassDecl :: TopLevelElement t -> ClassDecl t
+getClassDecl (ClassDeclTLE e) = e
+getClassDecl _ = error "wrong selection"
+
+getVarDecl :: TopLevelElement t -> VarDecl t
+getVarDecl (VarDeclTLE e) = e
+getVarDecl _ = error "wrong selection"
+
+getRule :: TopLevelElement t -> Rule t
+getRule (RuleTLE e) = e
+getRule _ = error "wrong selection"
+
+getAssertion :: TopLevelElement t -> Assertion t
+getAssertion (AssertionTLE e) = e
+getAssertion _ = error "wrong selection"
+
+getAutomaton :: TopLevelElement t -> TA t
+getAutomaton (AutomatonTLE e) = e
+getAutomaton _ = error "wrong selection"
+
+lexiconOfNewProgram :: NewProgram t -> [Mapping t]
+lexiconOfNewProgram = map getMapping . filter isMapping . elementsOfNewProgram
+
+classDeclsOfNewProgram :: NewProgram t -> [ClassDecl t]
+classDeclsOfNewProgram = map getClassDecl . filter isClassDecl . elementsOfNewProgram
+
+globalsOfNewProgram :: NewProgram t -> [VarDecl t]
+globalsOfNewProgram = map getVarDecl . filter isVarDecl . elementsOfNewProgram
+
+rulesOfNewProgram :: NewProgram t -> [Rule t]
+rulesOfNewProgram = map getRule . filter isRule . elementsOfNewProgram
+
+assertionsOfNewProgram :: NewProgram t -> [Assertion t]
+assertionsOfNewProgram = map getAssertion . filter isAssertion . elementsOfNewProgram
+
+automataOfNewProgram :: NewProgram t -> [TA t]
+automataOfNewProgram = map getAutomaton . filter isAutomaton . elementsOfNewProgram
+
+mapClassDecl :: (ClassDecl t -> ClassDecl t)-> TopLevelElement t -> TopLevelElement t
+mapClassDecl f e = case e of
+  ClassDeclTLE cd -> ClassDeclTLE (f cd)
+  x -> x
+
+mapRule :: (Rule t -> Rule t) -> TopLevelElement t -> TopLevelElement t
+mapRule f e = case e of
+  RuleTLE r -> RuleTLE (f r)
+  x -> x  
+
+mapAssertion :: (Assertion t -> Assertion t) -> TopLevelElement t -> TopLevelElement t
+mapAssertion f e = case e of
+  AssertionTLE r -> AssertionTLE (f r)
+  x -> x  
+
+newProgramToProgram :: NewProgram t -> Program t
+newProgramToProgram np = Program {
+  annotOfProgram = annotOfNewProgram np,
+  lexiconOfProgram = lexiconOfNewProgram np,
+  classDeclsOfProgram = classDeclsOfNewProgram np,
+  globalsOfProgram = globalsOfNewProgram np,
+  rulesOfProgram = rulesOfNewProgram np,
+  assertionsOfProgram = assertionsOfNewProgram np
+}
+
 instance HasAnnot Program where
   getAnnot = annotOfProgram
   updateAnnot f p = p { annotOfProgram = f (annotOfProgram p)}
 
+
 data ExpectedType
   = ExpectedString  String
-  | ExpectedExactTp Tp
-  | ExpectedSubTpOf Tp
+  | ExpectedExactTp (Tp())
+  | ExpectedSubTpOf (Tp())
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 
 data ErrorCause
   = Inherited
+  | UndefinedType [(SRng, ClassName)]            -- cf with the UndefinedType... constructors in Errors.hs
+  | UndefinedTypeInClassT
   | UndeclaredVariable SRng VarName
   | IllTypedSubExpr { exprRangesITSE :: [SRng]    -- operators that require specific types  for their arguments
-                    , receivedITSE :: [Tp]
+                    , receivedITSE :: [Tp()]
                     , expectedITSE :: [ExpectedType] }
   | IncompatibleTp { exprRangesITSE :: [SRng]     -- when we need two types to be the same for an operation, or perhaps a subtype (to check)
-                    , receivedITSE :: [Tp] }
+                    , receivedITSE :: [Tp()] }
   | NonScalarExpr { exprRangesITSE :: [SRng]      -- functions are not scalar types and not comparable
-                    , receivedITSE :: [Tp] }
-  | NonFunctionTp { exprRangesITSE :: [SRng]      -- call function when not function
-                    , receivedFunTpITSE :: Tp }
-  | CastIncompatible { exprRangesITSE :: [SRng]                     -- typecasting from int to string for example (and its not compatible) [** what is the typecasting syntax?]
-                    , receivedCastITSE :: Tp
-                    , castToITSE :: Tp }
-  | IncompatiblePattern SRng                      -- pattern matching failure for tuples (l4)
-  | UnknownFieldName SRng FieldName ClassName     -- class has no such field
-  | AccessToNonObjectType SRng                    -- when using dot notation on something thats not an object
-  | Unspecified                                                     -- [** don't know, need clarification from martin?]
+                    , receivedITSE :: [Tp()] }
+  | NonFunctionTp { exprRangesITSE :: [SRng] -- call function when not function
+                    , receivedFunTpITSE :: Tp() }
+  | CastIncompatible { exprRangesITSE :: [SRng] -- typecasting from int to string for example (and its not compatible)
+                    , receivedCastITSE :: Tp()
+                    , castToITSE :: Tp() }
+  | IncompatiblePattern SRng          -- pattern matching failure for tuples (l4)
+  | UnknownFieldName SRng FieldName ClassName   -- class has no such field
+  | AccessToNonObjectType SRng  -- when using dot notation on something thats not an object
+  | Unspecified                 -- don't know, need clarification from martin?
+
+  -- Previously spread out in several other types
+  | DuplicateClassNamesCDEErr [(SRng, ClassName)]  -- classes whose name is defined multiple times
+  | UndefinedSuperclassCDEErr [(SRng, ClassName)]  -- classes having undefined superclasses
+  | CyclicClassHierarchyCDEErr [(SRng, ClassName)]  -- classes involved in a cyclic class definition
+
+  | DuplicateFieldNamesFDEErr [(SRng, ClassName, [(SRng, FieldName)])]     -- field names with duplicate defs
+  | UndefinedTypeFDEErr [(SRng, FieldName)]                                -- field names containing undefined types
+
+  | DuplicateVarNamesVDEErr [(SRng, VarName)]
+  | UndefinedTypeVDEErr [(SRng, VarName)]
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 
 ----- Types
 -- TODO: also types have to be annotated with position information
 -- for the parser to do the right job
-data Tp
-  = BoolT
-  | IntT
-  | ClassT ClassName
-  | FunT Tp Tp
-  | TupleT [Tp]
-  | ErrT ErrorCause
-  | OkT                    -- fake type appearing in constructs (classes, rules etc.) that do not have a genuine type
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
-
-data VarDecl t = VarDecl {annotOfVarDecl ::t
-                         , nameOfVarDecl :: VarName
-                         , tpOfVarDecl :: Tp }
+data Tp t
+  = ClassT {annotOfTp :: t, classNameOfTp :: ClassName}
+  | FunT {annotOfTp :: t, funTp :: Tp t, argTp :: Tp t}
+  | TupleT {annotOfTp :: t, componentsOfTpTupleT :: [Tp t]}
+  | ErrT -- {causeOfTpErrT :: ErrorCause}
+  | OkT        -- fake type appearing in constructs (classes, rules etc.) that do not have a genuine type
+  | KindT
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
+instance HasLoc t => HasLoc (Tp t) where
+  getLoc e = getLoc (annotOfTp e)
+
+instance HasDefault (Tp t) where
+  defaultVal = OkT
+
+booleanT :: Tp ()
+booleanT = ClassT () (ClsNm "Boolean")
+integerT :: Tp ()
+integerT = ClassT () (ClsNm "Integer")
+floatT :: Tp ()
+floatT = ClassT () (ClsNm "Float")
+stringT :: Tp ()
+stringT = ClassT () (ClsNm "String")
+
+data VarDecl t = VarDecl {annotOfVarDecl :: t, nameOfVarDecl :: VarName, tpOfVarDecl :: Tp t}
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
 instance HasLoc t => HasLoc (VarDecl t) where
   getLoc = getLoc . annotOfVarDecl
 
@@ -103,7 +271,10 @@ instance HasAnnot VarDecl where
   getAnnot = annotOfVarDecl
   updateAnnot f p = p { annotOfVarDecl = f (annotOfVarDecl p)}
 
-data Mapping t = Mapping t VarName VarName
+data Mapping t = Mapping { annotOfMapping :: t
+                          , fromMapping :: VarName
+                          , toMapping :: VarName}
+
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 instance HasLoc t => HasLoc (Mapping t) where
   getLoc (Mapping t _ _) = getLoc t
@@ -114,10 +285,9 @@ instance HasAnnot Mapping where
 
 -- Field attributes: for example cardinality restrictions
 -- data FieldAttribs = FldAtt
-data FieldDecl t = FieldDecl {annotOfFieldDecl ::t
+data FieldDecl t = FieldDecl {annotOfFieldDecl :: t
                              , nameOfFieldDecl :: FieldName
-                             , tpOfFieldDecl ::  Tp }
-                            -- FieldAttribs
+                             , tpOfFieldDecl ::  Tp t }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 instance HasLoc t => HasLoc (FieldDecl t) where
   getLoc = getLoc . annotOfFieldDecl
@@ -189,32 +359,46 @@ customCs = [objectC, qualifNumC, currencyC] ++ currencyCs ++ [timeC] ++ timeCs +
 data Val
     = BoolV Bool
     | IntV Integer
+    | FloatV Float
     | StringV String
     -- TODO: instead of RecordV, introduce RecordE in type Expr
-    | RecordV ClassName [(FieldName, Val)]
+    -- | RecordV ClassName [(FieldName, Val)]
     | ErrV
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-data Var
+trueV :: Expr (Tp ())
+trueV = ValE booleanT (BoolV True)
+falseV :: Expr (Tp ())
+falseV = ValE booleanT (BoolV False)
+
+data Var t
       -- global variable only known by its name
-    = GlobalVar { nameOfVar :: VarName }
+    = GlobalVar { nameOfVar :: QVarName t }
     -- local variable known by its provisional name and deBruijn index.
-    | LocalVar { nameOfVar :: VarName
+    | LocalVar { nameOfVar :: QVarName t
                , indexOfVar :: Int }
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 -- unary arithmetic operators
 data UArithOp = UAminus
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 -- unary boolean operators
-data UBoolOp = UBneg
+data UBoolOp = UBnot
+  deriving (Eq, Ord, Show, Read, Data, Typeable)
+
+data UTemporalOp
+  = UTAF -- always finally
+  | UTAG -- always generally
+  | UTEF -- exists finally
+  | UTEG -- exists generally
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 -- unary operators (union of the above)
 data UnaOp
     = UArith UArithOp
     | UBool UBoolOp
+    | UTemporal UTemporalOp
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 -- binary arithmetic operators
@@ -240,33 +424,33 @@ data BinOp
 data ListOp = AndList | OrList | XorList | CommaList
     deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-data Pattern
-    = VarP String
-    | VarListP [String]
-    deriving (Eq, Ord, Show, Read, Data, Typeable)
+data Pattern t
+    = VarP (QVarName t)
+    | VarListP [QVarName t]
+    deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
+patternLength :: Pattern t -> Int
+patternLength (VarP _) = 1
+patternLength (VarListP vs) = length vs
 
 data Quantif = All | Ex
     deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-type family Annot tpPhase
-type instance Annot SRng = SRng
-
 -- Expr t is an expression of type t (to be determined during type checking / inference)
 data Expr t
-    = ValE        t Val                          -- value
-    | VarE        t Var                          -- variable
-    | UnaOpE      t UnaOp (Expr t)               -- unary operator
-    | BinOpE      t BinOp (Expr t) (Expr t)      -- binary operator
-    | IfThenElseE t (Expr t) (Expr t) (Expr t)   -- conditional
-    | AppE        t (Expr t) (Expr t)            -- function application
-    | FunE        t Pattern Tp (Expr t)          -- function abstraction
-    | QuantifE    t Quantif VarName Tp (Expr t)  -- quantifier
-    -- | ClosE       SRng t [(VarName, Expr t)] (Expr t) -- closure  (not externally visible)
-    | FldAccE     t (Expr t) FieldName           -- field access
-    | TupleE      t [Expr t]                     -- tuples
-    | CastE       t Tp (Expr t)                  -- cast to type
-    | ListE       t ListOp [Expr t]              -- list expression
-    | NotDeriv    t Bool (Expr t)            -- Negation as failure "not".
+    = ValE        {annotOfExpr :: t, valOfExprValE :: Val}                       -- value
+    | VarE        {annotOfExpr :: t, varOfExprVarE :: Var t}                       -- variable
+    | UnaOpE      {annotOfExpr :: t, unaOpOfExprUnaOpE :: UnaOp, subEOfExprUnaOpE :: Expr t} -- unary operator
+    | BinOpE      {annotOfExpr :: t, binOpOfExprBinOpE :: BinOp, subE1OfExprBinOpE :: Expr t, subE2OfExprBinOpE :: Expr t}      -- binary operator
+    | IfThenElseE {annotOfExpr :: t, condOfExprIf :: Expr t, thenofExprIf :: Expr t, elseOfExprIf :: Expr t}   -- conditional
+    | AppE        {annotOfExpr :: t, funOfExprAppE :: Expr t, argOfExprAppE :: Expr t}           -- function application
+    | FunE        {annotOfExpr :: t, patternOfExprFunE :: Pattern t, tpOfExprFunE :: Tp t, bodyOfExprFunE :: Expr t}          -- function abstraction
+    | QuantifE    {annotOfExpr :: t, quantifOfExprQ :: Quantif, varNameOfExprQ :: QVarName t, tpOfExprQ :: Tp t, bodyOfExprQ :: Expr t}  -- quantifier
+    | FldAccE     {annotOfExpr :: t, subEOfExprFldAccE :: Expr t, fieldNameOfExprFldAccE :: FieldName}           -- field access
+    | TupleE      {annotOfExpr :: t, componentsOfExprTupleE :: [Expr t]}                     -- tuples
+    | CastE       {annotOfExpr :: t, tpOfExprCastE :: Tp t, subEOfExprCastE :: Expr t}               -- cast to type
+    | ListE       {annotOfExpr :: t, listOpOfExprListE :: ListOp, componentsOfExprListE :: [Expr t]}    -- list expression
+    | NotDeriv    {annotOfExpr :: t, isPosLitOfExprNotDeriv ::  Bool, subEOfExprNotDeriv :: Expr t}            -- Negation as failure "not".
                                                       -- The Bool expresses whether "not" precedes a positive literal (True)
                                                       -- or is itself classically negated (False)
                                                       -- The expresssion argument should be a predicate
@@ -275,7 +459,7 @@ data Expr t
 
 
 childExprs :: Expr t -> [Expr t]
-childExprs x = case x of
+childExprs ex = case ex of
     ValE        _ _       -> []
     VarE        _ _       -> []
     UnaOpE      _ _ a     -> [a]
@@ -293,38 +477,9 @@ childExprs x = case x of
 allSubExprs :: Expr t -> [Expr t]
 allSubExprs e = e : concatMap allSubExprs (childExprs e)
 
-annotOfExpr :: Expr t -> t
-annotOfExpr x = case x of
-  ValE        t _       -> t
-  VarE        t _       -> t
-  UnaOpE      t _ _     -> t
-  BinOpE      t _ _ _   -> t
-  IfThenElseE t _ _ _   -> t
-  AppE        t _ _     -> t
-  FunE        t _ _ _   -> t
-  QuantifE    t _ _ _ _ -> t
-  FldAccE     t _ _     -> t
-  TupleE      t _       -> t
-  CastE       t _ _     -> t
-  ListE       t _ _     -> t
-  NotDeriv    t _ _     -> t
 
 updAnnotOfExpr :: (a -> a) -> Expr a -> Expr a
-updAnnotOfExpr f x = case x of
-  ValE        t a       -> ValE (f t) a
-  VarE        t a       -> VarE (f t) a
-  UnaOpE      t a b     -> UnaOpE (f t) a b
-  BinOpE      t a b c   -> BinOpE (f t) a b c
-  IfThenElseE t a b c   -> IfThenElseE (f t) a b c
-  AppE        t a b     -> AppE (f t) a b
-  FunE        t a b c   -> FunE (f t) a b c
-  QuantifE    t a b c d -> QuantifE (f t) a b c d
-  FldAccE     t a b     -> FldAccE (f t) a b
-  TupleE      t a       -> TupleE (f t) a
-  CastE       t a b     -> CastE (f t) a b
-  ListE       t a b     -> ListE (f t) a b
-  NotDeriv    t a b     -> NotDeriv (f t) a b
-
+updAnnotOfExpr f e = e {annotOfExpr = f (annotOfExpr e)}
 
 instance HasLoc t => HasLoc (Expr t) where
   getLoc e = getLoc (annotOfExpr e)
@@ -336,13 +491,14 @@ instance HasAnnot Expr where
 -- Cmd t is a command of type t
 data Cmd t
     = Skip t                                      -- Do nothing
-    | VAssign t Var (Expr t)                   -- Assignment to variable
+    | VAssign t (Var  t) (Expr t)                   -- Assignment to variable
     | FAssign t (Expr t) FieldName (Expr t)         -- Assignment to field
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 
 data Rule t = Rule { annotOfRule :: t
-                   , nameOfRule :: RuleName
+                   , nameOfRule :: ARName
+                   , instrOfRule :: KVMap
                    , varDeclsOfRule :: [VarDecl t]
                    , precondOfRule :: Expr t
                    , postcondOfRule :: Expr t}
@@ -356,8 +512,9 @@ instance HasAnnot Rule where
   updateAnnot f p = p { annotOfRule = f (annotOfRule p)}
 
 data Assertion t = Assertion { annotOfAssertion :: t
+                             , nameOfAssertion :: ARName
+                             , instrOfAssertion :: KVMap
                              , exprOfAssertion :: Expr t}
-
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 instance HasLoc t => HasLoc (Assertion t) where
@@ -372,15 +529,15 @@ instance HasAnnot Assertion where
 -- Definition of Timed Automata
 ----------------------------------------------------------------------
 
-data Clock = Cl String
+newtype Clock = Clock {nameOfClock :: String}
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 -- Clock constraint of the form x < c.
 -- TODO: Reconsider the Integer. Might also be a subclass of the "Time" class
-data ClConstr = ClCn Clock BComparOp Integer
+data ClConstr = ClConstr Clock BComparOp Integer
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-data Loc = Lc String
+newtype Loc = Loc String
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 -- Synchronization type: send or receive
@@ -393,25 +550,30 @@ data Action
   | Act ClassName Sync
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-action_name :: Action -> [ClassName]
-action_name Internal = []
-action_name (Act cn s) = [cn]
+actionName :: Action -> [ClassName]
+actionName Internal = []
+actionName (Act cn _) = [cn]
 
 -- Transition condition: clock constraints and Boolean expression
-data TransitionCond t = TransCond [ClConstr] (Expr t)
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+data TransitionGuard t = TransitionGuard [ClConstr] (Expr t)
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 -- Transition action: synchronization action; clock resets; and execution of command (typically assignments)
-data TransitionAction t = TransAction Action [Clock] (Cmd t)
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+data TransitionAction t = TransitionAction Action [Clock] (Cmd t)
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
-transition_action_name :: TransitionAction t -> [ClassName]
-transition_action_name (TransAction act _ _) = action_name act
+transitionActionName :: TransitionAction t -> [ClassName]
+transitionActionName (TransitionAction act _ _) = actionName act
 
 -- Transition relation from location to location via Action,
 -- provided [ClConstr] are satisfied; and resetting [Clock]
-data Transition t = Trans Loc (TransitionCond t) (TransitionAction t) Loc
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+data Transition t = Transition {
+    sourceOfTransition :: Loc
+  , guardOfTransition :: TransitionGuard t
+  , actionOfTransition :: TransitionAction t
+  , targetOfTransition :: Loc
+  }
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 -- Timed Automaton having:
 -- a name
@@ -426,20 +588,32 @@ data Transition t = Trans Loc (TransitionCond t) (TransitionAction t) Loc
 -- for AP a type of atomic propositioons and which is here taken to be [(Loc, Expr t)].
 -- Note: the set of locations, actions, clocks could in principle be inferred from the remaining info.
 -- Type parameter t: type of expressions: () or Tp, see function Typing/tpExprr
-data TA t = TmdAut String [Loc] [ClassName] [Clock] [Transition t] [Loc] [(Loc, [ClConstr])] [(Loc, Expr t)]
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+data TA t =
+  TA {
+    annotOfTA :: t,
+    nameOfTA :: String,
+    locsOfTA :: [Loc],
+    channelsOfTA :: [ClassName],
+    clocksOfTA :: [Clock],
+    transitionsOfTA :: [Transition t],
+    initialLocsOfTA :: [Loc],
+    invarsOfTA ::  [(Loc, [ClConstr])],
+    labellingOfTA :: [(Loc, Expr t)]
+  }
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 -- Timed Automata System: a set of TAs running in parallel
 -- Type parameter ext: Environment-specific extension
-data TASys t ext = TmdAutSys [TA t] ext
+data TASys t ext = TASys [TA t] ext
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-name_of_ta :: TA t -> String
-name_of_ta (TmdAut nm ta_locs ta_act_clss ta_clks trans init_locs invs lbls) = nm
+{- Obsolete with record names
+nameOfTA :: TA t -> String
+nameOfTA (TA nm ta_locs ta_act_clss ta_clks trans init_locs invs lbls) = nm
 
-channels_of_ta :: TA t -> [ClassName]
-channels_of_ta (TmdAut nm ta_locs ta_act_clss ta_clks trans init_locs invs lbls) = ta_act_clss
-
+channelsOfTA :: TA t -> [ClassName]
+channelsOfTA (TA nm ta_locs ta_act_clss ta_clks trans init_locs invs lbls) = ta_act_clss
+-}
 
 ----------------------------------------------------------------------
 -- L4 Event Rules
@@ -469,5 +643,5 @@ data Modality = Must | May
 -- rule name corresponding to HENCE clause
 -- rule name (optional) corresponding to LEST clause
 
-data EventRule t = EvRule RuleName [Event t] Modality [PartyName] Action [ClConstr] RuleName (Maybe RuleName)
+data EventRule t = EvRule ARName [Event t] Modality [PartyName] Action [ClConstr] ARName ARName
   deriving (Eq, Ord, Show, Read, Data, Typeable)

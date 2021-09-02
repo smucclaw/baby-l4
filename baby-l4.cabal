@@ -72,7 +72,13 @@ library
                   -- from src
                   Annotation
                   Error
+                  KeyValueMap
+                  Model
                   Syntax
+                  SyntaxManipulation
+
+                  -- lsp
+                  L4LSP
 
                   --ToYaml
                   ToGF.FromL4.ToProp
@@ -85,16 +91,20 @@ library
                   ToGF.FromSCasp.SCasp
                   ToGF.FromSCasp.ToAnswer
                   ToGF.FromL4.ToQuestions
+                  ToGF.FromL4.ToAnswers
                   ToSCASP
                   ToDA2
 
                   --ExampleInput
                   --Exec
-                  InterfaceNunchaku
+                  --InterfaceNunchaku
                   --RuleToTa
                   --TaToUppaal
+                  PrintProg
+                  RuleTransfo
                   Smt
-                  SmtSBV
+                  TimedMC
+                  -- SmtSBV
                   Typing
   other-modules: Paths_baby_l4
   hs-source-dirs:
@@ -123,6 +133,20 @@ library
                      -- required for SMT interaction
                      , simple-smt
                      , sbv
+                     -- required for graph processing (rule transformation)
+                     , fgl >= 5.7
+                     -- required for lsp
+                     , lsp        >=1.0.0.0
+                     , lsp-types  >=1.0.0.0
+                     , haskeline  >= 0.7
+                     , mtl        >= 2.2 && <2.4
+                     , lens
+                     , hslogger
+                     , sorted-list
+                     , either
+                     , transformers
+                     , rope-utf16-splay
+                     , mmorph
   default-language: Haskell2010
   ghc-options: -Wall
 
@@ -173,20 +197,6 @@ executable lsp-server-bl4
   default-language:    Haskell2010
   build-depends:       base >= 4.7 && < 5
                      , baby-l4
-                     , text
-                     , lsp        >=1.0.0.0
-                     , lsp-types  >=1.0.0.0
-                     , array
-                     , haskeline  >= 0.7
-                     , mtl        >= 2.2 && <2.4
-                     , lens
-                     , hslogger
-                     , containers
-                     , sorted-list
-                     , either
-                     , transformers
-                     , rope-utf16-splay
-                     , mmorph
   ghc-options: -Wall
 
 test-suite lsp-server-tests

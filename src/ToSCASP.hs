@@ -51,12 +51,12 @@ instance Monoid (Stash ann) where
 isPred :: VarDecl t -> Bool
 isPred = isPred' . tpOfVarDecl
 
-isPred' :: Tp -> Bool
-isPred' (FunT t BoolT) = True
-isPred' (FunT t t2) = isPred' t2
+isPred' :: Tp t -> Bool
+isPred' (FunT _ t (ClassT _ (ClsNm "Boolean"))) = True
+isPred' (FunT _ t t2) = isPred' t2
 isPred' _ = False
 
-createSCasp :: Program Tp -> IO ()
+createSCasp :: Show t => Program (Tp t) -> IO ()
 createSCasp = putDoc . unstash . showSC
 
 indent' :: Doc ann -> Doc ann
@@ -85,9 +85,9 @@ onlyFacts = filter isFact . globalsOfProgram
     isFact :: VarDecl t -> Bool
     isFact = isFact' . tpOfVarDecl
 
-    isFact' BoolT = True
-    isFact' IntT = True
-    isFact' (ClassT _) = True
+    isFact' (ClassT _ (ClsNm "Boolean")) = True
+    isFact' (ClassT _ (ClsNm "Integer")) = True
+    isFact' (ClassT _ _) = True
     -- isFact' (TupleT _) = _ ---- ??????
     isFact' _ = False
 
@@ -102,7 +102,7 @@ dotList xs = endDot $ vsep $ punctuate dot xs -- terminator: a. b. c.
 endDot :: Doc ann -> Doc ann
 endDot x = x <> dot
 
-instance SCasp (Program Tp) where
+instance Show t => SCasp (Program (Tp t)) where
   showSC p' = let p = normalizeProg p' in
     showSClist (assertionsOfProgram p) -- These become queries
       <> showSClist (onlyFacts p)      -- These become facts
@@ -110,11 +110,11 @@ instance SCasp (Program Tp) where
   showSingle = unstash . showSC
 
 
-instance SCasp (Rule Tp) where
-  showSC (Rule _ _ _ (ValE _ (BoolV True)) thenExp) = fact $ endDot $ showSingle thenExp
-  showSC (Rule _ _ _ (ValE _ (BoolV False)) thenExp) = fact $ endDot $ showSingle (negateExpr thenExp)
+instance Show t => SCasp (Rule (Tp t)) where
+  showSC (Rule _ _ _ _ (ValE _ (BoolV True)) thenExp) = fact $ endDot $ showSingle thenExp
+  showSC (Rule _ _ _ _ (ValE _ (BoolV False)) thenExp) = fact $ endDot $ showSingle (negateExpr thenExp)
   showSC r = rule $ showSingle r
-  showSingle (Rule _ rulename vardecls ifExp thenExp) =
+  showSingle (Rule _ rulename _ vardecls ifExp thenExp) =
       vsep
         [ showSingle thenExp <+> pretty ":-",
           endDot $ indent' $ commaList (map showSingle vardecls ++ [showSingle ifExp]),
@@ -123,8 +123,8 @@ instance SCasp (Rule Tp) where
 
 -- Only assertions like `assert Beats Rock Scissors` become facts.
 -- Other assertions become rules.
-instance SCasp (Assertion Tp) where
-  showSingle (Assertion ann query) =
+instance Show t => SCasp (Assertion (Tp t)) where
+  showSingle (Assertion _ _ _ query) =
     vsep
         [ pretty "?-",
           endDot $ indent' $ commaList [showSingle query],
@@ -141,24 +141,24 @@ instance SCasp (VarDecl t) where
   showSClist = fact . dotList . map decl2fact
     where decl2fact (VarDecl _ v tp) = mkAtom tp <> parens (mkAtom v)
 
-instance SCasp (Expr Tp) where
+instance Show t => SCasp (Expr (Tp t)) where
   -- We don't need a case for Forall, because normalizeQuantif has taken care of it already earlier
   showSingle (Exist x typ exp) = vsep $ existX : suchThat
     where
-      existX = mkAtom typ <> parens (mkVar (x, typ))
+      existX = mkAtom typ <> parens (mkVar (nameOfQVarName x, typ))
       suchThat =
         showSingle <$> case normalizeAndExpr exp of
           ListE _ _ es -> es
           _ -> [exp]
   showSingle x = case normalizeAndExpr x of
     ValE _ v -> showSingle v
-    FunApp1 f x xTp -> mkAtom f <> parens (mkVar (x, xTp))
-    FunApp2 f x xTp y yTp -> mkAtom f <> encloseSep lparen rparen comma (mkVar <$> [(x, xTp), (y, yTp)])
+    FunApp1 f x xTp -> mkAtom f <> parens (mkVar ((nameOfQVarName .nameOfVar) x, xTp))
+    FunApp2 f x xTp y yTp -> mkAtom f <> encloseSep lparen rparen comma (mkVar <$> [((nameOfQVarName .nameOfVar) x, xTp), ((nameOfQVarName .nameOfVar) y, yTp)])
     ListE _ _ es -> commaList $ map showSingle es
     QuantifE _ _ _ _ es -> showSingle es
     BinOpE _ _ e1 e2 -> showSingle e1 <+> showSingle e2
     UnaOpE _ unaop exp -> showSingle unaop <+> showSingle exp
-    NotDeriv ann _ e  -> showSingle $ UnaOpE ann (UBool UBneg) e
+    NotDeriv ann _ e  -> showSingle $ UnaOpE ann (UBool UBnot) e
     AppE _ e1 e2 -> showSingle e1 <+> showSingle e2
     FunE _ _ _ es -> showSingle es
     --IfThenElseE _ ifE thenE elseE -> vsep [
@@ -176,48 +176,58 @@ instance SCasp (Expr Tp) where
 --   showSC (CastE s t t3 et) = _
 instance SCasp UnaOp where
   showSingle (UArith u) = mempty
-  showSingle (UBool UBneg) = pretty "not"
+  showSingle (UBool UBnot) = pretty "not"
 
-instance Arg (Var, Tp) where
+instance Arg (Var t, Tp t) where
   mkAtom (var, tp) = mkAtom tp <> pretty "_" <> mkAtom var
   mkVar (var@(GlobalVar _), tp) = mkVar var
   mkVar (var, tp) = mkVar tp <> mkVar var
 
-instance Arg (VarName, Tp) where
+instance Arg (VarName, Tp t) where
+  mkAtom (var, tp) = mkAtom tp <> pretty "_" <> mkAtom (QVarName () var)
+  mkVar (var, tp) = mkVar tp <> mkVar (QVarName () var)
+
+instance Arg (QVarName t, Tp t) where
   mkAtom (var, tp) = mkAtom tp <> pretty "_" <> mkAtom var
   mkVar (var, tp) = mkVar tp <> mkVar var
 
 instance Arg VarName where
+  mkAtom varname = mkAtom (LocalVar (QVarName () varname) 0)
+  mkVar varname = mkVar (LocalVar (QVarName () varname) 0)
+
+instance Arg (QVarName t) where
   mkAtom varname = mkAtom (LocalVar varname 0)
   mkVar varname = mkVar (LocalVar varname 0)
 
-instance Arg Var where
+
+instance Arg (Var t) where
   mkAtom var = pretty $ toLower f : irst
     where
-      f : irst = varName var
+      f : irst = nameOfQVarName (nameOfVar var)
   mkVar var@(GlobalVar _) = mkAtom var -- to handle decl Rock : Sign, should become sign(rock)
   mkVar var =
     pretty $ toUpper f : irst
     where
-      f : irst = varName var
+      f : irst = nameOfQVarName (nameOfVar var)
 
-instance Arg Tp where
+instance Arg (Tp t) where
   mkAtom tp = case tp of
-    ClassT (ClsNm (f : irst)) -> pretty $ toLower f : irst
-    BoolT -> pretty "bool"
-    IntT -> pretty "int"
-    FunT t1 t2 -> mkAtom t1 <> pretty "->" <> mkAtom t2
-    TupleT ts -> encloseSep lparen rparen comma $ map mkAtom ts
+    ClassT _ (ClsNm "Boolean") -> pretty "bool"
+    ClassT _ (ClsNm "Integer") -> pretty "int"
+    ClassT _ (ClsNm (f : irst)) -> pretty $ toLower f : irst
+    FunT _ t1 t2 -> mkAtom t1 <> pretty "->" <> mkAtom t2
+    TupleT _ ts -> encloseSep lparen rparen comma $ map mkAtom ts
     _ -> pretty "unsupportedtype"
   mkVar tp = pretty $ case tp of
-    ClassT (ClsNm (f : irst)) -> toUpper f : irst
-    BoolT -> "Bool"
-    IntT -> "Int"
+    ClassT _ (ClsNm "Boolean") -> "Bool"
+    ClassT _ (ClsNm "Integer") -> "Int"
+    ClassT _ (ClsNm (f : irst)) -> toUpper f : irst
     _ -> "UnsupportedType"
 
 instance SCasp Val where
   showSingle (BoolV b) = pretty "Bool"
   showSingle (IntV i) = pretty "Int"
+  showSingle (FloatV f) = pretty "Float"
   showSingle (StringV l_c) = pretty l_c
-  showSingle (RecordV c l_p_fv) = pretty "unsupported, sorry"
+  -- showSingle (RecordV c l_p_fv) = pretty "unsupported, sorry"
   showSingle ErrV = pretty "Error"

@@ -61,19 +61,21 @@ tokens :-
   assert                        { lex' TokenAssert }
   class                         { lex' TokenClass }
   decl                          { lex' TokenDecl }
-  defn                          { lex' TokenDefn }
   extends                       { lex' TokenExtends }
   lexicon                       { lex' TokenLexicon }
   fact                          { lex' TokenFact }
   rule                          { lex' TokenRule }
   derivable                     { lex' TokenDerivable }
-  -- Types
-  Bool                          { lex' TokenBool }
-  Int                           { lex' TokenInt }
+
+  process                       { lex' TokenProcess }
+  clock                         { lex' TokenClock }
+  state                         { lex' TokenState }
+  init                          { lex' TokenInit }
+  trans                         { lex' TokenTrans }
+  guard                         { lex' TokenGuard }
+  assign                        { lex' TokenAssign }
 
   -- Expressions
-  let                           { lex' TokenLet }
-  in                            { lex' TokenIn }
   not                           { lex' TokenNot }
   forall                        { lex' TokenForall }
   exists                        { lex' TokenExists }
@@ -85,16 +87,22 @@ tokens :-
   False                         { lex' TokenFalse }
 
   -- Symbols
+  "A<>"                         { lex' TokenAF }
+  "A[]"                         { lex' TokenAG }
+  "E<>"                         { lex' TokenEF }
+  "E[]"                         { lex' TokenEG }
   "->"                          { lex' TokenArrow }
   \\                            { lex' TokenLambda }
   "-->"                         { lex' TokenImpl }
   "||"                          { lex' TokenOr }
   "&&"                          { lex' TokenAnd }
-  \=                            { lex' TokenEq }
+  \==                           { lex' TokenEq }
   \<                            { lex' TokenLt }
   \<=                           { lex' TokenLte }
   \>                            { lex' TokenGt }
   \>=                           { lex' TokenGte }
+  "/="                          { lex' TokenNe }
+  \=                            { lex' TokenAssignTo }  -- NB: there is a keyword "assign"
   [\+]                          { lex' TokenAdd }
   [\-]                          { lex' TokenSub }
   [\*]                          { lex' TokenMul }
@@ -103,6 +111,7 @@ tokens :-
   \.                            { lex' TokenDot }
   \,                            { lex' TokenComma }
   \:                            { lex' TokenColon }
+  \;                            { lex' TokenSemicolon }
   \(                            { lex' TokenLParen }
   \)                            { lex' TokenRParen }
   \{                            { lex' TokenLBrace }
@@ -111,7 +120,8 @@ tokens :-
 
   -- Numbers and identifiers
 
-  $digit+                       { lex (TokenNum . read) }
+  $digit+                       { lex (TokenInteger . read) }
+  $digit+ \. $digit+            { lex (TokenFloat . read) }
   $alpha [$alpha $digit \_ \']* { lex TokenSym }
   @string                       { lex (TokenStringLit . read) }
 
@@ -367,7 +377,7 @@ token t input__ len = return (t input__ len)
 ---------------------------------
 
 data Err = Err { epos :: SRng , msg :: String }
-  deriving (Show)
+  deriving (Eq, Show)
 
 -- To improve error messages, We keep the path of the file we are
 -- lexing in our own state.
@@ -397,18 +407,21 @@ data TokenKind
   = TokenAssert
   | TokenClass
   | TokenDecl
-  | TokenDefn
   | TokenExtends
   | TokenLexicon
   | TokenFact
   | TokenRule
   | TokenDerivable
 
-  | TokenBool
-  | TokenInt
+  -- Automata
+  | TokenProcess
+  | TokenClock
+  | TokenState
+  | TokenInit
+  | TokenTrans
+  | TokenGuard
+  | TokenAssign
 
-  | TokenLet
-  | TokenIn
   | TokenNot
   | TokenForall
   | TokenExists
@@ -418,7 +431,10 @@ data TokenKind
   | TokenFor
   | TokenTrue
   | TokenFalse
-
+  | TokenAF
+  | TokenAG
+  | TokenEF
+  | TokenEG
   | TokenLambda
   | TokenArrow
   | TokenImpl
@@ -429,6 +445,8 @@ data TokenKind
   | TokenLte
   | TokenGt
   | TokenGte
+  | TokenNe
+  | TokenAssignTo
   | TokenAdd
   | TokenSub
   | TokenMul
@@ -437,6 +455,7 @@ data TokenKind
   | TokenDot
   | TokenComma
   | TokenColon
+  | TokenSemicolon
   | TokenLBrace
   | TokenRBrace
   | TokenLParen
@@ -444,7 +463,8 @@ data TokenKind
   | TokenEOF
   | TokenStringLit String
 
-  | TokenNum Integer
+  | TokenInteger Integer
+  | TokenFloat Float
   | TokenSym String
   | TokenString String
   deriving (Eq,Show)
@@ -454,16 +474,18 @@ unLex :: TokenKind -> String
 unLex TokenAssert    = "assert"
 unLex TokenClass     = "class"
 unLex TokenDecl      = "decl"
-unLex TokenDefn      = "defn"
 unLex TokenExtends   = "extends"
 unLex TokenLexicon   = "lexicon"
 unLex TokenFact      = "fact"
 unLex TokenRule      = "rule"
 unLex TokenDerivable = "derivable"
-unLex TokenBool      = "Bool"
-unLex TokenInt       = "Int"
-unLex TokenLet       = "let"
-unLex TokenIn        = "in"
+unLex TokenProcess   = "process"
+unLex TokenClock     = "clock"
+unLex TokenState     = "state"
+unLex TokenInit      = "init"
+unLex TokenTrans     = "trans"
+unLex TokenGuard     = "guard"
+unLex TokenAssign    = "assign"
 unLex TokenNot       = "not"
 unLex TokenForall    = "forall"
 unLex TokenExists    = "exists"
@@ -473,16 +495,22 @@ unLex TokenElse      = "else"
 unLex TokenFor       = "for"
 unLex TokenTrue      = "True"
 unLex TokenFalse     = "False"
+unLex TokenAF        = "A<>"
+unLex TokenAG        = "A[]"
+unLex TokenEF        = "E<>"
+unLex TokenEG        = "E[]"
 unLex TokenArrow     = "->"
 unLex TokenLambda    = "\\"
 unLex TokenImpl      = "-->"
 unLex TokenOr        = "||"
 unLex TokenAnd       = "&&"
-unLex TokenEq        = "="
+unLex TokenEq        = "=="
 unLex TokenLt        = "<"
 unLex TokenLte       = "<="
 unLex TokenGt        = ">"
 unLex TokenGte       = ">="
+unLex TokenNe        = "/="
+unLex TokenAssignTo  = "="
 unLex TokenAdd       = "+"
 unLex TokenSub       = "-"
 unLex TokenMul       = "*"
@@ -491,12 +519,14 @@ unLex TokenMod       = "%"
 unLex TokenDot       = "."
 unLex TokenComma     = ","
 unLex TokenColon     = ":"
+unLex TokenSemicolon = ";"
 unLex TokenLParen    = "("
 unLex TokenRParen    = ")"
 unLex TokenLBrace    = "{"
 unLex TokenRBrace    = "}"
 unLex TokenEOF       = "<EOF>"
-unLex (TokenNum i)   = show i
+unLex (TokenInteger i)   = show i
+unLex (TokenFloat i)   = show i
 unLex (TokenSym s)   = show s
 unLex (TokenString s)   = show s
 unLex (TokenStringLit s) = show s

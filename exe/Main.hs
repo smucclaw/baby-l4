@@ -4,8 +4,8 @@
 module Main where
 
 
-import Parser (parseProgram)
-import Syntax (Program, ClassName)
+import Parser (parseNewProgram, parseProgram)
+import Syntax (NewProgram, Program, ClassName, newProgramToProgram )
 import Typing ( checkError )
 --import SmtSBV (proveProgram)
 import Smt (proveProgram)
@@ -20,24 +20,22 @@ import ToSCASP (createSCasp)
 import ToGF.FromSCasp.SCasp ( parseModel )
 import ToGF.FromSCasp.ToAnswer ( nlgModels )
 import ToGF.FromL4.ToQuestions ( createQuestions )
+import ToGF.FromL4.ToAnswers ( createPGFforAnswers )
 import ToGF.NormalizeSyntax
 import Annotation ( SRng, LocTypeAnnot (typeAnnot) )
 import Paths_baby_l4 (getDataFileName)
-import Text.Pretty.Simple (pPrint, pPrintString)
+import Text.Pretty.Simple ( pPrint, pPrintString, pPrint )
 import Error (printError)
 import Data.Either (rights)
 
-
-
 import ToDA2 (createDSyaml)
-import Text.Pretty.Simple (pPrint)
 
-readPrelude :: IO (Program SRng)
+readPrelude :: IO (NewProgram SRng)
 readPrelude = do
   l4PreludeFilepath <- getDataFileName "l4/Prelude.l4"
   do
     contents <- readFile l4PreludeFilepath
-    case parseProgram l4PreludeFilepath contents of
+    case parseNewProgram l4PreludeFilepath contents of
       Right ast -> do
         -- print ast
         return ast
@@ -47,7 +45,7 @@ readPrelude = do
 process :: InputOpts -> String -> IO ()
 process args input = do
   let fpath = filepath args
-      ast = parseProgram fpath input
+      ast = parseNewProgram fpath input
   case ast of
     Right ast -> do
       preludeAst <- readPrelude
@@ -55,26 +53,21 @@ process args input = do
       case checkError preludeAst ast of
         Left err -> putStrLn (printError err)
         Right tpAst -> do
-          let tpAstNoSrc = fmap typeAnnot tpAst
+          let tpAstNoSrc = fmap typeAnnot (newProgramToProgram tpAst)
           let normalAst = normalizeProg tpAstNoSrc -- Creates predicates of class fields
 
           case format args of
             Fast                     ->  pPrint tpAst
             (Fgf GFOpts { gflang = gfl, showast = True } ) -> GF.nlgAST gfl tpAstNoSrc
             (Fgf GFOpts { gflang = gfl, showast = False} ) -> GF.nlg    gfl tpAstNoSrc
-            Fsmt -> proveProgram tpAst
+            Fsmt -> proveProgram tpAstNoSrc
             Fscasp -> createSCasp normalAst
             Fyaml -> do createDSyaml tpAstNoSrc
                         putStrLn "---------------"
+                        putStrLn "WIP: create the questions with GF. Below is the current progress. They are not used yet in the yaml."
                         createQuestions fpath normalAst
-
-
-          -- Just a test for creating natural language from s(CASP) models.
-          when (testModels args) $ do
-            putStrLn "\nDemo of NLG from s(CASP) models"
-            let models = rights $ map parseModel tests
-            nlgModels models
-
+                        putStrLn "---------------"
+                        createPGFforAnswers fpath normalAst
     Left err -> do
       putStrLn "Parser Error:"
       print err
@@ -128,7 +121,7 @@ optsParse = InputOpts <$>
 
 main :: IO ()
 main = do
-  let optsParse' = info (optsParse) ( fullDesc
+  let optsParse' = info optsParse ( fullDesc
                                                <> header "mini-l4 - minimum l4? miniturised l4?")
   opts <- customExecParser (prefs showHelpOnError) optsParse'
 
@@ -146,10 +139,3 @@ debugGF = do
 -- | catch and print all exceptions
 catchAll :: IO () -> IO ()
 catchAll ioAction = catch ioAction (print @SomeException)
-
-tests :: [String]
-tests = [
-  "{ win(A,RPS), is_human(A), is_human(C), is_game(RPS),  is_participant_in(A,RPS),  is_player(A),  throw(A,rock), is_player(C),  is_participant_in(C,RPS),  throw(C,scissors),  beat(rock,scissors) }",
-  "{ win(A,RPS), is_human(A), is_human(C), is_game(RPS),  is_participant_in(A,RPS),  is_player(A),  throw(A,scissors),  is_player(C),  is_participant_in(C,RPS),  throw(C,paper),  beat(scissors,paper) }",
-  "{ win(A,RPS), is_human(A), is_human(C), is_game(RPS),  is_participant_in(A,RPS),  is_player(A),  throw(A,paper),  is_player(C),  is_participant_in(C,RPS),  throw(C,rock),  beat(paper,rock) }"
-  ]

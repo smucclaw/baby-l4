@@ -3,6 +3,8 @@ module Error where
 import Syntax
 import Annotation (RealSRng(..), SRng(..), Pos(Pos) )
 
+type ExprError = [(SRng, ErrorCause)]
+
 data ClassDeclsError
     = DuplicateClassNamesCDE [(SRng, ClassName)]  -- classes whose name is defined multiple times
     | UndefinedSuperclassCDE [(SRng, ClassName)]  -- classes having undefined superclasses
@@ -11,7 +13,7 @@ data ClassDeclsError
 
 data FieldDeclsError
     = DuplicateFieldNamesFDE [(SRng, ClassName, [(SRng, FieldName)])]     -- field names with duplicate defs
-    | UndefinedTypeFDE [(SRng, FieldName)]              -- field names with duplicate defs
+    | UndefinedTypeFDE [(SRng, FieldName)]                                -- field names containing undefined types
   deriving (Eq, Ord, Show, Read)
 
 data VarDeclsError
@@ -27,12 +29,15 @@ data AssertionError
   = AssertionErrAE [(SRng, ErrorCause)]
   deriving (Eq, Ord, Show, Read)
 
+-- TODO: after restructuring, only ErrorCauseErr remain. 
+-- It will then be possible to remove the Error type altogether
 data Error
     = ClassDeclsErr ClassDeclsError
     | FieldDeclsErr FieldDeclsError
     | VarDeclsErr VarDeclsError
     | RuleErr RuleError
     | AssertionErr AssertionError
+    | ErrorCauseErr [ErrorCause]
   deriving (Eq, Ord, Show, Read)
 
 ----------------------------------------------------------------------
@@ -48,15 +53,13 @@ printFieldName (FldNm fn) = fn
 printVarName :: VarName -> String
 printVarName = id
 
-printTp :: Tp -> String
+printTp :: Tp t -> String
 printTp t = case t of
-  BoolT -> "Bool"
-  IntT -> "Int"
-  ClassT cn -> printClassName cn
-  FunT t1 t2 -> "(" ++ printTp t1 ++ " -> " ++ printTp t2 ++")"
-  TupleT [] -> "()"
-  TupleT [t] -> "(" ++ printTp t ++ ")"
-  TupleT (t:ts) -> "(" ++ printTp t ++ ", " ++ (foldr (\s r -> ((printTp s) ++ ", " ++ r)) "" ts) ++ ")"
+  ClassT _ cn -> printClassName cn
+  FunT _ t1 t2 -> "(" ++ printTp t1 ++ " -> " ++ printTp t2 ++")"
+  TupleT _ [] -> "()"
+  TupleT _ [t] -> "(" ++ printTp t ++ ")"
+  TupleT _ (t:ts) -> "(" ++ printTp t ++ ", " ++ (foldr (\s r -> ((printTp s) ++ ", " ++ r)) "" ts) ++ ")"
   _ -> error "internal error in printTp: ErrT or OkT not printable"
 
 printExpectedTp :: ExpectedType -> String
@@ -156,6 +159,7 @@ printError e = case e of
   VarDeclsErr vde -> printVarDeclsError vde
   RuleErr re -> printRuleErr re
   AssertionErr ae -> printAssertionErr ae
+  ErrorCauseErr ecs -> unlines (map printErrorCause ecs)
 
 
 
