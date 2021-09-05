@@ -158,7 +158,6 @@ instance Show t => SCasp (Expr (Tp t)) where
     QuantifE _ _ _ _ es -> showSingle es
     BinOpE _ _ e1 e2 -> showSingle e1 <+> showSingle e2
     UnaOpE _ unaop exp -> showSingle unaop <+> showSingle exp
-    NotDeriv ann _ e  -> showSingle $ UnaOpE ann (UBool UBnot) e
     AppE _ e1 e2 -> showSingle e1 <+> showSingle e2
     FunE _ _ _ es -> showSingle es
     --IfThenElseE _ ifE thenE elseE -> vsep [

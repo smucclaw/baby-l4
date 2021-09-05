@@ -578,7 +578,6 @@ tpExpr env expr = case expr of
                else Left [CastIncompatible [getLoc annot, getLoc e] t ctpEr]
     in liftresTCEither [te] (\tl -> CastE (updType annot tl) ctp (fromRight' te)) tres
 
-  NotDeriv annot sign e -> error "NotDeriv not supported"
   _ -> error "typing of lists not implemented yet"
 
 -- TODO: check types of variable declarations (possible well-formedness problems currently not taken into account)

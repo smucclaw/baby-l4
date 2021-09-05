@@ -136,7 +136,6 @@ fv (FldAccE _ e _) = fv e
 fv (TupleE _ es) = Set.unions (map fv es)
 fv (CastE _ _ e) = fv e
 fv (ListE _ _ es) = Set.unions (map fv es)
-fv (NotDeriv _ _ e) = fv e
 
 -- Lift variables and expressions: 
 -- Increase by one all indices of bound variables with index number >= n
@@ -166,7 +165,6 @@ liftExpr n (FldAccE t et f) = FldAccE t (liftExpr n et) f
 liftExpr n (TupleE t ets) = TupleE t (map (liftExpr n) ets)
 liftExpr n (CastE t tp et) = CastE t tp (liftExpr n et)
 liftExpr n (ListE t lop ets) = ListE t lop (map (liftExpr n) ets)
-liftExpr n (NotDeriv t b et) = NotDeriv t b (liftExpr n et)
 
 -- Remap variables and expressions: 
 -- Exchange indices of bound variables as indicated in the map
@@ -188,7 +186,6 @@ remapExpr m (FldAccE t et f) = FldAccE t (remapExpr m et) f
 remapExpr m (TupleE t ets) = TupleE t (map (remapExpr m) ets)
 remapExpr m (CastE t tp et) = CastE t tp (remapExpr m et)
 remapExpr m (ListE t lop ets) = ListE t lop (map (remapExpr m) ets)
-remapExpr m (NotDeriv t b et) = NotDeriv t b (remapExpr m et)
 
 swapQuantif :: Quantif -> Quantif
 swapQuantif All = Ex

@@ -74,7 +74,6 @@ renameExpr nms e@FldAccE {subEOfExprFldAccE = se} = e{subEOfExprFldAccE = rename
 renameExpr nms (TupleE ann es) = TupleE ann (map (renameExpr nms) es)
 renameExpr nms e@CastE {subEOfExprCastE = se} = e{subEOfExprCastE = renameExpr nms se}
 renameExpr nms (ListE ann lop es) = ListE ann lop (map (renameExpr nms) es)
-renameExpr nms e@NotDeriv {subEOfExprNotDeriv = se} = e{subEOfExprNotDeriv = renameExpr nms se}
 
 
 -- Rename rules, assuming that the names in the namelist nms are already used
