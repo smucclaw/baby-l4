@@ -15,7 +15,7 @@ import Data.List.Utils ( countElem )
 
 
 import Annotation
-    ( LocTypeAnnot(LocTypeAnnot, typeAnnot), SRng, TypeAnnot(..), HasLoc(..) )
+    ( LocTypeAnnot(LocTypeAnnot, typeAnnot, locAnnot), SRng, TypeAnnot(..), HasLoc(..) )
 import Error
 import Syntax
 import GHC.Exception (ErrorCall)
@@ -196,56 +196,21 @@ lookupClassDefInEnv env cn =
 -- Checking types wrt. a kind environment
 ----------------------------------------------------------------------
 
-kndTypeCombine :: b ->  [Either [a] b] -> Either [a] b
-kndTypeCombine t es =
-  let ls = lefts es
-  in case ls of
-    [] -> Right t
-    _ -> Left (concat ls)
-
--- generic version
-kndType :: KindEnvironment -> Tp t -> Either [ClassName] (Tp t)
-kndType kenv c@(ClassT ann cn) = if cn `elem` kenv then Right c else Left [cn]
-kndType kenv t@(FunT _ a b)  = kndTypeCombine t (map (kndType kenv) [a, b])
-kndType kenv t@(TupleT _ ts) = kndTypeCombine t (map (kndType kenv) ts)
-kndType kenv t = Right t
-
-{-
--- instance
-kndTypeI :: KindEnvironment -> Tp SRng -> Either [ClassName] (Tp (LocTypeAnnot (Tp ())))
-kndTypeI kenv c@(ClassT ann cn) = if cn `elem` kenv then Right (ClassT (setType ann KindT) cn) else Left [cn]
-kndTypeI kenv t@(FunT ann a b)  =
-  let aI = kndTypeI kenv a
-      bI = kndTypeI kenv b
-  in if isLeft aI || isLeft bI
-     then Left (concat (lefts [aI, bI]))
-     else Right (FunT (setType ann KindT) (fromRight KindT aI) (fromRight KindT bI))
---kndTypeI kenv t@(TupleT _ ts) = kndTypeCombine t (map (kndTypeI kenv) ts)
---kndTypeI kenv t = Right t
--}
-
--- simple
--- TODO: propagate error information, turn into a function with result type TCEither
-kndTypeS :: KindEnvironment -> Tp (LocTypeAnnot (Tp ())) -> Tp (LocTypeAnnot (Tp ()))
-kndTypeS kenv (ClassT ann cn) =
+kndType :: KindEnvironment -> Tp (LocTypeAnnot (Tp ())) -> TCEither (Tp (LocTypeAnnot (Tp ())))
+kndType kenv (ClassT ann cn) =
   if cn `elem` kenv
-  then ClassT (updType ann KindT) cn
-  else ClassT (updType ann (ErrT )) cn
-  -- else ClassT (updType ann (ErrT UndefinedTypeInClassT)) cn
-kndTypeS kenv (FunT ann a b) =
-  let aI = kndTypeS kenv a
-      bI = kndTypeS kenv b
-      -- resT = propagateError (map (typeAnnot . annotOfTp) [aI, bI]) KindT
-      resT = KindT
-  in FunT (updType ann resT) aI bI
-kndTypeS kenv (TupleT ann ts) =
-  let subTs = map (kndTypeS kenv) ts
-      -- resT = propagateError (map (typeAnnot . annotOfTp) subTs) KindT
-      resT = KindT
-  in TupleT (updType ann resT) subTs
-kndTypeS kenv (ErrT ) = ErrT
-kndTypeS kenv OkT = OkT
-kndTypeS kenv KindT = KindT
+  then Right (ClassT (updType ann KindT) cn)
+  else Left [UndefinedClassInType (locAnnot ann) cn]
+kndType kenv (FunT ann a b) =
+  let aI = kndType kenv a
+      bI = kndType kenv b
+  in liftresTCEither [aI, bI] (\k -> FunT (updType ann k) (fromRight' aI) (fromRight' bI)) (Right KindT)
+kndType kenv (TupleT ann ts) =
+  let subTs = map (kndType kenv) ts
+  in liftresTCEither subTs (\k -> TupleT (updType ann k) (map fromRight' subTs)) (Right KindT)
+kndType _kenv ErrT = Right ErrT
+kndType _kenv OkT = Right OkT
+kndType _kenv KindT = Right KindT
 
 
 ----------------------------------------------------------------------
@@ -541,18 +506,24 @@ tpExpr env expr = case expr of
     in liftresTCEither [tfe, tae] (\t -> AppE (updType annot t) (fromRight' tfe) (fromRight' tae)) tres
 
   FunE annot v e ->
-    let te = tpExpr (pushLocalVarDecl v env) e
-        t  = getTypeOfExpr (fromRight' te)
-        tres = Right (FunT () (eraseAnn (tpOfVarDecl v)) t)
-    in liftresTCEither [te] (\tl -> FunE (updType annot tl) v (fromRight' te)) tres
+    case tpVarDecl env v of 
+      Right tv -> 
+          let te = tpExpr (pushLocalVarDecl v env) e
+              t  = getTypeOfExpr (fromRight' te)
+              tres = Right (FunT () (eraseAnn (tpOfVarDecl v)) t)
+          in liftresTCEither [te] (\tl -> FunE (updType annot tl) tv (fromRight' te)) tres
+      Left err -> Left err
 
   QuantifE annot q v e ->
-    let te = tpExpr (pushLocalVarDecl v env) e
-        t  = getTypeOfExpr (fromRight' te)
-        tres = if isBooleanTp t
-               then Right booleanT
-               else Left [IllTypedSubExpr [getLoc annot, getLoc e] [t] [ExpectedExactTp (ClassT () (ClsNm "Boolean"))]]
-    in liftresTCEither [te] (\tl -> QuantifE (updType annot tl) q v (fromRight' te)) tres
+    case tpVarDecl env v of 
+      Right tv -> 
+          let te = tpExpr (pushLocalVarDecl tv env) e
+              t  = getTypeOfExpr (fromRight' te)
+              tres = if isBooleanTp t
+                     then Right booleanT
+                     else Left [IllTypedSubExpr [getLoc annot, getLoc e] [t] [ExpectedExactTp (ClassT () (ClsNm "Boolean"))]]
+          in liftresTCEither [te] (\tl -> QuantifE (updType annot tl) q tv (fromRight' te)) tres
+      Left err -> Left err
 
   FldAccE annot e fn ->
     let te = tpExpr env e
@@ -581,22 +552,24 @@ tpExpr env expr = case expr of
 
   _ -> error "typing of lists not implemented yet"
 
--- TODO: check types of variable declarations (possible well-formedness problems currently not taken into account)
 tpRule :: Environment t -> Rule (LocTypeAnnot (Tp ())) -> TCEither (Rule (LocTypeAnnot (Tp ())))
 tpRule env (Rule ann rn instr vds precond postcond) =
-  let renv = pushLocalVarDecls vds env
-      teprecond  = tpExpr renv precond
-      tepostcond = tpExpr renv postcond
-      tprecond = getTypeOfExpr (fromRight' teprecond)
-      tpostcond = getTypeOfExpr (fromRight' tepostcond)
-      kenv = map nameOfClassDecl (classDeclsOfEnv env)
-      tpdVds = map (tpVarDecl kenv) vds
-      tres =  if isBooleanTp tprecond
-              then if isBooleanTp tpostcond
-                   then Right tpostcond
-                   else Left [IllTypedSubExpr [getLoc ann, getLoc postcond] [tpostcond] [ExpectedExactTp (ClassT () (ClsNm "Boolean"))]]
-              else Left [IllTypedSubExpr [getLoc ann, getLoc precond] [tprecond] [ExpectedExactTp (ClassT () (ClsNm "Boolean"))]]
-  in liftresTCEither[teprecond, tepostcond] (\t -> Rule (updType ann t) rn instr tpdVds (fromRight' teprecond) (fromRight' tepostcond)) tres
+  let tpdVds = map (tpVarDecl env) vds
+  in case lefts tpdVds of
+    [] ->
+      let renv = pushLocalVarDecls vds env
+          teprecond  = tpExpr renv precond
+          tepostcond = tpExpr renv postcond
+          tprecond = getTypeOfExpr (fromRight' teprecond)
+          tpostcond = getTypeOfExpr (fromRight' tepostcond)
+          tpdVdsChecked = map fromRight' tpdVds
+          tres =  if isBooleanTp tprecond
+                  then if isBooleanTp tpostcond
+                       then Right tpostcond
+                       else Left [IllTypedSubExpr [getLoc ann, getLoc postcond] [tpostcond] [ExpectedExactTp (ClassT () (ClsNm "Boolean"))]]
+                  else Left [IllTypedSubExpr [getLoc ann, getLoc precond] [tprecond] [ExpectedExactTp (ClassT () (ClsNm "Boolean"))]]
+      in liftresTCEither[teprecond, tepostcond] (\t -> Rule (updType ann t) rn instr tpdVdsChecked (fromRight' teprecond) (fromRight' tepostcond)) tres
+    errs -> Left (concat errs)
 
 tpAssertion :: Environment t -> Assertion (LocTypeAnnot (Tp ())) -> TCEither (Assertion (LocTypeAnnot (Tp ())))
 tpAssertion env (Assertion ann nm md e) =
@@ -608,10 +581,11 @@ tpAssertion env (Assertion ann nm md e) =
   in liftresTCEither [te] (\tl -> Assertion (updType ann tl) nm md (fromRight' te)) tres
 
 
-tpVarDecl :: [ClassName] -> VarDecl (LocTypeAnnot (Tp ()))  -> VarDecl (LocTypeAnnot (Tp ()))
-tpVarDecl kenv (VarDecl ann vn tp) =
-  let annotTp = kndTypeS kenv tp
-  in  VarDecl (updType ann (eraseAnn annotTp)) vn annotTp
+tpVarDecl :: Environment t -> VarDecl (LocTypeAnnot (Tp ())) -> TCEither (VarDecl (LocTypeAnnot (Tp ())))
+tpVarDecl env (VarDecl ann vn tp) =
+  let kenv = map nameOfClassDecl (classDeclsOfEnv env)
+      annotTp = kndType kenv tp
+  in liftresTCEither [] (\t -> VarDecl (updType ann (eraseAnn t)) vn t) annotTp
 
 
 ----------------------------------------------------------------------
@@ -669,15 +643,18 @@ checkDuplicateFieldNamesFDE prg =
                         map (\fd -> (getLoc fd, nameOfFieldDecl fd)) (duplicatesWrtFun nameOfFieldDecl (fieldsOfClassDef (defOfClassDecl cd)))))
                    cds)]
 
-checkUndefinedTypeFDE :: HasLoc t => NewProgram t -> TCEither (NewProgram t)
+-- TODO: it would in principle be necessary to rewrite the types occurring in fields with KindT
+-- (same for checkUndefinedTypeVDE)
+checkUndefinedTypeFDE :: NewProgram (LocTypeAnnot (Tp ())) -> TCEither (NewProgram (LocTypeAnnot (Tp ())))
 checkUndefinedTypeFDE prg =
   let kenv = map nameOfClassDecl (classDeclsOfNewProgram prg)
-      classDeclsWithUndefTp = [cd | cd <- classDeclsOfNewProgram prg, not (null (lefts (map (kndType kenv . tpOfFieldDecl) (fieldsOfClassDef (defOfClassDecl cd)))))]
-  in case classDeclsWithUndefTp of
+      fds = concatMap (fieldsOfClassDef . defOfClassDecl) (classDeclsOfNewProgram prg)
+      undefTps = map (kndType kenv . tpOfFieldDecl) fds
+  in case lefts undefTps of
     [] -> Right prg
-    cds -> Left [UndefinedTypeFDEErr (concatMap (\cd -> [(getLoc fd, nameOfFieldDecl fd) | fd <- fieldsOfClassDef (defOfClassDecl cd), isLeft (kndType kenv (tpOfFieldDecl fd))  ]) cds)]
+    errs -> Left (concat errs)
 
-checkFieldDeclsError ::HasLoc t =>  NewProgram t -> TCEither (NewProgram t)
+checkFieldDeclsError :: NewProgram (LocTypeAnnot (Tp ())) -> TCEither (NewProgram (LocTypeAnnot (Tp ())))
 checkFieldDeclsError prg =
   do
     _ <- checkDuplicateFieldNamesFDE prg
@@ -693,15 +670,15 @@ checkDuplicateVarNamesVDE prg =
     [] -> Right prg
     vds -> Left [DuplicateVarNamesVDEErr (map (\vd -> (getLoc vd, nameOfVarDecl vd)) vds)]
 
-checkUndefinedTypeVDE :: HasLoc t => NewProgram t -> TCEither (NewProgram t)
+checkUndefinedTypeVDE :: NewProgram (LocTypeAnnot (Tp ())) -> TCEither (NewProgram (LocTypeAnnot (Tp ())))
 checkUndefinedTypeVDE prg =
   let kenv = map nameOfClassDecl (classDeclsOfNewProgram prg)
-      varDeclsWithUndefTp = [vd | vd <- globalsOfNewProgram prg, isLeft (kndType kenv (tpOfVarDecl vd))]
-  in case varDeclsWithUndefTp of
+      undefTps = map (kndType kenv . tpOfVarDecl) (globalsOfNewProgram prg)
+  in case lefts undefTps of
     [] -> Right prg
-    vds -> Left [UndefinedTypeVDEErr (map (\vd -> (getLoc vd, nameOfVarDecl vd)) vds)]
+    errs -> Left (concat errs)
 
-checkVarDeclsError :: HasLoc t => NewProgram t -> TCEither (NewProgram t)
+checkVarDeclsError :: NewProgram (LocTypeAnnot (Tp ())) -> TCEither (NewProgram (LocTypeAnnot (Tp ())))
 checkVarDeclsError prg =
   do
     _ <- checkDuplicateVarNamesVDE prg

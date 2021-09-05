@@ -1,5 +1,6 @@
-
+{-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+
 module Error where
 import Data.Data (Data, Typeable)
 import Syntax
@@ -12,10 +13,8 @@ data ExpectedType
   | ExpectedSubTpOf (Tp())
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-
 data ErrorCause
-  = UndefinedType [(SRng, ClassName)]            -- cf with the UndefinedType... constructors in Errors.hs
-  | UndefinedTypeInClassT
+  = UndefinedClassInType SRng ClassName
   | UndeclaredVariable SRng VarName
   | IllTypedSubExpr { exprRangesITSE :: [SRng]    -- operators that require specific types  for their arguments
                     , receivedITSE :: [Tp()]
@@ -39,9 +38,11 @@ data ErrorCause
   | CyclicClassHierarchyCDEErr [(SRng, ClassName)]  -- classes involved in a cyclic class definition
 
   | DuplicateFieldNamesFDEErr [(SRng, ClassName, [(SRng, FieldName)])]     -- field names with duplicate defs
+    -- TODO: the following has become obsolete
   | UndefinedTypeFDEErr [(SRng, FieldName)]                                -- field names containing undefined types
 
   | DuplicateVarNamesVDEErr [(SRng, VarName)]
+    -- TODO: the following has become obsolete
   | UndefinedTypeVDEErr [(SRng, VarName)]
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
@@ -71,7 +72,8 @@ data AssertionError
   deriving (Eq, Ord, Show, Read)
 
 -- TODO: after restructuring, only ErrorCauseErr remain. 
--- It will then be possible to remove the Error type altogether
+-- It will then be possible to remove the Error type altogether, and also the types
+-- ClassDeclsError, FieldDeclsError, VarDeclsError, RuleError, AssertionError
 data Error
     = ClassDeclsErr ClassDeclsError
     | FieldDeclsErr FieldDeclsError
@@ -121,6 +123,7 @@ printSRng (RealSRng(SRng spos epos)) = printPos spos ++ " .. " ++ printPos epos
 printSRng (DummySRng reason) = show reason
 
 printErrorCause :: ErrorCause -> String
+printErrorCause (UndefinedClassInType r cn) = "Class name " ++ printClassName cn ++ " at " ++ (printSRng r) ++ " is undefined."
 printErrorCause (UndeclaredVariable r vn) = "Variable " ++ printVarName vn ++ " at " ++ (printSRng r) ++ " is undefined."
 printErrorCause (IllTypedSubExpr rngs givents expts) =
   "Expression at " ++ (printSRng (head rngs)) ++ " is ill-typed:\n" ++

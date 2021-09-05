@@ -200,7 +200,7 @@ data Tp t
   = ClassT {annotOfTp :: t, classNameOfTp :: ClassName}
   | FunT {annotOfTp :: t, funTp :: Tp t, argTp :: Tp t}
   | TupleT {annotOfTp :: t, componentsOfTpTupleT :: [Tp t]}
-  | ErrT -- {causeOfTpErrT :: ErrorCause}
+  | ErrT 
   | OkT        -- fake type appearing in constructs (classes, rules etc.) that do not have a genuine type
   | KindT
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)

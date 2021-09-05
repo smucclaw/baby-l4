@@ -184,6 +184,7 @@ getErrorCause errTp r@(_, ec) = Err (getErrLocation r) (errTp ++ printErrorCause
 
 -- TODO: #98 Replace this temporary workaround when AST is updated with positional information.
 getErrLocation :: (SRng, ErrorCause) -> SRng
+getErrLocation (_, UndefinedClassInType r _cn) = r
 getErrLocation (_, UndeclaredVariable r _vn) = r
 getErrLocation (_, IllTypedSubExpr rngs _ _) = head rngs
 getErrLocation (_, IncompatiblePattern r) = r
