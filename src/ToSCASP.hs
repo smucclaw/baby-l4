@@ -143,9 +143,9 @@ instance SCasp (VarDecl t) where
 
 instance Show t => SCasp (Expr (Tp t)) where
   -- We don't need a case for Forall, because normalizeQuantif has taken care of it already earlier
-  showSingle (Exist x typ exp) = vsep $ existX : suchThat
+  showSingle (Exist x exp) = vsep $ existX : suchThat
     where
-      existX = mkAtom typ <> parens (mkVar (nameOfQVarName x, typ))
+      existX = mkAtom (tpOfVarDecl x) <> parens (mkVar (nameOfVarDecl x, tpOfVarDecl x))
       suchThat =
         showSingle <$> case normalizeAndExpr exp of
           ListE _ _ es -> es
@@ -155,7 +155,7 @@ instance Show t => SCasp (Expr (Tp t)) where
     FunApp1 f x xTp -> mkAtom f <> parens (mkVar ((nameOfQVarName .nameOfVar) x, xTp))
     FunApp2 f x xTp y yTp -> mkAtom f <> encloseSep lparen rparen comma (mkVar <$> [((nameOfQVarName .nameOfVar) x, xTp), ((nameOfQVarName .nameOfVar) y, yTp)])
     ListE _ _ es -> commaList $ map showSingle es
-    QuantifE _ _ _ _ es -> showSingle es
+    QuantifE _ _ _ es -> showSingle es
     BinOpE _ _ e1 e2 -> showSingle e1 <+> showSingle e2
     UnaOpE _ unaop exp -> showSingle unaop <+> showSingle exp
     AppE _ e1 e2 -> showSingle e1 <+> showSingle e2

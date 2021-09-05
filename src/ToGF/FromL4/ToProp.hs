@@ -166,14 +166,14 @@ expr2prop e = case e of
 --    y' <- tp2ind y yTp      -- MS: changed in analogy to FunApp1
     y' <- var2ind y
     pure $ GPAtom (GAPred2 f' x' y')
-  Exist x cl exp -> do
+  Exist x exp -> do
     prop <- expr2prop exp
-    typ <- tp2kind (LocalVar x 0) cl
-    pure $ GPExists (GListVar [GVString (GString (nameOfQVarName x))]) typ prop
-  Forall x cl exp -> do
+    typ <- tp2kind (LocalVar (QVarName (annotOfVarDecl x) (nameOfVarDecl x)) 0) (tpOfVarDecl x)
+    pure $ GPExists (GListVar [GVString (GString (nameOfVarDecl x))]) typ prop
+  Forall x exp -> do
     prop <- expr2prop exp
-    typ <- tp2kind (LocalVar x 0) cl
-    pure $ GPUnivs (GListVar [GVString (GString (nameOfQVarName x))]) typ prop
+    typ <- tp2kind (LocalVar (QVarName (annotOfVarDecl x) (nameOfVarDecl x)) 0) (tpOfVarDecl x)
+    pure $ GPUnivs (GListVar [GVString (GString (nameOfVarDecl x))]) typ prop
   And e1 e2 -> do
     exp1 <- expr2prop e1
     exp2 <- expr2prop e2
@@ -224,11 +224,11 @@ pattern FunApp2 f x xTp y yTp <- AppU (FunApp1 f x xTp) (VarU y yTp)
 
 -- Quantification
 
-pattern Exist :: QVarName t -> Tp t -> Syntax.Expr t -> Syntax.Expr t
-pattern Exist x typ exp <- QuantifE _ Ex x typ exp
+pattern Exist :: VarDecl t -> Syntax.Expr t -> Syntax.Expr t
+pattern Exist x exp <- QuantifE _ Ex x exp
 
-pattern Forall :: QVarName t -> Tp t -> Syntax.Expr t -> Syntax.Expr t
-pattern Forall x typ exp <- QuantifE _ All x typ exp
+pattern Forall :: VarDecl t -> Syntax.Expr t -> Syntax.Expr t
+pattern Forall x exp <- QuantifE _ All x exp
 
 -- Binary operations
 

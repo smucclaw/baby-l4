@@ -222,8 +222,8 @@ VarsCommaSep :                            { [] }
             | VarsCommaSep ',' VAR  { (tokenSym $3) : $1 }
 
 Expr : '\\' Pattern ':' ATp '->' Expr  { FunE (tokenRange $1 $6) $2 $4 $6 }
-     | forall QualifVar ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) All $2 $4 $6 }
-     | exists QualifVar ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) Ex  $2 $4 $6 }
+     | forall VarDecl '.' Expr      { QuantifE (tokenRange $1 $4) All $2 $4 }
+     | exists VarDecl '.' Expr      { QuantifE (tokenRange $1 $4) Ex  $2 $4 }
      | 'A<>' Expr                  { UnaOpE (tokenRange $1 $2) (UTemporal UTAF) $2 }
      | 'A[]' Expr                  { UnaOpE (tokenRange $1 $2) (UTemporal UTAG) $2 }
      | 'E<>' Expr                  { UnaOpE (tokenRange $1 $2) (UTemporal UTEF) $2 }

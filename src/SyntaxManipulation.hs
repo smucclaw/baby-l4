@@ -160,7 +160,7 @@ liftExpr n (BinOpE t b et1 et2) = BinOpE t b (liftExpr n et1) (liftExpr n et2)
 liftExpr n (IfThenElseE t et1 et2 et3) = IfThenElseE t (liftExpr n et1) (liftExpr n et2) (liftExpr n et3)
 liftExpr n (AppE t et1 et2) = AppE t (liftExpr n et1) (liftExpr n et2)
 liftExpr n (FunE t p ptp et) = FunE t p ptp (liftExpr (n + patternLength p) et)
-liftExpr n (QuantifE t q vn vt et) = QuantifE t q vn vt (liftExpr (n+1) et)
+liftExpr n (QuantifE t q v et) = QuantifE t q v (liftExpr (n+1) et)
 liftExpr n (FldAccE t et f) = FldAccE t (liftExpr n et) f
 liftExpr n (TupleE t ets) = TupleE t (map (liftExpr n) ets)
 liftExpr n (CastE t tp et) = CastE t tp (liftExpr n et)
@@ -181,7 +181,7 @@ remapExpr m (BinOpE t b et1 et2) = BinOpE t b (remapExpr m et1) (remapExpr m et2
 remapExpr m (IfThenElseE t et1 et2 et3) = IfThenElseE t (remapExpr m et1) (remapExpr m et2) (remapExpr m et3)
 remapExpr m (AppE t et1 et2) = AppE t (remapExpr m et1) (remapExpr m et2)
 remapExpr m (FunE t p ptp et) = FunE t p ptp (remapExpr (map (\(x, y) -> (x + patternLength p, y + patternLength p)) m) et)
-remapExpr m (QuantifE t q vn vt et) = QuantifE t q vn vt (remapExpr (map (\(x, y) -> (x+1, y+1)) m) et)
+remapExpr m (QuantifE t q v et) = QuantifE t q v (remapExpr (map (\(x, y) -> (x+1, y+1)) m) et)
 remapExpr m (FldAccE t et f) = FldAccE t (remapExpr m et) f
 remapExpr m (TupleE t ets) = TupleE t (map (remapExpr m) ets)
 remapExpr m (CastE t tp et) = CastE t tp (remapExpr m et)
@@ -192,22 +192,22 @@ swapQuantif All = Ex
 swapQuantif Ex  = All
 
 prenexUnary :: t -> UBoolOp -> Expr t -> Expr t
-prenexUnary t UBnot (QuantifE tq q vn vt et) = QuantifE tq (swapQuantif q) vn vt (UnaOpE t (UBool UBnot) et)
+prenexUnary t UBnot (QuantifE tq q v et) = QuantifE tq (swapQuantif q) v (UnaOpE t (UBool UBnot) et)
 prenexUnary t u e = UnaOpE t (UBool u) e
 
 prenexBinary :: t -> BBoolOp -> Expr t -> Expr t -> Expr t
-prenexBinary t b e1 (QuantifE t2 q2 vn2 vt2 e2) = QuantifE t2 q2 vn2 vt2 (prenexBinary t b (liftExpr 0 e1) e2)
-prenexBinary t b (QuantifE t1 q1 vn1 vt1 e1) e2 =
+prenexBinary t b e1 (QuantifE t2 q2 v2 e2) = QuantifE t2 q2 v2 (prenexBinary t b (liftExpr 0 e1) e2)
+prenexBinary t b (QuantifE t1 q1 v1 e1) e2 =
     let q = case b of
               BBimpl -> swapQuantif q1
               _ -> q1
-    in QuantifE t1 q vn1 vt1 (prenexBinary t b e1 (liftExpr 0 e2))
+    in QuantifE t1 q v1 (prenexBinary t b e1 (liftExpr 0 e2))
 prenexBinary t b e1 e2 = BinOpE t (BBool b) e1 e2
 
 prenexForm :: Expr t -> Expr t
 prenexForm (UnaOpE t (UBool u) et) = prenexUnary t u (prenexForm et)
 prenexForm (BinOpE t (BBool b) et1 et2) = prenexBinary t b (prenexForm et1) (prenexForm et2)
-prenexForm (QuantifE t q vn vt et) = QuantifE t q vn vt (prenexForm et)
+prenexForm (QuantifE t q v et) = QuantifE t q v (prenexForm et)
 prenexForm e = e
 
 
@@ -216,16 +216,13 @@ ruleToFormula r = abstractQD All (varDeclsOfRule r) (implExpr (precondOfRule r) 
 
 -- abstract a Quantified expression over a list of variable Declarations
 abstractQD :: Quantif -> [VarDecl (Tp ())] -> Expr (Tp ()) -> Expr (Tp ())
-abstractQD q vds e
-  = foldr
-      (\ vd -> QuantifE booleanT q (QVarName (annotOfVarDecl vd) (nameOfVarDecl vd)) (tpOfVarDecl vd)) e
-      vds
+abstractQD q vds e = foldr (QuantifE booleanT q) e vds
 
 -- abstract a Quantified expression over a list of variables
 abstractQ :: Quantif -> [Var (Tp ())] -> Expr (Tp ()) -> Expr (Tp ())
 abstractQ q vs e
   = foldr
-      (\ v -> QuantifE booleanT q (nameOfVar v) (liftType (annotOfQVarName (nameOfVar v)))) e
+      (\v -> QuantifE booleanT q (VarDecl (annotOfQVarName (nameOfVar v)) (nameOfQVarName (nameOfVar v)) (liftType (annotOfQVarName (nameOfVar v))))) e
       vs
 
 

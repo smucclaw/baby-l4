@@ -445,7 +445,7 @@ data Expr t
     | IfThenElseE {annotOfExpr :: t, condOfExprIf :: Expr t, thenofExprIf :: Expr t, elseOfExprIf :: Expr t}   -- conditional
     | AppE        {annotOfExpr :: t, funOfExprAppE :: Expr t, argOfExprAppE :: Expr t}           -- function application
     | FunE        {annotOfExpr :: t, patternOfExprFunE :: Pattern t, tpOfExprFunE :: Tp t, bodyOfExprFunE :: Expr t}          -- function abstraction
-    | QuantifE    {annotOfExpr :: t, quantifOfExprQ :: Quantif, varNameOfExprQ :: QVarName t, tpOfExprQ :: Tp t, bodyOfExprQ :: Expr t}  -- quantifier
+    | QuantifE    {annotOfExpr :: t, quantifOfExprQ :: Quantif, varOfExprQ :: VarDecl t, bodyOfExprQ :: Expr t}  -- quantifier
     | FldAccE     {annotOfExpr :: t, subEOfExprFldAccE :: Expr t, fieldNameOfExprFldAccE :: FieldName}           -- field access
     | TupleE      {annotOfExpr :: t, componentsOfExprTupleE :: [Expr t]}                     -- tuples
     | CastE       {annotOfExpr :: t, tpOfExprCastE :: Tp t, subEOfExprCastE :: Expr t}               -- cast to type
@@ -462,7 +462,7 @@ childExprs ex = case ex of
     IfThenElseE _ i t e   -> [i,t,e]
     AppE        _ f x     -> [f,x]
     FunE        _ _ _ x   -> [x]
-    QuantifE    _ _ _ _ x -> [x]
+    QuantifE    _ _ _ x -> [x]
     FldAccE     _ x _     -> [x]
     TupleE      _ xs      -> xs
     CastE       _ _ x     -> [x]

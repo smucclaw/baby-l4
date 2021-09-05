@@ -170,8 +170,8 @@ exprToSExpr env (VarE _ v) = varToSExpr (funEnv env) v
 exprToSExpr env (UnaOpE _ u e) = transUnaOp u (exprToSExpr env e)
 exprToSExpr env (BinOpE _ b e1 e2) = transBinOp b (exprToSExpr env e1) (exprToSExpr env e2)
 exprToSExpr env (IfThenElseE _ c e1 e2) = ite (exprToSExpr env c) (exprToSExpr env e1) (exprToSExpr env e2)
-exprToSExpr env (QuantifE _ q vn t e) =
-  quantif q (varTypeToSExprTD (sortEnv env) (nameOfQVarName vn) t) (exprToSExpr env e)
+exprToSExpr env (QuantifE _ q v e) =
+  quantif q (varTypeToSExprTD (sortEnv env) (nameOfVarDecl v) (tpOfVarDecl v)) (exprToSExpr env e)
 exprToSExpr env (AppE _ f a) = sExprApply (exprToSExpr env f) (exprToSExpr env a)
 exprToSExpr _    e = error ("exprToSExpr: term " ++ show e ++ " not translatable")
 -- TODO: still incomplete

@@ -250,7 +250,7 @@ kndTypeS kenv (TupleT ann ts) =
       -- resT = propagateError (map (typeAnnot . annotOfTp) subTs) KindT
       resT = KindT
   in TupleT (updType ann resT) subTs
-kndTypeS kenv (ErrT ) = ErrT 
+kndTypeS kenv (ErrT ) = ErrT
 kndTypeS kenv OkT = OkT
 kndTypeS kenv KindT = KindT
 
@@ -310,7 +310,7 @@ tpConstval x = case x of
   IntV _ -> integerT
   FloatV _ -> floatT
   StringV _ -> stringT
-  ErrV -> ErrT 
+  ErrV -> ErrT
 
   {-
   -- for record values to be well-typed, the fields have to correspond exactly (incl. order of fields) to the class fields.
@@ -382,7 +382,7 @@ tpBbool _env locs t1 t2 _bc =
   else Left [IllTypedSubExpr [locs!!0,locs!!1] [t1] [ExpectedExactTp booleanT]]
 
 
-tpBinop :: Environment te -> [SRng] -> TCEither (Tp ()) -> TCEither (Tp ()) -> BinOp -> TCEither (Tp ())  
+tpBinop :: Environment te -> [SRng] -> TCEither (Tp ()) -> TCEither (Tp ()) -> BinOp -> TCEither (Tp ())
 tpBinop env locs (Right t1) (Right t2) bop = case bop of
     BArith ba  -> tpBarith env locs t1 t2 ba
     BCompar bc -> tpBcompar env locs t1 t2 bc
@@ -416,6 +416,9 @@ varIdentityInEnv env (LocalVar _ _) = error "internal error: for type checking, 
 
 pushLocalVarEnv :: VarEnvironment -> Environment t -> Environment t
 pushLocalVarEnv nvds (Env cls gv vds) = Env cls gv (reverse nvds ++ vds)
+
+pushLocalVarDecl :: VarDecl t1 -> Environment t2 -> Environment t2
+pushLocalVarDecl v = pushLocalVarEnv [(nameOfVarDecl v, eraseAnn (tpOfVarDecl v))]
 
 -- the function returns the environment unchanged if a pattern and its type
 -- are not compatible in the sense of the following function
@@ -452,7 +455,7 @@ setType = LocTypeAnnot
 
 
 liftresTCEither :: [TCEither e] -> (t -> a) -> TCEither t -> TCEither a
-liftresTCEither resexps f restp = 
+liftresTCEither resexps f restp =
   case concat (lefts resexps) of
     [] -> case restp of
             Right t -> Right (f t)
@@ -522,7 +525,7 @@ tpExpr env expr = case expr of
           checkBooleanType tc
           checkCompat t1 t2
     in join $ getResult <$> tec <*> te1 <*> te2
--} 
+-}
 
   AppE annot fe ae ->
     let tfe = tpExpr env fe
@@ -545,13 +548,13 @@ tpExpr env expr = case expr of
                else Left [IncompatiblePattern (getLoc annot)]
     in liftresTCEither [te] (\tl -> FunE (updType annot tl) pt tparam (fromRight' te)) tres
 
-  QuantifE annot q vn vt e ->
-    let te = tpExpr (pushLocalVarEnv [(nameOfQVarName vn, eraseAnn vt)] env) e
+  QuantifE annot q v e ->
+    let te = tpExpr (pushLocalVarDecl v env) e
         t  = getTypeOfExpr (fromRight' te)
         tres = if isBooleanTp t
                then Right booleanT
                else Left [IllTypedSubExpr [getLoc annot, getLoc e] [t] [ExpectedExactTp (ClassT () (ClsNm "Boolean"))]]
-    in liftresTCEither [te] (\tl -> QuantifE (updType annot tl) q vn vt (fromRight' te)) tres
+    in liftresTCEither [te] (\tl -> QuantifE (updType annot tl) q v (fromRight' te)) tres
 
   FldAccE annot e fn ->
     let te = tpExpr env e
@@ -735,7 +738,7 @@ checkErrorLift prelude prg =
     _ <- checkFieldDeclsError prgClsDecls
     _ <- checkVarDeclsError prgClsDecls
     checkComponentsError prgClsDecls
-    
+
 liftLoc :: SRng -> LocTypeAnnot (Tp ())
 liftLoc rng  = LocTypeAnnot rng OkT
 

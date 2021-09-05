@@ -67,9 +67,9 @@ renameExpr nms (AppE ann f a) = AppE ann (renameExpr nms f) (renameExpr nms a)
 renameExpr nms (FunE ann pat tp bd) =
     let (nnms, npat) = renamePattern nms pat
     in FunE ann npat tp (renameExpr nnms bd)
-renameExpr nms (QuantifE ann q vn tp bd) =
-    let (nnm, nvn) = renameQVarName nms vn
-    in QuantifE ann q nvn tp (renameExpr (nnm:nms) bd)
+renameExpr nms (QuantifE ann q v bd) =
+    let (nnm, nvn) = renameVarDecl nms v
+    in QuantifE ann q nvn (renameExpr (nnm:nms) bd)
 renameExpr nms e@FldAccE {subEOfExprFldAccE = se} = e{subEOfExprFldAccE = renameExpr nms se}
 renameExpr nms (TupleE ann es) = TupleE ann (map (renameExpr nms) es)
 renameExpr nms e@CastE {subEOfExprCastE = se} = e{subEOfExprCastE = renameExpr nms se}
@@ -163,7 +163,7 @@ printExpr (BinOpE t b et1 et2) = "(" ++ printExpr et1 ++ printBinOpE b ++ printE
 printExpr (IfThenElseE t c et1 et2) = " if " ++ printExpr c ++ " then " ++ printExpr et1 ++ " else " ++ printExpr et2
 printExpr (AppE t f a) = "(" ++ printExpr f ++ " " ++ printExpr a ++ ")"
 printExpr (FunE t p pt et) = "( \\ " ++ printPattern p ++ ": " ++ printTp pt ++ " -> " ++ printExpr et ++ ")"
-printExpr (QuantifE t q vn vt et) = "(" ++ printQuantif q ++ printQVarName vn ++ ": " ++ printTp vt ++ ". " ++ printExpr et ++ ")"
+printExpr (QuantifE t q v et) = "(" ++ printQuantif q ++ printVarDecl v ++ ". " ++ printExpr et ++ ")"
 printExpr (FldAccE t et f) = printExpr et ++ "." ++ stringOfFieldName f
 printExpr e = show e  -- TODO - incomplete
 
