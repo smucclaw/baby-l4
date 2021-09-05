@@ -64,9 +64,9 @@ renameExpr nms e@BinOpE {subE1OfExprBinOpE = se1, subE2OfExprBinOpE = se2} =
         e{subE1OfExprBinOpE = renameExpr nms se1, subE2OfExprBinOpE = renameExpr nms se2}
 renameExpr nms (IfThenElseE ann ce te ee) = IfThenElseE ann (renameExpr nms ce) (renameExpr nms te) (renameExpr nms ee)
 renameExpr nms (AppE ann f a) = AppE ann (renameExpr nms f) (renameExpr nms a)
-renameExpr nms (FunE ann pat tp bd) =
-    let (nnms, npat) = renamePattern nms pat
-    in FunE ann npat tp (renameExpr nnms bd)
+renameExpr nms (FunE ann v bd) =
+    let (nnm, nvn) = renameVarDecl nms v
+    in FunE ann nvn (renameExpr (nnm:nms) bd)
 renameExpr nms (QuantifE ann q v bd) =
     let (nnm, nvn) = renameVarDecl nms v
     in QuantifE ann q nvn (renameExpr (nnm:nms) bd)
@@ -121,9 +121,16 @@ printVar :: Var t -> String
 printVar (GlobalVar qvn) = nameOfQVarName qvn
 printVar (LocalVar qvn i) = nameOfQVarName qvn ++ "@" ++ show i
 
+printUTemporalOp :: UTemporalOp -> String 
+printUTemporalOp UTAF = "A<>"
+printUTemporalOp UTAG = "A[]"
+printUTemporalOp UTEF = "E<>"
+printUTemporalOp UTEG = "E[]"
+
 printUnaOpE :: UnaOp -> String
 printUnaOpE (UArith UAminus) = "-"
 printUnaOpE (UBool UBnot) = "not "
+printUnaOpE (UTemporal ut) = printUTemporalOp ut
 
 printBinOpE :: BinOp -> String
 printBinOpE (BArith b1) =
@@ -162,7 +169,7 @@ printExpr (UnaOpE t u et) = "(" ++ printUnaOpE u ++ printExpr et ++ ")"
 printExpr (BinOpE t b et1 et2) = "(" ++ printExpr et1 ++ printBinOpE b ++ printExpr et2 ++ ")"
 printExpr (IfThenElseE t c et1 et2) = " if " ++ printExpr c ++ " then " ++ printExpr et1 ++ " else " ++ printExpr et2
 printExpr (AppE t f a) = "(" ++ printExpr f ++ " " ++ printExpr a ++ ")"
-printExpr (FunE t p pt et) = "( \\ " ++ printPattern p ++ ": " ++ printTp pt ++ " -> " ++ printExpr et ++ ")"
+printExpr (FunE t v et) = "( \\ " ++ printVarDecl v ++ ": " ++ " -> " ++ printExpr et ++ ")"
 printExpr (QuantifE t q v et) = "(" ++ printQuantif q ++ printVarDecl v ++ ". " ++ printExpr et ++ ")"
 printExpr (FldAccE t et f) = printExpr et ++ "." ++ stringOfFieldName f
 printExpr e = show e  -- TODO - incomplete
@@ -171,7 +178,7 @@ printRule :: Show t => Rule t -> String
 printRule r =
     "rule " ++ printARName (nameOfRule r) ++ "\n" ++
     printInstr (instrOfRule r) ++ "\n" ++
-    (let vds = printVarDeclsCommaSep (varDeclsOfRule r) in if vds == "" then "" else (vds ++ "\n")) ++
+    (let vds = printVarDeclsCommaSep (varDeclsOfRule r) in if vds == "" then "" else vds ++ "\n") ++
     "if   " ++ printExpr (precondOfRule r) ++ "\n" ++
     "then " ++ printExpr (postcondOfRule r) ++ "\n\n"
 

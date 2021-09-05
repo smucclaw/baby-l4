@@ -31,7 +31,8 @@ import Control.Applicative ((<|>))
 
 -- Typing is done in an environment, composed of
 -- the class decls, global and local variable declarations
-type VarEnvironment = [(VarName, Tp ())]
+type VarTyping = (VarName, Tp())
+type VarEnvironment = [VarTyping]
 
 -- Environment of all defined classes
 type KindEnvironment = [ClassName]
@@ -223,14 +224,6 @@ kndTypeI kenv t@(FunT ann a b)  =
 --kndTypeI kenv t = Right t
 -}
 
-{-
-propagateError :: [Tp t] -> Tp t -> Tp t
-propagateError ts t =
-  if any isErrTp ts
-  then ErrT Inherited
-  else t
--}
-
 -- simple
 -- TODO: propagate error information, turn into a function with result type TCEither
 kndTypeS :: KindEnvironment -> Tp (LocTypeAnnot (Tp ())) -> Tp (LocTypeAnnot (Tp ()))
@@ -417,8 +410,15 @@ varIdentityInEnv env (LocalVar _ _) = error "internal error: for type checking, 
 pushLocalVarEnv :: VarEnvironment -> Environment t -> Environment t
 pushLocalVarEnv nvds (Env cls gv vds) = Env cls gv (reverse nvds ++ vds)
 
+varDeclToVarTyping :: VarDecl t -> VarTyping
+varDeclToVarTyping v = (nameOfVarDecl v, eraseAnn (tpOfVarDecl v))
+
 pushLocalVarDecl :: VarDecl t1 -> Environment t2 -> Environment t2
-pushLocalVarDecl v = pushLocalVarEnv [(nameOfVarDecl v, eraseAnn (tpOfVarDecl v))]
+pushLocalVarDecl v = pushLocalVarEnv [varDeclToVarTyping v]
+
+pushLocalVarDecls :: [VarDecl t1] -> Environment t2 -> Environment t2
+pushLocalVarDecls vds = pushLocalVarEnv (map varDeclToVarTyping vds)
+
 
 -- the function returns the environment unchanged if a pattern and its type
 -- are not compatible in the sense of the following function
@@ -540,13 +540,11 @@ tpExpr env expr = case expr of
                       _ -> Left [NonFunctionTp [getLoc annot, getLoc fe] tf])
     in liftresTCEither [tfe, tae] (\t -> AppE (updType annot t) (fromRight' tfe) (fromRight' tae)) tres
 
-  FunE annot pt tparam e ->
-    let te = tpExpr (pushPatternEnv pt tparam env) e
+  FunE annot v e ->
+    let te = tpExpr (pushLocalVarDecl v env) e
         t  = getTypeOfExpr (fromRight' te)
-        tres = if compatiblePatternType pt tparam
-               then Right (FunT () (eraseAnn tparam) t)
-               else Left [IncompatiblePattern (getLoc annot)]
-    in liftresTCEither [te] (\tl -> FunE (updType annot tl) pt tparam (fromRight' te)) tres
+        tres = Right (FunT () (eraseAnn (tpOfVarDecl v)) t)
+    in liftresTCEither [te] (\tl -> FunE (updType annot tl) v (fromRight' te)) tres
 
   QuantifE annot q v e ->
     let te = tpExpr (pushLocalVarDecl v env) e
@@ -586,7 +584,7 @@ tpExpr env expr = case expr of
 -- TODO: check types of variable declarations (possible well-formedness problems currently not taken into account)
 tpRule :: Environment t -> Rule (LocTypeAnnot (Tp ())) -> TCEither (Rule (LocTypeAnnot (Tp ())))
 tpRule env (Rule ann rn instr vds precond postcond) =
-  let renv = pushLocalVarEnv (map (\(VarDecl _ vn vt) -> (vn, eraseAnn vt)) vds) env
+  let renv = pushLocalVarDecls vds env
       teprecond  = tpExpr renv precond
       tepostcond = tpExpr renv postcond
       tprecond = getTypeOfExpr (fromRight' teprecond)

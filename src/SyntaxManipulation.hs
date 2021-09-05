@@ -26,7 +26,7 @@ liftType t = KindT <$ t
 
 forceArgTp :: Tp () -> Tp ()
 forceArgTp (FunT _ ftp atp) = atp
-forceArgTp _ = ErrT 
+forceArgTp _ = ErrT
 
 isLocalVar :: Var t -> Bool
 isLocalVar (LocalVar _ _) = True
@@ -130,7 +130,7 @@ fv (UnaOpE _  _ e) = fv e
 fv (BinOpE _  _ e1 e2) = Set.union (fv e1) (fv e2)
 fv (IfThenElseE _ c e1 e2) = Set.unions [fv c, fv e1, fv e2]
 fv (AppE _ f a) = Set.union (fv f) (fv a)
-fv (FunE _ p _ e) = Set.map (dropVarBy (patternLength p)) (Set.filter (localVarLowerThan (patternLength p - 1)) (fv e))
+fv FunE {bodyOfFunE = e} = Set.map (dropVarBy 1) (Set.filter (localVarLowerThan 0) (fv e))
 fv QuantifE {bodyOfExprQ = e} = Set.map (dropVarBy 1) (Set.filter (localVarLowerThan 0) (fv e))
 fv (FldAccE _ e _) = fv e
 fv (TupleE _ es) = Set.unions (map fv es)
@@ -159,7 +159,7 @@ liftExpr n (UnaOpE t u et) = UnaOpE t u (liftExpr n et)
 liftExpr n (BinOpE t b et1 et2) = BinOpE t b (liftExpr n et1) (liftExpr n et2)
 liftExpr n (IfThenElseE t et1 et2 et3) = IfThenElseE t (liftExpr n et1) (liftExpr n et2) (liftExpr n et3)
 liftExpr n (AppE t et1 et2) = AppE t (liftExpr n et1) (liftExpr n et2)
-liftExpr n (FunE t p ptp et) = FunE t p ptp (liftExpr (n + patternLength p) et)
+liftExpr n (FunE t v et) = FunE t v (liftExpr (n + 1) et)
 liftExpr n (QuantifE t q v et) = QuantifE t q v (liftExpr (n+1) et)
 liftExpr n (FldAccE t et f) = FldAccE t (liftExpr n et) f
 liftExpr n (TupleE t ets) = TupleE t (map (liftExpr n) ets)
@@ -180,7 +180,7 @@ remapExpr m (UnaOpE t u et) = UnaOpE t u (remapExpr m et)
 remapExpr m (BinOpE t b et1 et2) = BinOpE t b (remapExpr m et1) (remapExpr m et2)
 remapExpr m (IfThenElseE t et1 et2 et3) = IfThenElseE t (remapExpr m et1) (remapExpr m et2) (remapExpr m et3)
 remapExpr m (AppE t et1 et2) = AppE t (remapExpr m et1) (remapExpr m et2)
-remapExpr m (FunE t p ptp et) = FunE t p ptp (remapExpr (map (\(x, y) -> (x + patternLength p, y + patternLength p)) m) et)
+remapExpr m (FunE t v et) = FunE t v (remapExpr (map (\(x, y) -> (x + 1, y + 1)) m) et)
 remapExpr m (QuantifE t q v et) = QuantifE t q v (remapExpr (map (\(x, y) -> (x+1, y+1)) m) et)
 remapExpr m (FldAccE t et f) = FldAccE t (remapExpr m et) f
 remapExpr m (TupleE t ets) = TupleE t (map (remapExpr m) ets)
@@ -232,6 +232,6 @@ abstractF vs e
   = foldr
       (\ v re ->
         let t = annotOfQVarName (nameOfVar v)
-        in FunE (FunT () t (annotOfExpr re))  (VarP (nameOfVar v)) (liftType t) re) e
+        in FunE (FunT () t (annotOfExpr re))  (VarDecl t (nameOfQVarName (nameOfVar v)) (liftType t)) re) e
       vs
 

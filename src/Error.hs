@@ -1,9 +1,50 @@
 
+{-# LANGUAGE DeriveDataTypeable #-}
 module Error where
+import Data.Data (Data, Typeable)
 import Syntax
 import Annotation (RealSRng(..), SRng(..), Pos(Pos) )
 
-type ExprError = [(SRng, ErrorCause)]
+
+data ExpectedType
+  = ExpectedString  String
+  | ExpectedExactTp (Tp())
+  | ExpectedSubTpOf (Tp())
+  deriving (Eq, Ord, Show, Read, Data, Typeable)
+
+
+data ErrorCause
+  = UndefinedType [(SRng, ClassName)]            -- cf with the UndefinedType... constructors in Errors.hs
+  | UndefinedTypeInClassT
+  | UndeclaredVariable SRng VarName
+  | IllTypedSubExpr { exprRangesITSE :: [SRng]    -- operators that require specific types  for their arguments
+                    , receivedITSE :: [Tp()]
+                    , expectedITSE :: [ExpectedType] }
+  | IncompatibleTp { exprRangesITSE :: [SRng]     -- when we need two types to be the same for an operation, or perhaps a subtype (to check)
+                    , receivedITSE :: [Tp()] }
+  | NonScalarExpr { exprRangesITSE :: [SRng]      -- functions are not scalar types and not comparable
+                    , receivedITSE :: [Tp()] }
+  | NonFunctionTp { exprRangesITSE :: [SRng] -- call function when not function
+                    , receivedFunTpITSE :: Tp() }
+  | CastIncompatible { exprRangesITSE :: [SRng] -- typecasting from int to string for example (and its not compatible)
+                    , receivedCastITSE :: Tp()
+                    , castToITSE :: Tp() }
+  | IncompatiblePattern SRng          -- pattern matching failure for tuples (l4)
+  | UnknownFieldName SRng FieldName ClassName   -- class has no such field
+  | AccessToNonObjectType SRng  -- when using dot notation on something thats not an object
+
+  -- Previously spread out in several other types
+  | DuplicateClassNamesCDEErr [(SRng, ClassName)]  -- classes whose name is defined multiple times
+  | UndefinedSuperclassCDEErr [(SRng, ClassName)]  -- classes having undefined superclasses
+  | CyclicClassHierarchyCDEErr [(SRng, ClassName)]  -- classes involved in a cyclic class definition
+
+  | DuplicateFieldNamesFDEErr [(SRng, ClassName, [(SRng, FieldName)])]     -- field names with duplicate defs
+  | UndefinedTypeFDEErr [(SRng, FieldName)]                                -- field names containing undefined types
+
+  | DuplicateVarNamesVDEErr [(SRng, VarName)]
+  | UndefinedTypeVDEErr [(SRng, VarName)]
+  deriving (Eq, Ord, Show, Read, Data, Typeable)
+
 
 data ClassDeclsError
     = DuplicateClassNamesCDE [(SRng, ClassName)]  -- classes whose name is defined multiple times

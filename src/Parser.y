@@ -193,8 +193,8 @@ GlobalVarDecl : decl VAR ':' Tp          { VarDecl (tokenRange $1 $4) (tokenSym 
 VarDeclsCommaSep :  VarDecl              { [$1] }
          | VarDeclsCommaSep  ',' VarDecl { $3 : $1 }
 
-VarDecl : VAR ':' Tp                     { VarDecl (tokenRange $1 $3) (tokenSym $1) $3 }
-
+VarDecl    : VAR ':' Tp                     { VarDecl (tokenRange $1 $3) (tokenSym $1) $3 }
+VarDeclATp : VAR ':' ATp                    { VarDecl (tokenRange $1 $3) (tokenSym $1) $3 }
 
 -- Atomic type
 -- Used to resolve ambigouity of     \x : A -> B -> x
@@ -217,11 +217,11 @@ QVarsCommaSep :                            { [] }
             | QualifVar                    { [$1] }
             | QVarsCommaSep ',' QualifVar  { $3 : $1 }
 
-VarsCommaSep :                            { [] }
+VarsCommaSep :                       { [] }
             | VAR                    { [tokenSym $1] }
-            | VarsCommaSep ',' VAR  { (tokenSym $3) : $1 }
+            | VarsCommaSep ',' VAR   { (tokenSym $3) : $1 }
 
-Expr : '\\' Pattern ':' ATp '->' Expr  { FunE (tokenRange $1 $6) $2 $4 $6 }
+Expr : '\\' VarDeclATp '->' Expr    { FunE (tokenRange $1 $4) $2 $4 }
      | forall VarDecl '.' Expr      { QuantifE (tokenRange $1 $4) All $2 $4 }
      | exists VarDecl '.' Expr      { QuantifE (tokenRange $1 $4) Ex  $2 $4 }
      | 'A<>' Expr                  { UnaOpE (tokenRange $1 $2) (UTemporal UTAF) $2 }

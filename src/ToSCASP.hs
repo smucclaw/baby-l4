@@ -159,7 +159,7 @@ instance Show t => SCasp (Expr (Tp t)) where
     BinOpE _ _ e1 e2 -> showSingle e1 <+> showSingle e2
     UnaOpE _ unaop exp -> showSingle unaop <+> showSingle exp
     AppE _ e1 e2 -> showSingle e1 <+> showSingle e2
-    FunE _ _ _ es -> showSingle es
+    FunE _ _ es -> showSingle es
     --IfThenElseE _ ifE thenE elseE -> vsep [
     --                                  showSC ifE <> comma,
     --                                showSC thenE,

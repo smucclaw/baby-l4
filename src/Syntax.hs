@@ -192,47 +192,6 @@ instance HasAnnot Program where
   updateAnnot f p = p { annotOfProgram = f (annotOfProgram p)}
 
 
-data ExpectedType
-  = ExpectedString  String
-  | ExpectedExactTp (Tp())
-  | ExpectedSubTpOf (Tp())
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
-
-
-data ErrorCause
-  = Inherited
-  | UndefinedType [(SRng, ClassName)]            -- cf with the UndefinedType... constructors in Errors.hs
-  | UndefinedTypeInClassT
-  | UndeclaredVariable SRng VarName
-  | IllTypedSubExpr { exprRangesITSE :: [SRng]    -- operators that require specific types  for their arguments
-                    , receivedITSE :: [Tp()]
-                    , expectedITSE :: [ExpectedType] }
-  | IncompatibleTp { exprRangesITSE :: [SRng]     -- when we need two types to be the same for an operation, or perhaps a subtype (to check)
-                    , receivedITSE :: [Tp()] }
-  | NonScalarExpr { exprRangesITSE :: [SRng]      -- functions are not scalar types and not comparable
-                    , receivedITSE :: [Tp()] }
-  | NonFunctionTp { exprRangesITSE :: [SRng] -- call function when not function
-                    , receivedFunTpITSE :: Tp() }
-  | CastIncompatible { exprRangesITSE :: [SRng] -- typecasting from int to string for example (and its not compatible)
-                    , receivedCastITSE :: Tp()
-                    , castToITSE :: Tp() }
-  | IncompatiblePattern SRng          -- pattern matching failure for tuples (l4)
-  | UnknownFieldName SRng FieldName ClassName   -- class has no such field
-  | AccessToNonObjectType SRng  -- when using dot notation on something thats not an object
-  | Unspecified                 -- don't know, need clarification from martin?
-
-  -- Previously spread out in several other types
-  | DuplicateClassNamesCDEErr [(SRng, ClassName)]  -- classes whose name is defined multiple times
-  | UndefinedSuperclassCDEErr [(SRng, ClassName)]  -- classes having undefined superclasses
-  | CyclicClassHierarchyCDEErr [(SRng, ClassName)]  -- classes involved in a cyclic class definition
-
-  | DuplicateFieldNamesFDEErr [(SRng, ClassName, [(SRng, FieldName)])]     -- field names with duplicate defs
-  | UndefinedTypeFDEErr [(SRng, FieldName)]                                -- field names containing undefined types
-
-  | DuplicateVarNamesVDEErr [(SRng, VarName)]
-  | UndefinedTypeVDEErr [(SRng, VarName)]
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
-
 
 ----- Types
 -- TODO: also types have to be annotated with position information
@@ -371,6 +330,7 @@ trueV = ValE booleanT (BoolV True)
 falseV :: Expr (Tp ())
 falseV = ValE booleanT (BoolV False)
 
+-- TODO: in most cases, the annotation of QVarName seems redundant. 
 data Var t
       -- global variable only known by its name
     = GlobalVar { nameOfVar :: QVarName t }
@@ -444,7 +404,7 @@ data Expr t
     | BinOpE      {annotOfExpr :: t, binOpOfExprBinOpE :: BinOp, subE1OfExprBinOpE :: Expr t, subE2OfExprBinOpE :: Expr t}      -- binary operator
     | IfThenElseE {annotOfExpr :: t, condOfExprIf :: Expr t, thenofExprIf :: Expr t, elseOfExprIf :: Expr t}   -- conditional
     | AppE        {annotOfExpr :: t, funOfExprAppE :: Expr t, argOfExprAppE :: Expr t}           -- function application
-    | FunE        {annotOfExpr :: t, patternOfExprFunE :: Pattern t, tpOfExprFunE :: Tp t, bodyOfExprFunE :: Expr t}          -- function abstraction
+    | FunE        {annotOfExpr :: t, varOfFunE :: VarDecl t, bodyOfFunE :: Expr t}          -- function abstraction
     | QuantifE    {annotOfExpr :: t, quantifOfExprQ :: Quantif, varOfExprQ :: VarDecl t, bodyOfExprQ :: Expr t}  -- quantifier
     | FldAccE     {annotOfExpr :: t, subEOfExprFldAccE :: Expr t, fieldNameOfExprFldAccE :: FieldName}           -- field access
     | TupleE      {annotOfExpr :: t, componentsOfExprTupleE :: [Expr t]}                     -- tuples
@@ -461,7 +421,7 @@ childExprs ex = case ex of
     BinOpE      _ _ a b   -> [a,b]
     IfThenElseE _ i t e   -> [i,t,e]
     AppE        _ f x     -> [f,x]
-    FunE        _ _ _ x   -> [x]
+    FunE        _ _ x   -> [x]
     QuantifE    _ _ _ x -> [x]
     FldAccE     _ x _     -> [x]
     TupleE      _ xs      -> xs
