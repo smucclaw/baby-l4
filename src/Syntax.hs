@@ -450,11 +450,6 @@ data Expr t
     | TupleE      {annotOfExpr :: t, componentsOfExprTupleE :: [Expr t]}                     -- tuples
     | CastE       {annotOfExpr :: t, tpOfExprCastE :: Tp t, subEOfExprCastE :: Expr t}               -- cast to type
     | ListE       {annotOfExpr :: t, listOpOfExprListE :: ListOp, componentsOfExprListE :: [Expr t]}    -- list expression
-    | NotDeriv    {annotOfExpr :: t, isPosLitOfExprNotDeriv ::  Bool, subEOfExprNotDeriv :: Expr t}            -- Negation as failure "not".
-                                                      -- The Bool expresses whether "not" precedes a positive literal (True)
-                                                      -- or is itself classically negated (False)
-                                                      -- The expresssion argument should be a predicate
-                                                      -- or the application of a predicate to an atom
     deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 
@@ -472,7 +467,6 @@ childExprs ex = case ex of
     TupleE      _ xs      -> xs
     CastE       _ _ x     -> [x]
     ListE       _ _ xs    -> xs
-    NotDeriv    _ _ e     -> [e]
 
 allSubExprs :: Expr t -> [Expr t]
 allSubExprs e = e : concatMap allSubExprs (childExprs e)
@@ -596,7 +590,7 @@ data TA t =
     channelsOfTA :: [ClassName],
     clocksOfTA :: [Clock],
     transitionsOfTA :: [Transition t],
-    initialLocsOfTA :: [Loc],
+    initialLocOfTA :: Loc,
     invarsOfTA ::  [(Loc, [ClConstr])],
     labellingOfTA :: [(Loc, Expr t)]
   }

@@ -65,7 +65,6 @@ tokens :-
   lexicon                       { lex' TokenLexicon }
   fact                          { lex' TokenFact }
   rule                          { lex' TokenRule }
-  derivable                     { lex' TokenDerivable }
 
   process                       { lex' TokenProcess }
   clock                         { lex' TokenClock }
@@ -411,7 +410,6 @@ data TokenKind
   | TokenLexicon
   | TokenFact
   | TokenRule
-  | TokenDerivable
 
   -- Automata
   | TokenProcess
@@ -478,7 +476,6 @@ unLex TokenExtends   = "extends"
 unLex TokenLexicon   = "lexicon"
 unLex TokenFact      = "fact"
 unLex TokenRule      = "rule"
-unLex TokenDerivable = "derivable"
 unLex TokenProcess   = "process"
 unLex TokenClock     = "clock"
 unLex TokenState     = "state"

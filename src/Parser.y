@@ -54,7 +54,6 @@ import Data.Either.Combinators (mapRight)
     lexicon { L _ TokenLexicon }
     fact    { L _ TokenFact }
     rule    { L _ TokenRule }
-    derivable { L _ TokenDerivable }
 
     process     { L _ TokenProcess }
     clock       { L _ TokenClock }
@@ -234,10 +233,6 @@ Expr : '\\' Pattern ':' ATp '->' Expr  { FunE (tokenRange $1 $6) $2 $4 $6 }
      | Expr '&&' Expr              { BinOpE (tokenRange $1 $3) (BBool BBand) $1 $3 }
      | if Expr then Expr else Expr { IfThenElseE (tokenRange $1 $6) $2 $4 $6 }
      | not Expr                    { UnaOpE (tokenRange $1 $2) (UBool UBnot) $2 }
-     | not derivable QualifVar           { NotDeriv (tokenRange $1 $3) True (VarE (getLoc $3) (GlobalVar $3)) }
-     | not derivable not QualifVar       { NotDeriv (tokenRange $1 $4) False (VarE (getLoc $4) (GlobalVar $4)) }
-     | not derivable QualifVar Atom      { NotDeriv (tokenRange $1 $4) True (AppE (tokenRange $3 $4)  (VarE (getLoc $3) (GlobalVar $3)) $4) }
-     | not derivable not QualifVar Atom  { NotDeriv (tokenRange $1 $5) False (AppE (tokenRange $4 $5) (VarE (getLoc $4) (GlobalVar $4)) $5) }
      | Expr '<' Expr               { BinOpE (tokenRange $1 $3) (BCompar BClt) $1 $3 }
      | Expr '<=' Expr              { BinOpE (tokenRange $1 $3) (BCompar BClte) $1 $3 }
      | Expr '>' Expr               { BinOpE (tokenRange $1 $3) (BCompar BCgt) $1 $3 }
@@ -300,11 +295,10 @@ Fact : fact ARName  KVMap RuleVarDecls Expr { Rule (tokenRange $1 $5) $2 $3 $4 (
 
 -- TODO: labellings still to be added, channels to be added
 -- TODO: annotation is a rough approximation, to be synthesized from annotations of subexpressions
-Automaton : Clocks 
-  process VAR '(' ')' '{' States Initial Transitions '}'
-  { TA {annotOfTA = (tokenRange $2 $5),
-        nameOfTA = (tokenSym $3), locsOfTA = (map fst $7), channelsOfTA = [], clocksOfTA = $1,
-        transitionsOfTA = $9, initialLocsOfTA = $8, invarsOfTA = $7, labellingOfTA = []}}
+Automaton : process VAR '(' ')' '{' Clocks States Initial Transitions '}'
+  { TA {annotOfTA = (tokenRange $1 $10),
+        nameOfTA = (tokenSym $2), locsOfTA = (map fst (reverse $7)), channelsOfTA = [], clocksOfTA = reverse $6,
+        transitionsOfTA = reverse $9, initialLocOfTA = $8, invarsOfTA = (reverse $7), labellingOfTA = []}}
 
 
 -- Channels : channels VARsCommaSep ';' { map ClsNm $2 }
@@ -332,8 +326,7 @@ Invar : VAR '<' INT  { ClConstr (Clock (tokenSym $1)) BClt $3 }
       | VAR '==' INT { ClConstr (Clock (tokenSym $1)) BCeq $3 }
       | VAR '/=' INT { ClConstr (Clock (tokenSym $1)) BCne $3 }
 
--- Here just one initial variable
-Initial : init VAR  ';' { [Loc (tokenSym $2)] }
+Initial : init VAR  ';' { Loc (tokenSym $2) }
 
 Transitions : trans TransitionsCommaSep ';' { $2 }
 
