@@ -28,6 +28,7 @@ data ErrorCause
   | CastIncompatible { exprRangesITSE :: [SRng] -- typecasting from int to string for example (and its not compatible)
                     , receivedCastITSE :: Tp()
                     , castToITSE :: Tp() }
+    -- TODO: the following has become obsolete
   | IncompatiblePattern SRng          -- pattern matching failure for tuples (l4)
   | UnknownFieldName SRng FieldName ClassName   -- class has no such field
   | AccessToNonObjectType SRng  -- when using dot notation on something thats not an object
@@ -46,6 +47,7 @@ data ErrorCause
   | UndefinedTypeVDEErr [(SRng, VarName)]
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
+{-# DEPRECATED IncompatiblePattern "Tuple patterns are no longer supported" #-}
 {-# DEPRECATED UndefinedTypeFDEErr "This is now obsolete" #-}
 {-# DEPRECATED UndefinedTypeVDEErr "This is now obsolete" #-}
 

@@ -1,3 +1,5 @@
+class LegalPractitioner
+class Appointment
 class Business {
       foo: Integer
       bar: Boolean -> (Integer,Integer)

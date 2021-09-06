@@ -19,7 +19,7 @@ main = defaultMain $ testGroup "Tests" [hoverTests, hoverTypeInfoTests, typeChec
 
 hoverTests :: TestTree
 hoverTests = testGroup "Hover tests"
-  -- TODO: update the string lexicon & hover over nothing tests
+  -- TODO: update or remove the string lexicon & hover over nothing tests
   [ expectFailBecause "Lexicon is not in AST" $ testHover "mini.l4 hover the string 'lexicon'"                        "mini.l4" (Position 2 4)   (mkRange 2 0 2 7)    "This is a lexicon"
   ,                                             testHover "mini.l4 hover the string 'Business -> \"business_1_N\"'"   "mini.l4" (Position 4 4)   (mkRange 4 0 4 66)   "This block maps variable DetractsFromDignity to GrammaticalFramework WordNet definion \"detracts from dignity of legal profession\""
   ,                                             testHover "cr.l4 hover the string 'class Business {'"                 "cr.l4"   (Position 21 10) (mkRange 21 0 24 1)  "Declaration of new class : Business"
@@ -51,13 +51,13 @@ typeCheckerTests = testGroup "Type Error tests"
   , testGroup "FieldDeclsError"
       [
         testTypeErrs "dupFieldNames.l4    duplicate field name for class Business"  "FieldDeclsError/dupFieldNames.l4"    (mkRange 2 0 5 1)    1 "Duplicate field names in the following classes:\nAt (2,0) .. (5,1) class name Business\nAt (3,6) .. (3,18) field name foo\nAt (4,6) .. (4,18) field name foo"
-      -- NOTE: This error longer exists 
+      -- NOTE: This error longer exists
       -- , testTypeErrs "undefFieldType.l4   undefined field type for class Business"  "FieldDeclsError/undefFieldType.l4"   (mkRange 3 11 3 17)   1 "Class name Entity at (3,11) .. (3,17) is undefined."
       ]
   , testGroup "VarDeclsError"
       [
         testTypeErrs "undeclVar.l4        undefined variable MustNotAcceptApp"      "VarDeclsError/undeclVar.l4"          (mkRange 64 5 64 21) 7 "Variable MustNotAcceptApp at (64,5) .. (64,21) is undefined"
-      -- NOTE: This error longer exists 
+      -- NOTE: This error longer exists
       -- , testTypeErrs "undefVarType.l4     undefined variable type Entity"           "VarDeclsError/undefVarType.l4"       (mkRange 2 0 2 33)   1 "Undefined type var decl: WhereType"
       ]
   , testGroup "RuleError"
@@ -65,10 +65,11 @@ typeCheckerTests = testGroup "Type Error tests"
         testTypeErrs "undeclVar.l4            undefined variable AssociatedWithAppB"                    "RuleAssertionError/undeclVar.l4"             (mkRange 6 27 6 45)   3 "Variable AssociatedWithAppB at (6,27) .. (6,45) is undefined."
       , testTypeErrs "illTypedSubExpr.l4      has type Boolean but a subtype of Number was expected"    "RuleAssertionError/illTypedSubExpr.l4"       (mkRange 1 4  1 12)   2 "has type Boolean but a subtype of Number was expected"
       , testTypeErrs "incompatibleTps.l4      types are not compatible"                                 "RuleAssertionError/incompatibleTps.l4"       (mkRange 1 3  1 14)   3 "The types are not compatible (one is subtype of the other)"
-      , testTypeErrs "nonScalarTps.l4         at least one type is non-scalar"                          "RuleAssertionError/nonScalarTps.l4"          (mkRange 4 3  4 20)   1 "At least one type is not scalar (non-functional)"
-      , testTypeErrs "nonFunctionTp.l4        which is not a functional type"                           "RuleAssertionError/nonFunctionTp.l4"         (mkRange 7 39 7 48)   2 "which is not a functional type"
-      , testTypeErrs "incompatiblePattern.l4  variable pattern & expected type are incompatible"        "RuleAssertionError/incompatiblePattern.l4"   (mkRange 1 3  1 34)   1 "the variable pattern and its type are incompatible"
-      , testTypeErrs "unknownFieldName.l4  access to an unknown field"                                  "RuleAssertionError/unknownFieldName.l4"      (mkRange 8 8 8 9)     2 "access to an unknown field"
+      , testTypeErrs "nonScalarTps.l4         at least one type is non-scalar"                          "RuleAssertionError/nonScalarTps.l4"          (mkRange 4 3  4 24)   3 "At least one type is not scalar (non-functional)"
+      , testTypeErrs "nonFunctionTp.l4        which is not a functional type"                           "RuleAssertionError/nonFunctionTp.l4"         (mkRange 7 39 7 46)   2 "which is not a functional type"
+      -- Tuple patterns no longer exists
+      -- , testTypeErrs "incompatiblePattern.l4  variable pattern & expected type are incompatible"        "RuleAssertionError/incompatiblePattern.l4"   (mkRange 1 3  1 34)   1 "the variable pattern and its type are incompatible"
+      , testTypeErrs "unknownFieldName.l4  access to an unknown field"                                  "RuleAssertionError/unknownFieldName.l4"      (mkRange 10 8 10 9)   1 "access to an unknown field"
       , testTypeErrs "accessToNonObjectTp.l4  access to a field of a non-object type"                   "RuleAssertionError/accessToNonObjectTp.l4"   (mkRange 3 4 3 5)     1 "access to an unknown field De in class Boolean"
       ]
   ]
