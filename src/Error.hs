@@ -46,6 +46,8 @@ data ErrorCause
   | UndefinedTypeVDEErr [(SRng, VarName)]
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
+{-# DEPRECATED UndefinedTypeFDEErr "This is now obsolete" #-}
+{-# DEPRECATED UndefinedTypeVDEErr "This is now obsolete" #-}
 
 data ClassDeclsError
     = DuplicateClassNamesCDE [(SRng, ClassName)]  -- classes whose name is defined multiple times
