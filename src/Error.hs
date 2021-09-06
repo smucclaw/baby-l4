@@ -154,7 +154,13 @@ printErrorCause (UnknownFieldName r fn cn) =
     "Expression at "++ printSRng r ++ " is ill-typed: access to an unknown field " ++ printFieldName fn ++ " in class " ++ printClassName cn
 printErrorCause (AccessToNonObjectType r) =
   "Expression at "++ printSRng r ++ " is ill-typed: access to a field of a non-object type\n"
-printErrorCause c = show c
+printErrorCause (DuplicateClassNamesCDEErr cls) = printClassDeclsError $ DuplicateClassNamesCDE cls -- TODO: Inline these definitions
+printErrorCause (UndefinedSuperclassCDEErr cls) = printClassDeclsError $ UndefinedSuperclassCDE cls
+printErrorCause (CyclicClassHierarchyCDEErr cls) = printClassDeclsError $ CyclicClassHierarchyCDE cls
+printErrorCause (DuplicateFieldNamesFDEErr dfs) = printFieldDeclsError $ DuplicateFieldNamesFDE dfs
+printErrorCause (UndefinedTypeFDEErr dfs) = printFieldDeclsError $ UndefinedTypeFDE dfs
+printErrorCause (DuplicateVarNamesVDEErr vdloc) = printVarDeclsError $ DuplicateVarNamesVDE vdloc
+printErrorCause (UndefinedTypeVDEErr vdloc) = printVarDeclsError $ UndefinedTypeVDE vdloc
 
 printClassLocName :: (SRng, ClassName) -> String
 printClassLocName (r, cn) = "At " ++ printSRng r ++ " class name " ++ printClassName cn
