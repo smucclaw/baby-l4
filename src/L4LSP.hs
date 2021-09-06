@@ -162,38 +162,60 @@ readPrelude = do
 
 errorToErrs :: Error -> LspError
 errorToErrs e = TypeCheckerErr $ case e of
-                  (ClassDeclsErr c) ->
-                    case c of
-                      DuplicateClassNamesCDE dc -> mkErrs stringOfClassName "Duplicate class name: " dc
-                      UndefinedSuperclassCDE us -> mkErrs stringOfClassName "Undefined super class: " us
-                      CyclicClassHierarchyCDE cc -> mkErrs stringOfClassName "Cyclic class hierarchy: " cc
-                  (VarDeclsErr v) ->
-                    case v of
-                      DuplicateVarNamesVDE dup -> map (mkErrsVarRule "Duplicate var name: ") dup
-                      UndefinedTypeVDE un      -> map (mkErrsVarRule "Undefined type var decl: ") un
-                  (FieldDeclsErr f) ->
-                    case f of
-                      UndefinedTypeFDE uf -> mkErrs stringOfFieldName "Undefined field type: " uf
-                      DuplicateFieldNamesFDE dupf ->  mkErrsField <$> dupf
-                  (AssertionErr (AssertionErrAE ae)) -> getErrorCause "Assertion Error: " <$> ae
-                  (RuleErr (RuleErrorRE re)) -> getErrorCause "Rule Error: " <$> re
-                  (ErrorCauseErr ecs) -> getErrorCause "Error Cause: " <$> map (\ec -> (DummySRng "Error cause treatment to be implemented", ec)) ecs
+                  -- (ClassDeclsErr c) ->
+                  --   case c of
+                  --     DuplicateClassNamesCDE dc -> mkErrs stringOfClassName "Duplicate class name: " dc
+                  --     UndefinedSuperclassCDE us -> mkErrs stringOfClassName "Undefined super class: " us
+                  --     CyclicClassHierarchyCDE cc -> mkErrs stringOfClassName "Cyclic class hierarchy: " cc
+                  -- (VarDeclsErr v) ->
+                  --   case v of
+                  --     DuplicateVarNamesVDE dup -> map (mkErrsVarRule "Duplicate var name: ") dup
+                  --     UndefinedTypeVDE un      -> map (mkErrsVarRule "Undefined type var decl: ") un
+                  -- (FieldDeclsErr f) ->
+                  --   case f of
+                  --     UndefinedTypeFDE uf -> mkErrs stringOfFieldName "Undefined field type: " uf
+                  --     DuplicateFieldNamesFDE dupf ->  mkErrsField <$> dupf
+                  -- (AssertionErr (AssertionErrAE ae)) -> getErrorCause "Assertion Error: " <$> ae
+                  -- (RuleErr (RuleErrorRE re)) -> getErrorCause "Rule Error: " <$> re
+                  (ErrorCauseErr ecs) -> getErrorCause "Error Cause: " <$> map (DummySRng "Error cause treatment to be implemented",) ecs
+                  -- (ErrorCauseErr ecs) -> map errorCauseToErrs ecs
+                  other -> error $ "Unknown error: " ++ show other
 
 getErrorCause :: String -> (SRng, ErrorCause) -> Err
 getErrorCause errTp r@(_, ec) = Err (getErrLocation r) (errTp ++ printErrorCause ec)
 
 -- TODO: #98 Replace this temporary workaround when AST is updated with positional information.
 getErrLocation :: (SRng, ErrorCause) -> SRng
-getErrLocation (_, UndefinedClassInType r _cn) = r
-getErrLocation (_, UndeclaredVariable r _vn) = r
-getErrLocation (_, IllTypedSubExpr rngs _ _) = head rngs
+getErrLocation (_, UndefinedClassInType r _) = r
+getErrLocation (_, UndeclaredVariable r _) = r
+getErrLocation (_, IllTypedSubExpr srs _ _) = head srs
+getErrLocation (_, IncompatibleTp srs _) = head srs
+getErrLocation (_, NonScalarExpr srs _) = head srs
+getErrLocation (_, NonFunctionTp srs _) = head srs
+getErrLocation (_, CastIncompatible srs _ _) = head srs
 getErrLocation (_, IncompatiblePattern r) = r
 getErrLocation (_, UnknownFieldName r _ _) = r
-getErrLocation (_, AccessToNonObjectType r)= r
-getErrLocation (_, IncompatibleTp rngs _) = head rngs
-getErrLocation (_, NonScalarExpr rngs _) = head rngs
-getErrLocation (_, NonFunctionTp rngs _) = head rngs
-getErrLocation (r, _) = r
+getErrLocation (_, AccessToNonObjectType r) = r
+getErrLocation (_, DuplicateClassNamesCDEErr locNames) = fst $ head locNames -- TODO: Maybe don't just look at the first one
+getErrLocation (_, UndefinedSuperclassCDEErr locNames) = fst $ head locNames
+getErrLocation (_, CyclicClassHierarchyCDEErr locNames) = fst $ head locNames
+getErrLocation (_, DuplicateFieldNamesFDEErr x) =  (\(sr, _cn, _x2) -> sr) $ head x
+getErrLocation (_, UndefinedTypeFDEErr locNames) = fst $ head locNames
+getErrLocation (_, DuplicateVarNamesVDEErr locNames) = fst $ head locNames
+getErrLocation (_, UndefinedTypeVDEErr locNames) = fst $ head locNames
+
+-- TODO: Return a list instead
+
+-- getErrLocation (_, UndefinedClassInType r _cn) = r
+-- getErrLocation (_, UndeclaredVariable r _vn) = r
+-- getErrLocation (_, IllTypedSubExpr rngs _ _) = head rngs
+-- getErrLocation (_, IncompatiblePattern r) = r
+-- getErrLocation (_, UnknownFieldName r _ _) = r
+-- getErrLocation (_, AccessToNonObjectType r)= r
+-- getErrLocation (_, IncompatibleTp rngs _) = head rngs
+-- getErrLocation (_, NonScalarExpr rngs _) = head rngs
+-- getErrLocation (_, NonFunctionTp rngs _) = head rngs
+-- getErrLocation (r, _) = r
 
 mkErr :: (b -> String) -> String -> (SRng, b) -> Err
 mkErr f msg (r, n) = Err r -- get range
