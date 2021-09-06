@@ -96,7 +96,7 @@ library
                   ToDA2
 
                   --ExampleInput
-                  --Exec
+                  Exec
                   --InterfaceNunchaku
                   --RuleToTa
                   --TaToUppaal
