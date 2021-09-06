@@ -14,7 +14,7 @@ normalizeQuantif (Rule ann nm instr decls ifE thenE) =
   where
     -- 1) Take care of existential quantification
     (newDecls, newIfE) = go ifE -- result of the recursion
-    go (QuantifE ann Ex varnm tp expr) = (VarDecl (annotOfQVarName varnm) (nameOfQVarName varnm) tp : newDs, newE)
+    go (QuantifE ann Ex v expr) = (v : newDs, newE)
       where
         (newDs, newE) = go expr
     go e = ([], e)
@@ -25,12 +25,12 @@ normalizeQuantif (Rule ann nm instr decls ifE thenE) =
     actuallyNewIfE = fromMaybe newIfE negApp
 
     forallRule :: HasDefault t => Expr t -> ([Rule t], Maybe (Expr t))
-    forallRule (QuantifE ann All name tp ifExp) = ([Rule ann Nothing [] vardecls ifExp thenExp], Just negThenExp)
+    forallRule (QuantifE ann All v ifExp) = ([Rule ann Nothing [] vardecls ifExp thenExp], Just negThenExp)
       where
-        vardecls = [VarDecl (annotOfQVarName name) (nameOfQVarName name) tp]
+        vardecls = [v]
         predName = extractName ifExp
         newPred = VarE ann (LocalVar (QVarName defaultVal predName) 1) -- TODO: make it actually unique
-        newArg = VarE ann (LocalVar name 0) 
+        newArg = VarE ann (LocalVar (QVarName defaultVal (nameOfVarDecl v)) 0) 
         thenExp = AppE ann newPred newArg
         negThenExp = negateExpr thenExp
     forallRule _ = ([], Nothing)
@@ -43,8 +43,8 @@ normalizeQuantifGF r = r { varDeclsOfRule = [],
     ifE = precondOfRule r
     decls = varDeclsOfRule r
     wrapInExistential [] e = e
-    wrapInExistential (VarDecl ann nm tp:xs) e = 
-      wrapInExistential xs (QuantifE ann Ex (QVarName ann nm) tp e)
+    wrapInExistential (v:xs) e = 
+      wrapInExistential xs (QuantifE (annotOfVarDecl v) Ex v e)
 negateExpr :: Expr t -> Expr t
 negateExpr e = UnaOpE (annotOfExpr e) (UBool UBnot) e
 
@@ -55,13 +55,12 @@ extractName (UnaOpE t u et) = show u ++ extractName et
 extractName (BinOpE t b et et4) = extractName et ++ "_" ++ extractName et4
 extractName (IfThenElseE t et et3 et4) = extractName et ++ "_" ++ extractName et3 ++ "_" ++ extractName et4
 extractName (AppE t et et3) = extractName et ++ "_" ++ extractName et3
-extractName (FunE t p t3 et) = extractName et
-extractName (QuantifE t q l_c t4 et) = extractName et
+extractName (FunE t v et) = extractName et
+extractName (QuantifE t q v et) = extractName et
 extractName (FldAccE t et f) = extractName et
 extractName (TupleE t l_et) = intercalate "_" (map extractName l_et)
 extractName (CastE t t2 et) = extractName et
 extractName (ListE t l l_et) = intercalate "_" (map extractName l_et)
-extractName (NotDeriv _ _ et) = extractName et
 
 -- Nested binary ands into a single AndList
 normalizeAndExpr :: Expr t -> Expr t

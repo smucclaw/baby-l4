@@ -6,9 +6,12 @@ module TimedMC where
 import Syntax
 import SyntaxManipulation (conjExpr, disjExpr, abstractQ, abstractF, liftVarBy, conjsExpr, applyVars, mkVarE, mkEq, mkFloatConst, mkFunTp, index, indexListFromTo, gteExpr, eqExpr, mkIntConst, implExpr)
 
-import PrintProg (renameAndPrintExpr)
+import PrintProg (renameAndPrintExpr, printExpr)
 import Data.List (find)
 import Data.Maybe (fromMaybe)
+import Text.Pretty.Simple (pPrint)
+import Exec (evalExpr,EvalResult (ExprResult))
+import Annotation (typeAnnot)
 
 data SMTFunDef t = SMTFunDef
     { nameOfSMTFun :: Var t
@@ -213,10 +216,30 @@ myTrans = Transition (Loc "loc0")
                 (Loc "loc1")
 
 myTA :: TA (Tp ())
-myTA = TA OkT "myTA" [Loc "loc0", Loc "loc1"] [] [Clock "c1", Clock "c2"] [myTrans] [Loc "loc0"] [(Loc "loc0", [ClConstr (Clock "c1") BClt 3]), (Loc "loc1", [ClConstr (Clock "c2") BClt 2])] []
+myTA = TA OkT "myTA" [Loc "loc0", Loc "loc1"] [] [Clock "c1", Clock "c2"] [myTrans] (Loc "loc0") [(Loc "loc0", [ClConstr (Clock "c1") BClt 3]), (Loc "loc1", [ClConstr (Clock "c2") BClt 2])] []
 
 constrActionTransitionTest :: String
 constrActionTransitionTest = renameAndPrintExpr [] (constrActionTransitions myTA mystv myclvs)
+
+locToStateVar :: Loc -> Var (Tp ())
+locToStateVar (Loc n) = LocalVar (QVarName integerT  n) 0
+
+clockToStateVar :: Clock -> Var (Tp ())
+clockToStateVar (Clock n) = LocalVar (QVarName integerT  n) 0
+
+constrAutTest :: TA (Tp ()) -> String
+constrAutTest ta = renameAndPrintExpr []
+  (constrActionTransitions ta (locToStateVar (initialLocOfTA ta)) (map clockToStateVar (clocksOfTA ta)))
+
+runAut :: NewProgram (Tp ()) -> IO ()
+--runAut prg = putStrLn $ unlines (map constrAutTest (automataOfNewProgram prg))
+runAut prg =
+  let a = head (assertionsOfNewProgram prg)
+      e = argOfExprAppE (exprOfAssertion a)
+      ev = evalExpr [] e
+  in  case ev of
+   ExprResult expr -> putStrLn  (printExpr expr)
+   cl -> pPrint cl
 
 -- >>> constrActionTransitionTest
 -- "( \\ st: Integer -> ( \\ c1: Time -> ( \\ c2: Time -> ( \\ st_0: Integer -> ( \\ c1_0: Time -> ( \\ c2_0: Time -> ((st@5==loc0)&&((st_0@2==loc1)&&(((c1@4>=3)&&True)&&(((c1_0@1==c1@4)&&(c2_0@0==0.0))&&(c2_0@0<2)))))))))))"

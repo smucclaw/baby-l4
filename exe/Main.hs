@@ -29,6 +29,7 @@ import Error (printError)
 import Data.Either (rights)
 
 import ToDA2 (createDSyaml)
+import TimedMC (runAut)
 
 readPrelude :: IO (NewProgram SRng)
 readPrelude = do
@@ -58,6 +59,7 @@ process args input = do
 
           case format args of
             Fast                     ->  pPrint tpAst
+            Faut                     ->  runAut (fmap typeAnnot tpAst)
             (Fgf GFOpts { gflang = gfl, showast = True } ) -> GF.nlgAST gfl tpAstNoSrc
             (Fgf GFOpts { gflang = gfl, showast = False} ) -> GF.nlg    gfl tpAstNoSrc
             Fsmt -> proveProgram tpAstNoSrc
@@ -73,7 +75,7 @@ process args input = do
       print err
 
 
-data Format   = Fast | Fgf GFOpts | Fscasp | Fsmt | Fyaml
+data Format   = Fast | Faut | Fgf GFOpts | Fscasp | Fsmt | Fyaml
  deriving Show
 
 --  l4 gf en          output english only
@@ -99,6 +101,7 @@ optsParse = InputOpts <$>
               subparser
                 ( command "gf"   (info gfSubparser gfHelper)
                <> command "ast"  (info (pure Fast) (progDesc "Show the AST in Haskell"))
+               <> command "aut"  (info (pure Faut) (progDesc "Automata-based operations"))
                <> command "scasp" (info (pure Fscasp) (progDesc "output to sCASP for DocAssemble purposes"))
                <> command "smt"   (info (pure Fsmt) (progDesc "Check assertion with SMT solver"))
                <> command "yaml" (info (pure Fyaml) (progDesc "output to YAML for DocAssemble purposes"))
