@@ -97,6 +97,7 @@ library
                   ToSCASP
                   ToDA2
                   SimpleRules
+                  ToRules
 
                   --ExampleInput
                   Exec
