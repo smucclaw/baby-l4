@@ -60,8 +60,8 @@ process args input = do
           case format args of
             Fast                     ->  pPrint tpAst
             Faut                     ->  runAut (fmap typeAnnot tpAst)
-            (Fgf GFOpts { gflang = gfl, showast = True } ) -> GF.nlgAST gfl tpAstNoSrc
-            (Fgf GFOpts { gflang = gfl, showast = False} ) -> GF.nlg    gfl tpAstNoSrc
+            (Fgf GFOpts { gflang = gfl, showast = True } ) -> GF.nlgAST gfl fpath normalAst
+            (Fgf GFOpts { gflang = gfl, showast = False} ) -> GF.nlg    gfl fpath normalAst
             Fsmt -> proveProgram tpAstNoSrc
             Fscasp -> createSCasp normalAst
             Fyaml -> do createDSyaml tpAstNoSrc

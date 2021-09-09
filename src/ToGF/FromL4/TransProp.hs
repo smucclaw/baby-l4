@@ -122,7 +122,7 @@ iProp p = case p of
 
   _ -> p
 
-iAtom :: GAtom -> Prop
+iAtom :: GPropAtom -> Prop
 iAtom a = case a of
   GAKind  f x    -> iInd x (\i -> GPAtom (GAKind f i))
   GAPred1 f x    -> iInd x (iPred1 f)
@@ -211,8 +211,8 @@ noQuant k = k
 
 -- player A throws rock, not *player A throws sign Rock
 niceInd :: Tree x -> Tree x
-niceInd i = case i of 
+niceInd i = case i of
   GINoun q@(GQString (GString s@(x:xs))) noun
-    | isUpper x -> GINoun (GNoQuant q) (LexNoun s)
+    | isUpper x -> GINoun (GNoQuant q) (GAtomNoun (LexAtom s))
     | otherwise -> i
   x -> composOp niceInd i

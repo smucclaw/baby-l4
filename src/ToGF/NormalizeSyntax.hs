@@ -1,7 +1,8 @@
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE PatternSynonyms #-}
 module ToGF.NormalizeSyntax where
 
-import Annotation (TypeAnnot (updType), HasDefault (defaultVal))
+import Annotation (HasDefault (defaultVal))
 import Data.Char (toLower)
 import Data.List (intercalate)
 import Data.Maybe (fromMaybe)
@@ -45,22 +46,30 @@ normalizeQuantifGF r = r { varDeclsOfRule = [],
     wrapInExistential [] e = e
     wrapInExistential (v:xs) e = 
       wrapInExistential xs (QuantifE (annotOfVarDecl v) Ex v e)
+
 negateExpr :: Expr t -> Expr t
 negateExpr e = UnaOpE (annotOfExpr e) (UBool UBnot) e
 
 extractName :: Expr t -> String
-extractName (ValE t v) = "someVal"
-extractName (VarE t v) = map toLower $ (nameOfQVarName . nameOfVar) v
-extractName (UnaOpE t u et) = show u ++ extractName et
-extractName (BinOpE t b et et4) = extractName et ++ "_" ++ extractName et4
-extractName (IfThenElseE t et et3 et4) = extractName et ++ "_" ++ extractName et3 ++ "_" ++ extractName et4
-extractName (AppE t et et3) = extractName et ++ "_" ++ extractName et3
-extractName (FunE t v et) = extractName et
-extractName (QuantifE t q v et) = extractName et
-extractName (FldAccE t et f) = extractName et
-extractName (TupleE t l_et) = intercalate "_" (map extractName l_et)
-extractName (CastE t t2 et) = extractName et
-extractName (ListE t l l_et) = intercalate "_" (map extractName l_et)
+extractName (ValE _t (BoolV b)) = show b
+extractName (ValE _t (IntV n)) = show n
+extractName (ValE _t (StringV s)) = s
+-- extractName (ValE _t (RecordV cn _)) = show cn
+extractName (ValE _t ErrV) = "error"
+extractName (VarE _t v) = map toLower $ varName v
+extractName (UnaOpE _t u et) = show u ++ extractName et
+extractName (BinOpE _t _b et et4) = extractName et ++ "_" ++ extractName et4
+extractName (IfThenElseE _t et et3 et4) = extractName et ++ "_" ++ extractName et3 ++ "_" ++ extractName et4
+extractName (AppE _t et et3) = extractName et ++ "_" ++ extractName et3
+extractName (FunE _t _t3 et) = extractName et
+extractName (QuantifE _t _q _v et) = extractName et
+extractName (FldAccE _t et _f) = extractName et
+extractName (TupleE _t l_et) = intercalate "_" (map extractName l_et)
+extractName (CastE _t _t2 et) = extractName et
+extractName (ListE _t _l l_et) = intercalate "_" (map extractName l_et)
+
+varName :: Var t -> VarName
+varName = nameOfQVarName . nameOfVar
 
 -- Nested binary ands into a single AndList
 normalizeAndExpr :: Expr t -> Expr t
@@ -70,12 +79,12 @@ normalizeAndExpr e@(BinOpE ann (BBool BBand) e1 e2) = ListE ann AndList (go e)
     go e = [e]
 normalizeAndExpr e = e
 
--- Handles rules with multiple options:
--- rule <blah>
---   for foo : Foo
---   if Legal foo || Edible foo
---   then Good foo && MayBeEaten foo
--- becomes 4 new rules, with all permutations
+-- | Handles rules with multiple options:
+-- | rule <blah>
+-- |  for foo : Foo
+-- |  if Legal foo || Edible foo
+-- |  then Good foo && MayBeEaten foo
+-- | becomes 4 new rules, with all permutations
 normaliseConditionsAndConclusions :: Rule t -> [Rule t]  -- takes a rule t and returns a list of rules
 normaliseConditionsAndConclusions (Rule ann nm instr decls ifE thenE) =
   [Rule ann nm instr decls condition conclusion
@@ -88,8 +97,8 @@ normaliseConditionsAndConclusions (Rule ann nm instr decls ifE thenE) =
 
 -- Make VarDecls out of ClassDecls
 normalizeProg :: Program t -> Program t
-normalizeProg (Program annP lex classdecs globals rules assert) =
-  Program annP lex classdecs (newGlobals++globals) rules assert
+normalizeProg (Program annP lexicon classdecs globals rules assert) =
+  Program annP lexicon classdecs (newGlobals++globals) rules assert
   where
     newGlobals = concatMap cd2vd classdecs
     cd2vd (ClassDecl annot clsname def) =
@@ -100,3 +109,33 @@ normalizeProg (Program annP lex classdecs globals rules assert) =
     getFieldNmNType :: ClassDef t -> [(String, Tp t)]
     getFieldNmNType (ClassDef  _ fields) = map getFieldNmNType' fields
     getFieldNmNType' (FieldDecl _ (FldNm name) tp) = (name, tp)
+
+-- | Flip the arguments of binary predicates if lexicon indicates so:
+-- |    decl    win  : Game -> Player -> Bool
+-- |    lexicon win -> "{Player} wins {Game}"
+-- | will flip the predicate win into Player -> Game -> Bool
+checkNFlip :: Mapping () -> VarDecl () -> VarDecl ()
+checkNFlip (Mapping _t lexName e@(Descr _ args)) vd@(Fun2 funName arg1 arg2)
+  | lexName == funName &&
+    args == [arg2, arg1] = Fun2 funName arg2 arg1
+--  | args == [arg1, arg2] = vd
+--  | otherwise = error $ "mapping doesn't exist " ++ show e
+checkNFlip _ vd = vd
+
+pattern Fun2 :: VarName -> String -> String -> VarDecl ()
+pattern Fun2 name arg1 arg2 = Syntax.VarDecl () name (Arg2 arg1 arg2)
+
+pattern Arg0 :: String -> Tp ()
+pattern Arg0 x = ClassT () (ClsNm x)
+
+pattern Arg1 :: String -> Tp ()
+pattern Arg1 x = FunT () (Arg0 x) (BoolT ())
+
+pattern Arg2 :: String -> String -> Tp ()
+pattern Arg2 x y = FunT () (Arg0 x) (Arg1 y)
+
+pattern BoolT :: t -> Tp t
+pattern BoolT t = ClassT t (ClsNm "Boolean")
+
+pattern IntT :: t -> Tp t
+pattern IntT t = ClassT t (ClsNm "Integer")

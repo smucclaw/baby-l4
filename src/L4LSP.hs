@@ -364,7 +364,7 @@ arNameToString Nothing = "(anonymous)"
 arNameToString (Just s) = s
 
 astToText :: [SomeAstNode LocAndTp] -> T.Text
-astToText (SMapping (Mapping _ from to):_) = "This block maps variable " <> T.pack from <> " to GrammaticalFramework WordNet definion " <> tshow to
+astToText (SMapping (Mapping _ from to):_) = "This block maps variable " <> T.pack from <> " to CNL description " <> tshow (predOfDescription to)
 astToText (SClassDecl (ClassDecl _ (ClsNm x) _):_) = "Declaration of new class : " <> T.pack x
 astToText (SGlobalVarDecl (VarDecl _ n _):_) = "Declaration of global variable " <> T.pack n
 astToText (SRule Rule {nameOfRule = n}:_) = "Declaration of rule " <> T.pack (arNameToString n)

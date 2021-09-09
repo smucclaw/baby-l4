@@ -155,8 +155,8 @@ TopLevelElement : ClassDecl     { ClassDeclTLE $1 }
 Mappings :  LexiconMapping  { [$1] }
           | Mappings Mapping { $2 : $1 }
 
-LexiconMapping : lexicon VAR '->' STRLIT { Mapping (tokenRange $1 $4) (tokenSym $2) (tokenStringLit $4) }
-Mapping        : VAR '->' STRLIT { Mapping (tokenRange $1 $3) (tokenSym $1) (tokenStringLit $3) }
+LexiconMapping : lexicon VAR '->' STRLIT { Mapping (tokenRange $1 $4) (tokenSym $2) (parseDescription $ tokenStringLit $4) }
+Mapping        : VAR '->' STRLIT { Mapping (tokenRange $1 $3) (tokenSym $1) (parseDescription $ tokenStringLit $3) }
 
 ClassDecls :                       { [] }
            | ClassDecls ClassDecl  { $2 : $1 }
