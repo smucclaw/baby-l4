@@ -15,6 +15,7 @@ import qualified Data.Set as Set
 --import Annotation
 --import KeyValueMap
 import Syntax
+import Typing (eraseAnn)
 
 
 ----------------------------------------------------------------------
@@ -235,3 +236,9 @@ abstractF vs e
         in FunE (FunT () t (annotOfExpr re))  (VarDecl t (nameOfQVarName (nameOfVar v)) (liftType t)) re) e
       vs
 
+
+abstractFvd :: [VarDecl (Tp())] -> Expr (Tp ()) -> Expr (Tp ())
+abstractFvd vds e
+  = foldr
+      (\ vd re -> FunE (FunT () (annotOfVarDecl vd) (annotOfExpr re)) vd re) e
+      vds

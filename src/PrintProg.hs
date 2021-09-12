@@ -116,10 +116,10 @@ printVal (StringV s) = show s
 printVal v = show v    -- TODO - rest still to be done
 
 printVar :: Var t -> String
--- printVar = nameOfQVarName . nameOfVar
+printVar = nameOfQVarName . nameOfVar
 -- For debugging:
-printVar (GlobalVar qvn) = nameOfQVarName qvn
-printVar (LocalVar qvn i) = nameOfQVarName qvn ++ "@" ++ show i
+-- printVar (GlobalVar qvn) = nameOfQVarName qvn
+-- printVar (LocalVar qvn i) = nameOfQVarName qvn ++ "@" ++ show i
 
 printUTemporalOp :: UTemporalOp -> String 
 printUTemporalOp UTAF = "A<>"
@@ -169,7 +169,7 @@ printExpr (UnaOpE t u et) = "(" ++ printUnaOpE u ++ printExpr et ++ ")"
 printExpr (BinOpE t b et1 et2) = "(" ++ printExpr et1 ++ printBinOpE b ++ printExpr et2 ++ ")"
 printExpr (IfThenElseE t c et1 et2) = " if " ++ printExpr c ++ " then " ++ printExpr et1 ++ " else " ++ printExpr et2
 printExpr (AppE t f a) = "(" ++ printExpr f ++ " " ++ printExpr a ++ ")"
-printExpr (FunE t v et) = "( \\ " ++ printVarDecl v ++ ": " ++ " -> " ++ printExpr et ++ ")"
+printExpr (FunE t v et) = "( \\ " ++ printVarDecl v ++ " -> " ++ printExpr et ++ ")"
 printExpr (QuantifE t q v et) = "(" ++ printQuantif q ++ printVarDecl v ++ ". " ++ printExpr et ++ ")"
 printExpr (FldAccE t et f) = printExpr et ++ "." ++ stringOfFieldName f
 printExpr e = show e  -- TODO - incomplete

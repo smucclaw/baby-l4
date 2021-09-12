@@ -5,7 +5,7 @@ module Exec where
 import Data.List
 import Syntax
 import Typing
-import SyntaxManipulation (mkFunTp, abstractF)
+import SyntaxManipulation (mkFunTp, abstractF, abstractFvd)
 
 liftUarithOp :: UArithOp -> Val -> Val
 liftUarithOp u c = case (u, c) of
@@ -53,18 +53,19 @@ type ReductEnv t = [EvalResult t]
 lookupEnv :: Int -> ReductEnv t -> Maybe (EvalResult t)
 lookupEnv i env = if i < length env then Just (env!!i) else Nothing
 
-
+-- Evaluates an expression like a functional language. 
+-- The result of an expression of functional type is a closure.
 evalExpr :: ReductEnv (Tp()) -> Expr (Tp()) -> EvalResult (Tp())
 evalExpr env x = case x of
   ValE t c -> ExprResult (ValE t c)
-  VarE t v@GlobalVar {} -> ExprResult (VarE t v)
+  e@(VarE _ GlobalVar {}) -> ExprResult e
   VarE _t (LocalVar _vn i) ->
     case lookupEnv i env of
       Nothing -> ExprResult (ValE ErrT ErrV)
       Just e ->  e
   UnaOpE t uop e -> ExprResult (liftUnaopExpr t uop (evalExpr env e))
   BinOpE t bop e1 e2 -> ExprResult (liftBinopExpr t bop (evalExpr env e1) (evalExpr env e2))
-  IfThenElseE t ec e1 e2 -> case evalExpr env ec of 
+  IfThenElseE t ec e1 e2 -> case evalExpr env ec of
     ExprResult (ValE _ (BoolV True)) -> evalExpr env e1
     ExprResult (ValE _ (BoolV False)) -> evalExpr env e2
     _ -> ExprResult (ValE ErrT ErrV)
@@ -73,12 +74,35 @@ evalExpr env x = case x of
       ExprResult fres -> evalExpr [evalExpr env a] fres
       ClosResult clenv v fbd -> evalExpr (evalExpr env a:clenv) fbd
   FunE t v e -> ClosResult env v e
-  e@QuantifE {} -> ExprResult e
-  _ -> undefined
+  e -> ExprResult (substClos env 0 e)
 
-{-
+
+
 reduceExpr :: Expr (Tp()) -> Expr (Tp())
 reduceExpr e = case evalExpr [] e of
   ExprResult er -> er
-  ClosResult clenv v er -> substClos clenv (abstractF [ v] er)
--}
+  ClosResult clenv v er -> substClos clenv 0 (abstractFvd [v] er)
+
+substClos :: ReductEnv (Tp()) -> Int ->  Expr (Tp()) -> Expr (Tp())
+substClos [] _ e = e
+substClos env d e@ValE{} = e
+substClos env d v@(VarE _ GlobalVar {}) = v
+substClos env d v@(VarE _ (LocalVar _vn i)) =
+  if i < d
+  then v
+  else
+    case lookupEnv (i - d) env of
+      Nothing -> v
+      Just (ExprResult e) ->  e
+      Just (ClosResult nenv v ne) -> substClos nenv 0 (abstractFvd [v] ne)
+substClos env d (UnaOpE t uop e) = UnaOpE t uop (substClos env d e)
+substClos env d (BinOpE t bop e1 e2) = BinOpE t bop (substClos env d e1) (substClos env d e2)
+substClos env d (IfThenElseE t ec e1 e2) = IfThenElseE t (substClos env d ec) (substClos env d e1) (substClos env d e2)
+substClos env d (AppE t f a) = AppE t (substClos env d f) (substClos env d a)
+substClos env d (FunE t v e) = FunE t v (substClos env (d + 1) e)
+substClos env d (QuantifE t q v e) = QuantifE t q v (substClos env (d + 1) e)
+substClos env d (FldAccE t e fn) = FldAccE t (substClos env d e) fn
+substClos env d (TupleE t es) = TupleE t (map (substClos env d) es)
+substClos env d (CastE t ct e) = CastE t ct (substClos env d e)
+substClos env d (ListE t lop es) = ListE t lop (map (substClos env d) es)
+

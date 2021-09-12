@@ -4,13 +4,13 @@
 module TimedMC where
 
 import Syntax
-import SyntaxManipulation (conjExpr, disjExpr, abstractQ, abstractF, liftVarBy, conjsExpr, applyVars, mkVarE, mkEq, mkFloatConst, mkFunTp, index, indexListFromTo, gteExpr, eqExpr, mkIntConst, implExpr)
+import SyntaxManipulation (conjExpr, disjExpr, implExpr, abstractQ, abstractF, liftVarBy, conjsExpr, disjsExpr, applyVars, mkVarE, mkEq, mkFloatConst, mkFunTp, index, indexListFromTo, gteExpr, eqExpr, mkIntConst, liftVar)
 
 import PrintProg (renameAndPrintExpr, printExpr)
 import Data.List (find)
 import Data.Maybe (fromMaybe)
 import Text.Pretty.Simple (pPrint)
-import Exec (evalExpr,EvalResult (ExprResult))
+import Exec (evalExpr, reduceExpr, EvalResult (ExprResult))
 import Annotation (typeAnnot)
 
 data SMTFunDef t = SMTFunDef
@@ -35,6 +35,50 @@ TCTL formulas are composed of:
   where e1, e2 are clock expressions of type Time and are either clock variables, floats or sums/ differences of clock expressions.
 -}
 
+----------------------------------------------------------------------
+-- Handling of types / variables
+----------------------------------------------------------------------
+
+-- preliminary type of states. Possibly to be transformed to Int in SMT
+stateT :: Tp ()
+stateT = ClassT () (ClsNm "State")
+
+-- already contained in Prelude as subtype of Float
+timeT :: Tp ()
+timeT  = ClassT () (ClsNm "Time")
+
+locPar :: Var (Tp ())
+locPar = LocalVar (QVarName stateT  "st") 0
+
+clockPars :: Int -> [Var (Tp ())]
+clockPars n = map (\i -> LocalVar (QVarName timeT  ("cl"++show i)) 0) [0 .. (n - 1)]
+
+-- variable of type "state" corresponding to a location
+varOfLoc :: Loc -> Var (Tp())
+varOfLoc (Loc lname) = GlobalVar (QVarName stateT lname)
+
+-- the variables are assumed to be correctly indexed 
+-- with functions such as index or indexListFromTo
+varOfClock :: [Var t] -> Clock -> Var t
+varOfClock ivars cl =
+  fromMaybe (error ("in varOfClock: clock with name " ++ show (nameOfClock cl) ++ " not in map"))
+   (find (\v -> nameOfQVarName (nameOfVar v) == nameOfClock cl) ivars)
+
+varOfClockMap :: [(Clock, Var t)] -> Clock -> Var t
+varOfClockMap ivars cl =
+  fromMaybe (error ("in varOfClock: clock with name " ++ show (nameOfClock cl) ++ " not in map"))
+   (lookup cl ivars)
+
+clockOfVar :: Var t -> Clock
+clockOfVar v = Clock (nameOfQVarName (nameOfVar v))
+
+toClockVarAssoc :: Var t -> (Clock, Var t)
+toClockVarAssoc v = (Clock (nameOfQVarName (nameOfVar v)), v)
+
+
+----------------------------------------------------------------------
+-- Construction of formulas
+----------------------------------------------------------------------
 
 expandEFInitial :: TA t -> Expr t -> SMTFunDef t
 expandEFInitial = undefined
@@ -74,7 +118,7 @@ constrCompos sclvs r1 r2 =
           (conjExpr (applyVars r1 ( scls ++ scls'' ) )
                     (applyVars r2 ( scls'' ++ scls' ) ) ))
 
-delayTransInv :: Var (Tp ()) -> [Var (Tp ())] -> (Loc, [ClConstr]) -> Expr (Tp ())
+delayTransInv :: Var (Tp ()) -> [(Clock, Var (Tp ()))] -> (Loc, [ClConstr]) -> Expr (Tp ())
 delayTransInv st cls' (l, cnstrs) =
   implExpr (mkEq st (varOfLoc l))
            (conjsExpr (map (clockConstrToExpr cls') cnstrs))
@@ -83,8 +127,11 @@ delayTransInv st cls' (l, cnstrs) =
 -- ( \\ st: Integer -> ( \\ c1: Time -> ( \\ c2: Time -> ( \\ st_0: Integer -> 
 -- ( \\ c1_0: Time -> ( \\ c2_0: Time -> ((st@5==st_0@2)&&( exists d: Float. ((d@0>=0.0)&&((c1_0@2==(c1@5+d@0))&&(c2_0@1==(c2@4+d@0))))))))))))
 -- TODO: still missing: invariants of locations
-constrDelayTransition :: TA (Tp()) -> Var (Tp()) ->[Var (Tp())] -> Expr (Tp())
-constrDelayTransition ta stv clvs =
+constrDelayTransition :: TA (Tp ()) -> Var (Tp ()) -> [Var (Tp ())] -> Var (Tp ()) -> [Var (Tp ())] -> Expr (Tp ())
+-- TA (Tp()) -> Var (Tp()) ->[Var (Tp())] -> Expr (Tp())
+constrDelayTransition ta st cls st' cls' = 
+--ta stv clvs =
+  {-
   let sclvs = (stv : clvs)
       n = length sclvs
       d = LocalVar (QVarName floatT  "d") 0
@@ -94,65 +141,52 @@ constrDelayTransition ta stv clvs =
       cls = indexListFromTo (n + 1) (2 * n - 1) clvs
       cls' = indexListFromTo 1 (n - 1) clvs
       clockshift = conjsExpr (zipWith (\c' c -> eqExpr (mkVarE c') (BinOpE floatT (BArith BAadd) (mkVarE c) (mkVarE d))) cls' cls)
-  in abstractF (sclvs ++ sclvs)
-               (conjsExpr [mkEq st st',
-                           conjsExpr (map (delayTransInv st cls') (invarsOfTA ta)),
+  in -- abstractF (sclvs ++ sclvs)
+  -}
+  let 
+      d = LocalVar (QVarName floatT  "d") 0
+      dgte0 = gteExpr (mkVarE d) (mkFloatConst 0.0)
+      clockshift = conjsExpr (zipWith (\c' c -> eqExpr (mkVarE (liftVar 0 c')) (BinOpE floatT (BArith BAadd) (mkVarE  (liftVar 0 c)) (mkVarE d))) cls' cls)
+  in              (conjsExpr [mkEq st st',
+                           conjsExpr (map (delayTransInv st (zip (clocksOfTA ta) cls')) (invarsOfTA ta)),
                            abstractQ Ex [d] (conjExpr dgte0 clockshift)
                           ])
 
--- Ideas for translation of automata
 
--- preliminary type of states. Possibly to be transformed to Int in SMT
-stateT :: Tp ()
-stateT = ClassT () (ClsNm "State")
+clockConstrToExpr :: [(Clock, Var (Tp()))] -> ClConstr -> Expr (Tp())
+clockConstrToExpr clParMap (ClConstr cl compop i) = BinOpE booleanT (BCompar compop) (mkVarE (varOfClockMap clParMap cl)) (mkIntConst i)
 
--- variable of type "state" corresponding to a location
-varOfLoc :: Loc -> Var (Tp())
-varOfLoc (Loc lname) = GlobalVar (QVarName stateT lname)
+guardToExpr :: [(Clock, Var (Tp()))] -> TransitionGuard (Tp ()) -> Expr (Tp ())
+guardToExpr clParMap (TransitionGuard constr expr) = conjExpr (conjsExpr (map (clockConstrToExpr clParMap) constr)) expr
 
--- the variables are assumed to be correctly indexed 
--- with functions such as index or indexListFromTo
-varOfClock :: [Var t] -> Clock -> Var t
-varOfClock ivars cl =
-  fromMaybe (error ("in varOfClock: clock with name " ++ show (nameOfClock cl) ++ " not in map"))
-   (find (\v -> nameOfQVarName (nameOfVar v) == nameOfClock cl) ivars)
-
-clockOfVar :: Var t -> Clock
-clockOfVar v = Clock (nameOfQVarName (nameOfVar v))
-
-toClockVarAssoc :: Var t -> (Clock, Var t)
-toClockVarAssoc v = (Clock (nameOfQVarName (nameOfVar v)), v)
-
-clockConstrToExpr :: [Var (Tp())] -> ClConstr -> Expr (Tp())
-clockConstrToExpr cls (ClConstr cl compop i) = BinOpE booleanT (BCompar compop) (mkVarE (varOfClock cls cl)) (mkIntConst i)
-
-guardToExpr :: [Var (Tp())] -> TransitionGuard (Tp ()) -> Expr (Tp ())
-guardToExpr clvars (TransitionGuard constr expr) = conjExpr (conjsExpr (map (clockConstrToExpr clvars) constr)) expr
-
-resetToExpr :: [Var (Tp ())] -> [Var (Tp ())] -> [Clock] -> Var (Tp()) -> Expr (Tp ())
-resetToExpr clvars clvars' resetcls clv =
-  let cl = clockOfVar clv
-  in if cl `elem` resetcls
-     then eqExpr (mkVarE (varOfClock clvars' cl)) (mkFloatConst 0.0)
-     else mkEq (varOfClock clvars' cl) (varOfClock clvars cl)
+resetToExpr :: [(Clock, Var (Tp ()))] -> [(Clock, Var (Tp ()))] -> [Clock] -> Clock -> Expr (Tp ())
+resetToExpr clvars clvars' resetcls cl =
+  if cl `elem` resetcls
+  then eqExpr (mkVarE (varOfClockMap clvars' cl)) (mkFloatConst 0.0)
+  else mkEq (varOfClockMap clvars' cl) (varOfClockMap clvars cl)
 
 -- TODO: take into account the cmd 
-actionToExpr :: [Var (Tp())] -> [Var (Tp())] -> TransitionAction t -> Expr (Tp ())
-actionToExpr clvars clvars' (TransitionAction _act resetcls _cmd) =
-  conjsExpr (map (resetToExpr clvars clvars' resetcls) clvars)
+actionToExpr :: [(Clock, Var (Tp ()))] -> [(Clock, Var (Tp ()))] -> [Clock] -> TransitionAction t -> Expr (Tp ())
+actionToExpr clvars clvars' allCls (TransitionAction _act resetcls _cmd) =
+  conjsExpr (map (resetToExpr clvars clvars' resetcls) allCls)
 
 constrActionTransition :: TA (Tp()) -> Var (Tp()) ->[Var (Tp())] -> Var (Tp()) ->[Var (Tp())] -> Transition (Tp()) -> Expr (Tp())
-constrActionTransition ta st cls st' cls' t =
+constrActionTransition ta stpar clpars stpar' clpars' t =
  conjsExpr [
-    mkEq st (varOfLoc (sourceOfTransition t)),
-    mkEq st' (varOfLoc (targetOfTransition t)),
-    guardToExpr cls (guardOfTransition t),
-    actionToExpr cls cls' (actionOfTransition t),
-    conjsExpr (concatMap (map (clockConstrToExpr cls')) [cnstrts | (l, cnstrts) <- invarsOfTA ta, l == targetOfTransition t ])
+    mkEq stpar (varOfLoc (sourceOfTransition t)),
+    mkEq stpar' (varOfLoc (targetOfTransition t)),
+    guardToExpr (zip (clocksOfTA ta) clpars) (guardOfTransition t),
+    actionToExpr (zip (clocksOfTA ta) clpars) (zip (clocksOfTA ta) clpars') (clocksOfTA ta) (actionOfTransition t),
+    conjsExpr (concatMap (map (clockConstrToExpr (zip (clocksOfTA ta) clpars'))) [cnstrts | (l, cnstrts) <- invarsOfTA ta, l == targetOfTransition t ])
   ]
 
-constrActionTransitions :: TA (Tp()) -> Var (Tp()) ->[Var (Tp())] -> Expr (Tp())
-constrActionTransitions ta stv clvs =
+--constrActionTransitions :: TA (Tp()) -> Var (Tp()) ->[Var (Tp())] -> Expr (Tp())
+constrActionTransitions :: TA (Tp ()) -> Var (Tp ()) -> [Var (Tp ())] -> Var (Tp ()) -> [Var (Tp ())] -> Expr (Tp ())
+constrActionTransitions ta st cls st' cls' = 
+  disjsExpr (map (constrActionTransition ta st cls st' cls') (transitionsOfTA ta))
+
+constrTransitions :: TA (Tp()) -> Var (Tp()) ->[Var (Tp())] -> Expr (Tp())
+constrTransitions ta stv clvs =
   let sclvs = (stv : clvs)
       n = length sclvs
       st  = index (2 * n - 1) stv
@@ -160,10 +194,15 @@ constrActionTransitions ta stv clvs =
       cls = indexListFromTo n (2 * n - 2) clvs
       cls' = indexListFromTo 0 (n - 2) clvs
   in abstractF (sclvs ++ sclvs)
-               (conjsExpr (map (constrActionTransition ta st cls st' cls') (transitionsOfTA ta)))
+      (disjExpr (constrActionTransitions ta st cls st' cls') (constrDelayTransition ta st cls st' cls'))
 
 expandEFStep :: String -> Int -> TA t -> SMTAbstr t
 expandEFStep = undefined
+
+
+----------------------------------------------------------------------
+-- Tests
+----------------------------------------------------------------------
 
 {-
 expandEF :: Int -> Int -> TA t -> String -> [SMTFunDef t]-> [SMTFunDef t]
@@ -206,8 +245,8 @@ constrEFStepAbstrTest = renameAndPrintExpr [] (constrEFStepAbstr (myfnv "fn") my
 constrComposTest :: String
 constrComposTest = renameAndPrintExpr [] (constrCompos (mystv : myclvs) (myfnv "r1") (myfnv "r2"))
 
-constrDelayTransitionTest :: String
-constrDelayTransitionTest = renameAndPrintExpr [] (constrDelayTransition myTA mystv myclvs)
+-- constrDelayTransitionTest :: String
+-- constrDelayTransitionTest = renameAndPrintExpr [] (constrDelayTransition myTA mystv myclvs)
 
 myTrans :: Transition (Tp ())
 myTrans = Transition (Loc "loc0")
@@ -218,28 +257,31 @@ myTrans = Transition (Loc "loc0")
 myTA :: TA (Tp ())
 myTA = TA OkT "myTA" [Loc "loc0", Loc "loc1"] [] [Clock "c1", Clock "c2"] [myTrans] (Loc "loc0") [(Loc "loc0", [ClConstr (Clock "c1") BClt 3]), (Loc "loc1", [ClConstr (Clock "c2") BClt 2])] []
 
-constrActionTransitionTest :: String
-constrActionTransitionTest = renameAndPrintExpr [] (constrActionTransitions myTA mystv myclvs)
+-- constrActionTransitionTest :: String
+-- constrActionTransitionTest = renameAndPrintExpr [] (constrActionTransitions myTA mystv myclvs)
 
-locToStateVar :: Loc -> Var (Tp ())
-locToStateVar (Loc n) = LocalVar (QVarName integerT  n) 0
-
-clockToStateVar :: Clock -> Var (Tp ())
-clockToStateVar (Clock n) = LocalVar (QVarName integerT  n) 0
+----------------------------------------------------------------------
+-- Wiring with rest
+----------------------------------------------------------------------
 
 constrAutTest :: TA (Tp ()) -> String
 constrAutTest ta = renameAndPrintExpr []
-  (constrActionTransitions ta (locToStateVar (initialLocOfTA ta)) (map clockToStateVar (clocksOfTA ta)))
+  (constrTransitions ta locPar (clockPars (length (clocksOfTA ta))))
 
 runAut :: NewProgram (Tp ()) -> IO ()
---runAut prg = putStrLn $ unlines (map constrAutTest (automataOfNewProgram prg))
+runAut prg = putStrLn $ unlines (map constrAutTest (automataOfNewProgram prg))
+
+{- For testing evaluation / reduction
 runAut prg =
   let a = head (assertionsOfNewProgram prg)
       e = argOfExprAppE (exprOfAssertion a)
       ev = evalExpr [] e
   in  case ev of
    ExprResult expr -> putStrLn  (printExpr expr)
-   cl -> pPrint cl
+   cl -> do
+     pPrint cl
+     putStrLn  (printExpr (reduceExpr e))
+-}
 
 -- >>> constrActionTransitionTest
 -- "( \\ st: Integer -> ( \\ c1: Time -> ( \\ c2: Time -> ( \\ st_0: Integer -> ( \\ c1_0: Time -> ( \\ c2_0: Time -> ((st@5==loc0)&&((st_0@2==loc1)&&(((c1@4>=3)&&True)&&(((c1_0@1==c1@4)&&(c2_0@0==0.0))&&(c2_0@0<2)))))))))))"
