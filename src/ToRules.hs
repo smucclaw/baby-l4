@@ -8,6 +8,7 @@ import L4LSP (arNameToString)
 import SimpleRules (isRule, condValid)
 import Data.Either (lefts, rights)
 import Data.Char (toUpper)
+import qualified Data.Set as S
 
 data RuleFormat = Clara | Drools deriving Eq
 
@@ -47,14 +48,15 @@ newtype ProductionClassType = ProductionClassType Typename
 
 data ProductionRule = ProductionRule { nameOfProductionRule :: String
                                      , varDeclsOfProductionRule :: [ProdVarName]
-                                     , leftHandSide :: RuleCondition
+                                     , leftHandSide :: RCList -- RuleCondition
                                      , rightHandSide :: RuleAction
                                      } deriving Show
 
 instance ShowClara ProductionRule where
     showClara ProductionRule {nameOfProductionRule, varDeclsOfProductionRule, leftHandSide, rightHandSide} = do
         hang 2 $ vsep [ lparen <> pretty "defrule" <+> pretty nameOfProductionRule
-                      , showClara leftHandSide
+                      , foldr ((<+>) . showClara) (pretty "") leftHandSide
+                    --   , showClara leftHandSide
                       , pretty "=>"
                       , pretty "(postconds here)" <> rparen <> line -- stylisticly, lisps have no dangling brackets
                       ]
@@ -63,12 +65,15 @@ instance ShowDrools ProductionRule where
     showDrools ProductionRule {nameOfProductionRule, varDeclsOfProductionRule, leftHandSide, rightHandSide} = do
         vsep [ nest 2 $ vsep [pretty "rule" <+> dquotes (pretty nameOfProductionRule)
                              , pretty "when"
-                             , indent 2 $ showDrools leftHandSide
+                            --  , indent 2 $ showDrools leftHandSide
+                             , foldr ((<+>) . showDrools) (pretty "") leftHandSide
                              , pretty "then"
                              , pretty "(postconds here)"
                              ]
              , pretty "end" <> line
              ]
+
+type RCList = [ConditionalElement]
 
 
 data RuleCondition
@@ -146,16 +151,16 @@ instance ShowDrools CEArg where
 data RuleAction = InsertLogical Typename [Argument] deriving Show
 data Argument = Variable ProdVarName | Value Val deriving Show
 
-filterRule :: Rule t -> Either String ProductionRule
+filterRule :: (Ord t) => Rule t -> Either String ProductionRule
 filterRule x
     | isRule x = Right $ ruleToProductionRule x
     | otherwise = Left $ "Not a valid rule: " ++ arNameToString (nameOfRule x) ++ "\n"
 
-ruleToProductionRule :: Rule t -> ProductionRule
+ruleToProductionRule :: (Ord t) => Rule t -> ProductionRule
 ruleToProductionRule Rule {nameOfRule, varDeclsOfRule, precondOfRule, postcondOfRule}
     = ProductionRule { nameOfProductionRule = arNameToString nameOfRule
                      , varDeclsOfProductionRule = [""]
-                     , leftHandSide = precondToRuleCondition precondOfRule
+                     , leftHandSide = exprlistToRCList S.empty $ precondToRCList precondOfRule -- precondToRuleCondition precondOfRule
                      , rightHandSide = InsertLogical "" [Variable ""]
                      }
 
@@ -169,6 +174,32 @@ capitalize xs = toUpper (head xs) : tail xs
 appToFunArgs :: [Expr t] -> Expr t -> (Expr t, [Expr t])
 appToFunArgs acc (AppE _ f a) = appToFunArgs (a:acc) f
 appToFunArgs acc t = (t, acc)
+
+precondToRCList :: Expr t -> [Expr t] -- todo : rename to reflect new typesig
+precondToRCList (BinOpE _ (BBool BBand) arg1 arg2) = precondToRCList arg1 ++ precondToRCList arg2
+precondToRCList fApp@(AppE {}) = [fApp]
+precondToRCList bcomp@(BinOpE _ (BCompar _) _ _) = [bcomp]
+precondToRCList _ = error "non and operation"
+
+exprlistToRCList :: (Ord t) => S.Set (Var t) -> [Expr t] -> RCList
+exprlistToRCList vs (x@(AppE {}):xs) =
+    let appVars = localVariables x
+    in exprToConditionalFuncApp x : exprlistToRCList (S.union appVars vs) xs
+exprlistToRCList vs (x@(BinOpE _ (BCompar _) _ _): xs) =
+    let compVars = localVariables x
+    in if S.isSubsetOf compVars vs then exprToConditionalEval x : exprlistToRCList (S.union compVars vs) xs else error "Reorder ur predicates"
+exprlistToRCList _ [] = []
+exprlistToRCList _ _ = error "exprToRCList used with non-function application or comparison operation"
+
+localVariables :: (Ord t) => Expr t -> S.Set (Var t)
+localVariables (AppE _ f a) = S.union (localVariables f) (localVariables a) 
+localVariables (BinOpE _ _ a1 a2) = S.union (localVariables a1) (localVariables a2)
+localVariables (VarE _ val) = case val of
+  GlobalVar _ -> S.empty
+  LocalVar _ _ -> S.singleton val 
+localVariables _ = error "localVariables used with non-function application or comparison operation"
+
+
 
 precondToRuleCondition :: Expr t -> RuleCondition
 precondToRuleCondition fApp@AppE {} = RuleCondition $ exprToConditionalFuncApp fApp
@@ -221,10 +252,10 @@ astToRules x = do
     let lrRules = map filterRule $ rulesOfProgram x
         gdRules = rights lrRules
     print $ lefts lrRules
-    print $ head $ gdRules
+    print $ gdRules !! 4
     putStrLn ""
     putStrLn "Clara:"
-    putDoc $ showClara (gdRules !! 5)
+    putDoc $ showClara (gdRules !! 4)
     putStrLn ""
     -- putStrLn "Drools:"
     -- putDoc $ showDrools (gdRules !! 5)
