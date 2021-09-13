@@ -11,7 +11,6 @@ module Syntax where
 import Data.Data (Data, Typeable)
 import Annotation
 import KeyValueMap
-import PGF (Probabilities)
 import Data.Maybe (mapMaybe)
 
 ----------------------------------------------------------------------
