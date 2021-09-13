@@ -469,9 +469,6 @@ liftresTCEither resexps f restp =
 
 
 
-incompatMsg :: SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> [ErrorCause]
-incompatMsg loc t1 t2 = [IncompatibleTp [loc, getLoc t1, getLoc t2] [typeAnnot t1, typeAnnot t2]]
-
 notBoolMsg :: SRng -> LocTypeAnnot (Tp ()) -> [ErrorCause]
 notBoolMsg loc t = [IllTypedSubExpr [loc, getLoc t] [typeAnnot t] [ExpectedExactTp booleanT]]
 
@@ -480,6 +477,10 @@ checkBooleanType loc t = guardMsg (notBoolMsg loc t) (isBooleanTp $ typeAnnot t)
 
 checkCompatLeft :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
 checkCompatLeft env loc t1 t2 = typeAnnot t2 <$ guardMsg (incompatMsg loc t1 t2) (compatibleType env (typeAnnot t1) (typeAnnot t2))
+  where
+  incompatMsg :: SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> [ErrorCause]
+  incompatMsg loc t1 t2 = [IncompatibleTp [loc, getLoc t1, getLoc t2] [typeAnnot t1, typeAnnot t2]]
+
 
 checkCompat :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
 checkCompat env ann t1 t2 = checkCompatLeft env ann t1 t2 <|> checkCompatLeft env ann t2 t1
@@ -505,13 +506,15 @@ tpExpr env expr = case expr of
     in  liftresTCEither [te1, te2] (\t -> BinOpE (setType annot t) bop (fromTRight te1) (fromTRight te2)) tres
 
   -- TODO: consider a more liberal typing returning the least common supertype of the two branches
-  IfThenElseE annot ec e1 e2 ->
-    let getResult tc' t1' t2' = do
-            checkBooleanType annot (getAnnot tc')
-            t <- checkCompat env annot (getAnnot t1') (getAnnot t2')
-            return $ IfThenElseE (setType annot t) tc' t1' t2'
+  IfThenElseE annot ec e1 e2 -> do
+      -- Combine error messages from all three sub-expressions
+      -- Note that we could do better, since the condition check is independent from the compat check.
+      -- ApplicativeDo could solve this, but might be a bit too magic
+      (tc, t1, t2) <- (,,) <$> tpExpr env ec <*> tpExpr env e1 <*> tpExpr env e2
+      checkBooleanType annot (getAnnot tc)
+      t <- checkCompat env annot (getAnnot t1) (getAnnot t2)
+      return $ IfThenElseE (setType annot t) tc t1 t2
 
-    in join $ getResult <$> tpExpr env ec <*> tpExpr env e1 <*> tpExpr env e2
 
   AppE annot fe ae ->
     let tfe = tpExpr env fe
