@@ -12,6 +12,7 @@ import Data.Data (Data, Typeable)
 import Annotation
 import KeyValueMap
 import PGF (Probabilities)
+import Data.Maybe (mapMaybe)
 
 ----------------------------------------------------------------------
 -- Definition of expressions
@@ -124,71 +125,47 @@ instance HasAnnot NewProgram where
   updateAnnot f p = p { annotOfNewProgram = f (annotOfNewProgram p)}
 
 
-isMapping :: TopLevelElement t -> Bool
-isMapping (MappingTLE _) = True
-isMapping _ = False
+getMapping :: TopLevelElement t -> Maybe (Mapping t)
+getMapping (MappingTLE e) = Just e
+getMapping _ = Nothing
 
-isClassDecl :: TopLevelElement t -> Bool
-isClassDecl (ClassDeclTLE _) = True
-isClassDecl _ = False
+getClassDecl :: TopLevelElement t -> Maybe (ClassDecl t)
+getClassDecl (ClassDeclTLE e) = Just e
+getClassDecl _ = Nothing
 
-isVarDecl :: TopLevelElement t -> Bool
-isVarDecl (VarDeclTLE _) = True
-isVarDecl _ = False
+getVarDecl :: TopLevelElement t -> Maybe (VarDecl t)
+getVarDecl (VarDeclTLE e) = Just e
+getVarDecl _ = Nothing
 
-isRule :: TopLevelElement t -> Bool
-isRule (RuleTLE _) = True
-isRule _ = False
+getRule :: TopLevelElement t -> Maybe (Rule t)
+getRule (RuleTLE e) = Just e
+getRule _ = Nothing
 
-isAssertion :: TopLevelElement t -> Bool
-isAssertion (AssertionTLE _) = True
-isAssertion _ = False
+getAssertion :: TopLevelElement t -> Maybe (Assertion t)
+getAssertion (AssertionTLE e) = Just e
+getAssertion _ = Nothing
 
-isAutomaton :: TopLevelElement t -> Bool
-isAutomaton (AutomatonTLE _) = True
-isAutomaton _ = False
-
-getMapping :: TopLevelElement t -> Mapping t
-getMapping (MappingTLE e) = e
-getMapping _ = error "wrong selection"
-
-getClassDecl :: TopLevelElement t -> ClassDecl t
-getClassDecl (ClassDeclTLE e) = e
-getClassDecl _ = error "wrong selection"
-
-getVarDecl :: TopLevelElement t -> VarDecl t
-getVarDecl (VarDeclTLE e) = e
-getVarDecl _ = error "wrong selection"
-
-getRule :: TopLevelElement t -> Rule t
-getRule (RuleTLE e) = e
-getRule _ = error "wrong selection"
-
-getAssertion :: TopLevelElement t -> Assertion t
-getAssertion (AssertionTLE e) = e
-getAssertion _ = error "wrong selection"
-
-getAutomaton :: TopLevelElement t -> TA t
-getAutomaton (AutomatonTLE e) = e
-getAutomaton _ = error "wrong selection"
+getAutomaton :: TopLevelElement t -> Maybe (TA t)
+getAutomaton (AutomatonTLE e) = Just e
+getAutomaton _ = Nothing
 
 lexiconOfNewProgram :: NewProgram t -> [Mapping t]
-lexiconOfNewProgram = map getMapping . filter isMapping . elementsOfNewProgram
+lexiconOfNewProgram = mapMaybe getMapping . elementsOfNewProgram
 
 classDeclsOfNewProgram :: NewProgram t -> [ClassDecl t]
-classDeclsOfNewProgram = map getClassDecl . filter isClassDecl . elementsOfNewProgram
+classDeclsOfNewProgram = mapMaybe getClassDecl . elementsOfNewProgram
 
 globalsOfNewProgram :: NewProgram t -> [VarDecl t]
-globalsOfNewProgram = map getVarDecl . filter isVarDecl . elementsOfNewProgram
+globalsOfNewProgram = mapMaybe getVarDecl . elementsOfNewProgram
 
 rulesOfNewProgram :: NewProgram t -> [Rule t]
-rulesOfNewProgram = map getRule . filter isRule . elementsOfNewProgram
+rulesOfNewProgram = mapMaybe getRule . elementsOfNewProgram
 
 assertionsOfNewProgram :: NewProgram t -> [Assertion t]
-assertionsOfNewProgram = map getAssertion . filter isAssertion . elementsOfNewProgram
+assertionsOfNewProgram = mapMaybe getAssertion . elementsOfNewProgram
 
 automataOfNewProgram :: NewProgram t -> [TA t]
-automataOfNewProgram = map getAutomaton . filter isAutomaton . elementsOfNewProgram
+automataOfNewProgram = mapMaybe getAutomaton . elementsOfNewProgram
 
 mapClassDecl :: (ClassDecl t -> ClassDecl t)-> TopLevelElement t -> TopLevelElement t
 mapClassDecl f e = case e of
