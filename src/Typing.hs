@@ -143,7 +143,7 @@ superClassesOf env cn = case lookup cn (classDefAssoc (classDeclsOfEnv env)) of
   Just (ClassDef supcls _) -> supcls
 
 strictSuperClassesOf :: Environment t -> ClassName -> [ClassName]
-strictSuperClassesOf env cn = tail (superClassesOf env cn)
+strictSuperClassesOf env cn = drop 1 (superClassesOf env cn)
 
 isStrictSubclassOf :: Environment t -> ClassName -> ClassName -> Bool
 isStrictSubclassOf env subcl supercl = supercl `elem` strictSuperClassesOf env subcl
@@ -158,7 +158,7 @@ superClassesOfClassDecl :: ClassDecl t -> [ClassName]
 superClassesOfClassDecl = supersOfClassDef . defOfClassDecl
 
 strictSuperClassesOfClassDecl :: ClassDecl t -> [ClassName]
-strictSuperClassesOfClassDecl = tail . superClassesOfClassDecl
+strictSuperClassesOfClassDecl = drop 1 . superClassesOfClassDecl
 
 
 -- Get all the fields (direct and inherited) associated with a class name in an environment
