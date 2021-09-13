@@ -18,7 +18,7 @@ import Data.List.Utils ( countElem )
 
 
 import Annotation
-    ( LocTypeAnnot(LocTypeAnnot, locAnnot), SRng, TypeAnnot(..), HasLoc(..) )
+    ( LocTypeAnnot(LocTypeAnnot, locAnnot, typeAnnot), SRng, TypeAnnot(..), HasLoc(..), HasAnnot (getAnnot) )
 import Error
 import Syntax
 import Control.Monad (join)
@@ -467,6 +467,24 @@ liftresTCEither resexps f restp =
             TLeft x -> TLeft x
     errs -> TLeft errs
 
+
+
+incompatMsg :: SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> [ErrorCause]
+incompatMsg loc t1 t2 = [IncompatibleTp [loc, getLoc t1, getLoc t2] [typeAnnot t1, typeAnnot t2]]
+
+notBoolMsg :: SRng -> LocTypeAnnot (Tp ()) -> [ErrorCause]
+notBoolMsg loc t = [IllTypedSubExpr [loc, getLoc t] [typeAnnot t] [ExpectedExactTp booleanT]]
+
+checkBooleanType :: SRng -> LocTypeAnnot (Tp ()) -> TCEither ()
+checkBooleanType loc t = guardMsg (notBoolMsg loc t) (isBooleanTp $ typeAnnot t)
+
+checkCompatLeft :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
+checkCompatLeft env loc t1 t2 = typeAnnot t2 <$ guardMsg (incompatMsg loc t1 t2) (compatibleType env (typeAnnot t1) (typeAnnot t2))
+
+checkCompat :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
+checkCompat env ann t1 t2 = checkCompatLeft env ann t1 t2 <|> checkCompatLeft env ann t2 t1
+
+
 -- TODO: check well-formedness of types in function abstraction and in quantification
 tpExpr :: Environment te -> Expr Untyped -> TCEither (Expr (LocTypeAnnot (Tp())))
 tpExpr env expr = case expr of
@@ -487,44 +505,13 @@ tpExpr env expr = case expr of
     in  liftresTCEither [te1, te2] (\t -> BinOpE (setType annot t) bop (fromTRight te1) (fromTRight te2)) tres
 
   -- TODO: consider a more liberal typing returning the least common supertype of the two branches
-  -- IfThenElseE annot ec e1 e2 ->
-  --   let tec = tpExpr env ec
-  --       te1 = tpExpr env e1
-  --       te2 = tpExpr env e2
-  --       tc = getTypeOfExpr (fromTRight tec)
-  --       t1 = getTypeOfExpr (fromTRight te1)
-  --       t2 = getTypeOfExpr (fromTRight te2)
-  --       tres = if isBooleanTp tc
-  --              then if compatibleType env t1 t2
-  --                   then TRight t2
-  --                   else if compatibleType env t2 t1
-  --                        then TRight t1
-  --                        else TLeft [IncompatibleTp [getLoc annot, getLoc e1, getLoc e2] [t1, t2]]
-  --              else TLeft [IllTypedSubExpr [getLoc annot, getLoc ec] [tc] [ExpectedExactTp booleanT]]
-  --   in liftresTCEither [tec, te1, te2] (\t -> IfThenElseE (setType annot t) (fromTRight tec) (fromTRight te1) (fromTRight te2)) tres
-
--- Using Applicative and Alternative instead
   IfThenElseE annot ec e1 e2 ->
-    let tec = tpExpr env ec
-        te1 = tpExpr env e1
-        te2 = tpExpr env e2
-
-        incompatMsg t1 t2 = [IncompatibleTp [getLoc annot, getLoc e1, getLoc e2] [t1, t2]]
-        notBoolMsg tc = [IllTypedSubExpr [getLoc annot, getLoc ec] [tc] [ExpectedExactTp booleanT]]
-        checkBooleanType t = guardMsg (notBoolMsg t) (isBooleanTp t)
-        checkCompatLeft t1 t2 = t2 <$ guardMsg (incompatMsg t1 t2) (compatibleType env t1 t2)
-        checkCompat t1 t2 = checkCompatLeft t1 t2 <|> checkCompatLeft t2 t1
-
-
-        getResult tc' t1' t2' = let
-          tc = getTypeOfExpr tc'
-          t1 = getTypeOfExpr t1'
-          t2 = getTypeOfExpr t2'
-          in do
-            checkBooleanType tc
-            t <- checkCompat t1 t2
+    let getResult tc' t1' t2' = do
+            checkBooleanType annot (getAnnot tc')
+            t <- checkCompat env annot (getAnnot t1') (getAnnot t2')
             return $ IfThenElseE (setType annot t) tc' t1' t2'
-    in join $ getResult <$> tec <*> te1 <*> te2
+
+    in join $ getResult <$> tpExpr env ec <*> tpExpr env e1 <*> tpExpr env e2
 
   AppE annot fe ae ->
     let tfe = tpExpr env fe
