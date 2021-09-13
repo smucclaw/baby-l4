@@ -118,8 +118,8 @@ printVal v = show v    -- TODO - rest still to be done
 printVar :: Var t -> String
 printVar = nameOfQVarName . nameOfVar
 -- For debugging:
--- printVar (GlobalVar qvn) = nameOfQVarName qvn
--- printVar (LocalVar qvn i) = nameOfQVarName qvn ++ "@" ++ show i
+--printVar (GlobalVar qvn) = nameOfQVarName qvn
+--printVar (LocalVar qvn i) = nameOfQVarName qvn ++ "@" ++ show i
 
 printUTemporalOp :: UTemporalOp -> String 
 printUTemporalOp UTAF = "A<>"

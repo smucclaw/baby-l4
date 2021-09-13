@@ -32,15 +32,43 @@ barithFun ba = case ba of
   BAdiv -> (div)
   BAmod -> (mod)
 
-liftBarithOp :: BArithOp -> Val -> Val -> Val
-liftBarithOp ba c1 c2 = case (c1, c2) of
+bcomparFun :: BComparOp -> Val -> Val -> Bool
+bcomparFun bc = case bc of
+  BCeq -> (==)
+  BClt -> (<)
+  BClte -> (<=)
+  BCgt -> (>)
+  BCgte -> (>=)
+  BCne -> (/=)
+
+bboolFun :: BBoolOp -> Bool -> Bool -> Bool
+bboolFun bb = case bb of
+  BBimpl -> (\b1 b2 -> not b1 || b2)
+  BBor -> (||)
+  BBand -> (&&)
+
+
+
+liftBArithOp :: BArithOp -> Val -> Val -> Val
+liftBArithOp ba c1 c2 = case (c1, c2) of
   (IntV i1, IntV i2) -> IntV (barithFun ba i1 i2)
+  _ -> ErrV
+
+liftBComparOp :: BComparOp -> Val -> Val -> Val
+liftBComparOp bc c1 c2 = BoolV (bcomparFun bc c1 c2)
+
+liftBBoolOp :: BBoolOp -> Val -> Val -> Val
+liftBBoolOp bb c1 c2 = case (c1, c2) of
+  (BoolV b1, BoolV b2) -> BoolV (bboolFun bb b1 b2)
   _ -> ErrV
 
 
 liftBinopExpr :: Tp() -> BinOp -> EvalResult (Tp()) -> EvalResult (Tp()) -> Expr (Tp())
 liftBinopExpr t bop (ExprResult e1) (ExprResult e2) = case (bop, e1, e2) of
-    (BArith ba, ValE t1 c1, ValE t2 c2) -> ValE t (liftBarithOp ba c1 c2)
+    (BArith ba, ValE t1 c1, ValE t2 c2) -> ValE t (liftBArithOp ba c1 c2)
+    (BCompar bc, ValE t1 c1, ValE t2 c2) -> ValE t (liftBComparOp bc c1 c2)
+    (BBool bb, ValE t1 c1, ValE t2 c2) -> ValE t (liftBBoolOp bb c1 c2)
+    _ -> BinOpE t bop e1 e2
 liftBinopExpr t bop _ _ = ValE ErrT ErrV
 
 
@@ -59,10 +87,10 @@ evalExpr :: ReductEnv (Tp()) -> Expr (Tp()) -> EvalResult (Tp())
 evalExpr env x = case x of
   ValE t c -> ExprResult (ValE t c)
   e@(VarE _ GlobalVar {}) -> ExprResult e
-  VarE _t (LocalVar _vn i) ->
+  e@(VarE _t (LocalVar _vn i)) ->
     case lookupEnv i env of
-      Nothing -> ExprResult (ValE ErrT ErrV)
-      Just e ->  e
+      Nothing -> ExprResult e
+      Just er ->  er
   UnaOpE t uop e -> ExprResult (liftUnaopExpr t uop (evalExpr env e))
   BinOpE t bop e1 e2 -> ExprResult (liftBinopExpr t bop (evalExpr env e1) (evalExpr env e2))
   IfThenElseE t ec e1 e2 -> case evalExpr env ec of
