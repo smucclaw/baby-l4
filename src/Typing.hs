@@ -287,9 +287,6 @@ instance Monad TCEither where
   (TCEither (Left ecs)) >>= _ = TCEither (Left ecs)
   (TCEither (Right a)) >>= f = f a
 
-tlefts :: [TCEither b] -> [[ErrorCause]]
-tlefts = lefts . map getEither
-
 -- TODO: when removinv RecordV, the environment becomes superfluous
 tpConstval ::  Val -> Tp ()
 tpConstval x = case x of
