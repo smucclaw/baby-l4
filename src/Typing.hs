@@ -201,8 +201,7 @@ kndType kenv (ClassT ann cn) =
   then TRight (ClassT (setType ann KindT) cn)
   else TLeft [UndefinedClassInType ann cn]
 kndType kenv (FunT ann a b) = do
-  aI <- kndType kenv a
-  bI <- kndType kenv b
+  (aI, bI) <- (,) <$> kndType kenv a <*> kndType kenv b
   return $ FunT (setType ann KindT) aI bI
 kndType kenv (TupleT ann ts) = do
   subTs <- traverse (kndType kenv) ts
@@ -556,8 +555,7 @@ tpRule :: Environment t -> Rule Untyped -> TCEither (Rule Typed)
 tpRule env (Rule ann rn instr vds precond postcond) = do
   tpdVds <- traverse (tpVarDecl env) vds
   let renv = pushLocalVarDecls vds env
-  teprecond  <- tpExpr renv precond
-  tepostcond <- tpExpr renv postcond
+  (teprecond, tepostcond)  <- (,) <$> tpExpr renv precond <*> tpExpr renv postcond
   let tprecond = getTypeOfExpr teprecond
       tpostcond = getTypeOfExpr tepostcond
   -- TODO: Clean up more (with generic bool type check)
