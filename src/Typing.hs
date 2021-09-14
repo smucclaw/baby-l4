@@ -252,14 +252,6 @@ isClassTp :: Tp t -> Bool
 isClassTp ClassT {} = True
 isClassTp _ = False
 
-expectBool :: [SRng] -> Tp t1 -> TCEither t -> TCEither t
-expectBool locs t u =
-  if isBooleanTp t
-  then u
-  else tError (IllTypedSubExpr locs [eraseAnn t] [ExpectedExactTp booleanT])
-      --  then TRight booleanT
-      --  else TLeft [IllTypedSubExpr [locs!!0,locs!!2] [t2] [ExpectedExactTp booleanT]]
-
 ----------------------------------------------------------------------
 -- Typing functions
 ----------------------------------------------------------------------
@@ -331,7 +323,7 @@ tpUarith env locs t _ua =
 -- applicable to both unary boolean as temporal modal operators
 tpUbool :: [SRng] -> Tp t -> TCEither (Tp t)
 tpUbool locs t =
-  expectBool locs t (TRight t)
+  expectBool locs t t
 
 tpUnaop :: Environment te -> [SRng] -> Tp t -> UnaOp -> TCEither (Tp t)
 tpUnaop env locs t uop = case uop of
@@ -366,8 +358,10 @@ tpBcompar env locs t1 t2 _bc =
   else tError (NonScalarExpr locs [t1, t2])
 
 tpBbool :: Environment te -> [SRng] -> Tp () -> Tp () -> BBoolOp -> TCEither (Tp ())
-tpBbool _env locs t1 t2 _bc =
-  expectBool [locs!!0,locs!!1] t1 (expectBool [locs!!0,locs!!2] t2 (TRight booleanT))
+tpBbool _env locs t1 t2 _bc = do
+  expectBool [locs!!0,locs!!1] t1 ()
+  expectBool [locs!!0,locs!!2] t2 ()
+  return booleanT
 
 
 tpBinop :: Environment te -> [SRng] -> Tp () -> Tp () -> BinOp -> TCEither (Tp ())
@@ -445,12 +439,12 @@ getTypeOfExpr = getType . annotOfExpr
 setType :: SRng -> a -> LocTypeAnnot a
 setType = LocTypeAnnot
 
-guardMsg :: [ErrorCause] -> Bool -> TCEither ()
+guardMsg :: ErrorCause -> Bool -> TCEither ()
 guardMsg _ True = TRight ()
-guardMsg e False = TLeft e
+guardMsg e False = TLeft [e]
 
-notBoolMsg :: SRng -> LocTypeAnnot (Tp ()) -> [ErrorCause]
-notBoolMsg loc t = [IllTypedSubExpr [loc, getLoc t] [typeAnnot t] [ExpectedExactTp booleanT]]
+notBoolMsg :: SRng -> LocTypeAnnot (Tp ()) -> ErrorCause
+notBoolMsg loc t = IllTypedSubExpr [loc, getLoc t] [typeAnnot t] [ExpectedExactTp booleanT]
 
 checkBooleanType :: SRng -> LocTypeAnnot (Tp ()) -> TCEither ()
 checkBooleanType loc t = guardMsg (notBoolMsg loc t) (isBooleanTp $ typeAnnot t)
@@ -458,10 +452,17 @@ checkBooleanType loc t = guardMsg (notBoolMsg loc t) (isBooleanTp $ typeAnnot t)
 checkCompatLeft :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
 checkCompatLeft env loc t1 t2 = typeAnnot t2 <$ guardMsg (incompatMsg loc t1 t2) (compatibleType env (typeAnnot t1) (typeAnnot t2))
   where
-  incompatMsg :: SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> [ErrorCause]
-  incompatMsg loc t1 t2 = [IncompatibleTp [loc, getLoc t1, getLoc t2] [typeAnnot t1, typeAnnot t2]]
+  incompatMsg :: SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> ErrorCause
+  incompatMsg loc t1 t2 = IncompatibleTp [loc, getLoc t1, getLoc t2] [typeAnnot t1, typeAnnot t2]
+
+expectBool :: [SRng] -> Tp t1 -> t -> TCEither t
+expectBool locs t u = 
+    u <$ guardMsg  notBooMsg' (isBooleanTp t)
+  where
+    notBooMsg' = IllTypedSubExpr locs [eraseAnn t] [ExpectedExactTp booleanT]
 
 
+-- | Returns the supertype if either of the two given types is a subtype of the other
 checkCompat :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
 checkCompat env ann t1 t2 = checkCompatLeft env ann t1 t2 <|> checkCompatLeft env ann t2 t1
 
@@ -563,14 +564,15 @@ tpRule env (Rule ann rn instr vds precond postcond) = do
   let tprecond = getTypeOfExpr teprecond
       tpostcond = getTypeOfExpr tepostcond
   -- TODO: Clean up more (with generic bool type check)
-  tres <- expectBool [getLoc ann, getLoc precond] tprecond (expectBool [getLoc ann, getLoc postcond] tpostcond (TRight tpostcond))
+  _prcres <- expectBool [getLoc ann, getLoc precond] tprecond ()
+  tres <- expectBool [getLoc ann, getLoc postcond] tpostcond tpostcond
   return $ (\t -> Rule (setType ann t) rn instr tpdVds teprecond tepostcond) tres
 
 tpAssertion :: Environment t -> Assertion Untyped -> TCEither (Assertion Typed)
 tpAssertion env (Assertion ann nm md e) = do
   te <- tpExpr env e
   let t = getTypeOfExpr te
-  tres <- expectBool [getLoc ann, getLoc e] t (TRight t)
+  tres <- expectBool [getLoc ann, getLoc e] t t
   return $ Assertion (setType ann tres) nm md te
 
 
