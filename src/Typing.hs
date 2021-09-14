@@ -252,6 +252,14 @@ isClassTp :: Tp t -> Bool
 isClassTp ClassT {} = True
 isClassTp _ = False
 
+expectBool :: [SRng] -> Tp t1 -> TCEither t -> TCEither t
+expectBool locs t u =
+  if isBooleanTp t
+  then u
+  else tError (IllTypedSubExpr locs [eraseAnn t] [ExpectedExactTp booleanT])
+      --  then TRight booleanT
+      --  else TLeft [IllTypedSubExpr [locs!!0,locs!!2] [t2] [ExpectedExactTp booleanT]]
+
 ----------------------------------------------------------------------
 -- Typing functions
 ----------------------------------------------------------------------
@@ -323,9 +331,7 @@ tpUarith env locs t _ua =
 -- applicable to both unary boolean as temporal modal operators
 tpUbool :: [SRng] -> Tp t -> TCEither (Tp t)
 tpUbool locs t =
-  if isBooleanTp t
-  then TRight t
-  else tError (IllTypedSubExpr locs [eraseAnn t] [ExpectedExactTp booleanT])
+  expectBool locs t (TRight t)
 
 tpUnaop :: Environment te -> [SRng] -> Tp t -> UnaOp -> TCEither (Tp t)
 tpUnaop env locs t uop = case uop of
@@ -361,11 +367,7 @@ tpBcompar env locs t1 t2 _bc =
 
 tpBbool :: Environment te -> [SRng] -> Tp () -> Tp () -> BBoolOp -> TCEither (Tp ())
 tpBbool _env locs t1 t2 _bc =
-  if isBooleanTp t1
-  then if isBooleanTp t2
-       then TRight booleanT
-       else tError (IllTypedSubExpr [locs!!0,locs!!2] [t2] [ExpectedExactTp booleanT])
-  else tError (IllTypedSubExpr [locs!!0,locs!!1] [t1] [ExpectedExactTp booleanT])
+  expectBool [locs!!0,locs!!1] t1 (expectBool [locs!!0,locs!!2] t2 (TRight booleanT))
 
 
 tpBinop :: Environment te -> [SRng] -> Tp () -> Tp () -> BinOp -> TCEither (Tp ())
@@ -561,20 +563,14 @@ tpRule env (Rule ann rn instr vds precond postcond) = do
   let tprecond = getTypeOfExpr teprecond
       tpostcond = getTypeOfExpr tepostcond
   -- TODO: Clean up more (with generic bool type check)
-  tres <- if isBooleanTp tprecond
-          then if isBooleanTp tpostcond
-                then TRight tpostcond
-                else tError (IllTypedSubExpr [getLoc ann, getLoc postcond] [tpostcond] [ExpectedExactTp booleanT])
-          else tError (IllTypedSubExpr [getLoc ann, getLoc precond] [tprecond] [ExpectedExactTp booleanT])
+  tres <- expectBool [getLoc ann, getLoc precond] tprecond (expectBool [getLoc ann, getLoc postcond] tpostcond (TRight tpostcond))
   return $ (\t -> Rule (setType ann t) rn instr tpdVds teprecond tepostcond) tres
 
 tpAssertion :: Environment t -> Assertion Untyped -> TCEither (Assertion Typed)
 tpAssertion env (Assertion ann nm md e) = do
   te <- tpExpr env e
   let t = getTypeOfExpr te
-  tres <- if isBooleanTp t
-            then TRight t
-            else tError (IllTypedSubExpr [getLoc ann, getLoc e] [t] [ExpectedExactTp booleanT])
+  tres <- expectBool [getLoc ann, getLoc e] t (TRight t)
   return $ Assertion (setType ann tres) nm md te
 
 
