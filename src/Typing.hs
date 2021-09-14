@@ -176,6 +176,7 @@ longestCommonPrefix _ _ = []
 -- that must at least have Object as common superclass
 leastCommonSuperClass :: Environment t -> ClassName -> ClassName -> ClassName
 leastCommonSuperClass env cn1 cn2 =
+  -- TODO: If possible, avoid partial functions like `last`
   last (longestCommonPrefix (reverse (superClassesOf env cn1)) (reverse (superClassesOf env cn2)))
 
 leastCommonSuperType :: Environment te -> Tp t -> Tp t -> Tp ()
@@ -382,18 +383,16 @@ castCompatible te ctp = True
 tpVar :: Environment te -> SRng -> Var t -> TCEither (Tp ())
 tpVar env loc (GlobalVar qvn) =
   let vn = nameOfQVarName qvn
-  in case lookup vn (globalsOfEnv env) of
-      Nothing -> case lookup vn (localsOfEnv env)of
+  in case lookup vn (globalsOfEnv env) <|> lookup vn (localsOfEnv env) of
         Nothing -> TLeft [UndeclaredVariable loc vn]
         Just t -> TRight t
-      Just t -> TRight t
-tpVar env _ (LocalVar _ _) = error "internal error: for type checking, variable should be GlobalVar"
+tpVar _env _ (LocalVar _ _) = error "internal error: for type checking, variable should be GlobalVar"
 
 varIdentityInEnv :: Environment te -> Var t -> Var t
 varIdentityInEnv (Env _ _ vds) (GlobalVar qvn) =
   let vn = nameOfQVarName qvn
   in maybe (GlobalVar qvn) (LocalVar qvn) (elemIndex vn (map fst vds))
-varIdentityInEnv env (LocalVar _ _) = error "internal error: for type checking, variable should be GlobalVar"
+varIdentityInEnv _env (LocalVar _ _) = error "internal error: for type checking, variable should be GlobalVar"
 
 pushLocalVarEnv :: VarEnvironment -> Environment t -> Environment t
 pushLocalVarEnv nvds (Env cls gv vds) = Env cls gv (reverse nvds ++ vds)
@@ -526,12 +525,12 @@ tpExpr env expr = case expr of
     te <- tpExpr env e
     let t  = getTypeOfExpr te
     -- TODO: Clean up more
-    tres <- case t of
-                  ClassT _ cn ->
-                      case lookup fn (map (\(FieldDecl _ fnl tp) -> (fnl, tp)) (fieldsOf env cn)) of
-                        Nothing -> TLeft [UnknownFieldName (getLoc e) fn cn]
-                        Just ft -> TRight (eraseAnn ft)
-                  _ -> TLeft [AccessToNonObjectType (getLoc e)]
+    cn <- case t of
+        ClassT _ cn -> pure cn
+        _ -> TLeft [AccessToNonObjectType (getLoc e)]
+    tres <- case lookup fn $ map (\(FieldDecl _ fnl tp) -> (fnl, tp)) (fieldsOf env cn) of
+        Nothing -> TLeft [UnknownFieldName (getLoc e) fn cn]
+        Just ft -> TRight (eraseAnn ft)
 
     return $ FldAccE (setType annot tres) te fn
 
