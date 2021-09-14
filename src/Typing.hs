@@ -217,11 +217,11 @@ kndType _kenv KindT = TRight KindT
 ----------------------------------------------------------------------
 
 
-checkSimpleTp :: String -> Tp t -> TCEither ()
-checkSimpleTp _ _ = undefined
+-- checkSimpleTp :: String -> Tp t -> TCEither ()
+-- checkSimpleTp _ _ = undefined
 
-checkBooleanTp :: Tp t -> TCEither ()
-checkBooleanTp = checkSimpleTp "Boolean"
+-- checkBooleanTp :: Tp t -> TCEither ()
+-- checkBooleanTp = checkSimpleTp "Boolean"
 
 isBooleanTp :: Tp t -> Bool
 isBooleanTp (ClassT _ (ClsNm "Boolean")) = True
@@ -325,6 +325,7 @@ tpUbool :: [SRng] -> Tp t -> TCEither (Tp t)
 tpUbool locs t =
   t <$ expectBool locs t
 
+-- TODO: Don't send along lists of ranges. Be more precise
 tpUnaop :: Environment te -> [SRng] -> Tp t -> UnaOp -> TCEither (Tp t)
 tpUnaop env locs t uop = case uop of
     UArith ua  -> tpUarith env locs t ua
@@ -451,7 +452,11 @@ checkBooleanType :: SRng -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
 checkBooleanType loc tl = t <$ guardMsg (notBoolMsg loc tl) (isBooleanTp t)
   where t = typeAnnot tl
 
+checkBoolTp :: HasAnnot f => SRng -> f Typed -> TCEither (Tp ())
+checkBoolTp loc te = checkBooleanType loc (getAnnot te)
+
 -- TODO: Make generic exact type helper
+{-# DEPRECATED expectBool "Use checkBoolTp instead if possible" #-}
 expectBool :: [SRng] -> Tp t -> TCEither ()
 expectBool locs t = 
     guardMsg  notBooMsg' (isBooleanTp t)
@@ -495,7 +500,7 @@ tpExpr env expr = case expr of
     -- Note that we could do better, since the condition check is independent from the compat check.
     -- ApplicativeDo could solve this, but might be a bit too magic
     (tc, t1, t2) <- (,,) <$> tpExpr env ec <*> tpExpr env e1 <*> tpExpr env e2
-    _ <- checkBooleanType annot (getAnnot tc)
+    _ <- checkBoolTp annot tc
     tRes <- checkCompat env annot (getAnnot t1) (getAnnot t2)
     return $ IfThenElseE (setType annot tRes) tc t1 t2
 
@@ -528,7 +533,7 @@ tpExpr env expr = case expr of
   QuantifE annot q v e -> do
     tv <- tpVarDecl env v
     te <- tpExpr (pushLocalVarDecl tv env) e
-    tres <- booleanT <$ checkBooleanType annot (getAnnot te)
+    tres <- booleanT <$ checkBoolTp annot te
     return $ QuantifE (setType annot tres) q tv te
 
   FldAccE annot e fn -> do
@@ -566,14 +571,14 @@ tpRule env (Rule ann rn instr vds precond postcond) = do
   let renv = pushLocalVarDecls vds env
   (teprecond, tepostcond)  <- (,) <$> tpExpr renv precond <*> tpExpr renv postcond
   -- These could be checked in "parallel" to get more errors at the same time
-  _prcres <- checkBooleanType ann (getAnnot teprecond)
-  tres <- checkBooleanType ann (getAnnot tepostcond) -- tpostcond == booleanT?
+  _tprec <- checkBoolTp ann teprecond
+  tres <- checkBoolTp ann tepostcond -- tpostcond == booleanT?
   return $ (\t -> Rule (setType ann t) rn instr tpdVds teprecond tepostcond) tres
 
 tpAssertion :: Environment t -> Assertion Untyped -> TCEither (Assertion Typed)
 tpAssertion env (Assertion ann nm md e) = do
   te <- tpExpr env e
-  tres <- checkBooleanType ann (getAnnot te)
+  tres <- checkBoolTp ann te
   return $ Assertion (setType ann tres) nm md te
 
 
