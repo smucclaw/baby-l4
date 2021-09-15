@@ -74,8 +74,8 @@ fieldAssoc = map (\(ClassDecl _ cn cdf) -> (cn, fieldsOfClassDef cdf))
 
 
 -- For a class name 'cn', returns
---   - either the list of the names of the (non-strict) superclasses of 'cn' (TRight: correct result)
---   - or (one of) the class names involved in a cyclic hierarchy (TLeft: corresponding to an error situation)
+--   - either the list of the names of the (non-strict) superclasses of 'cn' (Right: correct result)
+--   - or (one of) the class names involved in a cyclic hierarchy (Left: corresponding to an error situation)
 -- Here, 'cdf_assoc' is an association of class names and class defs as contained in a program.
 -- 'visited' is the list of class names already visited on the way up the class hierarchy
 superClassesConstr :: [(ClassName, ClassDef t)] -> [ClassName] -> ClassName -> Either ClassName [ClassName]
@@ -199,7 +199,7 @@ lookupClassDefInEnv env cn =
 kndType :: KindEnvironment -> Tp Untyped -> TCEither (Tp Typed)
 kndType kenv (ClassT ann cn) =
   if cn `elem` kenv
-  then TRight (ClassT (setType ann KindT) cn)
+  then pure (ClassT (setType ann KindT) cn)
   else tError (UndefinedClassInType ann cn)
 kndType kenv (FunT ann a b) = do
   (aI, bI) <- (,) <$> kndType kenv a <*> kndType kenv b
@@ -207,9 +207,9 @@ kndType kenv (FunT ann a b) = do
 kndType kenv (TupleT ann ts) = do
   subTs <- traverse (kndType kenv) ts
   return $ TupleT (setType ann KindT) subTs
-kndType _kenv ErrT = TRight ErrT
-kndType _kenv OkT = TRight OkT
-kndType _kenv KindT = TRight KindT
+kndType _kenv ErrT = pure ErrT
+kndType _kenv OkT = pure OkT
+kndType _kenv KindT = pure KindT
 
 
 ----------------------------------------------------------------------
@@ -270,25 +270,25 @@ pattern TLeft a = TCEither (Left a)
 {-# COMPLETE TRight, TLeft #-}
 
 instance Applicative TCEither where
-  pure x = TCEither (Right x)
-  (TCEither (Left ecs))  <*> (TCEither (Left ecs')) = TCEither $ Left $ ecs <> ecs'
-  (TCEither (Left ecs))  <*> (TCEither (Right _))   = TCEither $ Left ecs
-  (TCEither (Right _))   <*> (TCEither (Left ecs))  = TCEither $ Left ecs
-  (TCEither (Right fab)) <*> (TCEither (Right a))   = TCEither $ Right $ fab a
+  pure x = TRight x
+  (TLeft ecs)  <*> (TLeft ecs') = TLeft $ ecs <> ecs'
+  (TLeft ecs)  <*> (TRight _)   = TLeft ecs
+  (TRight _)   <*> (TLeft ecs)  = TLeft ecs
+  (TRight fab) <*> (TRight a)   = TRight $ fab a
 
 instance Alternative TCEither where
   empty = TCEither (Left [])
   -- | NB: This instance will throw away the error from the first option. This might be bad!
-  (TCEither (Left _)) <|> te' = te'
-  te@(TCEither (Right _)) <|> _ = te
+  (TLeft _) <|> te' = te'
+  te@(TRight _) <|> _ = te
 
 -- | WARNING: This instance behaves differently from the applicative instance!
 instance Monad TCEither where
-  (TCEither (Left ecs)) >>= _ = TCEither (Left ecs)
-  (TCEither (Right a)) >>= f = f a
+  (TLeft ecs) >>= _ = TLeft ecs
+  (TRight a) >>= f = f a
 
 tError :: ErrorCause -> TCEither t
-tError e = TLeft [e]
+tError e = TCEither $ Left [e]
 
 -- TODO: when removinv RecordV, the environment becomes superfluous
 tpConstval ::  Val -> Tp ()
@@ -326,7 +326,7 @@ triple2list (x,y,z) = [x,y,z]
 tpUarith :: Environment te -> Pair SRng -> Tp t -> UArithOp -> TCEither (Tp t)
 tpUarith env locs t _ua =
   if isNumberTp env t
-  then TRight t
+  then pure t
   else tError (IllTypedSubExpr (pair2list locs)  [eraseAnn t] [ExpectedSubTpOf (ClassT () (ClsNm "Number"))])
 
 -- applicable to both unary boolean as temporal modal operators
@@ -343,8 +343,8 @@ tpUnaop env locs t uop = case uop of
 
 -- TODO: The error message is inappropriate. Change when reworking the type checking algorithm
 tpTime :: Triple SRng -> Tp () -> Tp () -> BArithOp -> TCEither (Tp ())
-tpTime _ _ _  BAadd = TRight (ClassT () (ClsNm "Time"))
-tpTime _ _ _  BAsub = TRight (ClassT () (ClsNm "Time"))
+tpTime _ _ _  BAadd = pure (ClassT () (ClsNm "Time"))
+tpTime _ _ _  BAsub = pure (ClassT () (ClsNm "Time"))
 tpTime (loc0, loc1, _loc2) t1 _t2 _ = tError (IllTypedSubExpr [loc0,loc1] [t1] [ExpectedSubTpOf (ClassT () (ClsNm "Number"))])
 
 tpBarith :: Environment te -> Triple SRng -> Tp () -> Tp () -> BArithOp -> TCEither (Tp ())
@@ -354,7 +354,7 @@ tpBarith env locs@(l0,l1,l2) t1 t2 ba =
        then
          if isTimeTp t1 || isTimeTp t2
          then tpTime locs t1 t2 ba
-         else TRight (leastCommonSuperType env t1 t2)
+         else pure (leastCommonSuperType env t1 t2)
        else tError (IllTypedSubExpr [l0, l2] [t2] [ExpectedSubTpOf (ClassT () (ClsNm "Number"))])
   else tError (IllTypedSubExpr [l0, l1] [t1] [ExpectedSubTpOf (ClassT () (ClsNm "Number"))])
 
@@ -363,7 +363,7 @@ tpBcompar :: Environment te -> Triple SRng -> Tp () -> Tp () -> BComparOp -> TCE
 tpBcompar env locs t1 t2 _bc =
   if isScalarTp t1 && isScalarTp t2
   then if compatibleType env t1 t2 || compatibleType env t2 t1
-       then TRight booleanT
+       then pure booleanT
        else tError (IncompatibleTp (triple2list locs) [t1, t2])
   -- TODO: This location information isn't great!
   else tError (NonScalarExpr (triple2list locs) [t1, t2])
@@ -396,7 +396,7 @@ tpVar env loc (GlobalVar qvn) =
   let vn = nameOfQVarName qvn
   in case lookup vn (globalsOfEnv env) <|> lookup vn (localsOfEnv env) of
         Nothing -> tError (UndeclaredVariable loc vn)
-        Just t -> TRight t
+        Just t -> pure t
 tpVar _env _ (LocalVar _ _) = error "internal error: for type checking, variable should be GlobalVar"
 
 varIdentityInEnv :: Environment te -> Var t -> Var t
@@ -452,8 +452,8 @@ setType :: SRng -> a -> LocTypeAnnot a
 setType = LocTypeAnnot
 
 guardMsg :: ErrorCause -> Bool -> TCEither ()
-guardMsg _ True = TRight ()
-guardMsg e False = TLeft [e]
+guardMsg _ True = pure ()
+guardMsg e False = tError e
 
 notBoolMsg :: SRng -> LocTypeAnnot (Tp ()) -> ErrorCause
 notBoolMsg loc t = IllTypedSubExpr [loc, getLoc t] [typeAnnot t] [ExpectedExactTp booleanT]
@@ -485,10 +485,10 @@ expectBool locs t =
 
 -- | Verifies that the first type is a subtype of the second. If so, it returns the supertype
 checkCompatLeft :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
-checkCompatLeft env loc t1 t2 = typeAnnot t2 <$ guardMsg incompatMsg (compatibleType env (typeAnnot t1) (typeAnnot t2))
+checkCompatLeft env loc (LocTypeAnnot loc1 t1) (LocTypeAnnot loc2 t2) = t2 <$ guardMsg incompatMsg (compatibleType env t1 t2)
   where
-  incompatMsg :: ErrorCause
-  incompatMsg = IncompatibleTp [loc, getLoc t1, getLoc t2] [typeAnnot t1, typeAnnot t2]
+    incompatMsg :: ErrorCause
+    incompatMsg = IncompatibleTp [loc, loc1, loc2] [t1, t2]
 
 
 -- | Returns the supertype if either of the two given types is a subtype of the other
@@ -529,11 +529,11 @@ tpExpr env expr = case expr of
     -- TODO: Clean this up more
     let
       isFunction tf = case tf of
-        FunT _ tpar tbody -> TRight (tpar, tbody)
+        FunT _ tpar tbody -> pure (tpar, tbody)
         _ -> tError (NonFunctionTp [getLoc annot, getLoc fe] tf)
       isCompatible ta tpar tbody =
         if compatibleType env ta tpar
-        then TRight tbody
+        then pure tbody
         else tError (IllTypedSubExpr [getLoc annot, getLoc ae] [ta] [ExpectedSubTpOf tpar])
 
     (tfe, tae) <- (,) <$> tpExpr env fe <*> tpExpr env ae
@@ -565,7 +565,7 @@ tpExpr env expr = case expr of
         _ -> tError (AccessToNonObjectType (getLoc e))
     tres <- case lookup fn $ map (\(FieldDecl _ fnl tp) -> (fnl, tp)) (fieldsOf env cn) of
         Nothing -> tError (UnknownFieldName (getLoc e) fn cn)
-        Just ft -> TRight (eraseAnn ft)
+        Just ft -> pure (eraseAnn ft)
 
     return $ FldAccE (setType annot tres) te fn
 
@@ -579,7 +579,7 @@ tpExpr env expr = case expr of
     let ctpEr = eraseAnn ctp
         t  = getTypeOfExpr te
     tres <- if castCompatible t ctpEr
-               then TRight ctpEr
+               then pure ctpEr
                else tError (CastIncompatible [getLoc annot, getLoc e] t ctpEr)
     return $ CastE (setType annot tres) (addDummyTypes ctp) te
 
@@ -619,7 +619,7 @@ checkClassesForWfError cds prg =
   in
     case filter (not . definedSuperclass class_names) cds of
       [] -> case duplicates class_names of
-              [] -> TRight prg
+              [] -> pure prg
               ds -> tError (DuplicateClassNamesCDEErr [(getLoc cd, nameOfClassDecl cd) | cd <- cds, nameOfClassDecl cd `elem` ds])
       undefs -> tError (UndefinedSuperclassCDEErr (map (\cd -> (getLoc cd, nameOfClassDecl cd)) undefs))
 
@@ -635,7 +635,7 @@ checkClassesForCyclicError preludeCds prg =
      []   -> let newProgElems = map ClassDeclTLE preludeCds ++ elementsOfNewProgram prg
                  elabSupers = map (mapClassDecl (elaborateSupersInClassDecl (superClasses cdfAssoc))) newProgElems
                  elabFields = map (mapClassDecl (elaborateFieldsInClassDecl (fieldAssoc cds))) elabSupers
-             in TRight (prg {elementsOfNewProgram = elabFields})
+             in pure (prg {elementsOfNewProgram = elabFields})
      cycs -> tError (CyclicClassHierarchyCDEErr
                 [(getLoc cd, nameOfClassDecl cd)| cd <- cds, nameOfClassDecl cd `elem` cycs])
 
@@ -657,7 +657,7 @@ checkDuplicateFieldNamesFDE ::HasLoc t =>  NewProgram t -> TCEither (NewProgram 
 checkDuplicateFieldNamesFDE prg =
   let classDeclsWithDup = [cd | cd <- classDeclsOfNewProgram prg, not (null (duplicates (map nameOfFieldDecl ((fieldsOfClassDef . defOfClassDecl)  cd)))) ]
   in case classDeclsWithDup of
-    [] -> TRight prg
+    [] -> pure prg
     cds -> tError (DuplicateFieldNamesFDEErr
               (map (\cd -> (getLoc cd, nameOfClassDecl cd,
                     map (\fd -> (getLoc fd, nameOfFieldDecl fd)) (duplicatesWrtFun nameOfFieldDecl (fieldsOfClassDef (defOfClassDecl cd)))))
@@ -685,7 +685,7 @@ checkFieldDeclsError prg =
 checkDuplicateVarNamesVDE :: HasLoc t => NewProgram t -> TCEither (NewProgram t)
 checkDuplicateVarNamesVDE prg =
   case duplicatesWrtFun nameOfVarDecl (globalsOfNewProgram  prg) of
-    [] -> TRight prg
+    [] -> pure prg
     vds -> tError (DuplicateVarNamesVDEErr (map (\vd -> (getLoc vd, nameOfVarDecl vd)) vds))
 
 checkUndefinedTypeVDE :: NewProgram Untyped -> TCEither (NewProgram Untyped)
@@ -708,7 +708,7 @@ tpComponent :: Environment t-> TopLevelElement Untyped -> TCEither (TopLevelElem
 tpComponent env e = case e of
   AssertionTLE c -> fmap AssertionTLE (tpAssertion env c)
   RuleTLE c -> fmap RuleTLE (tpRule env c)
-  x -> TRight $ addDummyTypes x
+  x -> pure $ addDummyTypes x
 
 checkComponentsError :: NewProgram Untyped -> TCEither (NewProgram Typed)
 checkComponentsError  prg = do
@@ -836,7 +836,7 @@ wellFormedTASys env (TASys tas ext) =
 Contrary to the TCEither type used above, the result returned is not either an error or a typed expression,
 but both. The advantages of such a type could be twofold:
 (1) Even in the case of type errors, the parts of the syntax tree without errors could be explored and provide type information.
-(2) The current algorithm no longer relies on lazy evaluation (e.g. the frequent getTypeOfExpr (fromTRight ...)). This could be avoided
+(2) The current algorithm no longer relies on lazy evaluation (e.g. the former frequent getTypeOfExpr (fromTRight ...)). This could be avoided
     with the TCResult type.
 -}
 
