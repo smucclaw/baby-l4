@@ -110,6 +110,7 @@ testHover testName filename position expectedRange containedText =
             Just
               Hover{_contents = (HoverContents MarkupContent{_value = msg})
                    ,_range    = rangeInHover } -> pure (msg, rangeInHover)
+            (Just hov) -> liftIO . assertFailure $ "Unexpected hover type: " ++ show hov
         -- liftIO $ print (hoverText, hoverRange)
         liftIO $ hoverRange @?= Just expectedRange
         liftIO $ assertFoundIn "hover message" containedText hoverText
