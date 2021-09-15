@@ -23,9 +23,16 @@ import Error
 import Syntax
 import Control.Applicative ((<|>), Alternative (empty))
 
+-- * Main API
+
+-- | Given the AST for the prelude and a module, return either a list of type errors or a typechecked module
+-- TODO: remove "mapLeft ErrorCauseErr" to get a TCEither (NewProgram (LocTypeAnnot (Tp())))
+checkError :: NewProgram Untyped -> NewProgram Untyped -> Either Error (NewProgram Typed)
+checkError prelude prg = mapLeft ErrorCauseErr (getEither $ checkErrorLift prelude prg)
+
 
 ----------------------------------------------------------------------
--- Environment
+-- * Environment
 ----------------------------------------------------------------------
 
 -- Typing is done in an environment, composed of
@@ -49,7 +56,7 @@ initialEnvOfProgram cds gvars =
 
 
 ----------------------------------------------------------------------
--- Elementary functions
+-- * Elementary functions
 ----------------------------------------------------------------------
 
 
@@ -63,7 +70,7 @@ eraseAnn t = () <$ t
 
 
 ----------------------------------------------------------------------
--- Class manipulation
+-- * Class manipulation
 ----------------------------------------------------------------------
 
 classDefAssoc :: [ClassDecl t] -> [(ClassName, ClassDef t)]
@@ -193,7 +200,7 @@ lookupClassDefInEnv env cn =
 
 
 ----------------------------------------------------------------------
--- Checking types wrt. a kind environment
+-- * Checking types wrt. a kind environment
 ----------------------------------------------------------------------
 
 kndType :: KindEnvironment -> Tp Untyped -> TCEither (Tp Typed)
@@ -213,7 +220,7 @@ kndType _kenv KindT = pure KindT
 
 
 ----------------------------------------------------------------------
--- Linking classes from the prelude to internal predicates
+-- * Linking classes from the prelude to internal predicates
 ----------------------------------------------------------------------
 
 
@@ -253,7 +260,7 @@ getClassName (ClassT _ cn) = Just cn
 getClassName _ = Nothing
 
 ----------------------------------------------------------------------
--- Typing functions
+-- * Typing checking monad
 ----------------------------------------------------------------------
 
 -- type TCEither t = Either [ErrorCause] t
@@ -289,6 +296,59 @@ instance Monad TCEither where
 
 tError :: ErrorCause -> TCEither t
 tError e = TCEither $ Left [e]
+
+guardMsg :: ErrorCause -> Bool -> TCEither ()
+-- guardMsg _ True = pure ()
+-- guardMsg e False = tError e
+guardMsg msg cond = if cond then pure () else tError msg
+
+maybeToTCEither :: ErrorCause -> Maybe a -> TCEither a
+-- maybeToTCEither e ma = case ma of
+--    Nothing -> tError e
+--    (Just a) -> pure a
+maybeToTCEither e Nothing = tError e
+maybeToTCEither _ (Just a) = pure a
+
+notBoolMsg :: SRng -> LocTypeAnnot (Tp ()) -> ErrorCause
+notBoolMsg loc t = IllTypedSubExpr [loc, getLoc t] [typeAnnot t] [ExpectedExactTp booleanT]
+
+-- checkExpectSubtypeOf :: (HasAnnot f, TypeCheck f) => Tp () -> Environment te -> SRng -> f Untyped -> TCEither (f Typed, Tp ()) -- Hmm?
+-- checkExpectExactType :: (HasAnnot f, TypeCheck f) => Tp () -> Environment te -> SRng -> f Untyped -> TCEither (f Typed)
+-- checkExpectBooleanType :: (HasAnnot f, TypeCheck f) => Environment te -> SRng -> f Untyped -> TCEither (f Typed)
+-- expectBooleanType :: (HasAnnot f) => SRng -> f Typed -> TCEither (Tp ())
+checkBooleanType :: SRng -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
+checkBooleanType loc tl = t <$ guardMsg (notBoolMsg loc tl) (isBooleanTp t)
+  where t = typeAnnot tl
+
+checkBoolTp :: HasAnnot f => SRng -> f Typed -> TCEither (Tp ())
+checkBoolTp loc te = checkBooleanType loc (getAnnot te)
+
+expectNumericTp :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> TCEither ()
+expectNumericTp env loc (LocTypeAnnot locT t) = guardMsg msg (isNumberTp env t)
+  where msg = IllTypedSubExpr [loc, locT]  [t] [ExpectedSubTpOf numberT]
+
+
+-- TODO: Make generic exact type helper
+-- TODO: Make a class for type checking
+-- TODO: Make a combined function for calling recursive type checker and verifying that it has expected type
+-- TODO: Make TCEither an instance of an appropriate error monad class
+-- TODO: Make a reader monad with Environment and the location context
+
+-- | Verifies that the first type is a subtype of the second. If so, it returns the supertype
+checkCompatLeft :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
+checkCompatLeft env loc (LocTypeAnnot loc1 t1) (LocTypeAnnot loc2 t2) = t2 <$ guardMsg incompatMsg (compatibleType env t1 t2)
+  where
+    incompatMsg :: ErrorCause
+    incompatMsg = IncompatibleTp [loc, loc1, loc2] [t1, t2]
+
+
+-- | Returns the supertype if either of the two given types is a subtype of the other
+checkCompat :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
+checkCompat env ann t1 t2 = checkCompatLeft env ann t1 t2 <|> checkCompatLeft env ann t2 t1
+
+----------------------------------------------------------------------
+-- * Typing functions
+----------------------------------------------------------------------
 
 -- TODO: when removinv RecordV, the environment becomes superfluous
 tpConstval ::  Val -> Tp ()
@@ -440,55 +500,6 @@ getTypeOfExpr = getType . annotOfExpr
 setType :: SRng -> a -> LocTypeAnnot a
 setType = LocTypeAnnot
 
-guardMsg :: ErrorCause -> Bool -> TCEither ()
--- guardMsg _ True = pure ()
--- guardMsg e False = tError e
-guardMsg msg cond = if cond then pure () else tError msg
-
-maybeToTCEither :: ErrorCause -> Maybe a -> TCEither a
--- maybeToTCEither e ma = case ma of
---    Nothing -> tError e
---    (Just a) -> pure a
-maybeToTCEither e Nothing = tError e
-maybeToTCEither _ (Just a) = pure a
-
-notBoolMsg :: SRng -> LocTypeAnnot (Tp ()) -> ErrorCause
-notBoolMsg loc t = IllTypedSubExpr [loc, getLoc t] [typeAnnot t] [ExpectedExactTp booleanT]
-
--- checkExpectSubtypeOf :: (HasAnnot f, TypeCheck f) => Tp () -> Environment te -> SRng -> f Untyped -> TCEither (f Typed, Tp ()) -- Hmm?
--- checkExpectExactType :: (HasAnnot f, TypeCheck f) => Tp () -> Environment te -> SRng -> f Untyped -> TCEither (f Typed)
--- checkExpectBooleanType :: (HasAnnot f, TypeCheck f) => Environment te -> SRng -> f Untyped -> TCEither (f Typed)
--- expectBooleanType :: (HasAnnot f) => SRng -> f Typed -> TCEither (Tp ())
-checkBooleanType :: SRng -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
-checkBooleanType loc tl = t <$ guardMsg (notBoolMsg loc tl) (isBooleanTp t)
-  where t = typeAnnot tl
-
-checkBoolTp :: HasAnnot f => SRng -> f Typed -> TCEither (Tp ())
-checkBoolTp loc te = checkBooleanType loc (getAnnot te)
-
-expectNumericTp :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> TCEither ()
-expectNumericTp env loc (LocTypeAnnot locT t) = guardMsg msg (isNumberTp env t)
-  where msg = IllTypedSubExpr [loc, locT]  [t] [ExpectedSubTpOf numberT]
-
-
--- TODO: Make generic exact type helper
--- TODO: Make a class for type checking
--- TODO: Make a combined function for calling recursive type checker and verifying that it has expected type
--- TODO: Make TCEither an instance of an appropriate error monad class
--- TODO: Make a reader monad with Environment and the location context
-
--- | Verifies that the first type is a subtype of the second. If so, it returns the supertype
-checkCompatLeft :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
-checkCompatLeft env loc (LocTypeAnnot loc1 t1) (LocTypeAnnot loc2 t2) = t2 <$ guardMsg incompatMsg (compatibleType env t1 t2)
-  where
-    incompatMsg :: ErrorCause
-    incompatMsg = IncompatibleTp [loc, loc1, loc2] [t1, t2]
-
-
--- | Returns the supertype if either of the two given types is a subtype of the other
-checkCompat :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
-checkCompat env ann t1 t2 = checkCompatLeft env ann t1 t2 <|> checkCompatLeft env ann t2 t1
-
 
 -- TODO: check well-formedness of types in function abstraction and in quantification
 tpExpr :: Environment te -> Expr Untyped -> TCEither (Expr Typed)
@@ -599,7 +610,8 @@ tpVarDecl env (VarDecl ann vn tp) = do
 
 
 ----------------------------------------------------------------------
--- Class declaration errors
+-- * Class declaration errors
+----------------------------------------------------------------------
 
 
 checkClassesForWfError :: HasLoc t => [ClassDecl t] -> p -> TCEither p
@@ -640,7 +652,8 @@ checkClassDeclsError prelude prg =
 
 
 ----------------------------------------------------------------------
--- Field declaration errors
+-- * Field declaration errors
+----------------------------------------------------------------------
 
 checkDuplicateFieldNamesFDE ::HasLoc t =>  NewProgram t -> TCEither (NewProgram t)
 checkDuplicateFieldNamesFDE prg =
@@ -669,7 +682,8 @@ checkFieldDeclsError prg =
 
 
 ----------------------------------------------------------------------
--- Global variable declaration errors
+-- * Global variable declaration errors
+----------------------------------------------------------------------
 
 checkDuplicateVarNamesVDE :: HasLoc t => NewProgram t -> TCEither (NewProgram t)
 checkDuplicateVarNamesVDE prg =
@@ -691,7 +705,8 @@ checkVarDeclsError prg =
 
 
 ----------------------------------------------------------------------
--- Errors in Rules and Assertions
+-- * Errors in Rules and Assertions
+----------------------------------------------------------------------
 
 tpComponent :: Environment t-> TopLevelElement Untyped -> TCEither (TopLevelElement Typed)
 tpComponent env e = case e of
@@ -726,12 +741,6 @@ liftLoc rng  = LocTypeAnnot rng OkT
 -- | Since we don't have a distinction between type annotations and location annotations, we need to add dummy types ('OkT') in some nodes
 addDummyTypes :: Functor f => f Untyped -> f Typed
 addDummyTypes = fmap liftLoc
-
--- | Given the AST for the prelude and a module, return either a list of type errors or a typechecked module
--- TODO: remove "mapLeft ErrorCauseErr" to get a TCEither (NewProgram (LocTypeAnnot (Tp())))
-checkError :: NewProgram Untyped -> NewProgram Untyped -> Either Error (NewProgram Typed)
-checkError prelude prg = mapLeft ErrorCauseErr (getEither $ checkErrorLift prelude prg)
-
 
 ----------------------------------------------------------------------
 -- Typing Timed Automata
