@@ -9,19 +9,19 @@ import Language.LSP.Types
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import qualified Data.Text as T
 import qualified Language.LSP.Types as J
-import L4LSP (handleUriErrs, LspError (ReadFileErr))
+import L4LSP (handleUriErrs, LspError (ReadFileErr), realSRngToRange, posToPosition)
 import Lexer (Err(Err))
-import Annotation (SRng(DummySRng))
+import Annotation (SRng(DummySRng), Pos (Pos), RealSRng(..))
 
 main :: IO ()
 main = defaultMain $ testGroup "Tests" [hoverTests, hoverTypeInfoTests, typeCheckerTests, unitTests]
 
 -- | Takes 1-indexed range positions and converts them to 0-indexed range positions for LSP-server
 mkRange' :: Int -> Int -> Int -> Int -> Range
-mkRange' l1 c1 l2 c2 = mkRange (l1-1) (c1-1) (l2-1) (c2-1)
+mkRange' l1 c1 l2 c2 = realSRngToRange $ SRng (Pos l1 c1) (Pos l2 c2)
 
 mkPosition :: Int -> Int -> Position
-mkPosition l c = Position (l-1) (c-1)
+mkPosition l c = posToPosition $ Pos l c
 
 hoverTests :: TestTree
 hoverTests = testGroup "Hover tests"

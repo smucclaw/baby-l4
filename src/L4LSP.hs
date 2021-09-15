@@ -256,10 +256,16 @@ posInRange (Position line col) srng = case sRngToRange srng of
   Nothing -> False
 
 
--- | Convert l4 source ranges to lsp source ranges
+-- | Convert 1-indexed l4 source ranges to 0-indexed lsp source ranges
 sRngToRange :: SRng -> Maybe Range
-sRngToRange (RealSRng (SRng (Pos l1 c1) (Pos l2 c2))) = Just $ Range (Position (l1-1) (c1-1)) (Position (l2-1) (c2-1))
+sRngToRange (RealSRng srng) = Just $ realSRngToRange srng
 sRngToRange (DummySRng _) = Nothing
+
+realSRngToRange :: RealSRng -> Range
+realSRngToRange (SRng p1 p2) = Range (posToPosition p1) (posToPosition p2)
+
+posToPosition :: Pos -> Position
+posToPosition (Pos l c) = Position (l-1) (c-1)
 
 -- | Extract the range from an alex/happy error
 errorRange :: Err -> Range
