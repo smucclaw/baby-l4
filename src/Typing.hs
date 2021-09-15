@@ -458,6 +458,10 @@ guardMsg e False = TLeft [e]
 notBoolMsg :: SRng -> LocTypeAnnot (Tp ()) -> ErrorCause
 notBoolMsg loc t = IllTypedSubExpr [loc, getLoc t] [typeAnnot t] [ExpectedExactTp booleanT]
 
+-- checkExpectSubtypeOf :: (HasAnnot f, TypeCheck f) => Tp () -> Environment te -> SRng -> f Untyped -> TCEither (f Typed, Tp ()) -- Hmm?
+-- checkExpectExactType :: (HasAnnot f, TypeCheck f) => Tp () -> Environment te -> SRng -> f Untyped -> TCEither (f Typed)
+-- checkExpectBooleanType :: (HasAnnot f, TypeCheck f) => Environment te -> SRng -> f Untyped -> TCEither (f Typed)
+-- expectBooleanType :: (HasAnnot f) => SRng -> f Typed -> TCEither (Tp ())
 checkBooleanType :: SRng -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
 checkBooleanType loc tl = t <$ guardMsg (notBoolMsg loc tl) (isBooleanTp t)
   where t = typeAnnot tl
@@ -472,6 +476,12 @@ expectBool locs t =
     guardMsg  notBooMsg' (isBooleanTp t)
   where
     notBooMsg' = IllTypedSubExpr (pair2list locs) [eraseAnn t] [ExpectedExactTp booleanT]
+
+-- TODO: Make a class for type checking
+-- TODO: Make a combined function for calling recursive type checker and verifying that it has expected type
+-- TODO: Clean up the tuple thingies (using similar structure as with the checkBoolTp)
+-- TODO: Make TCEither an instance of an appropriate error monad class
+-- TODO: Make a reader monad with Environment and the location context
 
 -- | Verifies that the first type is a subtype of the second. If so, it returns the supertype
 checkCompatLeft :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
