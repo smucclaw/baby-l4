@@ -18,11 +18,11 @@ main :: IO ()
 main = defaultMain $ testGroup "Tests" [hoverTests, hoverTypeInfoTests, typeCheckerTests, unitTests]
 
 -- | Takes 1-indexed range positions and converts them to 0-indexed range positions for LSP-server
-mkRange' :: Int -> Int -> Int -> Int -> Range
-mkRange' l1 c1 l2 c2 = realSRngToRange $ SRng (Pos l1 c1) (Pos l2 c2)
+mkRange' :: Int -> Int -> Int -> Int -> RealSRng
+mkRange' l1 c1 l2 c2 = SRng (Pos l1 c1) (Pos l2 c2)
 
-mkPosition :: Int -> Int -> Position
-mkPosition l c = posToPosition $ Pos l c
+mkPosition :: Int -> Int -> Pos
+mkPosition = Pos
 
 hoverTests :: TestTree
 hoverTests = testGroup "Hover tests"
@@ -68,15 +68,15 @@ typeCheckerTests = testGroup "Type Error tests"
       ]
   , testGroup "RuleError"
       [
-        testTypeErrs "undeclVar.l4            undefined variable AssociatedWithAppB"                    "RuleAssertionError/undeclVar.l4"             (mkRange 6 27 6 45)   3 "Variable AssociatedWithAppB at (7,28) .. (7,46) is undefined."
-      , testTypeErrs "illTypedSubExpr.l4      has type Boolean but a subtype of Number was expected"    "RuleAssertionError/illTypedSubExpr.l4"       (mkRange 1 4  1 12)   2 "has type Boolean but a subtype of Number was expected"
-      , testTypeErrs "incompatibleTps.l4      types are not compatible"                                 "RuleAssertionError/incompatibleTps.l4"       (mkRange 1 3  1 14)   3 "The types are not compatible (one is subtype of the other)"
-      , testTypeErrs "nonScalarTps.l4         at least one type is non-scalar"                          "RuleAssertionError/nonScalarTps.l4"          (mkRange 4 3  4 24)   3 "At least one type is not scalar (non-functional)"
-      , testTypeErrs "nonFunctionTp.l4        which is not a functional type"                           "RuleAssertionError/nonFunctionTp.l4"         (mkRange 7 39 7 46)   2 "which is not a functional type"
+        testTypeErrs "undeclVar.l4            undefined variable AssociatedWithAppB"                    "RuleAssertionError/undeclVar.l4"             (mkRange' 7 28 7 46)   3 "Variable AssociatedWithAppB at (7,28) .. (7,46) is undefined."
+      , testTypeErrs "illTypedSubExpr.l4      has type Boolean but a subtype of Number was expected"    "RuleAssertionError/illTypedSubExpr.l4"       (mkRange' 2 5  2 13)   2 "has type Boolean but a subtype of Number was expected"
+      , testTypeErrs "incompatibleTps.l4      types are not compatible"                                 "RuleAssertionError/incompatibleTps.l4"       (mkRange' 2 4  2 15)   3 "The types are not compatible (one is subtype of the other)"
+      , testTypeErrs "nonScalarTps.l4         at least one type is non-scalar"                          "RuleAssertionError/nonScalarTps.l4"          (mkRange' 5 4  5 25)   3 "At least one type is not scalar (non-functional)"
+      , testTypeErrs "nonFunctionTp.l4        which is not a functional type"                           "RuleAssertionError/nonFunctionTp.l4"         (mkRange' 8 40 8 47)   2 "which is not a functional type"
       -- Tuple patterns no longer exists
-      -- , testTypeErrs "incompatiblePattern.l4  variable pattern & expected type are incompatible"        "RuleAssertionError/incompatiblePattern.l4"   (mkRange 1 3  1 34)   1 "the variable pattern and its type are incompatible"
-      , testTypeErrs "unknownFieldName.l4  access to an unknown field"                                  "RuleAssertionError/unknownFieldName.l4"      (mkRange 10 8 10 9)   1 "access to an unknown field"
-      , testTypeErrs "accessToNonObjectTp.l4  access to a field of a non-object type"                   "RuleAssertionError/accessToNonObjectTp.l4"   (mkRange 3 4 3 5)     1 "access to an unknown field De in class Boolean"
+      -- , testTypeErrs "incompatiblePattern.l4  variable pattern & expected type are incompatible"        "RuleAssertionError/incompatiblePattern.l4"   (mkRange' 2 4  2 35)   1 "the variable pattern and its type are incompatible"
+      , testTypeErrs "unknownFieldName.l4  access to an unknown field"                                  "RuleAssertionError/unknownFieldName.l4"      (mkRange' 11 9 11 10)   1 "access to an unknown field"
+      , testTypeErrs "accessToNonObjectTp.l4  access to a field of a non-object type"                   "RuleAssertionError/accessToNonObjectTp.l4"   (mkRange' 4 5 4 6)     1 "access to an unknown field De in class Boolean"
       ]
   ]
 
@@ -95,8 +95,8 @@ unitTests = testGroup "Unit tests"
 -- any performance difference anyways.
 testHover :: TestName -- ^ Description of the test case
   -> FilePath -- ^ The file to test
-  -> Position -- ^ Where in the file to hover (0-indexed)
-  -> Range -- ^ Which range should highlight when you hover
+  -> Pos -- ^ Where in the file to hover (0-indexed)
+  -> RealSRng -- ^ Which range should highlight when you hover
   -> T.Text -- ^ A string that should be contained in the hover message
   -> TestTree
 testHover testName filename position expectedRange containedText =
@@ -104,7 +104,7 @@ testHover testName filename position expectedRange containedText =
     runSession "lsp-server-bl4" fullCaps "lsp-tests/examples/hoverError" $ do
         doc <- openDoc filename "l4"
         diags <- waitForDiagnostics
-        hover <- getHover doc position
+        hover <- getHover doc $ posToPosition position
         (hoverText, hoverRange) <- case hover of
             Nothing -> liftIO . assertFailure $ "Got no hover"
             Just
@@ -112,7 +112,7 @@ testHover testName filename position expectedRange containedText =
                    ,_range    = rangeInHover } -> pure (msg, rangeInHover)
             (Just hov) -> liftIO . assertFailure $ "Unexpected hover type: " ++ show hov
         -- liftIO $ print (hoverText, hoverRange)
-        liftIO $ hoverRange @?= Just expectedRange
+        liftIO $ hoverRange @?= Just (realSRngToRange expectedRange)
         liftIO $ assertFoundIn "hover message" containedText hoverText
         pure ()
 
@@ -123,7 +123,7 @@ testTypeErrs
   :: HasCallStack
   => TestName
   -> FilePath -- ^ The file to test
-  -> Range -- ^ expected range of error (0 - indexed)
+  -> RealSRng -- ^ expected range of error (0 - indexed)
   -> Int    -- ^ number of errors expected        -- TODO: maybe take a list of errors to check for instead?
   -> T.Text -- ^ expected error message
   -> TestTree
@@ -143,7 +143,7 @@ testTypeErrs testName fileName expectedRange numDiags containedText =
                   _
                  = head diags
 
-        liftIO $ assertEqual ("Wrong range for error message: " ++ show errMsg) expectedRange range
+        liftIO $ assertEqual ("Wrong range for error message: " ++ show errMsg) (realSRngToRange expectedRange) range
         liftIO $ assertFoundIn "type error" containedText errMsg
         pure ()
 
