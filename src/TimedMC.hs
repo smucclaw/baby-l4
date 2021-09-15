@@ -43,10 +43,6 @@ TCTL formulas are composed of:
 stateT :: Tp ()
 stateT = ClassT () (ClsNm "State")
 
--- already contained in Prelude as subtype of Float
-timeT :: Tp ()
-timeT  = ClassT () (ClsNm "Time")
-
 locPar :: Int -> Var (Tp ())
 locPar = LocalVar (QVarName stateT  "st")
 

@@ -223,6 +223,11 @@ floatT :: Tp ()
 floatT = ClassT () (ClsNm "Float")
 stringT :: Tp ()
 stringT = ClassT () (ClsNm "String")
+-- already contained in Prelude as subtype of Float
+timeT :: Tp ()
+timeT = ClassT () (ClsNm "Time")
+numberT :: Tp ()
+numberT = ClassT () (ClsNm "Number")
 
 data VarDecl t = VarDecl {annotOfVarDecl :: t, nameOfVarDecl :: VarName, tpOfVarDecl :: Tp t}
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)

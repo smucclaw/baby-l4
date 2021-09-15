@@ -327,7 +327,7 @@ tpUarith :: Environment te -> Pair SRng -> Tp t -> UArithOp -> TCEither (Tp t)
 tpUarith env locs t _ua =
   if isNumberTp env t
   then pure t
-  else tError (IllTypedSubExpr (pair2list locs)  [eraseAnn t] [ExpectedSubTpOf (ClassT () (ClsNm "Number"))])
+  else tError (IllTypedSubExpr (pair2list locs)  [eraseAnn t] [ExpectedSubTpOf numberT])
 
 -- applicable to both unary boolean as temporal modal operators
 tpUbool :: Pair SRng -> Tp t -> TCEither (Tp t)
@@ -343,9 +343,9 @@ tpUnaop env locs t uop = case uop of
 
 -- TODO: The error message is inappropriate. Change when reworking the type checking algorithm
 tpTime :: Triple SRng -> Tp () -> Tp () -> BArithOp -> TCEither (Tp ())
-tpTime _ _ _  BAadd = pure (ClassT () (ClsNm "Time"))
-tpTime _ _ _  BAsub = pure (ClassT () (ClsNm "Time"))
-tpTime (loc0, loc1, _loc2) t1 _t2 _ = tError (IllTypedSubExpr [loc0,loc1] [t1] [ExpectedSubTpOf (ClassT () (ClsNm "Number"))])
+tpTime _ _ _  BAadd = pure timeT
+tpTime _ _ _  BAsub = pure timeT
+tpTime (loc0, loc1, _loc2) t1 _t2 _ = tError (IllTypedSubExpr [loc0,loc1] [t1] [ExpectedSubTpOf numberT])
 
 tpBarith :: Environment te -> Triple SRng -> Tp () -> Tp () -> BArithOp -> TCEither (Tp ())
 tpBarith env locs@(l0,l1,l2) t1 t2 ba =
@@ -355,8 +355,8 @@ tpBarith env locs@(l0,l1,l2) t1 t2 ba =
          if isTimeTp t1 || isTimeTp t2
          then tpTime locs t1 t2 ba
          else pure (leastCommonSuperType env t1 t2)
-       else tError (IllTypedSubExpr [l0, l2] [t2] [ExpectedSubTpOf (ClassT () (ClsNm "Number"))])
-  else tError (IllTypedSubExpr [l0, l1] [t1] [ExpectedSubTpOf (ClassT () (ClsNm "Number"))])
+       else tError (IllTypedSubExpr [l0, l2] [t2] [ExpectedSubTpOf numberT])
+  else tError (IllTypedSubExpr [l0, l1] [t1] [ExpectedSubTpOf numberT])
 
 -- TODO: more liberal condition for comparison?
 tpBcompar :: Environment te -> Triple SRng -> Tp () -> Tp () -> BComparOp -> TCEither (Tp ())
