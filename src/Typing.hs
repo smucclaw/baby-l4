@@ -18,10 +18,10 @@ import Data.List.Utils ( countElem )
 
 
 import Annotation
-    ( LocTypeAnnot(LocTypeAnnot, typeAnnot), SRng, TypeAnnot(..), HasLoc(..), HasAnnot (getAnnot) )
+    ( LocTypeAnnot(LocTypeAnnot), SRng, TypeAnnot(..), HasLoc(..), HasAnnot (getAnnot) )
 import Error
 import Syntax
-import Control.Applicative ((<|>), Alternative (empty))
+import Control.Applicative (Alternative ((<|>), empty))
 
 -- * Main API
 
@@ -312,22 +312,23 @@ maybeToTCEither _ (Just a) = pure a
 -- checkExpectSubtypeOf :: (HasAnnot f, TypeCheck f) => Tp () -> Environment te -> SRng -> f Untyped -> TCEither (f Typed, Tp ()) -- Hmm?
 -- checkExpectExactType :: (HasAnnot f, TypeCheck f) => Tp () -> Environment te -> SRng -> f Untyped -> TCEither (f Typed)
 -- checkExpectBooleanType :: (HasAnnot f, TypeCheck f) => Environment te -> SRng -> f Untyped -> TCEither (f Typed)
--- expectBooleanType :: (HasAnnot f) => SRng -> f Typed -> TCEither (Tp ())
-checkBooleanType :: SRng -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
-checkBooleanType loc (LocTypeAnnot loc1 t) = t <$ guardMsg notBoolMsg (isBooleanTp t)
-  where 
-    notBoolMsg = IllTypedSubExpr [loc, loc1] [t] [ExpectedExactTp booleanT]
+expectBooleanType :: SRng -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
+expectBooleanType = expectExactType booleanT
 
+-- | Returns the type if it's what was expected and throws a type error otherwise
+expectExactType :: Tp () -> SRng -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
+expectExactType expected loc (LocTypeAnnot loc1 t) = t <$ guardMsg notBoolMsg (t == expected)
+  where 
+    notBoolMsg = IllTypedSubExpr [loc, loc1] [t] [ExpectedExactTp expected]
 
 checkBoolTp :: HasAnnot f => SRng -> f Typed -> TCEither (Tp ())
-checkBoolTp loc te = checkBooleanType loc (getAnnot te)
+checkBoolTp loc te = expectBooleanType loc (getAnnot te)
 
 expectNumericTp :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> TCEither ()
 expectNumericTp env loc (LocTypeAnnot locT t) = guardMsg msg (isNumberTp env t)
   where msg = IllTypedSubExpr [loc, locT]  [t] [ExpectedSubTpOf numberT]
 
 
--- TODO: Make generic exact type helper
 -- TODO: Make a class for type checking
 -- TODO: Make a combined function for calling recursive type checker and verifying that it has expected type
 -- TODO: Make TCEither an instance of an appropriate error monad class
@@ -378,7 +379,7 @@ tpUarith env loc lt _ua = getType lt <$ expectNumericTp env loc lt
 
 -- applicable to both unary boolean as temporal modal operators
 tpUbool :: SRng -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
-tpUbool = checkBooleanType
+tpUbool = expectBooleanType
 
 tpUnaop :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> UnaOp -> TCEither (Tp ())
 tpUnaop env lctx lt uop = case uop of
@@ -421,8 +422,8 @@ tpBcompar env loc lt1 lt2 _bc = do
 tpBbool :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> BBoolOp -> TCEither (Tp ())
 tpBbool _env locCtx t1 t2 _bc = do
   -- TODO: Should be checked in parallel (and update tests)
-  _ <- checkBooleanType locCtx t1
-  _ <- checkBooleanType locCtx t2
+  _ <- expectBooleanType locCtx t1
+  _ <- expectBooleanType locCtx t2
   return booleanT
 
 
