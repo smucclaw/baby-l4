@@ -309,16 +309,15 @@ maybeToTCEither :: ErrorCause -> Maybe a -> TCEither a
 maybeToTCEither e Nothing = tError e
 maybeToTCEither _ (Just a) = pure a
 
-notBoolMsg :: SRng -> LocTypeAnnot (Tp ()) -> ErrorCause
-notBoolMsg loc t = IllTypedSubExpr [loc, getLoc t] [typeAnnot t] [ExpectedExactTp booleanT]
-
 -- checkExpectSubtypeOf :: (HasAnnot f, TypeCheck f) => Tp () -> Environment te -> SRng -> f Untyped -> TCEither (f Typed, Tp ()) -- Hmm?
 -- checkExpectExactType :: (HasAnnot f, TypeCheck f) => Tp () -> Environment te -> SRng -> f Untyped -> TCEither (f Typed)
 -- checkExpectBooleanType :: (HasAnnot f, TypeCheck f) => Environment te -> SRng -> f Untyped -> TCEither (f Typed)
 -- expectBooleanType :: (HasAnnot f) => SRng -> f Typed -> TCEither (Tp ())
 checkBooleanType :: SRng -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
-checkBooleanType loc tl = t <$ guardMsg (notBoolMsg loc tl) (isBooleanTp t)
-  where t = typeAnnot tl
+checkBooleanType loc (LocTypeAnnot loc1 t) = t <$ guardMsg notBoolMsg (isBooleanTp t)
+  where 
+    notBoolMsg = IllTypedSubExpr [loc, loc1] [t] [ExpectedExactTp booleanT]
+
 
 checkBoolTp :: HasAnnot f => SRng -> f Typed -> TCEither (Tp ())
 checkBoolTp loc te = checkBooleanType loc (getAnnot te)
@@ -478,7 +477,7 @@ pushPatternEnv _ _ env = env
 
 -- a pattern and its type are compatible
 compatiblePatternType :: Pattern t -> Tp t -> Bool
-compatiblePatternType (VarP vn) t = True
+compatiblePatternType (VarP _vn) _t = True
 compatiblePatternType (VarListP vns) (TupleT _ ts) = length vns == length ts
 compatiblePatternType _ _ = False
 
