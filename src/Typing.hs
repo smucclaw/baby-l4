@@ -248,9 +248,9 @@ isScalarTp FunT {} = False
 isScalarTp (TupleT _ ts) = all isScalarTp ts
 isScalarTp _ = True
 
-isClassTp :: Tp t -> Bool
-isClassTp ClassT {} = True
-isClassTp _ = False
+getClassName :: Tp t -> Maybe ClassName
+getClassName (ClassT _ cn) = Just cn
+getClassName _ = Nothing
 
 ----------------------------------------------------------------------
 -- Typing functions
@@ -321,7 +321,6 @@ tpUarith env loc lt _ua = getType lt <$ expectNumericTp env loc lt
 tpUbool :: SRng -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
 tpUbool = checkBooleanType
 
--- TODO: Don't send along lists of ranges. Be more precise
 tpUnaop :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> UnaOp -> TCEither (Tp ())
 tpUnaop env lctx lt uop = case uop of
     UArith ua  -> tpUarith env lctx lt ua
@@ -356,7 +355,7 @@ tpBcompar env loc lt1 lt2 _bc = do
   -- TODO: This location information isn't great! We should be precise with which expression is non-scalar
   -- We could use <|> and change the semantics of it to combine errors
   guardMsg (NonScalarExpr [loc, l1, l2] [t1, t2]) (isScalarTp t1 && isScalarTp t2)
-  _ <- checkCompat env loc lt1 lt2 
+  _ <- checkCompat env loc lt1 lt2
   -- guardMsg (IncompatibleTp [loc, l1, l2] [t1, t2]) (compatibleType env t1 t2 || compatibleType env t2 t1)
   pure booleanT
 
@@ -384,11 +383,9 @@ castCompatible _te _ctp = True
 
 -- typing of a variable that is initially (after parsing) only known by its name
 tpVar :: Environment te -> SRng -> Var t -> TCEither (Tp ())
-tpVar env loc (GlobalVar qvn) =
-  let vn = nameOfQVarName qvn
-  in case lookup vn (globalsOfEnv env) <|> lookup vn (localsOfEnv env) of
-        Nothing -> tError (UndeclaredVariable loc vn)
-        Just t -> pure t
+tpVar env loc (GlobalVar (QVarName _ vn)) = 
+  maybeToTCEither (UndeclaredVariable loc vn) $
+    lookup vn (globalsOfEnv env) <|> lookup vn (localsOfEnv env)
 tpVar _env _ (LocalVar _ _) = error "internal error: for type checking, variable should be GlobalVar"
 
 varIdentityInEnv :: Environment te -> Var t -> Var t
@@ -447,6 +444,13 @@ guardMsg :: ErrorCause -> Bool -> TCEither ()
 -- guardMsg _ True = pure ()
 -- guardMsg e False = tError e
 guardMsg msg cond = if cond then pure () else tError msg
+
+maybeToTCEither :: ErrorCause -> Maybe a -> TCEither a
+-- maybeToTCEither e ma = case ma of
+--    Nothing -> tError e
+--    (Just a) -> pure a
+maybeToTCEither e Nothing = tError e
+maybeToTCEither _ (Just a) = pure a
 
 notBoolMsg :: SRng -> LocTypeAnnot (Tp ()) -> ErrorCause
 notBoolMsg loc t = IllTypedSubExpr [loc, getLoc t] [typeAnnot t] [ExpectedExactTp booleanT]
@@ -549,12 +553,9 @@ tpExpr env expr = case expr of
     te <- tpExpr env e
     let t  = getTypeOfExpr te
     -- TODO: Clean up more
-    cn <- case t of
-        ClassT _ cn -> pure cn
-        _ -> tError (AccessToNonObjectType (getLoc e))
-    tres <- case lookup fn $ map (\(FieldDecl _ fnl tp) -> (fnl, tp)) (fieldsOf env cn) of
-        Nothing -> tError (UnknownFieldName (getLoc e) fn cn)
-        Just ft -> pure (eraseAnn ft)
+    cn <- maybeToTCEither (AccessToNonObjectType (getLoc e)) $ getClassName t
+    ft <- maybeToTCEither (UnknownFieldName (getLoc e) fn cn) $ lookup fn $ map (\(FieldDecl _ fnl tp) -> (fnl, tp)) (fieldsOf env cn)
+    let tres = eraseAnn ft
 
     return $ FldAccE (setType annot tres) te fn
 
@@ -578,7 +579,7 @@ tpRule env (Rule ann rn instr vds precond postcond) = do
   tpdVds <- traverse (tpVarDecl env) vds
   let renv = pushLocalVarDecls vds env
   (teprecond, tepostcond)  <- (,) <$> tpExpr renv precond <*> tpExpr renv postcond
-  -- These could be checked in "parallel" to get more errors at the same time
+  -- TODO: These could be checked in "parallel" to get more errors at the same time
   _tprec <- checkBoolTp ann teprecond
   tres <- checkBoolTp ann tepostcond -- tpostcond == booleanT?
   return $ (\t -> Rule (setType ann t) rn instr tpdVds teprecond tepostcond) tres
