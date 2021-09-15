@@ -57,6 +57,7 @@ gfPP bi lbi clbi = PreProcessor {
                 , "--haskell=gadt" ]
                 ++ lexical
                 ++ ["--output-dir=" ++ outDir
+                , "--gfo-dir=" ++ outDir
                 , inDir </> inFile
                 ] ++ concrete
 
@@ -71,10 +72,10 @@ gfProgram :: Program
 gfProgram = simpleProgram "gf"
 
 getLexCategories fname = case fname of
-    "Prop.gf"
-        -> lexPrefix "Noun,Noun2,Adj,Adj2,Verb,Verb2"
     "Atoms.gf"
         -> lexPrefix "Atom"
+    "Prop.gf"
+        -> getLexCategories "Atoms.gf"
     "Answer.gf"
         -> getLexCategories "Atoms.gf"
     "Questions.gf"

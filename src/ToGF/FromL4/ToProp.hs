@@ -5,17 +5,18 @@ module ToGF.FromL4.ToProp where
 
 -- the generated Haskell abstract syntax from the GF
 
-import Control.Monad (forM_)
 import Control.Monad.Reader (MonadReader (local), Reader, asks, runReader)
-import qualified GF
-import PGF
+import qualified Data.Set as S
+import PGF ( PGF, showExpr, linearizeAll )
 import Prop
 import Syntax
-import System.Environment (withArgs)
 import System.IO (stderr, hPutStrLn)
 import Text.Printf (printf)
-import ToGF.FromL4.TransProp
-import ToGF.NormalizeSyntax ( varName, normalizeQuantifGF ) 
+import ToGF.FromL4.TransProp ( transfer, Mode(MOptimize) )
+import ToGF.NormalizeSyntax ( varName, normalizeQuantifGF )
+import ToGF.GenerateLexicon
+    ( AtomWithArity(..), GrName, createGF' )
+import Debug.Trace (trace)
 
 -- moved this here from exe/Main.hs, needed to tell optparse which languages to output
 data GFlang  = GFall | GFeng | GFswe deriving (Show,Eq)
@@ -27,30 +28,45 @@ gfl2lang gfLang =
     GFeng -> ["Eng"]
     GFswe -> ["Swe"]
 
-createPGF :: (Show et) => GFlang -> Program et -> IO PGF.PGF
-createPGF gfl (Program _ lexicon _2 _3 _4 _5) = do
-  let langs = gfl2lang gfl
-  let (abstract,concretes) = createLexicon langs lexicon
-  -- Generate lexicon
-  writeFile "grammars/PropLexicon.gf" abstract
-  forM_ (zip langs concretes) $
-    \(lang, concrete) -> writeFile (concrName "PropLexicon" lang) concrete
-  -- Generate Top module
-  let topAbs = "abstract PropTop = Prop, PropLexicon ;"
-  let topCnc lang = printf "concrete PropTop%s of PropTop = Prop%s, PropLexicon%s ;" lang lang lang
-  writeFile "grammars/PropTop.gf" topAbs
-  forM_ langs $
-    \lang -> writeFile (concrName "PropTop" lang) (topCnc lang)
-  withArgs (["-make", "--output-dir=generated", "-v=0"] ++ map (concrName "PropTop") langs) GF.main
-  PGF.readPGF "generated/PropTop.pgf"
+-- Helper functions from GenerateLexicon specialised for Answers
+grName :: GrName
+grName = "Prop"
 
-nlg, nlgAST :: GFlang -> Program Tp -> IO ()
+createGF :: FilePath -> Program t -> IO PGF
+createGF fname prog = trace ("allPreds: " ++ show allPreds) $ createGF' fname grName (lexiconOfProgram prog) allPreds
+  where
+    allPreds = S.toList $ S.fromList $ concat
+      [ getAtoms vardecl
+      | vardecl <- globalsOfProgram prog
+      ]
+
+getAtoms :: VarDecl t -> [AtomWithArity]
+getAtoms (VarDecl _ name tp) =
+    AA name (getArity tp) : [ AA nm 0 | nm <- getNames tp]
+  where
+    getArity :: Tp -> Int
+    getArity t = case t of
+      FunT _ x -> 1 + getArity x
+      _ -> 0
+
+    getNames :: Tp -> [String]
+    getNames t = case t of
+      IntT -> []
+      BoolT -> []
+      ClassT (ClsNm x) -> [x]
+      FunT t1 t2 -> getNames t1 ++ getNames t2 -- handle tree recursion in leaves
+      TupleT tps -> concatMap getNames tps     -- handle tree recursion in leaves
+      _ -> []
+
+nlg, nlgAST :: GFlang -> FilePath -> Program Tp -> IO ()
 nlg = nlg' False
 nlgAST = nlg' True
 
-nlg' :: Bool -> GFlang -> Program Tp -> IO ()
-nlg' showAST gfl prog = do
-    gr <- createPGF gfl prog
+
+
+nlg' :: Bool -> GFlang -> FilePath -> Program Tp -> IO ()
+nlg' showAST gfl fpath prog = do
+    gr <- createGF fpath prog
     sequence_
       [ do
           if showAST
@@ -94,35 +110,24 @@ var2ind var = do
   let name = varName var
   lex <- asks lexicon
   return $ case findMapping lex name of
-    val : _ | gfType val == "Noun" -> GIVarN (LexNoun name)
-    _ -> GIVar (GVString (GString name)) -- Fall back to string literal
+     _:_  -> GIVarN (GAtomNoun (LexAtom name)) -- the var is in lexicon
+     _    -> GIVar (GVString (GString name)) -- Fall back to string literal
 
 var2pred :: Var -> CuteCats GPred1
 var2pred var = do
   let name = varName var
-  lex <- asks lexicon
-  return $ case findMapping lex name of
-    val : _
-      | gfType val == "Adj" -> GPAdj1 (LexAdj name)
-      | gfType val == "Verb" -> GPVerb1 (LexVerb name)
-      | gfType val == "Noun" -> GPNoun1 (LexNoun name)
-    _ -> GPVar1 (GVString (GString name))
+  return $ GAtomPred1 (LexAtom name)
 
 var2pred2 :: Var -> CuteCats GPred2
 var2pred2 var = do
   let name = varName var
-  lex <- asks lexicon
-  return $ case findMapping lex name of
-    val : _ | gfType val == "Adj2" -> GPAdj2 (LexAdj2 name)
-    val : _ | gfType val == "Verb2" -> GPVerb2 (LexVerb2 name)
-    val : _ | gfType val == "Noun2" -> GPNoun2 (LexNoun2 name)
-    _ -> GPVar2 (GVString (GString name))
+  return $ GAtomPred2 (LexAtom name)
 
 tp2kind :: Var -> Tp -> CuteCats GKind
 tp2kind v e = case e of
   BoolT -> pure GBoolean
   IntT -> pure GNat
-  ClassT (ClsNm name) -> pure $ GKNoun (var2quant v) (LexNoun name)
+  ClassT (ClsNm name) -> pure $ GKNoun (var2quant v) (GAtomNoun (LexAtom name))
   FunT arg ret -> GKFun <$> tp2kind v arg <*> tp2kind v ret
   -- TupleT [Tp]
   -- ErrT
@@ -132,7 +137,7 @@ tp2ind :: Var -> Tp -> CuteCats GInd
 tp2ind v e = case e of
   --BoolT -> pure GBoolean
   --IntT -> pure GNat
-  ClassT (ClsNm name) -> pure $ GINoun (var2quant v) (LexNoun name)
+  ClassT (ClsNm name) -> pure $ GINoun (var2quant v) (GAtomNoun (LexAtom name))
   --FunT arg ret -> GKFun <$> tp2kind arg <*> tp2kind ret
   -- TupleT [Tp]
   -- ErrT
@@ -140,10 +145,10 @@ tp2ind v e = case e of
   -- _ -> error $ "tp2kind: not yet supported: " ++ show e
 
 var2quant :: Var -> GQuantifier
-var2quant = GQString . GString . varName 
+var2quant = GQString . GString . varName
 
 rule2prop :: Rule Tp -> CuteCats GProp
-rule2prop r = 
+rule2prop r =
   let r'@(Rule _ nm vars ifE thenE) = normalizeQuantifGF r in local (updateVars vars) $
   do
     ifProp <- expr2prop ifE
@@ -195,7 +200,7 @@ expr2prop e = case e of
   --VarE _ var -> var2prop var
   _ -> error $ "expr2prop: not yet supported: " ++ show e
 
-val2atom :: Val -> GAtom
+val2atom :: Val -> GPropAtom
 val2atom e = case e of
   BoolV True -> GAKind GBoolean GBTrue
   BoolV False -> GAKind GBoolean GBFalse
@@ -250,16 +255,16 @@ pattern IfThenElse e1 e2 e3 <- IfThenElseE _ e1 e2 e3
 updateVars :: [VarDecl Tp] -> Env -> Env
 updateVars vs env = env {vardecls = vs : vardecls env}
 
-findMapping :: [Mapping t] -> String -> [String]
+findMapping :: [Mapping t] -> String  -> [String]
 findMapping haystack needle =
   [ val
-    | Mapping _ name val <- haystack,
+    | Mapping _ name (Descr val _) <- haystack,
       name == needle
   ]
 
 type Lang = String
 
-createLexicon :: [Lang] -> [Mapping t] -> (String, [String])
+createLexicon :: [Lang] -> [Mapping t] -> (String , [String])
 createLexicon langs lexicon = (abstract, concretes)
   where
     abstract =
@@ -267,7 +272,7 @@ createLexicon langs lexicon = (abstract, concretes)
         ["abstract PropLexicon = Prop ** {"]
           ++ ["fun"]
           ++ [ printf "%s : %s ;" name (gfType val)
-               | Mapping _ name val <- lexicon
+               | Mapping _ name (Descr val _) <- lexicon
              ]
           ++ ["}"]
     concretes =
@@ -275,7 +280,7 @@ createLexicon langs lexicon = (abstract, concretes)
           [printf "concrete PropLexicon%s of PropLexicon = Prop%s ** open WordNet%s, Paradigms%s, Syntax%s, Extend%s in {" lang lang lang lang lang lang]
             ++ ["lin"]
             ++ [ printf "%s = %s ;" name val
-                 | Mapping _ name val <- lexicon
+                 | Mapping _ name (Descr val _) <- lexicon
                ]
             ++ [printf "oper associated_A = mkA \"%s\" ;" associated]
             ++ ["}"]

@@ -1,20 +1,19 @@
 --# -path=.:present
 
-concrete PropEng of Prop = PropI - [PNeg] with 
-  (Syntax = SyntaxEng), 
+concrete PropEng of Prop = AtomsEng ** PropI - [PNeg] with
+  (Syntax = SyntaxEng),
   (Symbolic = SymbolicEng),
   (Sentence = SentenceEng),
   (Extend = ExtendEng),
-  (WordNet = WordNetEng),
   (Verb = VerbEng)
-   ** open (P = ParadigmsEng), ExtraEng, Prelude in {
+   ** open (P = ParadigmsEng), (ExtraEng=ExtraEng), Prelude in {
 
 -- exceptions
 
 lin
-  PNeg p = { 
-    s = mkS ExtraEng.UncNeg (mkCl 
-          (mkVP (mkNP the_Quant (mkCN case_N (mkAdv that_Subj p.s))))) ; 
+  PNeg p = {
+    s = mkS ExtraEng.UncNeg (mkCl
+          (mkVP (mkNP the_Quant (mkCN case_N (mkAdv that_Subj p.s))))) ;
     c = False ---- ?
     } ;
 
@@ -40,8 +39,8 @@ lin
   Centre = mkFun1 "centre" ;
   Intersection = mkFun2 "intersection" ;
 
-  Set k = k ** {s = mkCN set_N2 (mkNP a_Art plNum k.s)} ; 
-  KFun = funType (P.mkN3 function_1_N from_Prep to_Prep) ;
+  Set k = k ** {s = mkCN set_N2 (mkNP a_Art plNum k.s)} ;
+  KFun = funType (P.mkN3 function_N from_Prep to_Prep) ;
 
   -- Even = mkAP (P.mkA "even") ;
   -- Odd = mkAP (P.mkA "odd") ;
@@ -52,7 +51,12 @@ lin
   Boolean = mkKind (mkCN (P.mkA "Boolean") (P.mkN "value")) ;
 
 oper
-  mkFun1, mkFun2 : Str -> {s : Symb ; v : N2} = \s -> 
+
+  function_N : N = P.mkN "function" ;
+  other_A : A = P.mkA "other" ;
+  type_N : N = P.mkN "type" ;
+
+  mkFun1, mkFun2 : Str -> {s : Symb ; v : N2} = \s ->
     {s = mkSymb  ("\\" + s) ; v = P.mkN2 (P.mkN s)} ;
 
 }

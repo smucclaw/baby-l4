@@ -349,7 +349,7 @@ You should now be in a directory called =~/src/gf-rgl=
 In the =gf-rgl= directory, run:
 
 #+begin_example
-./Setup.sh --gf=$mygf
+runghc Setup.hs install --gf=$mygf
 #+end_example
 
 You should see:

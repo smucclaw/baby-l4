@@ -27,7 +27,7 @@ hoverTests :: TestTree
 hoverTests = testGroup "Hover tests"
   -- TODO: update the string lexicon & hover over nothing tests
   [ expectFailBecause "Lexicon is not in AST" $ testHover "mini.l4 hover the string 'lexicon'"                        "mini.l4" (mkPosition 3 5)   (mkRange' 3 1 3 8)    "This is a lexicon"
-  ,                                             testHover "mini.l4 hover the string 'Business -> \"business_1_N\"'"   "mini.l4" (mkPosition 5 5)   (mkRange' 5 1 5 67)   "This block maps variable DetractsFromDignity to GrammaticalFramework WordNet definion \"detracts from dignity of legal profession\""
+  ,                                             testHover "mini.l4 hover the string 'Business -> \"business_1_N\"'"   "mini.l4" (mkPosition 5 5)   (mkRange' 5 1 5 67)   "This block maps variable DetractsFromDignity to CNL description \"detracts from dignity of legal profession\""
   ,                                             testHover "cr.l4 hover the string 'class Business {'"                 "cr.l4"   (mkPosition 22 11) (mkRange' 22 1 25 2)  "Declaration of new class : Business"
   ,                                             testHover "cr.l4 hover AssociatedWith"                                "cr.l4"   (mkPosition 39 13) (mkRange' 39 1 39 65) "Declaration of global variable AssociatedWith"
   ,                                             testHover "cr.l4 hover AssociatedWith type"                           "cr.l4"   (mkPosition 39 31) (mkRange' 39 1 39 65) "Declaration of global variable AssociatedWith"

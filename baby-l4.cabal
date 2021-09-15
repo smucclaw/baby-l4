@@ -20,6 +20,7 @@ extra-source-files:  README.org
                    , grammars/ParsePredicates.gf
 data-files:          l4/Prelude.l4
                    , grammars/Prop.gf
+                   , grammars/PropI.gf
                    , grammars/PropEng.gf
                    , grammars/Atoms.gf
                    , grammars/AtomsEng.gf
@@ -154,13 +155,17 @@ test-suite unit-tests
     Test.hs
   other-modules:       ToGF.Disambiguate
                      , DisambiguateTest
+                     , ToGFTest
                      , Paths_baby_l4
   build-depends:
       base >= 4 && < 5
     , baby-l4
     , containers
+    , extra
     , gf
+    , gf-ud
     , l4-generated
+    , prettyprinter
     , split
     , safe
     , tasty

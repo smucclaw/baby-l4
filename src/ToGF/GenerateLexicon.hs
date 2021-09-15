@@ -14,8 +14,8 @@ import ToGF.ParsePred
 import System.Environment (withArgs, getEnv)
 import System.IO (IOMode (WriteMode), withFile)
 import Text.Printf (printf)
-import Data.List.Extra (splitOn, trim, intercalate)
-import Syntax (Mapping(..))
+import Data.List.Extra (splitOn, trim, intercalate, replace)
+import Syntax (Mapping(..), Description(..))
 import Data.Maybe (listToMaybe)
 import Data.Char (toLower)
 import Control.Applicative ((<|>))
@@ -105,9 +105,9 @@ mkLexicon fname udenv gname userlex atoms = do
       , let ar' = ar --max ar (length $ filter (=='>') funname) -- TODO see if these are ever different?
       ]
     parsePredFromUserLex funnm ar = listToMaybe [ pr
-                                   | Mapping _ nm value <- userlex
+                                   | Mapping _ nm (Descr val _) <- userlex
                                    , nm == funnm
-                                   , let pr = parsePred udenv ar (nm) value
+                                   , let pr = parsePred udenv ar (nm) val
                                    , not $ null $ trees pr ] -- is empty if the funnm doesn't appear in user lex, or if there's no parse
     parsePredFromName funnm ar = listToMaybe [ pr
                                  | let pr = parsePred udenv ar funnm ""
@@ -166,8 +166,8 @@ concreteLexicon gname userlexicon poses = let lName = pretty $ lexName gname in
       (indent' . vsep) (concrEntryPOS <$> poses),
       (indent' . vsep) (concrEntryUserLex <$> userlexicon),
       "oper",
-      "    p1 : {pred : VPS} -> LinAtom = \\vps -> mkAtom <vps.pred : VPS> ;",
-      "    p2 : {pred : VPS2} -> LinAtom = \\vps2 -> mkAtom <vps2.pred : VPS2> ;",
+      "    p1 : {pred : VPS} -> LinAtom = \\vps -> mkAtom <vps.pred : VPS> <vps.pred : VPS> ; -- TODO: second one should be negation!!!!!",
+      "    p2 : {pred : VPS2} -> LinAtom = \\vps2 -> mkAtom <vps2.pred : VPS2> <vps2.pred : VPS2> ; -- TODO: second one should be negation!!!!!",
       "}"
     ]
 
@@ -176,7 +176,7 @@ abstractLexicon gname userlexicon poses =
   vsep
     [ "abstract" <+> pretty (lexName gname) <+> "=" <+> "Atoms ** {",
       "fun",
-      indent' $ sep $ punctuate "," $ map (pretty . map toLower)
+      indent' $ sep $ punctuate "," $ map pretty -- . map toLower)
         (map origName poses ++ map name userlexicon),
       indent' ": Atom ;",
       "}"
@@ -209,8 +209,10 @@ concrEntryUserLex pr =
 -- TODO: handle this function as Gf trees to other Gf trees, not string processing
 hackyRemoveFullPred :: String -> String
 hackyRemoveFullPred str = case words $ hackyChangeIntToCard $ trim str of
-                       "PredAP":_pol:ws -> printf "p1 (ComplAP %s)" $ unwords ws
-                       "PredNP":_pol:ws -> printf "p1 (ComplNP %s)" $ unwords ws
+                       "PredAP":_pol:ws -> printf "mkAtom (myVPS (mkVP %s))" $ unwords ws
+                       "PredNP":_pol:ws -> printf "mkAtom (myVPS (mkVP %s))" $ unwords ws
+                       "p1":"(ComplVPSlash1":vps -> printf "mkAtom (%s (%s" (unwords vps) (negPol vps)
+                       "p2":"(ComplVPSlash2":vps -> printf "mkAtom (%s (%s" (unwords vps) (negPol vps)
                        "p0":ws -> printf "mkAtom %s" $ unwords ws
                       --  "V2PartAdv":_pol:v2:adv
                       --    -> printf "p1 (ComplAP (AdvAP (PastPartAP (mkVPSlash %s)) %s))" v2 (unwords adv)
@@ -221,6 +223,8 @@ hackyChangeIntToCard str = case splitOn "(Int2Card 1)" str of
                         [] -> str
                         xs -> intercalate "(mkCard \"1\")" xs
 
+negPol :: [String] -> String
+negPol = unwords . replace ["PPos"] ["PNeg"]
 
 
 --- TODO: filter out predicates based on arity

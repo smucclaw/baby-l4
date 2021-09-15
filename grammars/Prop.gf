@@ -1,10 +1,10 @@
-abstract Prop = {
+abstract Prop = Atoms ** {
 
 flags startcat = Prop ;
 
 cat
   Prop ;
-  Atom ;
+  PropAtom ;
   Pred1 ;
   Pred2 ;
   Ind ;
@@ -12,12 +12,12 @@ cat
   Fun1 ;
   Fun2 ;
   Conj ;
-  -- For lexicon
 
-  Noun ; Noun2 ; Adj ; Adj2 ; Verb ; Verb2 ; PassVerb2 ;
+  -- For lexicon
+  Noun ;
 
 fun
-  PAtom  : Atom  -> Prop ;
+  PAtom  : PropAtom  -> Prop ;
   PNeg   : Prop  -> Prop ;
   PConj  : Conj  -> Prop -> Prop -> Prop ;
   PImpl  : Prop  -> Prop -> Prop ;
@@ -31,8 +31,8 @@ fun
   IVarN  : Noun -> Ind ;
   -- IVarA  : Adj -> Ind ;
 
-  APred1 : Pred1 -> Ind -> Atom ;
-  APred2 : Pred2 -> Ind -> Ind -> Atom ;
+  APred1 : Pred1 -> Ind -> PropAtom ;
+  APred2 : Pred2 -> Ind -> Ind -> PropAtom ;
 
   IFun1  : Fun1 -> Ind -> Ind ;
   IFun2  : Fun2 -> Ind -> Ind -> Ind ;
@@ -56,17 +56,17 @@ fun
   PExists : [Var] -> Kind -> Prop -> Prop ;
   PNotExists : [Var] -> Kind -> Prop -> Prop ;
 
-  PNegAtom  : Atom -> Prop ;
+  PNegAtom  : PropAtom -> Prop ;
 
   ConjPred1 : Conj -> [Pred1] -> Pred1 ;
 
-  APredColl : Pred2 -> [Ind] -> Atom ;
+  APredColl : Pred2 -> [Ind] -> PropAtom ;
 
-  APredRefl : Pred2 -> Ind -> Atom ;
+  APredRefl : Pred2 -> Ind -> PropAtom ;
 
   IFunC  : Fun2 -> [Ind] -> Ind ;
 
-  AKind  : Kind  -> Ind -> Atom ;
+  AKind  : Kind  -> Ind -> PropAtom ;
 
   IUniv  : Kind -> Ind ;
   IExist : Kind -> Ind ;
@@ -83,7 +83,7 @@ fun
   Vertical, Horizontal : Pred1 ;
   Parallel, Equal : Pred2 ;
   Centre : Fun1 ;
-  Intersection : Fun2 ;  
+  Intersection : Fun2 ;
 
   Set : Kind -> Kind ;
 
@@ -91,7 +91,7 @@ fun
 
   Even, Odd    : Pred1 ;
   Nat          : Kind ;
-  Boolean      : Kind ;    
+  Boolean      : Kind ;
 
   Square       : Fun1 ;
   Sum, Product : Fun2 ;
@@ -102,34 +102,17 @@ fun
   -- Not part of the original
 
   -- Overgenerating, but we're using this grammar only to linearise
+  AtomPred2 : Atom -> Pred2 ;
+  AtomPred1 : Atom -> Pred1 ;
+  AtomKind  : Atom -> Kind ;
+  AtomNoun  : Atom -> Noun ;
+
   KNoun        : Quantifier -> Noun -> Kind ;
   KInd         : Ind -> Kind ;
   KFun         : Kind -> Kind -> Kind ;
 
   INoun : Quantifier -> Noun -> Ind ;
 
-  PAdj1 : Adj -> Pred1 ;
-  PAdj2 : Adj2 -> Pred2 ;
-  PAdj12 : Adj -> Pred2 ; -- force A to A2
-  PNoun1 : Noun -> Pred1 ;
-  PNoun2 : Noun2 -> Pred2 ;
-  PVerb1 : Verb -> Pred1 ;
-  PVerb2 : Verb2 -> Pred2 ;
-  PPassV2 : PassVerb2 -> Pred1 ;
-  Passive : Verb2 -> PassVerb2 ;
-
-  -- Fallback: if word not in lexicon, make it into var
-  PVar1 : Var -> Pred1 ;
-  PVar2 : Var -> Pred2 ;
-
-
--- dummy instance of noun so that generated Prop.hs doesn't complain
-  DummyN : Noun ;
-  DummyN2 : Noun2 ;
-  DummyA : Adj ;
-  DummyA2 : Adj2 ;
-  DummyV : Verb ;
-  DummyV2 : Verb2 ;
 
 -- Quantifiers, to handle "a buyer / other buyer", or "first, second and third buyer"
 -- instead of "buyers A, B and C"
