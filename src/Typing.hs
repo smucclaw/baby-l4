@@ -522,9 +522,7 @@ tpExpr env expr = case expr of
         FunT _ tpar tbody -> pure (tpar, tbody)
         _ -> tError (NonFunctionTp [getLoc annot, getLoc fe] tf)
       isCompatible ta tpar tbody = do
-        if compatibleType env ta tpar
-        then pure ()
-        else tError (IllTypedSubExpr [getLoc annot, getLoc ae] [ta] [ExpectedSubTpOf tpar])
+        guardMsg (IllTypedSubExpr [getLoc annot, getLoc ae] [ta] [ExpectedSubTpOf tpar]) (compatibleType env ta tpar)
         pure tbody
 
     (tfe, tae) <- (,) <$> tpExpr env fe <*> tpExpr env ae
@@ -569,9 +567,7 @@ tpExpr env expr = case expr of
     te <- tpExpr env e
     let ctpEr = eraseAnn ctp
         t  = getTypeOfExpr te
-    if castCompatible t ctpEr
-               then pure ()
-               else tError (CastIncompatible [getLoc annot, getLoc e] t ctpEr)
+    guardMsg (CastIncompatible [getLoc annot, getLoc e] t ctpEr) (castCompatible t ctpEr)
     let tres = ctpEr
     return $ CastE (setType annot tres) (addDummyTypes ctp) te
 
