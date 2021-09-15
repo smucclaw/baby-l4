@@ -314,69 +314,65 @@ tpConstval x = case x of
        _ -> error "internal error: duplicate class definition"
   -}
 
-type Triple a = (a,a,a)
-type Pair a = (a,a)
-
-pair2list :: Pair a -> [a]
-pair2list x = [fst x, snd x]
-
-triple2list :: Triple a -> [a]
-triple2list (x,y,z) = [x,y,z]
-
-tpUarith :: Environment te -> Pair SRng -> Tp t -> UArithOp -> TCEither (Tp t)
-tpUarith env locs t _ua =
-  if isNumberTp env t
-  then pure t
-  else tError (IllTypedSubExpr (pair2list locs)  [eraseAnn t] [ExpectedSubTpOf numberT])
+tpUarith :: Environment te -> SRng -> LocTypeAnnot (Tp t) -> UArithOp -> TCEither (Tp t)
+tpUarith env loc (LocTypeAnnot locT t) _ua = do
+  guardMsg msg $ isNumberTp env t
+  pure t
+  where msg = IllTypedSubExpr [loc, locT]  [eraseAnn t] [ExpectedSubTpOf numberT]
 
 -- applicable to both unary boolean as temporal modal operators
-tpUbool :: Pair SRng -> Tp t -> TCEither (Tp t)
-tpUbool locs t =
-  t <$ expectBool locs t
+tpUbool :: SRng -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
+tpUbool = checkBooleanType
 
 -- TODO: Don't send along lists of ranges. Be more precise
-tpUnaop :: Environment te -> Pair SRng -> Tp t -> UnaOp -> TCEither (Tp t)
-tpUnaop env locs t uop = case uop of
-    UArith ua  -> tpUarith env locs t ua
-    UBool _   -> tpUbool locs t
-    UTemporal _ -> tpUbool locs t
+tpUnaop :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> UnaOp -> TCEither (Tp ())
+tpUnaop env lctx lt uop = case uop of
+    UArith ua  -> tpUarith env lctx lt ua
+    UBool _   -> tpUbool lctx lt
+    UTemporal _ -> tpUbool lctx lt
 
 -- TODO: The error message is inappropriate. Change when reworking the type checking algorithm
-tpTime :: Triple SRng -> Tp () -> Tp () -> BArithOp -> TCEither (Tp ())
+tpTime :: SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> BArithOp -> TCEither (Tp ())
 tpTime _ _ _  BAadd = pure timeT
 tpTime _ _ _  BAsub = pure timeT
-tpTime (loc0, loc1, _loc2) t1 _t2 _ = tError (IllTypedSubExpr [loc0,loc1] [t1] [ExpectedSubTpOf numberT])
+tpTime loc0 t1 _t2 _ = tError (IllTypedSubExpr [loc0, getLoc t1] [getType t1] [ExpectedSubTpOf numberT])
 
-tpBarith :: Environment te -> Triple SRng -> Tp () -> Tp () -> BArithOp -> TCEither (Tp ())
-tpBarith env locs@(l0,l1,l2) t1 t2 ba =
-  if isNumberTp env t1
-  then if isNumberTp env t2
-       then
-         if isTimeTp t1 || isTimeTp t2
-         then tpTime locs t1 t2 ba
-         else pure (leastCommonSuperType env t1 t2)
-       else tError (IllTypedSubExpr [l0, l2] [t2] [ExpectedSubTpOf numberT])
-  else tError (IllTypedSubExpr [l0, l1] [t1] [ExpectedSubTpOf numberT])
+tpBarith :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ())-> BArithOp -> TCEither (Tp ())
+tpBarith env l0 lt1 lt2 ba = do
+  let t1 = getType lt1
+      t2 = getType lt2
+      l1 = getLoc lt1
+      l2 = getLoc lt2
+
+  guardMsg (IllTypedSubExpr [l0, l1] [t1] [ExpectedSubTpOf numberT]) (isNumberTp env t1)
+  guardMsg (IllTypedSubExpr [l0, l2] [t2] [ExpectedSubTpOf numberT]) (isNumberTp env t2)
+  if isTimeTp t1 || isTimeTp t2
+    then tpTime l0 lt1 lt2 ba
+    else pure (leastCommonSuperType env t1 t2)
 
 -- TODO: more liberal condition for comparison?
-tpBcompar :: Environment te -> Triple SRng -> Tp () -> Tp () -> BComparOp -> TCEither (Tp ())
-tpBcompar env locs t1 t2 _bc =
-  if isScalarTp t1 && isScalarTp t2
-  then if compatibleType env t1 t2 || compatibleType env t2 t1
-       then pure booleanT
-       else tError (IncompatibleTp (triple2list locs) [t1, t2])
-  -- TODO: This location information isn't great!
-  else tError (NonScalarExpr (triple2list locs) [t1, t2])
+tpBcompar :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> BComparOp -> TCEither (Tp ())
+tpBcompar env loc lt1 lt2 _bc = do
+  let t1 = getType lt1
+      t2 = getType lt2
+      l1 = getLoc lt1
+      l2 = getLoc lt2
+  -- TODO: This location information isn't great! We should be precise with which expression is non-scalar
+  -- We could use <|> and change the semantics of it to combine errors
+  guardMsg (NonScalarExpr [loc, l1, l2] [t1, t2]) (isScalarTp t1 && isScalarTp t2)
+  _ <- checkCompat env loc lt1 lt2 
+  -- guardMsg (IncompatibleTp [loc, l1, l2] [t1, t2]) (compatibleType env t1 t2 || compatibleType env t2 t1)
+  pure booleanT
 
-tpBbool :: Environment te -> Triple SRng -> Tp () -> Tp () -> BBoolOp -> TCEither (Tp ())
-tpBbool _env (locCtx, locT1, locT2) t1 t2 _bc = do
+tpBbool :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> BBoolOp -> TCEither (Tp ())
+tpBbool _env locCtx t1 t2 _bc = do
   -- TODO: Should be checked in parallel
-  expectBool (locCtx,locT1) t1
-  expectBool (locCtx,locT2) t2
+  _ <- checkBooleanType locCtx t1
+  _ <- checkBooleanType locCtx t2
   return booleanT
 
 
-tpBinop :: Environment te -> Triple SRng -> Tp () -> Tp () -> BinOp -> TCEither (Tp ())
+tpBinop :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> BinOp -> TCEither (Tp ())
 tpBinop env locs t1 t2 bop = case bop of
     BArith ba  -> tpBarith env locs t1 t2 ba
     BCompar bc -> tpBcompar env locs t1 t2 bc
@@ -387,7 +383,7 @@ tpBinop env locs t1 t2 bop = case bop of
 -- the first type can be cast to the second type
 -- TODO: still to be defined
 castCompatible :: Tp t -> Tp t -> Bool
-castCompatible te ctp = True
+castCompatible _te _ctp = True
 
 
 -- typing of a variable that is initially (after parsing) only known by its name
@@ -452,8 +448,9 @@ setType :: SRng -> a -> LocTypeAnnot a
 setType = LocTypeAnnot
 
 guardMsg :: ErrorCause -> Bool -> TCEither ()
-guardMsg _ True = pure ()
-guardMsg e False = tError e
+-- guardMsg _ True = pure ()
+-- guardMsg e False = tError e
+guardMsg msg cond = if cond then pure () else tError msg
 
 notBoolMsg :: SRng -> LocTypeAnnot (Tp ()) -> ErrorCause
 notBoolMsg loc t = IllTypedSubExpr [loc, getLoc t] [typeAnnot t] [ExpectedExactTp booleanT]
@@ -470,16 +467,8 @@ checkBoolTp :: HasAnnot f => SRng -> f Typed -> TCEither (Tp ())
 checkBoolTp loc te = checkBooleanType loc (getAnnot te)
 
 -- TODO: Make generic exact type helper
-{-# DEPRECATED expectBool "Use checkBoolTp instead if possible" #-}
-expectBool :: Pair SRng -> Tp t -> TCEither ()
-expectBool locs t = 
-    guardMsg  notBooMsg' (isBooleanTp t)
-  where
-    notBooMsg' = IllTypedSubExpr (pair2list locs) [eraseAnn t] [ExpectedExactTp booleanT]
-
 -- TODO: Make a class for type checking
 -- TODO: Make a combined function for calling recursive type checker and verifying that it has expected type
--- TODO: Clean up the tuple thingies (using similar structure as with the checkBoolTp)
 -- TODO: Make TCEither an instance of an appropriate error monad class
 -- TODO: Make a reader monad with Environment and the location context
 
@@ -506,12 +495,12 @@ tpExpr env expr = case expr of
 
   UnaOpE annot uop e -> do
     te <- tpExpr env e
-    tRes <- tpUnaop env (annot, getLoc e) (getTypeOfExpr te) uop
+    tRes <- tpUnaop env annot (getAnnot te) uop
     return $ UnaOpE (setType annot tRes) uop te
 
   BinOpE annot bop e1 e2 -> do
     (te1, te2) <- (,) <$> tpExpr env e1 <*> tpExpr env e2
-    tRes <- tpBinop env (getLoc annot, getLoc e1, getLoc e2) (getTypeOfExpr te1) (getTypeOfExpr te2) bop
+    tRes <- tpBinop env annot (getAnnot te1) (getAnnot te2) bop
     return $ BinOpE (setType annot tRes) bop te1 te2
 
   -- TODO: consider a more liberal typing returning the least common supertype of the two branches
