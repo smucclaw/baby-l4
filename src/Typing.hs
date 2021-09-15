@@ -521,10 +521,11 @@ tpExpr env expr = case expr of
       isFunction tf = case tf of
         FunT _ tpar tbody -> pure (tpar, tbody)
         _ -> tError (NonFunctionTp [getLoc annot, getLoc fe] tf)
-      isCompatible ta tpar tbody =
+      isCompatible ta tpar tbody = do
         if compatibleType env ta tpar
-        then pure tbody
+        then pure ()
         else tError (IllTypedSubExpr [getLoc annot, getLoc ae] [ta] [ExpectedSubTpOf tpar])
+        pure tbody
 
     (tfe, tae) <- (,) <$> tpExpr env fe <*> tpExpr env ae
     let tf  = getTypeOfExpr tfe
@@ -568,9 +569,10 @@ tpExpr env expr = case expr of
     te <- tpExpr env e
     let ctpEr = eraseAnn ctp
         t  = getTypeOfExpr te
-    tres <- if castCompatible t ctpEr
-               then pure ctpEr
+    if castCompatible t ctpEr
+               then pure ()
                else tError (CastIncompatible [getLoc annot, getLoc e] t ctpEr)
+    let tres = ctpEr
     return $ CastE (setType annot tres) (addDummyTypes ctp) te
 
   _ -> error "typing of lists not implemented yet"
