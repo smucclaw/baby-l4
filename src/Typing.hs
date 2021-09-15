@@ -314,11 +314,8 @@ tpConstval x = case x of
        _ -> error "internal error: duplicate class definition"
   -}
 
-tpUarith :: Environment te -> SRng -> LocTypeAnnot (Tp t) -> UArithOp -> TCEither (Tp t)
-tpUarith env loc (LocTypeAnnot locT t) _ua = do
-  guardMsg msg $ isNumberTp env t
-  pure t
-  where msg = IllTypedSubExpr [loc, locT]  [eraseAnn t] [ExpectedSubTpOf numberT]
+tpUarith :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> UArithOp -> TCEither (Tp ())
+tpUarith env loc lt _ua = getType lt <$ expectNumericTp env loc lt
 
 -- applicable to both unary boolean as temporal modal operators
 tpUbool :: SRng -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
@@ -341,11 +338,10 @@ tpBarith :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp (
 tpBarith env l0 lt1 lt2 ba = do
   let t1 = getType lt1
       t2 = getType lt2
-      l1 = getLoc lt1
-      l2 = getLoc lt2
 
-  guardMsg (IllTypedSubExpr [l0, l1] [t1] [ExpectedSubTpOf numberT]) (isNumberTp env t1)
-  guardMsg (IllTypedSubExpr [l0, l2] [t2] [ExpectedSubTpOf numberT]) (isNumberTp env t2)
+  -- TODO: Check in parallel (and update tests)
+  expectNumericTp env l0 lt1
+  expectNumericTp env l0 lt2
   if isTimeTp t1 || isTimeTp t2
     then tpTime l0 lt1 lt2 ba
     else pure (leastCommonSuperType env t1 t2)
@@ -366,17 +362,17 @@ tpBcompar env loc lt1 lt2 _bc = do
 
 tpBbool :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> BBoolOp -> TCEither (Tp ())
 tpBbool _env locCtx t1 t2 _bc = do
-  -- TODO: Should be checked in parallel
+  -- TODO: Should be checked in parallel (and update tests)
   _ <- checkBooleanType locCtx t1
   _ <- checkBooleanType locCtx t2
   return booleanT
 
 
 tpBinop :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> BinOp -> TCEither (Tp ())
-tpBinop env locs t1 t2 bop = case bop of
-    BArith ba  -> tpBarith env locs t1 t2 ba
-    BCompar bc -> tpBcompar env locs t1 t2 bc
-    BBool bb   -> tpBbool env locs t1 t2 bb
+tpBinop env loc t1 t2 bop = case bop of
+    BArith ba  -> tpBarith env loc t1 t2 ba
+    BCompar bc -> tpBcompar env loc t1 t2 bc
+    BBool bb   -> tpBbool env loc t1 t2 bb
 
 
 
@@ -465,6 +461,11 @@ checkBooleanType loc tl = t <$ guardMsg (notBoolMsg loc tl) (isBooleanTp t)
 
 checkBoolTp :: HasAnnot f => SRng -> f Typed -> TCEither (Tp ())
 checkBoolTp loc te = checkBooleanType loc (getAnnot te)
+
+expectNumericTp :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> TCEither ()
+expectNumericTp env loc (LocTypeAnnot locT t) = guardMsg msg (isNumberTp env t)
+  where msg = IllTypedSubExpr [loc, locT]  [t] [ExpectedSubTpOf numberT]
+
 
 -- TODO: Make generic exact type helper
 -- TODO: Make a class for type checking
