@@ -3,6 +3,7 @@
 -- {-# OPTIONS_GHC -Wpartial-fields #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE PatternSynonyms #-}
 
 module Syntax where
 
@@ -107,12 +108,12 @@ updateAnnotOfTLE f e = case e of
      RuleTLE ru -> RuleTLE $ ru { annotOfRule = f (annotOfRule ru) }
      AssertionTLE as -> AssertionTLE $ as { annotOfAssertion = f (annotOfAssertion as) }
      AutomatonTLE ta -> AutomatonTLE $ ta { annotOfTA = f (annotOfTA ta) }
-     
+
 instance HasLoc t => HasLoc (TopLevelElement t) where
   getLoc = getLoc . getAnnotOfTLE
 
 instance HasAnnot TopLevelElement where
-  getAnnot = getAnnotOfTLE 
+  getAnnot = getAnnotOfTLE
   updateAnnot = updateAnnotOfTLE
 
 data NewProgram t = NewProgram { annotOfNewProgram :: t
@@ -174,12 +175,12 @@ mapClassDecl f e = case e of
 mapRule :: (Rule t -> Rule t) -> TopLevelElement t -> TopLevelElement t
 mapRule f e = case e of
   RuleTLE r -> RuleTLE (f r)
-  x -> x  
+  x -> x
 
 mapAssertion :: (Assertion t -> Assertion t) -> TopLevelElement t -> TopLevelElement t
 mapAssertion f e = case e of
   AssertionTLE r -> AssertionTLE (f r)
-  x -> x  
+  x -> x
 
 newProgramToProgram :: NewProgram t -> Program t
 newProgramToProgram np = Program {
@@ -204,7 +205,7 @@ data Tp t
   = ClassT {annotOfTp :: t, classNameOfTp :: ClassName}
   | FunT {annotOfTp :: t, funTp :: Tp t, argTp :: Tp t}
   | TupleT {annotOfTp :: t, componentsOfTpTupleT :: [Tp t]}
-  | ErrT 
+  | ErrT
   | OkT        -- fake type appearing in constructs (classes, rules etc.) that do not have a genuine type
   | KindT
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
@@ -215,19 +216,39 @@ instance HasLoc t => HasLoc (Tp t) where
 instance HasDefault (Tp t) where
   defaultVal = OkT
 
+
+pattern BooleanC :: ClassName
+pattern BooleanC = ClsNm "Boolean"
+pattern ClassC :: ClassName
+pattern ClassC = ClsNm "Class"
+pattern FloatC :: ClassName
+pattern FloatC = ClsNm "Float"
+pattern IntegerC :: ClassName
+pattern IntegerC = ClsNm "Integer"
+pattern NumberC :: ClassName
+pattern NumberC = ClsNm "Number"
+pattern StateC :: ClassName
+pattern StateC = ClsNm "State"
+pattern StringC :: ClassName
+pattern StringC = ClsNm "String"
+pattern TimeC :: ClassName
+pattern TimeC = ClsNm "Time"
+
 booleanT :: Tp ()
-booleanT = ClassT () (ClsNm "Boolean")
-integerT :: Tp ()
-integerT = ClassT () (ClsNm "Integer")
+booleanT = ClassT () BooleanC
 floatT :: Tp ()
-floatT = ClassT () (ClsNm "Float")
+floatT = ClassT () FloatC
+integerT :: Tp ()
+integerT = ClassT () IntegerC
+stateT :: Tp ()
+stateT = ClassT () StateC
 stringT :: Tp ()
-stringT = ClassT () (ClsNm "String")
--- already contained in Prelude as subtype of Float
+stringT = ClassT () StringC
 timeT :: Tp ()
-timeT = ClassT () (ClsNm "Time")
+timeT = ClassT () TimeC
 numberT :: Tp ()
-numberT = ClassT () (ClsNm "Number")
+numberT = ClassT () NumberC
+
 
 data VarDecl t = VarDecl {annotOfVarDecl :: t, nameOfVarDecl :: VarName, tpOfVarDecl :: Tp t}
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)

@@ -4,27 +4,16 @@
 module TimedMC where
 
 import Syntax
-import SyntaxManipulation (conjExpr, disjExpr, implExpr, abstractQ, abstractF, liftVarBy, conjsExpr, disjsExpr, applyVars, mkVarE, mkEq, mkFloatConst, mkFunTp, index, indexListFromTo, gteExpr, eqExpr, mkIntConst, liftVar, funArgsToApp)
+import SyntaxManipulation (conjExpr, disjExpr, implExpr, abstractQ, abstractF, liftVarBy, conjsExpr, disjsExpr, applyVars, mkVarE, mkEq, mkFloatConst, mkFunTp, index, indexListFromTo, gteExpr, eqExpr, mkIntConst, liftVar, funArgsToApp, notExpr)
 
-import PrintProg (renameAndPrintExpr, printExpr)
+import PrintProg (renameAndPrintExpr, renameExpr, printExpr)
 import Data.List (find)
 import Data.Maybe (fromMaybe)
 import Text.Pretty.Simple (pPrint)
 import Exec (evalExpr, reduceExpr, EvalResult (ExprResult))
-import Annotation (typeAnnot)
-
-data SMTFunDef t = SMTFunDef
-    { nameOfSMTFun :: Var t
-    , argsOfSMTFun :: [Var t]
-    , bodyOfSMTFun :: Expr t
-    }
-  deriving (Eq, Ord, Show, Read)
-
-data SMTAbstr t = SMTAbstr
-    { nameOfSMTAbstr :: Var t
-    , bodyOfSMTAbstr :: Expr t
-    }
-  deriving (Eq, Ord, Show, Read)
+import Smt (proveExpr)
+import KeyValueMap
+    ( selectAssocOfMap, selectAssocOfValue, ValueKVM(MapVM) )
 
 {- Assumptions about TCTL formulas:
 TCTL formulas are composed of:
@@ -38,10 +27,6 @@ TCTL formulas are composed of:
 ----------------------------------------------------------------------
 -- Handling of types / variables
 ----------------------------------------------------------------------
-
--- preliminary type of states. Possibly to be transformed to Int in SMT
-stateT :: Tp ()
-stateT = ClassT () (ClsNm "State")
 
 locPar :: Int -> Var (Tp ())
 locPar = LocalVar (QVarName stateT  "st")
@@ -121,6 +106,7 @@ constrEFStepAbstrOld fnv stv clvs transv =
                                      (conjExpr (applyVars transv (map (liftVarBy 0 n) sclvsi ++ sclvsi))
                                                (applyVars fnv sclvsi))))
 
+-- TODO: error in liftVarBy ???
 constrEFStepAbstr :: TA (Tp()) -> Expr (Tp()) -> Expr (Tp())
 constrEFStepAbstr ta fnv =
   let n = length (clocksOfTA ta) + 1
@@ -130,11 +116,17 @@ constrEFStepAbstr ta fnv =
   in abstractF sclvs
                  (disjExpr (reduceExpr (funArgsToApp fnv (map mkVarE sclvs)))
                            (abstractQ Ex sclvs
-                                    (conjExpr (reduceExpr (funArgsToApp (constrTransitions ta) (map mkVarE (map (liftVarBy 0 n) sclvs ++ sclvs))))
+                                    (conjExpr (reduceExpr  (funArgsToApp (constrTransitions ta) (map mkVarE (map (liftVarBy 0 n) sclvs ++ sclvs))))
                                               (reduceExpr (funArgsToApp fnv (map mkVarE sclvs))))))
+-- >>> renameAndPrintExpr [] foo
+-- "( \\ st: State -> ( \\ cl1: Time -> ( \\ cl0: Time -> ( exists st_0: State. ( exists cl1_0: Time. ( exists cl0_0: Time. ((((((f st_0@2) cl1_0@1) cl0_0@0) st_0@2) cl1_0@1) cl0_0@0)))))))"
+
+foo :: Expr (Tp ())
+foo = let sclvs = (locPar 2) : (clockPars 0 1) in abstractF sclvs (abstractQ Ex sclvs  (funArgsToApp (VarE (ClassT {annotOfTp = (), classNameOfTp = ClsNm {stringOfClassName = "State"}}) (GlobalVar {nameOfVar = QVarName {annotOfQVarName = ClassT {annotOfTp = (), classNameOfTp = ClsNm {stringOfClassName = "State"}}, nameOfQVarName = "f"}})) (map mkVarE ((sclvs) ++ sclvs))))
 
 -- Relation composition: for sclvs = [s, c1 .. cn], construct
 -- \s \c1 .. \cn \s' \c1' .. \cn'  -> exists \s'' \c1'' .. \cn''. r1 s c1 .. cn s'' c1'' .. cn'' && r2 s'' c1'' .. cn'' s' c1' .. cn'
+{-
 constrCompos :: [Var (Tp())] -> Var (Tp()) -> Var (Tp()) -> Expr (Tp())
 constrCompos sclvs r1 r2 =
   let n = length sclvs
@@ -145,6 +137,7 @@ constrCompos sclvs r1 r2 =
         (abstractQ Ex sclvs
           (conjExpr (applyVars r1 ( scls ++ scls'' ) )
                     (applyVars r2 ( scls'' ++ scls' ) ) ))
+-}
 
 delayTransInv :: Var (Tp ()) -> [(Clock, Var (Tp ()))] -> (Loc, [ClConstr]) -> Expr (Tp ())
 delayTransInv st cls' (l, cnstrs) =
@@ -161,7 +154,7 @@ constrDelayTransition ta st cls st' cls' =
       dgte0 = gteExpr (mkVarE d) (mkFloatConst 0.0)
       clockshift = conjsExpr (zipWith (\c' c -> eqExpr (mkVarE (liftVar 0 c')) (BinOpE floatT (BArith BAadd) (mkVarE  (liftVar 0 c)) (mkVarE d))) cls' cls)
   in  conjsExpr [mkEq st st',
-                 conjsExpr (map (delayTransInv st (zip (clocksOfTA ta) cls')) (invarsOfTA ta)),
+                 conjsExpr ([delayTransInv st (zip (clocksOfTA ta) cls') (l, cnstrts) | (l, cnstrts) <- invarsOfTA ta, not (null cnstrts)]),
                  abstractQ Ex [d] (conjExpr dgte0 clockshift)
                 ]
 
@@ -230,23 +223,6 @@ checkAutomaton k ta e =
 -- Tests
 ----------------------------------------------------------------------
 
-{-
-expandEF :: Int -> Int -> TA t -> String -> [SMTFunDef t]-> [SMTFunDef t]
-expandEF k count ta funname defs =
-    if k == count
-    then defs
-    else expandEF k (count + 1) ta funname (expandEFStep funname count ta : defs)
-
-checkExpansion :: [SMTFunDef t]-> IO ()
-checkExpansion = undefined
-
--- Model check a formula (E<> phi). 
--- The formula phi is assumed to be the argument, not the modal formula
-mcEFbounded :: Int -> TA t -> Expr t -> IO ()
-mcEFbounded k ta phi = do
-    let expansion = expandEF k 0 ta "f" [initialForm ta phi]
-    checkExpansion expansion
--}
 
 -- BEGIN for testing
 mystv :: Var (Tp())
@@ -268,8 +244,8 @@ myfnv f =
 --constrEFStepAbstrTest :: String
 --constrEFStepAbstrTest = renameAndPrintExpr [] (constrEFStepAbstr (myfnv "fn") mystv myclvs (myfnv "trans"))
 
-constrComposTest :: String
-constrComposTest = renameAndPrintExpr [] (constrCompos (mystv : myclvs) (myfnv "r1") (myfnv "r2"))
+--constrComposTest :: String
+--constrComposTest = renameAndPrintExpr [] (constrCompos (mystv : myclvs) (myfnv "r1") (myfnv "r2"))
 
 -- constrDelayTransitionTest :: String
 -- constrDelayTransitionTest = renameAndPrintExpr [] (constrDelayTransition myTA mystv myclvs)
@@ -301,9 +277,27 @@ constrAutExpTest k ta e = renameAndPrintExpr [] (checkAutomaton k ta e)
 
 {- For testing formula generation for an automaton -}
 runAut :: NewProgram (Tp ()) -> IO ()
-runAut prg = putStrLn $ constrAutExpTest 1 (head (automataOfNewProgram prg)) (exprOfAssertion (head (assertionsOfNewProgram prg)))
--- runAut prg = putStrLn $ unlines (map constrAutTransitionTest (automataOfNewProgram prg))
+{--}
+runAut prg =
+  let ta = head (automataOfNewProgram prg)
+      asrt = head (assertionsOfNewProgram prg)
+      cds = classDeclsOfNewProgram prg
+      gl = globalsOfNewProgram prg
+      instr = fromMaybe (MapVM []) (selectAssocOfMap "SMT" (instrOfAssertion asrt))
+      config = selectAssocOfValue "config" instr
+      proveConsistency = False -- prove validity
+      -- TODO: renameExpr has to be done more systematically before generation of SMT expresssions
+      proofTarget = renameExpr [] (notExpr (checkAutomaton 2 ta (exprOfAssertion asrt)))
+  in proveExpr config proveConsistency cds gl proofTarget -- launching the real checker
 
+{-
+  -- TESTS:
+  --in putStrLn $ renameAndPrintExpr [] proofTarget  -- printout of the generated formula
+  -- in putStrLn $ renameAndPrintExpr [] (checkAutomaton 1 ta (exprOfAssertion asrt))
+  -- in putStrLn $ printExpr  proofTarget
+  -- in putStrLn $ renameAndPrintExpr [] (kFoldExpansion 2 ta (exprOfAssertion asrt))
+  --runAut prg = putStrLn $ unlines (map constrAutTransitionTest (automataOfNewProgram prg))
+-}
 
 {- For testing evaluation / reduction
 runAut prg =
@@ -315,7 +309,7 @@ runAut prg =
    cl -> do
      pPrint cl
      putStrLn  (printExpr (reduceExpr e))
- -}
+-}
 
 -- >>> constrActionTransitionTest
 -- "( \\ st: Integer -> ( \\ c1: Time -> ( \\ c2: Time -> ( \\ st_0: Integer -> ( \\ c1_0: Time -> ( \\ c2_0: Time -> ((st@5==loc0)&&((st_0@2==loc1)&&(((c1@4>=3)&&True)&&(((c1_0@1==c1@4)&&(c2_0@0==0.0))&&(c2_0@0<2)))))))))))"
@@ -324,8 +318,6 @@ runAut prg =
 
 ( \\ st: Integer -> ( \\ c1: Time -> ( \\ c2: Time -> ( \\ st_0: Integer -> ( \\ c1_0: Time -> ( \\ c2_0: Time -> 
 ((st@5==loc0)&&((st_0@2==loc1)&&(((c1@4>=3)&&True)&&(((c1_0@1==c1@4)&&(c2_0@0==0.0))&&(c2_0@0<2)))))))))))
-
-
 
 -}
 

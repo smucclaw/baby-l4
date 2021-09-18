@@ -237,7 +237,8 @@ maxSpeed instCar instDay instRoad instSpeed1
 # Not valid, countermodel for example for a vehicle that is not a car.
 assert {SMT:
            {valid,
-            rules: {del : {maxSpeedCarNotRestricted, maxSpeedInversionNotRestricted, maxSpeedCar'Orig}}
+            rules: {del : {maxSpeedCarNotRestricted, maxSpeedInversionNotRestricted, maxSpeedCar'Orig}},
+	    config: {loglevel: 0}
            }
        }
 #forall iv: Vehicle. forall id: Day. forall ir: Road. exists sp: Integer. maxSpeed iv id ir sp

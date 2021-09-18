@@ -1,6 +1,6 @@
 -- L4 to SMT interface using the SimpleSMT library
 
-module Smt(proveProgram) where
+module Smt(proveProgram, proveExpr) where
 
 import Annotation (LocTypeAnnot (typeAnnot))
 import KeyValueMap
@@ -35,6 +35,13 @@ declareSort :: Solver -> String -> Int -> IO SExpr
 declareSort proc srt ar =
   do ackCommand proc $ fun "declare-sort" [ Atom srt, Atom (show ar) ]
      return (SMT.const srt)
+
+-- defineSort is here more restrictive than the SMT define-sort,
+-- and is only used for aliasing sort symbols according to function sortAlias
+defineSort :: Solver -> ClassName -> IO SExpr
+defineSort proc cn =
+  do ackCommand proc $ fun "define-sort" [ Atom (stringOfClassName cn), List [], sortAlias cn ]
+     return (SMT.const (stringOfClassName cn))
 
 getModel  :: Solver -> IO SExpr
 getModel proc =
@@ -100,19 +107,50 @@ varDeclsToFunEnv :: Show t => Solver -> SMTSortEnv -> [VarDecl t] -> IO SMTFunEn
 varDeclsToFunEnv s se = mapM (varDeclToFun s se)
 
 
-classDeclsToSortEnv :: Solver -> [ClassDecl t] -> IO SMTSortEnv
-classDeclsToSortEnv s cds = mapM (classDeclToSort s) [cd | cd <- cds,  ClsNm "Class" `elem` superClassesOfClassDecl cd ]
+topLevelUserClassDecl :: ClassDecl t -> Bool
+topLevelUserClassDecl cd = (length (superClassesOfClassDecl cd) >= 2) && superClassesOfClassDecl cd!!1 == ClassC
 
-classDeclToSort :: Solver -> ClassDecl t -> IO (ClassName, SExpr)
-classDeclToSort s (ClassDecl _ cn _) =
+-- Only the following class declarations are meant to be translated to SMT sorts:
+-- - Some special system defined classes (not subclasses of Class)
+-- - Top-level user defined classes (direct subclasses of Class)
+declarableSort :: ClassDecl t -> Bool
+declarableSort cd =
+  topLevelUserClassDecl cd ||
+  nameOfClassDecl cd == StateC
+
+-- For each definable sort, a sort alias has to be introduced in sortAlias
+definableSort :: ClassDecl t -> Bool
+definableSort cd =
+  nameOfClassDecl cd == TimeC
+
+sortAlias :: ClassName -> SExpr
+sortAlias TimeC = Atom "Real"
+sortAlias cn = error ("sort alias for " ++ show cn ++ " (internal error)")
+
+classDeclToSortDecl :: Solver -> ClassDecl t -> IO (ClassName, SExpr)
+classDeclToSortDecl s (ClassDecl _ cn _) =
   do
     se <- declareSort s (stringOfClassName cn) 0
     return (cn, se)
+
+classDeclToSortDefn :: Solver -> ClassDecl t -> IO (ClassName, SExpr)
+classDeclToSortDefn s (ClassDecl _ cn _) =
+  do
+    se <- defineSort s cn
+    return (cn, se)
+
+
+classDeclsToSortEnv :: Solver -> [ClassDecl t] -> IO SMTSortEnv
+classDeclsToSortEnv s cds = do
+  sdecls <- mapM (classDeclToSortDecl s) (filter declarableSort cds)
+  sdefns <- mapM (classDeclToSortDefn s) (filter definableSort cds)
+  return (sdecls ++ sdefns)
 
 
 valToSExpr :: Val -> SExpr
 valToSExpr (BoolV b) = bool b
 valToSExpr (IntV i) = int i
+valToSExpr (FloatV f) = real (toRational f)
 valToSExpr _ = error "valToSExpr: not implemented"
 
 -- TODO: For this to work, names (also of bound variables) have to be unique
@@ -181,12 +219,15 @@ exprToSExpr _    e = error ("exprToSExpr: term " ++ show e ++ " not translatable
 -- Launching the solver and retrieving results
 -------------------------------------------------------------
 
+-- When no explicit log level is provided, the default is set to 1
+-- (silent mode not showing interaction with SMT solver)
 selectLogLevel :: Maybe ValueKVM -> Int
 selectLogLevel config =
-  case selectAssocOfValue "loglevel" (fromMaybe (IntVM 0) config) of
-    Nothing -> 0
+  let defaultLogLevel = 1
+  in case selectAssocOfValue "loglevel" (fromMaybe (IntVM 0) config) of
+    Nothing -> defaultLogLevel
     Just (IntVM n) -> fromIntegral n
-    Just _ -> 0
+    Just _ -> defaultLogLevel
 
 createSolver :: Maybe ValueKVM -> Maybe Logger -> IO Solver
 createSolver config lg =

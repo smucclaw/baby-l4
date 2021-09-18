@@ -5,7 +5,9 @@ module Exec where
 import Data.List
 import Syntax
 import Typing
-import SyntaxManipulation (mkFunTp, abstractF, abstractFvd)
+import SyntaxManipulation (mkFunTp, abstractF, abstractFvd, liftExpr, dropVar)
+import PrintProg (renameAndPrintExpr, printExpr)
+import Data.Maybe (fromMaybe)
 
 liftUarithOp :: UArithOp -> Val -> Val
 liftUarithOp u c = case (u, c) of
@@ -78,7 +80,7 @@ data EvalResult t
     deriving (Eq, Ord, Show, Read)
 type ReductEnv t = [EvalResult t]
 
-lookupEnv :: Int -> ReductEnv t -> Maybe (EvalResult t)
+lookupEnv :: Int -> [t] -> Maybe t
 lookupEnv i env = if i < length env then Just (env!!i) else Nothing
 
 -- Evaluates an expression like a functional language. 
@@ -102,33 +104,40 @@ evalExpr env x = case x of
       ExprResult fres -> evalExpr [evalExpr env a] fres
       ClosResult clenv v fbd -> evalExpr (evalExpr env a:clenv) fbd
   FunE t v e -> ClosResult env v e
-  e -> ExprResult (substClos env 0 e)
+  e -> ExprResult (substClos (map reduceEvalResult env) 0 e)
+    -- error ((show env) ++ "expr: "  ++ (printExpr e))
+    -- 
 
-
+reduceEvalResult :: EvalResult (Tp()) -> Expr (Tp())
+reduceEvalResult (ExprResult er) = er
+reduceEvalResult (ClosResult clenv v er) = substClos (map reduceEvalResult clenv) 0 (abstractFvd [v] er)
 
 reduceExpr :: Expr (Tp()) -> Expr (Tp())
+reduceExpr e = reduceEvalResult (evalExpr [] e)
+{-
 reduceExpr e = case evalExpr [] e of
   ExprResult er -> er
-  ClosResult clenv v er -> substClos clenv 0 (abstractFvd [v] er)
+  ClosResult clenv v er -> error "reduce does not produce expr"
+    -- substClos clenv 0 (abstractFvd [v] er)
+-}
 
-substClos :: ReductEnv (Tp()) -> Int ->  Expr (Tp()) -> Expr (Tp())
+-- TODO: check if the indexing is correct in the variable case
+substClos :: [Expr (Tp())] -> Int ->  Expr (Tp()) -> Expr (Tp())
 substClos [] _ e = e
 substClos env d e@ValE{} = e
 substClos env d v@(VarE _ GlobalVar {}) = v
-substClos env d v@(VarE _ (LocalVar _vn i)) =
+substClos env d ve@(VarE t v@(LocalVar _vn i)) =
   if i < d
-  then v
-  else
-    case lookupEnv (i - d) env of
-      Nothing -> v
-      Just (ExprResult e) ->  e
-      Just (ClosResult nenv v ne) -> substClos nenv 0 (abstractFvd [v] ne)
+  then ve
+  else fromMaybe (VarE t (dropVar v)) (lookupEnv (i - d) env)
+      -- Just (ClosResult nenv v ne) -> error "clos in substClos"
+        -- substClos nenv 0 (abstractFvd [v] ne)
 substClos env d (UnaOpE t uop e) = UnaOpE t uop (substClos env d e)
 substClos env d (BinOpE t bop e1 e2) = BinOpE t bop (substClos env d e1) (substClos env d e2)
 substClos env d (IfThenElseE t ec e1 e2) = IfThenElseE t (substClos env d ec) (substClos env d e1) (substClos env d e2)
 substClos env d (AppE t f a) = AppE t (substClos env d f) (substClos env d a)
-substClos env d (FunE t v e) = FunE t v (substClos env (d + 1) e)
-substClos env d (QuantifE t q v e) = QuantifE t q v (substClos env (d + 1) e)
+substClos env d (FunE t v e) = FunE t v (substClos (map (liftExpr d) env) (d + 1) e)
+substClos env d (QuantifE t q v e) = QuantifE t q v (substClos (map (liftExpr d) env) (d + 1) e)
 substClos env d (FldAccE t e fn) = FldAccE t (substClos env d e) fn
 substClos env d (TupleE t es) = TupleE t (map (substClos env d) es)
 substClos env d (CastE t ct e) = CastE t ct (substClos env d e)
