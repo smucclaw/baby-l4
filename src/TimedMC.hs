@@ -6,11 +6,11 @@ module TimedMC where
 import Syntax
 import SyntaxManipulation (conjExpr, disjExpr, implExpr, abstractQ, abstractF, liftVarBy, conjsExpr, disjsExpr, applyVars, mkVarE, mkEq, mkFloatConst, mkFunTp, index, indexListFromTo, gteExpr, eqExpr, mkIntConst, liftVar, funArgsToApp, notExpr)
 
-import PrintProg (renameAndPrintExpr, renameExpr, printExpr)
+import PrintProg (renameAndPrintExpr, renameExpr)
 import Data.List (find)
 import Data.Maybe (fromMaybe)
 import Text.Pretty.Simple (pPrint)
-import Exec (evalExpr, reduceExpr, EvalResult (ExprResult))
+import Exec (reduceExpr)
 import Smt (proveExpr)
 import KeyValueMap
     ( selectAssocOfMap, selectAssocOfValue, ValueKVM(MapVM) )
@@ -106,7 +106,6 @@ constrEFStepAbstrOld fnv stv clvs transv =
                                      (conjExpr (applyVars transv (map (liftVarBy 0 n) sclvsi ++ sclvsi))
                                                (applyVars fnv sclvsi))))
 
--- TODO: error in liftVarBy ???
 constrEFStepAbstr :: TA (Tp()) -> Expr (Tp()) -> Expr (Tp())
 constrEFStepAbstr ta fnv =
   let n = length (clocksOfTA ta) + 1
@@ -118,11 +117,6 @@ constrEFStepAbstr ta fnv =
                            (abstractQ Ex sclvs
                                     (conjExpr (reduceExpr  (funArgsToApp (constrTransitions ta) (map mkVarE (map (liftVarBy 0 n) sclvs ++ sclvs))))
                                               (reduceExpr (funArgsToApp fnv (map mkVarE sclvs))))))
--- >>> renameAndPrintExpr [] foo
--- "( \\ st: State -> ( \\ cl1: Time -> ( \\ cl0: Time -> ( exists st_0: State. ( exists cl1_0: Time. ( exists cl0_0: Time. ((((((f st_0@2) cl1_0@1) cl0_0@0) st_0@2) cl1_0@1) cl0_0@0)))))))"
-
-foo :: Expr (Tp ())
-foo = let sclvs = (locPar 2) : (clockPars 0 1) in abstractF sclvs (abstractQ Ex sclvs  (funArgsToApp (VarE (ClassT {annotOfTp = (), classNameOfTp = ClsNm {stringOfClassName = "State"}}) (GlobalVar {nameOfVar = QVarName {annotOfQVarName = ClassT {annotOfTp = (), classNameOfTp = ClsNm {stringOfClassName = "State"}}, nameOfQVarName = "f"}})) (map mkVarE ((sclvs) ++ sclvs))))
 
 -- Relation composition: for sclvs = [s, c1 .. cn], construct
 -- \s \c1 .. \cn \s' \c1' .. \cn'  -> exists \s'' \c1'' .. \cn''. r1 s c1 .. cn s'' c1'' .. cn'' && r2 s'' c1'' .. cn'' s' c1' .. cn'
@@ -218,64 +212,10 @@ checkAutomaton k ta e =
   in reduceExpr (funArgsToApp expansion (initialLoc : initialCls))
 
 
-
-----------------------------------------------------------------------
--- Tests
-----------------------------------------------------------------------
-
-
--- BEGIN for testing
-mystv :: Var (Tp())
-mystv = LocalVar (QVarName integerT  "st") 0
-
-mystv' :: Var (Tp())
-mystv' = LocalVar (QVarName integerT  "st'") 0
-
-myclvs :: [Var (Tp())]
-myclvs = [LocalVar (QVarName (ClassT () (ClsNm "Time"))  "c1") 0, LocalVar (QVarName (ClassT () (ClsNm "Time"))  "c2") 0]
-
-myfnv :: String -> Var (Tp())
-myfnv f =
-  let i = integerT
-      t = ClassT () (ClsNm "Time")
-      b = booleanT
-  in GlobalVar (QVarName (mkFunTp [i, t, t, i, t, t] b)  f)
-
---constrEFStepAbstrTest :: String
---constrEFStepAbstrTest = renameAndPrintExpr [] (constrEFStepAbstr (myfnv "fn") mystv myclvs (myfnv "trans"))
-
---constrComposTest :: String
---constrComposTest = renameAndPrintExpr [] (constrCompos (mystv : myclvs) (myfnv "r1") (myfnv "r2"))
-
--- constrDelayTransitionTest :: String
--- constrDelayTransitionTest = renameAndPrintExpr [] (constrDelayTransition myTA mystv myclvs)
-
-myTrans :: Transition (Tp ())
-myTrans = Transition (Loc "loc0")
-                (TransitionGuard [ClConstr (Clock "c1") BCgte 3] trueV)
-                (TransitionAction Internal [Clock "c2"] (Skip OkT))
-                (Loc "loc1")
-
-myTA :: TA (Tp ())
-myTA = TA OkT "myTA" [Loc "loc0", Loc "loc1"] [] [Clock "c1", Clock "c2"] [myTrans] (Loc "loc0") [(Loc "loc0", [ClConstr (Clock "c1") BClt 3]), (Loc "loc1", [ClConstr (Clock "c2") BClt 2])] []
-
--- constrActionTransitionTest :: String
--- constrActionTransitionTest = renameAndPrintExpr [] (constrActionTransitions myTA mystv myclvs)
-
 ----------------------------------------------------------------------
 -- Wiring with rest
 ----------------------------------------------------------------------
 
-constrAutTransitionTest :: TA (Tp ()) -> String
-constrAutTransitionTest ta = renameAndPrintExpr [] (constrTransitions ta)
-
-constrAutGoalTest :: TA (Tp ()) -> Expr (Tp ()) -> String
-constrAutGoalTest ta e = renameAndPrintExpr [] (goalFun ta e)
-
-constrAutExpTest :: Int -> TA (Tp ()) -> Expr (Tp ()) -> String
-constrAutExpTest k ta e = renameAndPrintExpr [] (checkAutomaton k ta e)
-
-{- For testing formula generation for an automaton -}
 runAut :: NewProgram (Tp ()) -> IO ()
 {--}
 runAut prg =
@@ -299,27 +239,15 @@ runAut prg =
   --runAut prg = putStrLn $ unlines (map constrAutTransitionTest (automataOfNewProgram prg))
 -}
 
-{- For testing evaluation / reduction
-runAut prg =
-  let a = head (assertionsOfNewProgram prg)
-      e = argOfExprAppE (exprOfAssertion a)
-      ev = evalExpr [] e
-  in  case ev of
-   ExprResult expr -> putStrLn  (printExpr expr)
-   cl -> do
-     pPrint cl
-     putStrLn  (printExpr (reduceExpr e))
--}
+----------------------------------------------------------------------
+-- Tests
+----------------------------------------------------------------------
 
--- >>> constrActionTransitionTest
--- "( \\ st: Integer -> ( \\ c1: Time -> ( \\ c2: Time -> ( \\ st_0: Integer -> ( \\ c1_0: Time -> ( \\ c2_0: Time -> ((st@5==loc0)&&((st_0@2==loc1)&&(((c1@4>=3)&&True)&&(((c1_0@1==c1@4)&&(c2_0@0==0.0))&&(c2_0@0<2)))))))))))"
+constrAutTransitionTest :: TA (Tp ()) -> String
+constrAutTransitionTest ta = renameAndPrintExpr [] (constrTransitions ta)
 
-{-
+constrAutGoalTest :: TA (Tp ()) -> Expr (Tp ()) -> String
+constrAutGoalTest ta e = renameAndPrintExpr [] (goalFun ta e)
 
-( \\ st: Integer -> ( \\ c1: Time -> ( \\ c2: Time -> ( \\ st_0: Integer -> ( \\ c1_0: Time -> ( \\ c2_0: Time -> 
-((st@5==loc0)&&((st_0@2==loc1)&&(((c1@4>=3)&&True)&&(((c1_0@1==c1@4)&&(c2_0@0==0.0))&&(c2_0@0<2)))))))))))
-
--}
-
-
--- END for testing
+constrAutExpTest :: Int -> TA (Tp ()) -> Expr (Tp ()) -> String
+constrAutExpTest k ta e = renameAndPrintExpr [] (checkAutomaton k ta e)

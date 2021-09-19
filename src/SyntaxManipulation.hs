@@ -138,9 +138,9 @@ fv (TupleE _ es) = Set.unions (map fv es)
 fv (CastE _ _ e) = fv e
 fv (ListE _ _ es) = Set.unions (map fv es)
 
-dropVar :: Var t -> Var t
-dropVar (LocalVar vn i) = LocalVar vn (i - 1)
-dropVar v = v
+dropVar :: Int -> Var t -> Var t
+dropVar n (LocalVar vn i) = LocalVar vn (i - n)
+dropVar n v = v
 
 -- Lift variables and expressions: 
 -- Increase by one all indices of bound variables with index number >= n

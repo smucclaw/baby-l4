@@ -5,7 +5,7 @@ module Exec where
 import Data.List
 import Syntax
 import Typing
-import SyntaxManipulation (mkFunTp, abstractF, abstractFvd, liftExpr, dropVar)
+import SyntaxManipulation (mkFunTp, abstractF, abstractFvd, liftExpr, dropVar, liftType)
 import PrintProg (renameAndPrintExpr, printExpr)
 import Data.Maybe (fromMaybe)
 
@@ -31,8 +31,8 @@ barithFun ba = case ba of
   BAadd -> (+)
   BAsub -> (-)
   BAmul -> (*)
-  BAdiv -> (div)
-  BAmod -> (mod)
+  BAdiv -> div
+  BAmod -> mod
 
 bcomparFun :: BComparOp -> Val -> Val -> Bool
 bcomparFun bc = case bc of
@@ -49,8 +49,6 @@ bboolFun bb = case bb of
   BBor -> (||)
   BBand -> (&&)
 
-
-
 liftBArithOp :: BArithOp -> Val -> Val -> Val
 liftBArithOp ba c1 c2 = case (c1, c2) of
   (IntV i1, IntV i2) -> IntV (barithFun ba i1 i2)
@@ -64,7 +62,6 @@ liftBBoolOp bb c1 c2 = case (c1, c2) of
   (BoolV b1, BoolV b2) -> BoolV (bboolFun bb b1 b2)
   _ -> ErrV
 
-
 liftBinopExpr :: Tp() -> BinOp -> EvalResult (Tp()) -> EvalResult (Tp()) -> Expr (Tp())
 liftBinopExpr t bop (ExprResult e1) (ExprResult e2) = case (bop, e1, e2) of
     (BArith ba, ValE t1 c1, ValE t2 c2) -> ValE t (liftBArithOp ba c1 c2)
@@ -72,7 +69,6 @@ liftBinopExpr t bop (ExprResult e1) (ExprResult e2) = case (bop, e1, e2) of
     (BBool bb, ValE t1 c1, ValE t2 c2) -> ValE t (liftBBoolOp bb c1 c2)
     _ -> BinOpE t bop e1 e2
 liftBinopExpr t bop _ _ = ValE ErrT ErrV
-
 
 data EvalResult t
   = ExprResult (Expr t)
@@ -105,8 +101,6 @@ evalExpr env x = case x of
       ClosResult clenv v fbd -> evalExpr (evalExpr env a:clenv) fbd
   FunE t v e -> ClosResult env v e
   e -> ExprResult (substClos (map reduceEvalResult env) 0 e)
-    -- error ((show env) ++ "expr: "  ++ (printExpr e))
-    -- 
 
 reduceEvalResult :: EvalResult (Tp()) -> Expr (Tp())
 reduceEvalResult (ExprResult er) = er
@@ -114,14 +108,7 @@ reduceEvalResult (ClosResult clenv v er) = substClos (map reduceEvalResult clenv
 
 reduceExpr :: Expr (Tp()) -> Expr (Tp())
 reduceExpr e = reduceEvalResult (evalExpr [] e)
-{-
-reduceExpr e = case evalExpr [] e of
-  ExprResult er -> er
-  ClosResult clenv v er -> error "reduce does not produce expr"
-    -- substClos clenv 0 (abstractFvd [v] er)
--}
 
--- TODO: check if the indexing is correct in the variable case
 substClos :: [Expr (Tp())] -> Int ->  Expr (Tp()) -> Expr (Tp())
 substClos [] _ e = e
 substClos env d e@ValE{} = e
@@ -129,9 +116,10 @@ substClos env d v@(VarE _ GlobalVar {}) = v
 substClos env d ve@(VarE t v@(LocalVar _vn i)) =
   if i < d
   then ve
-  else fromMaybe (VarE t (dropVar v)) (lookupEnv (i - d) env)
-      -- Just (ClosResult nenv v ne) -> error "clos in substClos"
-        -- substClos nenv 0 (abstractFvd [v] ne)
+  else fromMaybe (VarE t (dropVar (length env) v)) (lookupEnv (i - d) env)
+  -- Note: The env corresponds to the number of values being substituted in parallel.
+  -- When substituting in a local variable of an outer scope, its index 
+  -- has to be decremented by the number of intermediate vars that are eliminated.
 substClos env d (UnaOpE t uop e) = UnaOpE t uop (substClos env d e)
 substClos env d (BinOpE t bop e1 e2) = BinOpE t bop (substClos env d e1) (substClos env d e2)
 substClos env d (IfThenElseE t ec e1 e2) = IfThenElseE t (substClos env d ec) (substClos env d e1) (substClos env d e2)
@@ -143,3 +131,20 @@ substClos env d (TupleE t es) = TupleE t (map (substClos env d) es)
 substClos env d (CastE t ct e) = CastE t ct (substClos env d e)
 substClos env d (ListE t lop es) = ListE t lop (map (substClos env d) es)
 
+
+----------------------------------------------------------------------
+-- Tests
+----------------------------------------------------------------------
+
+{- For testing evaluation / reduction:
+  for an assert (P e), reduce expression e
+testReduction prg =
+  let a = head (assertionsOfNewProgram prg)
+      e = argOfExprAppE (exprOfAssertion a)
+      ev = evalExpr [] e
+  in  case ev of
+   ExprResult expr -> putStrLn  (printExpr expr)
+   cl -> do
+     pPrint cl
+     putStrLn  (printExpr (reduceExpr e))
+-}
