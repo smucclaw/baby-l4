@@ -33,12 +33,12 @@ gfl2lang gfLang =
 grName :: GrName
 grName = "Prop"
 
-createGF :: FilePath -> Program t -> IO PGF
-createGF fname prog = trace ("allPreds: " ++ show allPreds) $ createGF' fname grName (lexiconOfProgram prog) allPreds
+createGF :: FilePath -> NewProgram t -> IO PGF
+createGF fname prog = trace ("allPreds: " ++ show allPreds) $ createGF' fname grName (lexiconOfNewProgram prog) allPreds
   where
     allPreds = S.toList $ S.fromList $ concat
       [ getAtoms vardecl
-      | vardecl <- globalsOfProgram prog
+      | vardecl <- globalsOfNewProgram prog
       ]
 
 getAtoms :: VarDecl t -> [AtomWithArity]
@@ -59,13 +59,13 @@ getAtoms (VarDecl _ name tp) =
       TupleT _ tps -> concatMap getNames tps     -- handle tree recursion in leaves
       _ -> []
 
-nlg, nlgAST :: Show t => GFlang -> FilePath -> Program t -> IO ()
+nlg, nlgAST :: Show t => GFlang -> FilePath -> NewProgram t -> IO ()
 nlg = nlg' False
 nlgAST = nlg' True
 
 
 
-nlg' :: Show t => Bool -> GFlang -> FilePath -> Program t -> IO ()
+nlg' :: Show t => Bool -> GFlang -> FilePath -> NewProgram t -> IO ()
 nlg' showAST gfl fpath prog = do
     gr <- createGF fpath prog
     sequence_
@@ -92,10 +92,12 @@ data Env t
         vardecls :: [[VarDecl t ]]
       }
 
-program2prop :: Show t => Program t -> [GProp]
-program2prop e = case e of
-  Program _ lex _cl vars rules _as ->
-    let env0 = Env {lexicon = lex, vardecls = [vars]}
+program2prop :: Show t => NewProgram t -> [GProp]
+program2prop prg = 
+    let lexc = lexiconOfNewProgram prg
+        vars = globalsOfNewProgram prg
+        rules = rulesOfNewProgram prg
+        env0 = Env {lexicon = lexc, vardecls = [vars]}
      in runReader
           (mapM rule2prop rules)
           env0

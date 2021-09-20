@@ -4,8 +4,8 @@
 module Main where
 
 
-import Parser (parseNewProgram, parseProgram)
-import Syntax (NewProgram, Program, ClassName, newProgramToProgram )
+import Parser (parseNewProgram)
+import Syntax (NewProgram, ClassName)
 import Typing ( checkError )
 --import SmtSBV (proveProgram)
 import Smt (proveProgram)
@@ -54,7 +54,7 @@ process args input = do
       case checkError preludeAst ast of
         Left err -> putStrLn (printError err)
         Right tpAst -> do
-          let tpAstNoSrc = fmap typeAnnot (newProgramToProgram tpAst)
+          let tpAstNoSrc = fmap typeAnnot  tpAst
           let normalAst = normalizeProg tpAstNoSrc -- Creates predicates of class fields
 
           case format args of

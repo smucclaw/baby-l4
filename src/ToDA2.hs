@@ -16,7 +16,7 @@ import Control.Monad (unless)
 import Control.Monad.Reader
 import Control.Applicative (liftA2)
 
-createDSyaml :: (Show t, Eq t) => Program (Tp t) -> IO ()
+createDSyaml :: (Show t, Eq t) => NewProgram (Tp t) -> IO ()
 createDSyaml p = putDoc $ showDS p
 
 
@@ -130,11 +130,11 @@ class DSYaml x where
   showDSlist = vsep . map showDS
 
 
-instance (Show t, Eq t) => DSYaml (Program (Tp t)) where
-  showDS Program { lexiconOfProgram,classDeclsOfProgram,globalsOfProgram,rulesOfProgram,assertionsOfProgram} = do
+instance (Show t, Eq t) => DSYaml (NewProgram (Tp t)) where
+  showDS prg = do
     vsep [ "rules: "
          , "query: "
-         , "data:"      , hang 2 $ showDSlist $ map classDeclToBlock $ reverse $ drop 7 classDeclsOfProgram
+         , "data:"      , hang 2 $ showDSlist $ map classDeclToBlock $ reverse $ drop 7 (classDeclsOfNewProgram prg)
          , "terms: "
          , "options: " <> PP.line
          ]

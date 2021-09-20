@@ -13,6 +13,8 @@ import Data.Data (Data, Typeable)
 import Annotation
 import KeyValueMap
 import Data.Maybe (mapMaybe)
+import Data.SBV.Maybe (fromMaybe)
+import Data.Maybe (isJust)
 
 ----------------------------------------------------------------------
 -- Definition of expressions
@@ -73,7 +75,7 @@ Explicit: '{Player} participates in {Game}'
 
 
 ----- Program
-
+{-
 data Program t = Program{ annotOfProgram :: t
                             , lexiconOfProgram :: [Mapping t]
                             , classDeclsOfProgram ::  [ClassDecl t]
@@ -81,7 +83,7 @@ data Program t = Program{ annotOfProgram :: t
                             , rulesOfProgram :: [Rule t]
                             , assertionsOfProgram :: [Assertion t] }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
-
+-}
 data TopLevelElement t
   = MappingTLE (Mapping t)
   | ClassDeclTLE (ClassDecl t)
@@ -149,6 +151,9 @@ getAutomaton :: TopLevelElement t -> Maybe (TA t)
 getAutomaton (AutomatonTLE e) = Just e
 getAutomaton _ = Nothing
 
+typeOfTLE :: (t -> Maybe a) -> t -> Bool
+typeOfTLE g = isJust . g 
+
 lexiconOfNewProgram :: NewProgram t -> [Mapping t]
 lexiconOfNewProgram = mapMaybe getMapping . elementsOfNewProgram
 
@@ -181,7 +186,7 @@ mapAssertion :: (Assertion t -> Assertion t) -> TopLevelElement t -> TopLevelEle
 mapAssertion f e = case e of
   AssertionTLE r -> AssertionTLE (f r)
   x -> x
-
+{-
 newProgramToProgram :: NewProgram t -> Program t
 newProgramToProgram np = Program {
   annotOfProgram = annotOfNewProgram np,
@@ -195,7 +200,7 @@ newProgramToProgram np = Program {
 instance HasAnnot Program where
   getAnnot = annotOfProgram
   updateAnnot f p = p { annotOfProgram = f (annotOfProgram p)}
-
+-}
 
 
 ----- Types
@@ -586,6 +591,11 @@ data TA t =
     labellingOfTA :: [(Loc, Expr t)]
   }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
+
+instance HasAnnot TA where
+  getAnnot = annotOfTA
+  updateAnnot f p = p { annotOfTA = f (annotOfTA p)}
 
 -- Timed Automata System: a set of TAs running in parallel
 -- Type parameter ext: Environment-specific extension

@@ -17,7 +17,7 @@
 
 module Parser (
   parseNewProgram,
-  parseProgram
+--  parseProgram
 --  , parseTokens,
 ) where
 
@@ -406,6 +406,6 @@ parseError (L p t) =
 parseNewProgram :: FilePath -> String -> Either Err (NewProgram SRng)
 parseNewProgram = runAlex' program
 
-parseProgram :: FilePath -> String -> Either Err (Program SRng)
-parseProgram fp inp = mapRight newProgramToProgram (parseNewProgram fp inp)
+--parseProgram :: FilePath -> String -> Either Err (Program SRng)
+--parseProgram fp inp = mapRight newProgramToProgram (parseNewProgram fp inp)
 }
