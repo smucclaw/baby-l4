@@ -26,14 +26,11 @@ mkPosition = Pos
 
 hoverTests :: TestTree
 hoverTests = testGroup "Hover tests"
-  -- TODO: update or remove the string lexicon & hover over nothing tests
-  [ expectFailBecause "Lexicon is not in AST" $ testHover "mini.l4 hover the string 'lexicon'"                        "mini.l4" (mkPosition 3 5)   (mkRange' 3 1 3 8)    "This is a lexicon"
-  ,                                             testHover "mini.l4 hover the string 'Business -> \"business_1_N\"'"   "mini.l4" (mkPosition 5 5)   (mkRange' 5 1 5 67)   "This block maps variable DetractsFromDignity to CNL description \"detracts from dignity of legal profession\""
-  ,                                             testHover "cr.l4 hover the string 'class Business {'"                 "cr.l4"   (mkPosition 22 11) (mkRange' 22 1 25 2)  "Declaration of new class : Business"
-  ,                                             testHover "cr.l4 hover AssociatedWith"                                "cr.l4"   (mkPosition 39 13) (mkRange' 39 1 39 65) "Declaration of global variable AssociatedWith"
-  ,                                             testHover "cr.l4 hover AssociatedWith type"                           "cr.l4"   (mkPosition 39 31) (mkRange' 39 1 39 65) "Declaration of global variable AssociatedWith"
-  ,                                             testHover "cr.l4 hover rule r1a"                                      "cr.l4"   (mkPosition 62 8)  (mkRange' 62 1 65 30) "Declaration of rule r1a"
-  , expectFail                                $ testHover "Hover over nothing"                                        "mini.l4" (mkPosition 2 1)   (mkRange' 5 2 5 9)    "This block maps variable Business to WordNet definion \"business_1_N\""
+  [ testHover "mini.l4 hover the DetractsFromDignity lexicon entry"       "mini.l4" (mkPosition 5 5)   (mkRange' 5 1 5 67)   "This block maps variable DetractsFromDignity to CNL description \"detracts from dignity of legal profession\""
+  , testHover "cr.l4 hover the string 'class Business {'"                 "cr.l4"   (mkPosition 22 11) (mkRange' 22 1 25 2)  "Declaration of new class : Business"
+  , testHover "cr.l4 hover AssociatedWith"                                "cr.l4"   (mkPosition 39 13) (mkRange' 39 1 39 65) "Declaration of global variable AssociatedWith"
+  , testHover "cr.l4 hover AssociatedWith type"                           "cr.l4"   (mkPosition 39 31) (mkRange' 39 1 39 65) "Declaration of global variable AssociatedWith"
+  , testHover "cr.l4 hover rule r1a"                                      "cr.l4"   (mkPosition 62 8)  (mkRange' 62 1 65 30) "Declaration of rule r1a"
   ]
 
 hoverTypeInfoTests :: TestTree
@@ -93,7 +90,9 @@ unitTests = testGroup "Unit tests"
 -- TODO: We might want to test several hovers for a single file at once,
 -- but currently each hover will reparse the file anyways, so it won't make
 -- any performance difference anyways.
-testHover :: TestName -- ^ Description of the test case
+testHover
+  :: HasCallStack
+  => TestName -- ^ Description of the test case
   -> FilePath -- ^ The file to test
   -> Pos -- ^ Where in the file to hover (0-indexed)
   -> RealSRng -- ^ Which range should highlight when you hover
