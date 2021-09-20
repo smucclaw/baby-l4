@@ -607,30 +607,35 @@ tpVarDecl env (VarDecl ann vn tp) = do
 
 
 checkClassesForWfError :: HasLoc t => [ClassDecl t] -> p -> TCM p
-checkClassesForWfError cds prg =
+checkClassesForWfError cds prg = do
   let class_names = map nameOfClassDecl cds
-  in
-    case filter (not . definedSuperclass class_names) cds of
-      [] -> case duplicates class_names of
-              [] -> pure prg
-              ds -> tError (DuplicateClassNamesCDEErr [(getLoc cd, nameOfClassDecl cd) | cd <- cds, nameOfClassDecl cd `elem` ds])
-      undefs -> tError (UndefinedSuperclassCDEErr (map (\cd -> (getLoc cd, nameOfClassDecl cd)) undefs))
+  case filter (not . definedSuperclass class_names) cds of
+    [] -> pure ()
+    undefs -> tError (UndefinedSuperclassCDEErr (map (\cd -> (getLoc cd, nameOfClassDecl cd)) undefs))
+  case duplicates class_names of
+    [] -> pure ()
+    ds -> tError (DuplicateClassNamesCDEErr [(getLoc cd, nameOfClassDecl cd) | cd <- cds, nameOfClassDecl cd `elem` ds])
+  pure prg
+
 
 
 -- ATTENTION, difference wrt. checkClassesForCyclicError: the first parameter is the list of prelude class decls and not the list of all class decls
 -- TODO: In this function, the prelude class decs are prefixed to the program elements. 
 checkClassesForCyclicError :: HasLoc t => [ClassDecl t] -> NewProgram t -> TCM (NewProgram t)
-checkClassesForCyclicError preludeCds prg =
+checkClassesForCyclicError preludeCds prg = do
   let cds = preludeCds ++ classDeclsOfNewProgram prg
       cdfAssoc = classDefAssoc cds
       cyclicClassNames = lefts (map (superClassesConstr cdfAssoc [] . nameOfClassDecl) cds)
-  in case cyclicClassNames of
-     []   -> let newProgElems = map ClassDeclTLE preludeCds ++ elementsOfNewProgram prg
-                 elabSupers = map (mapClassDecl (elaborateSupersInClassDecl (superClasses cdfAssoc))) newProgElems
-                 elabFields = map (mapClassDecl (elaborateFieldsInClassDecl (fieldAssoc cds))) elabSupers
-             in pure (prg {elementsOfNewProgram = elabFields})
-     cycs -> tError (CyclicClassHierarchyCDEErr
-                [(getLoc cd, nameOfClassDecl cd)| cd <- cds, nameOfClassDecl cd `elem` cycs])
+
+  case cyclicClassNames of
+     []   -> pure ()
+     cycs -> tError (CyclicClassHierarchyCDEErr [(getLoc cd, nameOfClassDecl cd)| cd <- cds, nameOfClassDecl cd `elem` cycs])
+
+  let newProgElems = map ClassDeclTLE preludeCds ++ elementsOfNewProgram prg
+      elabSupers = map (mapClassDecl (elaborateSupersInClassDecl (superClasses cdfAssoc))) newProgElems
+      elabFields = map (mapClassDecl (elaborateFieldsInClassDecl (fieldAssoc cds))) elabSupers
+
+  pure (prg {elementsOfNewProgram = elabFields})
 
 checkClassDeclsError :: HasLoc t => NewProgram t -> NewProgram t -> TCM (NewProgram t)
 checkClassDeclsError prelude prg =
