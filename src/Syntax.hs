@@ -12,9 +12,7 @@ module Syntax where
 import Data.Data (Data, Typeable)
 import Annotation
 import KeyValueMap
-import Data.Maybe (mapMaybe)
-import Data.SBV.Maybe (fromMaybe)
-import Data.Maybe (isJust)
+import Data.Maybe ( mapMaybe, isJust )
 
 ----------------------------------------------------------------------
 -- Definition of expressions
@@ -152,7 +150,7 @@ getAutomaton (AutomatonTLE e) = Just e
 getAutomaton _ = Nothing
 
 typeOfTLE :: (t -> Maybe a) -> t -> Bool
-typeOfTLE g = isJust . g 
+typeOfTLE g = isJust . g
 
 lexiconOfNewProgram :: NewProgram t -> [Mapping t]
 lexiconOfNewProgram = mapMaybe getMapping . elementsOfNewProgram
