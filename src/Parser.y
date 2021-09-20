@@ -2,17 +2,34 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {- HLINT ignore -}
 
+{-
+
+    Checklist what to do when modifying the language:
+    * In Lexer.x (when introducing new lexical items):
+    - Below "tokens :-", add the textual representations and tokens
+    - Below "data TokenKind", add the tokens
+    - Extend the "unlex" function definition
+    * in Parser.y:
+    - Below "%tokens", add the tokens
+    - Below "Operators", possibly specify associativity / priorities of operators
+    - Modify the grammar
+-}
+
 module Parser (
-  parseProgram
+  parseNewProgram,
+--  parseProgram
 --  , parseTokens,
 ) where
 
 import Lexer
 import Annotation
+import KeyValueMap
 import Syntax
 
 import Prelude
 import Control.Monad.Except
+import Data.Maybe (fromMaybe)
+import Data.Either.Combinators (mapRight)
 
 }
 
@@ -33,18 +50,19 @@ import Control.Monad.Except
     assert  { L _ TokenAssert }
     class   { L _ TokenClass }
     decl    { L _ TokenDecl }
-    defn    { L _ TokenDefn }
     extends { L _ TokenExtends }
     lexicon { L _ TokenLexicon }
     fact    { L _ TokenFact }
     rule    { L _ TokenRule }
-    derivable { L _ TokenDerivable }
 
-    Bool  { L _ TokenBool }
-    Int   { L _ TokenInt }
+    process     { L _ TokenProcess }
+    clock       { L _ TokenClock }
+    state       { L _ TokenState }
+    init        { L _ TokenInit }
+    trans       { L _ TokenTrans }
+    guard       { L _ TokenGuard }
+    assign      { L _ TokenAssign }
 
-    let    { L _ TokenLet }
-    in     { L _ TokenIn }
     not    { L _ TokenNot }
     forall { L _ TokenForall }
     exists { L _ TokenExists }
@@ -55,16 +73,23 @@ import Control.Monad.Except
     true   { L _ TokenTrue }
     false  { L _ TokenFalse }
 
+    'A<>'  { L _ TokenAF }
+    'A[]'  { L _ TokenAG }
+    'E<>'  { L _ TokenEF }
+    'E[]'  { L _ TokenEG }
+
     '\\'  { L _ TokenLambda }
     '->'  { L _ TokenArrow }
     '-->' { L _ TokenImpl }
     '||'  { L _ TokenOr }
     '&&'  { L _ TokenAnd }
-    '='   { L _ TokenEq }
+    '=='  { L _ TokenEq }
     '<'   { L _ TokenLt }
     '<='  { L _ TokenLte }
     '>'   { L _ TokenGt }
     '>='  { L _ TokenGte }
+    '/='  { L _ TokenNe }
+    '='   { L _ TokenAssignTo }
     '+'   { L _ TokenAdd }
     '-'   { L _ TokenSub }
     '*'   { L _ TokenMul }
@@ -73,39 +98,65 @@ import Control.Monad.Except
     '.'   { L _ TokenDot }
     ','   { L _ TokenComma }
     ':'   { L _ TokenColon }
+    ';'   { L _ TokenSemicolon }
     '('   { L _ TokenLParen }
     ')'   { L _ TokenRParen }
     '{'   { L _ TokenLBrace }
     '}'   { L _ TokenRBrace }
 
-    NUM   { L pos (TokenNum $$) }
+    INT   { L pos (TokenInteger $$) }
+    FLT   { L pos (TokenFloat $$) }
     VAR   { L _ (TokenSym _) }
     STRLIT { L _ (TokenStringLit _)}
     STR   { L _ (TokenString _) }
 
 -- Operators
 %right '->'
-%left '.'
+%nonassoc '.'                          -- required for quantifier rules
+%nonassoc 'A<>' 'A[]' 'E<>' 'E[]'
 %nonassoc if then else
 %right '-->'
 %right '||'
 %right '&&'
 %left not
-%nonassoc '<' '<=' '=' '>' '>='
+%nonassoc '<' '<=' '==' '/=' '>' '>='
 %left '+' '-'
 %left '*' '/' '%'
 %left AMINUS
 %%
 
-Program : Lexicon ClassDecls GlobalVarDecls Rules Assertions
-                                   { Program (tokenRangeList [getLoc $1, getLoc $2, getLoc $3, getLoc $4, getLoc $5]) (reverse $ unLoc $1) (reverse $2)  (reverse $3) (reverse $4) (reverse $5) }
+QualifVar : VAR { QVarName (getLoc $1) (tokenSym $1) }
 
-Lexicon :                   { L (DummySRng "No lexicon") [] }
-        |  lexicon Mappings { L (tokenRangeList [getLoc $1, getLoc $2]) $2 }
+--Program : Lexicon ClassDecls GlobalVarDecls Rules Assertions
+--                                   { Program (tokenRangeList [getLoc $1, getLoc $2, getLoc $3, getLoc $4, getLoc $5]) (reverse $ unLoc $1) (reverse $2)  (reverse $3) (reverse $4) (reverse $5) }
 
-Mappings :  Mapping          { [$1] }
+Program : TopLevelElements { NewProgram (tokenRangeList (map getLoc $1)) (reverse $1) }
+
+TopLevelElements : TopLevelElement                  { [$1] }
+                 | TopLevelElementGroup             { $1 }
+                 | TopLevelElements TopLevelElement { $2 : $1 }
+
+-- TopLevelElementGroup: list of top level elements grouped together below one keyword
+TopLevelElementGroup : Mappings { map MappingTLE $1 } 
+
+TopLevelElement : ClassDecl     { ClassDeclTLE $1 } 
+                | GlobalVarDecl { VarDeclTLE $1 } 
+                | RuleOrFact    { RuleTLE $1 }
+                | Assertion     { AssertionTLE $1 }
+                | Automaton     { AutomatonTLE $1 }
+
+-- { L (DummySRng "No lexicon") [] }
+--Lexicon :  lexicon Mapping  { L (tokenRange $1 $2) [$2] }
+--|  lexicon Mapping Mappings { L (coordFromTo (getLoc $1) (tokenRangeList $3)) $2 }
+--        |  lexicon Mapping Mappings { L (tokenRangeList [getLoc $1, getLoc $2]) $2 }
+
+-- Lexicon : lexicon '{' Mappings '}' { L (tokenRange $1 $4) $3 }
+
+Mappings :  LexiconMapping  { [$1] }
           | Mappings Mapping { $2 : $1 }
-Mapping : VAR '->' STRLIT { Mapping (tokenRange $1 $3) (tokenSym $1) (parseDescription $ tokenStringLit $3) }
+
+LexiconMapping : lexicon VAR '->' STRLIT { Mapping (tokenRange $1 $4) (tokenSym $2) (parseDescription $ tokenStringLit $4) }
+Mapping        : VAR '->' STRLIT { Mapping (tokenRange $1 $3) (tokenSym $1) (parseDescription $ tokenStringLit $3) }
 
 ClassDecls :                       { [] }
            | ClassDecls ClassDecl  { $2 : $1 }
@@ -132,63 +183,62 @@ Fields  :                          { ([], Nothing) }
 FieldDecls :                       { [] }
            | FieldDecls FieldDecl  { $2 : $1 }
 
-FieldDecl : VAR ':' Tp             { FieldDecl (tokenRange $1 $3) (FldNm $ tokenSym $1) (unLoc $3) }
+FieldDecl : VAR ':' Tp             { FieldDecl (tokenRange $1 $3) (FldNm $ tokenSym $1) $3 }
 
 GlobalVarDecls :                         { [] }
          | GlobalVarDecls GlobalVarDecl  { $2 : $1 }
 
-GlobalVarDecl : decl VAR ':' Tp          { VarDecl (tokenRange $1 $4) (tokenSym $2) (unLoc $4) }
+GlobalVarDecl : decl VAR ':' Tp          { VarDecl (tokenRange $1 $4) (tokenSym $2) $4 }
 
 VarDeclsCommaSep :  VarDecl              { [$1] }
          | VarDeclsCommaSep  ',' VarDecl { $3 : $1 }
 
-VarDecl : VAR ':' Tp                     { VarDecl (tokenRange $1 $3) (tokenSym $1) (unLoc $3) }
-
-
-Assertions :                       { [] }
-           | Assertions Assertion  { $2 : $1 }
-Assertion : assert Expr            { Assertion (tokenRange $1 $2) $2 }
+VarDecl    : VAR ':' Tp                     { VarDecl (tokenRange $1 $3) (tokenSym $1) $3 }
+VarDeclATp : VAR ':' ATp                    { VarDecl (tokenRange $1 $3) (tokenSym $1) $3 }
 
 -- Atomic type
 -- Used to resolve ambigouity of     \x : A -> B -> x
 -- and force the use of parenthesis: \x : (A -> B) -> x
-ATp  : Bool                       { L (getLoc $1) BoolT }
-     | Int                        { L (getLoc $1) IntT }
-     | VAR                        { L (getLoc $1) $ ClassT (ClsNm $ tokenSym $1) }
-     | '(' TpsCommaSep ')'        { L (getLoc $2) $ case $2 of [t] -> unLoc t; tcs -> TupleT (map unLoc $ reverse tcs) }
+ATp  : VAR                        { ClassT (getLoc $1) (ClsNm $ tokenSym $1) }
+| '(' TpsCommaSep ')'        { case $2 of [t] -> t{annotOfTp = (tokenRange $1 $3)}; tcs -> TupleT (tokenRange $1 $3) (reverse tcs) }
 
 TpsCommaSep :                      { [] }
             | Tp                   { [$1] }
             | TpsCommaSep ',' Tp   { $3 : $1 }
 
 Tp   : ATp                        { $1 }
-     | Tp '->' Tp                 { L (tokenRange $1 $3) $ FunT (unLoc $1) (unLoc $3) }
+     | Tp '->' Tp                 { FunT (tokenRange $1 $3) $1 $3 }
 
 
-Pattern : VAR                      { VarP $ tokenSym $1 }
-    | '(' VarsCommaSep ')'         { let vcs = $2 in if length vcs == 1 then VarP (head vcs) else VarListP (reverse vcs) }
+Pattern : QualifVar                { VarP $1 }
+    | '(' QVarsCommaSep ')'        { let vcs = $2 in if length vcs == 1 then VarP (head vcs) else VarListP (reverse vcs) }
 
-VarsCommaSep :                      { [] }
-            | VAR                   { [tokenSym $1] }
-            | VarsCommaSep ',' VAR  { tokenSym $3 : $1 }
+QVarsCommaSep :                            { [] }
+            | QualifVar                    { [$1] }
+            | QVarsCommaSep ',' QualifVar  { $3 : $1 }
 
-Expr : '\\' Pattern ':' ATp '->' Expr  { FunE (tokenRange $1 $6) $2 (unLoc $4) $6 }
-     | forall VAR ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) All (tokenSym $2) (unLoc $4) $6 }
-     | exists VAR ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) Ex  (tokenSym $2) (unLoc $4) $6 }
+VarsCommaSep :                       { [] }
+            | VAR                    { [tokenSym $1] }
+            | VarsCommaSep ',' VAR   { (tokenSym $3) : $1 }
+
+Expr : '\\' VarDeclATp '->' Expr    { FunE (tokenRange $1 $4) $2 $4 }
+     | forall VarDecl '.' Expr      { QuantifE (tokenRange $1 $4) All $2 $4 }
+     | exists VarDecl '.' Expr      { QuantifE (tokenRange $1 $4) Ex  $2 $4 }
+     | 'A<>' Expr                  { UnaOpE (tokenRange $1 $2) (UTemporal UTAF) $2 }
+     | 'A[]' Expr                  { UnaOpE (tokenRange $1 $2) (UTemporal UTAG) $2 }
+     | 'E<>' Expr                  { UnaOpE (tokenRange $1 $2) (UTemporal UTEF) $2 }
+     | 'E[]' Expr                  { UnaOpE (tokenRange $1 $2) (UTemporal UTEG) $2 }
      | Expr '-->' Expr             { BinOpE (tokenRange $1 $3) (BBool BBimpl) $1 $3 }
      | Expr '||' Expr              { BinOpE (tokenRange $1 $3) (BBool BBor) $1 $3 }
      | Expr '&&' Expr              { BinOpE (tokenRange $1 $3) (BBool BBand) $1 $3 }
      | if Expr then Expr else Expr { IfThenElseE (tokenRange $1 $6) $2 $4 $6 }
-     | not Expr                    { UnaOpE (tokenRange $1 $2) (UBool UBneg) $2 }
-     | not derivable VAR           { NotDeriv (tokenRange $1 $3) True (VarE (tokenPos $3) (GlobalVar $ tokenSym $3)) }
-     | not derivable not VAR       { NotDeriv (tokenRange $1 $4) False (VarE (tokenPos $4) (GlobalVar $ tokenSym $4)) }
-     | not derivable VAR Atom      { NotDeriv (tokenRange $1 $4) True (AppE (tokenRange $3 $4)  (VarE (tokenPos $3) (GlobalVar $ tokenSym $3)) $4) }
-     | not derivable not VAR Atom  { NotDeriv (tokenRange $1 $5) False (AppE (tokenRange $4 $5) (VarE (tokenPos $4) (GlobalVar $ tokenSym $4)) $5) }
+     | not Expr                    { UnaOpE (tokenRange $1 $2) (UBool UBnot) $2 }
      | Expr '<' Expr               { BinOpE (tokenRange $1 $3) (BCompar BClt) $1 $3 }
      | Expr '<=' Expr              { BinOpE (tokenRange $1 $3) (BCompar BClte) $1 $3 }
      | Expr '>' Expr               { BinOpE (tokenRange $1 $3) (BCompar BCgt) $1 $3 }
      | Expr '>=' Expr              { BinOpE (tokenRange $1 $3) (BCompar BCgte) $1 $3 }
-     | Expr '=' Expr               { BinOpE (tokenRange $1 $3) (BCompar BCeq) $1 $3 }
+     | Expr '==' Expr              { BinOpE (tokenRange $1 $3) (BCompar BCeq) $1 $3 }
+     | Expr '/=' Expr              { BinOpE (tokenRange $1 $3) (BCompar BCne) $1 $3 }
      | Expr '+' Expr               { BinOpE (tokenRange $1 $3) (BArith BAadd) $1 $3 }
      | Expr '-' Expr               { BinOpE (tokenRange $1 $3) (BArith BAsub) $1 $3 }
      | '-' Expr %prec AMINUS       { UnaOpE (tokenRange $1 $2) (UArith UAminus) $2 }
@@ -209,9 +259,10 @@ Atom : '(' ExprsCommaSep ')'       { let ecs = $2
                                         if length ecs == 1
                                         then updAnnotOfExpr (const (tokenRange $1 $3)) (head ecs)
                                         else TupleE (tokenRange $1 $3) (reverse ecs) }
-     | NUM                         { ValE (pos) (IntV $1) }
+     | INT                         { ValE (pos) (IntV $1) }
+     | FLT                         { ValE (pos) (FloatV $1) }
      | STR                         { ValE (tokenPos $1) (StringV (tokenString $1)) }
-     | VAR                         { VarE (tokenPos $1) (GlobalVar $ tokenSym $1) }
+     | QualifVar                   { VarE (getLoc $1) (GlobalVar $1) }
      | true                        { ValE (tokenPos $1) (BoolV True) }
      | false                       { ValE (tokenPos $1) (BoolV False) }
 
@@ -220,19 +271,121 @@ ExprsCommaSep :                      { [] }
             | ExprsCommaSep ',' Expr  { $3 : $1 }
 
 
+----------------------------------------------------------------------
+-- Rules and Assertions
+----------------------------------------------------------------------
+
+-- Assertion / Rule name
+ARName :                 { Nothing }
+       | '<' VAR '>'     { Just (tokenSym $2) }
+
 Rules  :                       { [] }
        | Rules Rule            { $2 : $1}
        | Rules Fact            { $2 : $1}
 
-Rule: rule '<' VAR '>'  RuleVarDecls RulePrecond RuleConcl { Rule (tokenRange $1 $7) (tokenSym $3) $5 $6 $7 }
-Fact: fact '<' VAR '>'  RuleVarDecls Expr { Rule (tokenRange $1 $6) (tokenSym $3) $5
-                                                 (ValE (nullSRng) (BoolV True)) $6 }
+RuleOrFact : Rule { $1 }
+           | Fact { $1 }
+-- TODO: KVMaps do not have a location, so the token range in the following is incomplete
+Rule : rule ARName KVMap { Rule (getLoc $1) $2 $3  [] (ValE (nullSRng) (BoolV True)) (ValE (nullSRng) (BoolV True)) }
+     | rule ARName KVMap RuleVarDecls RulePrecond RuleConcl { Rule (tokenRange $1 $6) $2 $3 $4 $5 $6 }
+
+Fact : fact ARName  KVMap RuleVarDecls Expr { Rule (tokenRange $1 $5) $2 $3 $4 (ValE (nullSRng) (BoolV True)) $5 }
+
+
+
+-- TODO: labellings still to be added, channels to be added
+-- TODO: annotation is a rough approximation, to be synthesized from annotations of subexpressions
+Automaton : process VAR '(' ')' '{' Clocks States Initial Transitions '}'
+  { TA {annotOfTA = (tokenRange $1 $10),
+        nameOfTA = (tokenSym $2), locsOfTA = (map fst (reverse $7)), channelsOfTA = [], clocksOfTA = reverse $6,
+        transitionsOfTA = reverse $9, initialLocOfTA = $8, invarsOfTA = (reverse $7), labellingOfTA = []}}
+
+
+-- Channels : channels VARsCommaSep ';' { map ClsNm $2 }
+
+Clocks : clock VarsCommaSep ';' { map Clock $2 }
+
+States : state StatesCommaSep ';' { $2 }
+
+StatesCommaSep :                            { [] }
+            | StateWithInvar                    { [$1] }
+            | StatesCommaSep ',' StateWithInvar  { $3 : $1 }
+
+StateWithInvar : VAR { (Loc (tokenSym $1), []) }
+               | VAR '{' InvarsAndSep '}' { (Loc (tokenSym $1), $3) }
+		 
+InvarsAndSep :                        { [] }
+            | Invar                     { [$1] }
+            | InvarsAndSep '&&' Invar  { $3 : $1 }
+
+-- TODO: refine the notion of invariant
+Invar : VAR '<' INT  { ClConstr (Clock (tokenSym $1)) BClt $3 }
+      | VAR '<=' INT { ClConstr (Clock (tokenSym $1)) BClte $3 }
+      | VAR '>' INT  { ClConstr (Clock (tokenSym $1)) BCgt $3 }
+      | VAR '>=' INT { ClConstr (Clock (tokenSym $1)) BCgte $3 }
+      | VAR '==' INT { ClConstr (Clock (tokenSym $1)) BCeq $3 }
+      | VAR '/=' INT { ClConstr (Clock (tokenSym $1)) BCne $3 }
+
+Initial : init VAR  ';' { Loc (tokenSym $2) }
+
+Transitions : trans TransitionsCommaSep ';' { $2 }
+
+TransitionsCommaSep :                            { [] }
+            | TransitionWithInfo                 { [$1] }
+            | TransitionsCommaSep ',' TransitionWithInfo  { $3 : $1 }
+
+TransitionWithInfo : VAR '->' VAR '{' TrGuard TrAssign '}'
+                 { Transition {sourceOfTransition = (Loc (tokenSym $1)),
+		   	       guardOfTransition = $5,
+			       actionOfTransition = $6,
+			       targetOfTransition = (Loc (tokenSym $3))} }
+
+-- TODO: so far, guard expressions are not taken into account, only clock constraints
+TrGuard :                                   { TransitionGuard [] (ValE (nullSRng) (BoolV True)) }
+| guard InvarsAndSep ';' { TransitionGuard $2 (ValE (nullSRng) (BoolV True)) }
+
+-- TODO: only clock resets taken into account
+TrAssign :                                   { TransitionAction Internal [] (Skip (nullSRng)) }
+	 | assign TrAssignmentsCommaSep ';'  { TransitionAction Internal $2 (Skip (nullSRng)) }
+
+
+TrAssignmentsCommaSep :                             { [] }
+            | TrAssignment                          { [$1] }
+            | TrAssignmentsCommaSep ',' TrAssignment  { $3 : $1 }
+
+-- TODO: assignments in Uppaal can also be to other variables and other than clock resets
+-- The value assigned is here not taken into account
+TrAssignment : VAR '=' INT { Clock (tokenSym $1)  }
+
 
 RuleVarDecls :                       { [] }
              | for VarDeclsCommaSep  { reverse $2 }
 
 RulePrecond : if Expr      { $2 }
 RuleConcl   : then Expr    { $2 }
+
+
+Assertions :                       { [] }
+           | Assertions Assertion  { $2 : $1 }
+
+-- TODO: same problem with locations as for Rule above
+Assertion : assert ARName KVMap        { Assertion (getLoc $1) $2 $3 (ValE (nullSRng) (BoolV True)) }
+          | assert ARName KVMap Expr   { Assertion (tokenRange $1 $4) $2 $3 $4 }
+
+
+KVMap :                        { [] }
+| '{' KVMapListCommaSep  '}'   { reverse $2 }
+
+KVMapListCommaSep :                      { [] }
+            | KVPair                   { [$1] }
+            | KVMapListCommaSep ',' KVPair  { $3 : $1 }
+
+KVPair : VAR             { (tokenSym $1, MapVM []) }
+       | VAR ':' VAR     { (tokenSym $1, IdVM $ tokenSym $3) }
+       | VAR ':' true    { (tokenSym $1, BoolVM True) }
+       | VAR ':' false   { (tokenSym $1, BoolVM False) }
+       | VAR ':' INT     { (tokenSym $1, IntVM $3) }
+       | VAR ':' KVMap   { (tokenSym $1, MapVM $3) }
 
 {
 
@@ -250,16 +403,9 @@ parseError (L p t) =
 -- parseError (l:ls) = throwError (show l)
 -- parseError [] = throwError "Unexpected end of Input"
 
-parseProgram :: FilePath -> String -> Either Err (Program SRng)
-parseProgram = runAlex' program
+parseNewProgram :: FilePath -> String -> Either Err (NewProgram SRng)
+parseNewProgram = runAlex' program
 
--- parseProgram:: String -> Either String (Program (Maybe ClassName) ())
--- parseProgram input = runExcept $ do
---   tokenStream <- scanTokens input
---   program tokenStream
-
--- still needed ???
--- parseTokens :: String -> Either String [Token]
--- parseTokens = runExcept . scanTokens
-
+--parseProgram :: FilePath -> String -> Either Err (Program SRng)
+--parseProgram fp inp = mapRight newProgramToProgram (parseNewProgram fp inp)
 }

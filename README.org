@@ -240,7 +240,7 @@ the Simulator.
 
 ** Command line interface
 
-In Haskell, running =writeFile "test_haskell_uppaal.xta" (ta_sys_to_uppaal (TmdAutSys [autA, autB]))=
+In Haskell, running =writeFile "test_haskell_uppaal.xta" (ta_sys_to_uppaal (TASys [autA, autB]))=
 produces a textual Uppaal XTA file. The file can in principle be read in by
 the GUI. As there is no graphical layout information information associated
 with the file, the elements of the automata are first arranged in an arbitrary

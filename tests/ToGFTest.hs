@@ -4,7 +4,7 @@ import Syntax
     ( ClassName(ClsNm, stringOfClassName),
       Mapping(..),
       VarDecl(..),
-      Tp(IntT, OkT, FunT, ClassT),
+      Tp(OkT, FunT, ClassT),
       Description(Descr),
       parseDescription )
 import Annotation
@@ -39,16 +39,21 @@ testGetAtoms = testGroup "Test getAtoms"
                 , typeAnnot = OkT
                 }
             , nameOfVarDecl = "foo"
-            , tpOfVarDecl = FunT
-                ( ClassT
+            , tpOfVarDecl = FunT dummyAnn
+                ( ClassT dummyAnn
                     ( ClsNm { stringOfClassName = "Business" } )
                 )
-                ( FunT
-                    ( ClassT
+                ( FunT dummyAnn
+                    ( ClassT dummyAnn
                         ( ClsNm { stringOfClassName = "Person" } )
-                    ) IntT
+                    ) (IntT dummyAnn)
                 )
             }
+
+-- | Some dummy-annotation for the types
+dummyAnn :: LocTypeAnnot (Tp ())
+dummyAnn = LocTypeAnnot {locAnnot = DummySRng "Filler", typeAnnot = OkT}
+
 testDescription :: TestTree
 testDescription = testGroup  "Test the parseDescription"
     [testCase "parse gives the Descrption" $
@@ -83,13 +88,13 @@ testFlipDescription = testGroup "test checkNFlip"
        lexicon2 = Mapping () "participate" (Descr "participates in" ["Foo", "Bar"])
 
        participate_default :: VarDecl ()
-       participate_default = Fun2 () "participate" "Player" "Game"
+       participate_default = Fun2 "participate" "Player" "Game"
 
        participate_flipped  :: VarDecl ()
-       participate_flipped = Fun2 () "participate" "Game" "Player"
+       participate_flipped = Fun2 "participate" "Game" "Player"
 
        participate_flipped_wrong_name  :: VarDecl ()
-       participate_flipped_wrong_name = Fun2 () "FOO" "Game" "Player"
+       participate_flipped_wrong_name = Fun2 "FOO" "Game" "Player"
 
        unary_predicate_shouldnt_flip :: VarDecl ()
        unary_predicate_shouldnt_flip = VarDecl () [] (Arg1 "Player")

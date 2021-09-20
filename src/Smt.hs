@@ -1,67 +1,89 @@
 -- L4 to SMT interface using the SimpleSMT library
 
-module Smt(proveProgram) where
+module Smt(proveProgram, proveExpr) where
 
+import Annotation (LocTypeAnnot (typeAnnot))
+import KeyValueMap
+    ( ValueKVM(MapVM, IntVM, IdVM),
+      selectOneOfInstr,
+      selectAssocOfValue )
 import Syntax
-import Annotation (TypeAnnot)
-import Typing (getTypeOfExpr, isBooleanTp, isIntegerTp, isFloatTp, superClassesOfClassDecl)
+import SyntaxManipulation (
+      spine,
+      ruleToFormula,
+      conjsExpr,
+      notExpr)
+import Typing (isBooleanTp, isIntegerTp, isFloatTp, superClassesOfClassDecl)
+import RuleTransfo
+    ( isNamedRule,
+      rewriteRuleSetDespite,
+      rewriteRuleSetSubjectTo,
+      rewriteRuleSetDerived )
 
-import SimpleSMT as SMT
-import qualified Data.Maybe
-import Control.Monad ( when, unless )
-import Text.Pretty.Simple (pPrint, pPrintString)
+import qualified SimpleSMT as SMT
+import Control.Monad ( when, foldM )
+import PrintProg (renameAndPrintRule, namesUsedInProgram )
+import Data.Maybe (fromMaybe)
+import Model (displayableModel, printDisplayableModel)
 
 
 -------------------------------------------------------------
 -- Extensions to SExpr construction currently not in SimpleSMT
 -------------------------------------------------------------
 
-declareSort :: Solver -> String -> Int -> IO SExpr
+declareSort :: SMT.Solver -> String -> Int -> IO SMT.SExpr
 declareSort proc srt ar =
-  do ackCommand proc $ fun "declare-sort" [ Atom srt, Atom (show ar) ]
+  do SMT.ackCommand proc $ SMT.fun "declare-sort" [ SMT.Atom srt, SMT.Atom (show ar) ]
      return (SMT.const srt)
 
-getModel  :: Solver -> IO SExpr --[(SExpr, Value)]
+-- defineSort is here more restrictive than the SMT define-sort,
+-- and is only used for aliasing sort symbols according to function sortAlias
+defineSort :: SMT.Solver -> ClassName -> IO SMT.SExpr
+defineSort proc cn =
+  do SMT.ackCommand proc $ SMT.fun "define-sort" [ SMT.Atom (stringOfClassName cn), SMT.List [], sortAlias cn ]
+     return (SMT.const (stringOfClassName cn))
+
+getModel  :: SMT.Solver -> IO SMT.SExpr
 getModel proc =
-  command proc $ List [ Atom "get-model" ]
+  SMT.command proc $ SMT.List [ SMT.Atom "get-model" ]
+
+
+-------------------------------------------------------------
+-- Conversion functions from L4 Expr to SExpr
+-------------------------------------------------------------
+
+-- mapping class names to sorts
+type SMTSortEnv = [(ClassName, SMT.SExpr)]
+-- mapping variable names to their sorts
+type SMTFunEnv = [(VarName, SMT.SExpr)]
+data SMTEnv = SMTEnv { sortEnv :: SMTSortEnv,
+                       funEnv  :: SMTFunEnv }
 
 quantifToSMT :: Quantif -> String
 quantifToSMT All = "forall"
 quantifToSMT Ex = "exists"
 
-quantif :: Quantif -> SExpr -> SExpr -> SExpr
-quantif q vds e = fun (quantifToSMT q) [vds, e]
+quantif :: Quantif -> SMT.SExpr -> SMT.SExpr -> SMT.SExpr
+quantif q vds e = SMT.fun (quantifToSMT q) [vds, e]
 
 -- local variable reference in a quantified expression 
-localVarRef :: VarName -> SExpr
-localVarRef = Atom
+localVarRef :: VarName -> SMT.SExpr
+localVarRef = SMT.Atom
 
--- mapping class names to sorts
-type SMTSortEnv = [(ClassName, SExpr)]
--- mapping variable names to their sorts
-type SMTFunEnv = [(VarName, SExpr)]
-data SMTEnv = SMTEnv { sortEnv :: SMTSortEnv,
-                       funEnv  :: SMTFunEnv }
-
--- decomposes a function type T1 -> T2 ... -> Tn -> Tres
--- into ([T1, ... Tn], Tres)
-spine :: [Tp] -> Tp -> ([Tp], Tp)
-spine acc (FunT t1 t2) = spine (t1:acc) t2
-spine acc t = (reverse acc, t)
 
 -- TODO: distinction between ideal mathematical numbers (tInt, tReal)
 -- vs their implementation (integer words, floats)
-tpToSort :: SMTSortEnv -> Tp -> SExpr
+tpToSort :: Show t => SMTSortEnv -> Tp t-> SMT.SExpr
 tpToSort se t
-  | isBooleanTp t = tBool
-  | isIntegerTp t = tInt
-  | isFloatTp t = tReal
+  | isBooleanTp t = SMT.tBool
+  | isIntegerTp t = SMT.tInt
+  | isFloatTp t = SMT.tReal
   | otherwise = case t of
-                  ClassT cn -> Data.Maybe.fromMaybe (error $ "internal error in tpToSort: Type not found: " ++ show cn) (lookup cn se)
+                  ClassT _ cn -> Data.Maybe.fromMaybe (error $ "internal error in tpToSort: Type not found: " ++ show cn) (lookup cn se)
                   _ -> error $ "in tpToSort: " ++ show t ++ " not supported"
 
-tpToRank :: SMTSortEnv -> Tp -> ([SExpr], SExpr)
-tpToRank se f@(FunT t1 t2) =
+tpToRank :: Show t => SMTSortEnv -> Tp t -> ([SMT.SExpr], SMT.SExpr)
+tpToRank se f@(FunT _ t1 t2) =
   let (args, res) = spine [] f
   in (map (tpToSort se) args, tpToSort se res)
 tpToRank se t = ([], tpToSort se t)
@@ -70,130 +92,282 @@ tpToRank se t = ([], tpToSort se t)
 -- local variable declaration in a quantification. 
 -- TODO: only first-order quantification, no functional types
 -- (has to be checked in advance)
-varTypeToSExprTD :: SMTSortEnv -> VarName -> Tp -> SExpr
-varTypeToSExprTD se vn t = List [List [Atom vn, snd (tpToRank se t)]]
+varTypeToSExprTD :: Show t => SMTSortEnv -> VarName -> Tp t -> SMT.SExpr
+varTypeToSExprTD se vn t = SMT.List [SMT.List [SMT.Atom vn, snd (tpToRank se t)]]
 
 -- SMT variable / function declaration
-varDeclToFun :: Solver -> SMTSortEnv -> VarDecl t -> IO (VarName, SExpr)
+varDeclToFun :: Show t => SMT.Solver -> SMTSortEnv -> VarDecl t -> IO (VarName, SMT.SExpr)
 varDeclToFun s se (VarDecl _ vn vt) =
   let (args, res) = tpToRank se vt
   in do
-     se <- declareFun s vn args res
+     se <- SMT.declareFun s vn args res
      return (vn, se)
 
-varDeclsToFunEnv :: Solver -> SMTSortEnv -> [VarDecl t] -> IO SMTFunEnv
+varDeclsToFunEnv :: Show t => SMT.Solver -> SMTSortEnv -> [VarDecl t] -> IO SMTFunEnv
 varDeclsToFunEnv s se = mapM (varDeclToFun s se)
 
 
-classDeclsToSortEnv :: Solver -> [ClassDecl t] -> IO SMTSortEnv
-classDeclsToSortEnv s cds = mapM (classDeclToSort s) [cd | cd <- cds,  ClsNm "Class" `elem` superClassesOfClassDecl cd ]
+topLevelUserClassDecl :: ClassDecl t -> Bool
+topLevelUserClassDecl cd = (length (superClassesOfClassDecl cd) >= 2) && superClassesOfClassDecl cd!!1 == ClassC
 
-classDeclToSort :: Solver -> ClassDecl t -> IO (ClassName, SExpr)
-classDeclToSort s (ClassDecl _ cn _) =
+-- Only the following class declarations are meant to be translated to SMT sorts:
+-- - Some special system defined classes (not subclasses of Class)
+-- - Top-level user defined classes (direct subclasses of Class)
+declarableSort :: ClassDecl t -> Bool
+declarableSort cd =
+  topLevelUserClassDecl cd ||
+  nameOfClassDecl cd == StateC
+
+-- For each definable sort, a sort alias has to be introduced in sortAlias
+definableSort :: ClassDecl t -> Bool
+definableSort cd =
+  nameOfClassDecl cd == TimeC
+
+sortAlias :: ClassName -> SMT.SExpr
+sortAlias TimeC = SMT.Atom "Real"
+sortAlias cn = error ("sort alias for " ++ show cn ++ " (internal error)")
+
+classDeclToSortDecl :: SMT.Solver -> ClassDecl t -> IO (ClassName, SMT.SExpr)
+classDeclToSortDecl s (ClassDecl _ cn _) =
   do
     se <- declareSort s (stringOfClassName cn) 0
     return (cn, se)
 
+classDeclToSortDefn :: SMT.Solver -> ClassDecl t -> IO (ClassName, SMT.SExpr)
+classDeclToSortDefn s (ClassDecl _ cn _) =
+  do
+    se <- defineSort s cn
+    return (cn, se)
 
-valToSExpr :: Val -> SExpr
-valToSExpr (BoolV b) = bool b
-valToSExpr (IntV i) = int i
+
+classDeclsToSortEnv :: SMT.Solver -> [ClassDecl t] -> IO SMTSortEnv
+classDeclsToSortEnv s cds = do
+  sdecls <- mapM (classDeclToSortDecl s) (filter declarableSort cds)
+  sdefns <- mapM (classDeclToSortDefn s) (filter definableSort cds)
+  return (sdecls ++ sdefns)
+
+
+valToSExpr :: Val -> SMT.SExpr
+valToSExpr (BoolV b) = SMT.bool b
+valToSExpr (IntV i) = SMT.int i
+valToSExpr (FloatV f) = SMT.real (toRational f)
 valToSExpr _ = error "valToSExpr: not implemented"
 
 -- TODO: For this to work, names (also of bound variables) have to be unique
-varToSExpr :: SMTFunEnv -> Var -> SExpr
-varToSExpr env (GlobalVar vn) =
-    Data.Maybe.fromMaybe
+varToSExpr :: SMTFunEnv -> Var t -> SMT.SExpr
+varToSExpr env (GlobalVar qvn) =
+  let vn = nameOfQVarName qvn
+  in Data.Maybe.fromMaybe
         (error $ "internal error in varToSExpr: Var not found: " ++ show vn)
         (lookup vn env)
-varToSExpr env (LocalVar vn i) = localVarRef vn
+varToSExpr env (LocalVar qvn i) = let vn = nameOfQVarName qvn in localVarRef vn
 
-transUArithOp :: UArithOp ->  SExpr -> SExpr
-transUArithOp UAminus = neg
+transUArithOp :: UArithOp ->  SMT.SExpr -> SMT.SExpr
+transUArithOp UAminus = SMT.neg
 
-transUBoolOp :: UBoolOp ->  SExpr -> SExpr
-transUBoolOp UBneg = SMT.not
+transUBoolOp :: UBoolOp ->  SMT.SExpr -> SMT.SExpr
+transUBoolOp UBnot = SMT.not
 
-transUnaOp :: UnaOp -> SExpr -> SExpr
+transUnaOp :: UnaOp -> SMT.SExpr -> SMT.SExpr
 transUnaOp (UArith ua) = transUArithOp ua
 transUnaOp (UBool ub) = transUBoolOp ub
 
-transBArithOp :: BArithOp -> SExpr -> SExpr -> SExpr
-transBArithOp BAadd = add
-transBArithOp BAsub = sub
-transBArithOp BAmul = mul
+transBArithOp :: BArithOp -> SMT.SExpr -> SMT.SExpr -> SMT.SExpr
+transBArithOp BAadd = SMT.add
+transBArithOp BAsub = SMT.sub
+transBArithOp BAmul = SMT.mul
 transBArithOp BAdiv = SMT.div
 transBArithOp BAmod = SMT.mod
 
-transBComparOp :: BComparOp -> SExpr -> SExpr -> SExpr
-transBComparOp  BCeq = eq
-transBComparOp  BClt = lt
-transBComparOp  BClte = leq
-transBComparOp  BCgt = gt
-transBComparOp  BCgte = geq
-transBComparOp  BCne = \e1 e2 -> SMT.not (eq e1 e2)
+transBComparOp :: BComparOp -> SMT.SExpr -> SMT.SExpr -> SMT.SExpr
+transBComparOp  BCeq = SMT.eq
+transBComparOp  BClt = SMT.lt
+transBComparOp  BClte = SMT.leq
+transBComparOp  BCgt = SMT.gt
+transBComparOp  BCgte = SMT.geq
+transBComparOp  BCne = \e1 e2 -> SMT.not (SMT.eq e1 e2)
 
-transBBoolOp :: BBoolOp -> SExpr -> SExpr -> SExpr
-transBBoolOp BBimpl = implies
+transBBoolOp :: BBoolOp -> SMT.SExpr -> SMT.SExpr -> SMT.SExpr
+transBBoolOp BBimpl = SMT.implies
 transBBoolOp BBor = SMT.or
 transBBoolOp BBand = SMT.and
 
-transBinOp :: BinOp -> SExpr -> SExpr -> SExpr
+transBinOp :: BinOp -> SMT.SExpr -> SMT.SExpr -> SMT.SExpr
 transBinOp (BArith ba) = transBArithOp ba
 transBinOp (BCompar bc) = transBComparOp bc
 transBinOp (BBool bb) = transBBoolOp bb
 
-sExprApply :: SExpr -> SExpr -> SExpr 
+sExprApply :: SMT.SExpr -> SMT.SExpr -> SMT.SExpr
 sExprApply f a = case f of
-  Atom _ -> List [f, a]
-  List es -> List (es ++ [a])
+  SMT.Atom _ -> SMT.List [f, a]
+  SMT.List es -> SMT.List (es ++ [a])
 
-exprToSExpr :: Show t => SMTEnv -> Expr t -> SExpr
-exprToSExpr env (ValE _ v) = valToSExpr v
+exprToSExpr :: Show t => SMTEnv -> Expr t -> SMT.SExpr
+exprToSExpr _   (ValE _ v) = valToSExpr v
 exprToSExpr env (VarE _ v) = varToSExpr (funEnv env) v
 exprToSExpr env (UnaOpE _ u e) = transUnaOp u (exprToSExpr env e)
 exprToSExpr env (BinOpE _ b e1 e2) = transBinOp b (exprToSExpr env e1) (exprToSExpr env e2)
-exprToSExpr env (IfThenElseE _ c e1 e2) = ite (exprToSExpr env c) (exprToSExpr env e1) (exprToSExpr env e2)
-exprToSExpr env (QuantifE _ q vn t e) =
-  quantif q (varTypeToSExprTD (sortEnv env) vn t) (exprToSExpr env e)
+exprToSExpr env (IfThenElseE _ c e1 e2) = SMT.ite (exprToSExpr env c) (exprToSExpr env e1) (exprToSExpr env e2)
+exprToSExpr env (QuantifE _ q v e) =
+  quantif q (varTypeToSExprTD (sortEnv env) (nameOfVarDecl v) (tpOfVarDecl v)) (exprToSExpr env e)
 exprToSExpr env (AppE _ f a) = sExprApply (exprToSExpr env f) (exprToSExpr env a)
-exprToSExpr env e = error ("exprToSExpr: term " ++ show e ++ " not translatable")
+exprToSExpr _    e = error ("exprToSExpr: term " ++ show e ++ " not translatable")
 -- TODO: still incomplete
 
 
-proveExpr :: Show t => [ClassDecl t] -> [VarDecl t] -> Expr t ->IO ()
-proveExpr cds vds e = do
-  l <- newLogger 0
-  -- s <- newSolver "cvc4" ["--lang=smt2"] (Just l)
-  s <- newSolver "z3" ["-in"] (Just l)
-  setLogic s "LIA"
+-------------------------------------------------------------
+-- Launching the solver and retrieving results
+-------------------------------------------------------------
+
+-- When no explicit log level is provided, the default is set to 1
+-- (silent mode not showing interaction with SMT solver)
+selectLogLevel :: Maybe ValueKVM -> Int
+selectLogLevel config =
+  let defaultLogLevel = 1
+  in case selectAssocOfValue "loglevel" (fromMaybe (IntVM 0) config) of
+    Nothing -> defaultLogLevel
+    Just (IntVM n) -> fromIntegral n
+    Just _ -> defaultLogLevel
+
+createSolver :: Maybe ValueKVM -> Maybe SMT.Logger -> IO SMT.Solver
+createSolver config lg =
+  let defaultConfig = ("z3", ["-in"])
+      (solverName, solverParams) = case config of
+                                      Nothing -> defaultConfig
+                                      Just vkvm -> case selectAssocOfValue "solver" vkvm of
+                                                      Just (IdVM "cvc4") -> ("cvc4", ["--lang=smt2"])
+                                                      Just (IdVM "mathsat") -> ("mathsat", [])
+                                                      _ -> defaultConfig
+  in SMT.newSolver solverName solverParams lg
+
+
+-- Tried with the following provers:
+-- alt-ergo gets stuck in interaction (apparently only reads from file)
+-- Boolector (impossible to get compiled)
+-- cvc4 does not work with quantifiers, simple boolean or arithmetic queries supported
+-- mathsat terminates with an error (quantifiers not supported), simple boolean or arithmetic queries supported
+-- yices does not support logics like LIA
+selectLogic :: SMT.Solver -> Maybe ValueKVM -> IO ()
+selectLogic s config =
+  let defaultConfig = "LIA"
+      logicName = case config of
+                     Nothing -> defaultConfig
+                     Just vkvm -> case selectAssocOfValue "logic" vkvm of
+                                      Just (IdVM l) -> l
+                                      _ -> defaultConfig
+  in SMT.setLogic s logicName
+
+
+proveExpr :: Show t => Maybe ValueKVM -> Bool -> [ClassDecl t] -> [VarDecl t] -> Expr t ->IO ()
+proveExpr config checkSat cds vds e = do
+  l <- SMT.newLogger (selectLogLevel config)
+  s <- createSolver config (Just l)
+  selectLogic s config
   sEnv <- classDeclsToSortEnv s cds
   fEnv <- varDeclsToFunEnv s sEnv vds
-  assert s (exprToSExpr (SMTEnv sEnv fEnv) e)
-  checkRes <- check s 
-  print checkRes
-  when (checkRes == Sat) $ do
-    pPrint =<< getModel s 
--- print =<< check s
---  print =<< getExprs s (map snd fEnv)
+  SMT.assert s (exprToSExpr (SMTEnv sEnv fEnv) e)
+  checkRes <- SMT.check s
+  when (checkRes == SMT.Sat) $ do
+    if checkSat
+    then putStrLn "Formula satisfiable, found model."
+    else putStrLn "Formula not valid, found countermodel."
+    mdl <- getModel s
+    -- pPrint mdl
+    putStrLn (printDisplayableModel (displayableModel mdl))
+  when (checkRes == SMT.Unsat) $ do
+    if checkSat
+    then putStrLn "Formula unsatisfiable."
+    else putStrLn "Formula valid."
+  when (checkRes == SMT.Unknown) $ do
+    putStrLn "Solver produced unknown output."
 
 
-proveProgram :: Show t => Program t -> IO ()
-proveProgram p =
-    case assertionsOfProgram p of
-        [] -> error "in proveProgram: at least one assertion required"
-        a:_ -> do
-            putStrLn "Launching SMT solver"
-            proveExpr (classDeclsOfProgram p) (globalsOfProgram p) (exprOfAssertion a)
+-- TODO: to be defined in detail
+defaultRuleSet :: NewProgram t -> [Rule t]
+defaultRuleSet = rulesOfNewProgram
 
-proveProgramTest :: Show t => Program t -> IO ()
-proveProgramTest p =  do
-  l <- newLogger 0
-  -- s <- newSolver "cvc4" ["--lang=smt2"] (Just l)
-  s <- newSolver "z3" ["-in"] Nothing
-  setLogic s "QF_LIA"
-  x <- declare s "x" tInt
-  assert s (add x (int 2) `eq` int 5)
-  print =<< check s
-  print =<< getExprs s [x]
+-- TODO: rule specs are here supposed to be comma separated lists of rule names inclosed in { .. } 
+-- It should also be possible to specify transformations to the rules 
+rulesOfRuleSpec :: NewProgram t -> ValueKVM -> [Rule t]
+rulesOfRuleSpec p (MapVM kvm) =
+  let nameRuleAssoc = map (\r -> (fromMaybe "" (nameOfRule r), r)) (filter isNamedRule (rulesOfNewProgram p))
+  in map (\(k, v) -> fromMaybe (error ("rule name " ++ k ++ " unknown in rule set")) (lookup k nameRuleAssoc)) kvm
+rulesOfRuleSpec p instr =
+  error ("rule specification " ++ show instr ++ " should be a list (in { .. }) of rule names and transformations")
 
+-- add rules of rs2 to rs1, not adding rules already existing in rs1 as determined by name
+addToRuleSet :: [Rule t] -> [Rule t] -> [Rule t]
+addToRuleSet rs1 rs2 = rs1 ++ [r2 | r2 <- rs2 ,  Prelude.not (any (\r1 -> nameOfRule r1 == nameOfRule r2) rs1) ]
+
+-- delete from rs1 the rules in rs2 as determined by name
+delFromRuleSet :: [Rule t] -> [Rule t] -> [Rule t]
+delFromRuleSet rs1 rs2 = [r1 | r1 <- rs1 ,  Prelude.not (any (\r2 -> nameOfRule r1 == nameOfRule r2) rs2) ]
+
+
+composeApplicableRuleSet :: NewProgram t -> Maybe ValueKVM -> Maybe ValueKVM -> Maybe ValueKVM -> [Rule t]
+composeApplicableRuleSet p mbadd mbdel mbonly =
+  case mbonly of
+    Just onlyRls -> addToRuleSet [] (rulesOfRuleSpec p onlyRls)
+    Nothing -> addToRuleSet
+                  (delFromRuleSet (defaultRuleSet p)
+                                (rulesOfRuleSpec p (fromMaybe (MapVM []) mbdel)))
+                  (rulesOfRuleSpec p (fromMaybe (MapVM []) mbadd))
+
+selectApplicableRules :: NewProgram t -> ValueKVM -> [Rule t]
+selectApplicableRules p instr =
+  case selectAssocOfValue "rules" instr of
+    Nothing -> defaultRuleSet p
+    Just rulespec -> composeApplicableRuleSet p
+                      (selectAssocOfValue "add" rulespec)
+                      (selectAssocOfValue "del" rulespec)
+                      (selectAssocOfValue "only" rulespec)
+
+proveAssertionSMT :: NewProgram (Tp ()) -> ValueKVM -> Assertion (Tp ()) -> IO ()
+proveAssertionSMT p instr asrt = do
+  putStrLn "Launching SMT solver"
+  let proveConsistency = selectOneOfInstr ["consistent", "valid"] instr == "consistent"
+  let applicableRules = selectApplicableRules p instr
+  let proofTarget = constrProofTarget proveConsistency asrt applicableRules
+  let config = selectAssocOfValue "config" instr
+  proveExpr config proveConsistency (classDeclsOfNewProgram p) (globalsOfNewProgram p) proofTarget
+
+
+constrProofTarget :: Bool -> Assertion (Tp ()) -> [Rule (Tp ())] -> Expr (Tp ())
+constrProofTarget sat asrt rls =
+  let concl = exprOfAssertion asrt
+      forms = map ruleToFormula rls
+  in if sat
+     then conjsExpr (concl : forms)
+     else conjsExpr (notExpr concl : forms)
+
+-- TODO: details to be filled in
+proveAssertionsCASP :: Show t => NewProgram t -> ValueKVM  -> Assertion t -> IO ()
+proveAssertionsCASP p v asrt = putStrLn "No sCASP solver implemented"
+
+proveAssertion :: NewProgram (Tp ()) -> Assertion (Tp ()) -> IO ()
+proveAssertion p asrt = foldM (\r (k,instr) ->
+            case k of
+              "SMT" -> proveAssertionSMT p instr asrt
+              "sCASP"-> proveAssertionsCASP p instr asrt
+              _ -> return ())
+          () (instrOfAssertion asrt)
+
+proveProgram :: NewProgram (Tp ()) -> IO ()
+proveProgram p = do
+  let transfRules = rewriteRuleSetDerived (rewriteRuleSetSubjectTo (rewriteRuleSetDespite (rulesOfNewProgram p)))
+  let updRules = [e | e <- elementsOfNewProgram p, not (typeOfTLE getRule e)] ++ map RuleTLE transfRules
+  let transfProg = p{elementsOfNewProgram = updRules}
+  putStrLn "Generated rules:"
+  putStrLn (concatMap (renameAndPrintRule (namesUsedInProgram transfProg)) transfRules)
+  foldM (\r a -> proveAssertion transfProg a) () (assertionsOfNewProgram transfProg)
+
+{-
+proveProgramTest :: Program (LocTypeAnnot (Tp ())) -> IO ()
+proveProgramTest p =
+  do
+    putStrLn "First transfo: rewrite Despite and SubjectTo"
+    putStrLn (concatMap (renameAndPrintRule (namesUsedInProgram p)) (rewriteRuleSetSubjectTo (rewriteRuleSetDespite (rulesOfProgram (fmap typeAnnot p)))))
+    putStrLn "Second transfo: rewrite Derived"
+    putStrLn (concatMap (renameAndPrintRule (namesUsedInProgram p)) (rewriteRuleSetDerived (rewriteRuleSetSubjectTo (rewriteRuleSetDespite (rulesOfProgram (fmap typeAnnot p))))))
+ -- putStrLn (printDerivs (rewriteRuleSetSubjectTo (rewriteRuleSetDespite (rulesOfProgram p))))
+ -}

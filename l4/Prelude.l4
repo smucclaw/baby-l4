@@ -8,6 +8,8 @@ class Number extends Object
 class Float extends Number
 class Integer extends Number
 
+class Time extends Float
+
 class String extends Object
 
 class Class extends Object

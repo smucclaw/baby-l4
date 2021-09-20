@@ -12,22 +12,23 @@ import qualified Data.Set as S
 import Syntax
 import PGF
 import ToGF.GenerateLexicon (createGF', AtomWithArity(..), GrName)
+import ToGF.NormalizeSyntax (pattern IntT, pattern BoolT)
 
 ----------------------------------------------------------------------
 -- Helper functions from GenerateLexicon specialised for Answers
 grName :: GrName
 grName = "Answer"
 
-createGF :: FilePath ->Program t -> IO PGF
-createGF fname prog = createGF' fname grName (lexiconOfProgram prog) allPreds
+createGF :: FilePath -> NewProgram t -> IO PGF
+createGF fname prog = createGF' fname grName (lexiconOfNewProgram prog) allPreds
   where
     allPreds = S.toList $ S.fromList $ concat
       [ getAtoms vardecl
-      | vardecl <- globalsOfProgram prog
+      | vardecl <- globalsOfNewProgram prog
       ]
 
 
-createPGFforAnswers :: FilePath -> Program t -> IO ()
+createPGFforAnswers :: FilePath -> NewProgram t -> IO ()
 createPGFforAnswers filename prog = do
   _ <- createGF filename prog
   -- Feel free to remove this printout, it's just there so that people know that this has changed :-P
@@ -48,18 +49,18 @@ getAtoms (VarDecl _ name tp) =  --[AA name 2, AA (getArity tp1), AA (getArity tp
 -- getVarName :: Tp -> String
 -- getVarName vardecl _  =
 
-getArity :: Tp -> Int
+getArity :: Tp t -> Int
 getArity t = case t of
-  FunT _ x -> 1 + getArity x
+  FunT _ _ x -> 1 + getArity x
   _ -> 0
 
-getNames :: Tp -> [String]
+getNames :: Tp t -> [String]
 getNames t = case t of
-  IntT -> []
-  BoolT -> []
-  ClassT (ClsNm x) -> [x]
-  FunT t1 t2 -> getNames t1 ++ getNames t2 -- handle tree recursiion in leaves
-  TupleT tps -> concatMap getNames tps     -- handle tree recursiion in leaves
+  IntT _ -> []
+  BoolT _ -> []
+  ClassT _ (ClsNm x) -> [x]
+  FunT _ t1 t2 -> getNames t1 ++ getNames t2 -- handle tree recursiion in leaves
+  TupleT _ tps -> concatMap getNames tps     -- handle tree recursiion in leaves
   _ -> []
 
 
@@ -73,17 +74,17 @@ pattern Pred1 name arg1 <- Syntax.VarDecl _ name (Arg1 arg1)  -- to create VarDe
 pattern Pred2 :: VarName -> String -> String -> VarDecl t
 pattern Pred2 name arg1 arg2 <- Syntax.VarDecl _ name (Arg2 arg1 arg2)
 
-pattern Arg0 :: String -> Tp
-pattern Arg0 x <- ClassT (ClsNm x)
+pattern Arg0 :: String -> Tp t
+pattern Arg0 x <- ClassT _ (ClsNm x)
 
-pattern Arg1 :: String -> Tp
-pattern Arg1 x <- FunT (Arg0 x) BoolT
+pattern Arg1 :: String -> Tp t
+pattern Arg1 x <- FunT _ (Arg0 x) (ClassT _ BooleanC)
 
-pattern Arg2 :: String -> String -> Tp
-pattern Arg2 x y <- FunT (Arg0 x) (Arg1 y)
+pattern Arg2 :: String -> String -> Tp t
+pattern Arg2 x y <- FunT _ (Arg0 x) (Arg1 y)
 
-pattern FunPattern :: String -> Tp -> Tp ->  VarDecl t
+pattern FunPattern :: String -> Tp t -> Tp t ->  VarDecl t
 -- VarDecl x y i
 -- FunT (ClassT (ClsNm x)) (FunT (ClassT (ClsNm y)) (IntT <- i)
-pattern FunPattern name tp1 tp2 <- VarDecl _ name (FunT tp1 tp2)
+pattern FunPattern name tp1 tp2 <- VarDecl _ name (FunT _ tp1 tp2)
 

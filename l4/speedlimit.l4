@@ -82,12 +82,12 @@ not (isCar c && isTruck c)
 
 rule <maxSpCarWorkdayHighway>
 for v: Vehicle, d: Day, r: Road, s: Integer
-if isCar v && isWorkday d && isHighway r && s = 130
+if isCar v && isWorkday d && isHighway r && s == 130
 then maxSpeed v d r s
 
 rule <maxSpCarWorkdayRoad>
 for v: Vehicle, d: Day, r: Road, s: Integer
-if isCar v && isWorkday d && isRoad r && s = 90
+if isCar v && isWorkday d && isRoad r && s == 90
 then maxSpeed v d r s
 
 # Closure of predicate maxSpeed:
@@ -96,8 +96,8 @@ rule <maxSpClosure>
 for v: Vehicle, d: Day, r: Road, s: Integer
 if maxSpeed v d r s
 then
-(isCar v && isWorkday d && isHighway r && s = 130) ||
-(isCar v && isWorkday d && isHighway r && s =  90)
+(isCar v && isWorkday d && isHighway r && s == 130) ||
+(isCar v && isWorkday d && isHighway r && s ==  90)
 
 # Assertion trying to derive a contradiction from the above rules:
 # The rules stipulate different maximal speeds under the same conditions.
@@ -114,4 +114,4 @@ assert # provable
 # with maxSpCarWorkdayHighway maxSpCarWorkdayRoadNotHighway
 maxSpeed tCar tDay tRoad tSpeed1 &&
 maxSpeed tCar tDay tRoad tSpeed2
---> tSpeed1 = tSpeed2
+--> tSpeed1 == tSpeed2

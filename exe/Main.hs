@@ -4,8 +4,8 @@
 module Main where
 
 
-import Parser (parseProgram)
-import Syntax (Program, ClassName)
+import Parser (parseNewProgram)
+import Syntax (NewProgram, ClassName)
 import Typing ( checkError )
 --import SmtSBV (proveProgram)
 import Smt (proveProgram)
@@ -24,21 +24,19 @@ import ToGF.FromL4.ToAnswers ( createPGFforAnswers )
 import ToGF.NormalizeSyntax
 import Annotation ( SRng, LocTypeAnnot (typeAnnot) )
 import Paths_baby_l4 (getDataFileName)
-import Text.Pretty.Simple (pPrint, pPrintString)
+import Text.Pretty.Simple ( pPrint, pPrintString, pPrint )
 import Error (printError)
 import Data.Either (rights)
 
-
-
 import ToDA2 (createDSyaml)
-import Text.Pretty.Simple (pPrint)
+import TimedMC (runAut)
 
-readPrelude :: IO (Program SRng)
+readPrelude :: IO (NewProgram SRng)
 readPrelude = do
   l4PreludeFilepath <- getDataFileName "l4/Prelude.l4"
   do
     contents <- readFile l4PreludeFilepath
-    case parseProgram l4PreludeFilepath contents of
+    case parseNewProgram l4PreludeFilepath contents of
       Right ast -> do
         -- print ast
         return ast
@@ -48,7 +46,7 @@ readPrelude = do
 process :: InputOpts -> String -> IO ()
 process args input = do
   let fpath = filepath args
-      ast = parseProgram fpath input
+      ast = parseNewProgram fpath input
   case ast of
     Right ast -> do
       preludeAst <- readPrelude
@@ -56,14 +54,15 @@ process args input = do
       case checkError preludeAst ast of
         Left err -> putStrLn (printError err)
         Right tpAst -> do
-          let tpAstNoSrc = fmap typeAnnot tpAst
+          let tpAstNoSrc = fmap typeAnnot  tpAst
           let normalAst = normalizeProg tpAstNoSrc -- Creates predicates of class fields
 
           case format args of
             Fast                     ->  pPrint tpAst
+            Faut                     ->  runAut (fmap typeAnnot tpAst)
             (Fgf GFOpts { gflang = gfl, showast = True } ) -> GF.nlgAST gfl fpath normalAst
             (Fgf GFOpts { gflang = gfl, showast = False} ) -> GF.nlg    gfl fpath normalAst
-            Fsmt -> proveProgram tpAst
+            Fsmt -> proveProgram tpAstNoSrc
             Fscasp -> createSCasp normalAst
             Fyaml -> do createDSyaml tpAstNoSrc
                         putStrLn "---------------"
@@ -76,7 +75,7 @@ process args input = do
       print err
 
 
-data Format   = Fast | Fgf GFOpts | Fscasp | Fsmt | Fyaml
+data Format   = Fast | Faut | Fgf GFOpts | Fscasp | Fsmt | Fyaml
  deriving Show
 
 --  l4 gf en          output english only
@@ -102,6 +101,7 @@ optsParse = InputOpts <$>
               subparser
                 ( command "gf"   (info gfSubparser gfHelper)
                <> command "ast"  (info (pure Fast) (progDesc "Show the AST in Haskell"))
+               <> command "aut"  (info (pure Faut) (progDesc "Automata-based operations"))
                <> command "scasp" (info (pure Fscasp) (progDesc "output to sCASP for DocAssemble purposes"))
                <> command "smt"   (info (pure Fsmt) (progDesc "Check assertion with SMT solver"))
                <> command "yaml" (info (pure Fyaml) (progDesc "output to YAML for DocAssemble purposes"))
@@ -124,7 +124,7 @@ optsParse = InputOpts <$>
 
 main :: IO ()
 main = do
-  let optsParse' = info (optsParse) ( fullDesc
+  let optsParse' = info optsParse ( fullDesc
                                                <> header "mini-l4 - minimum l4? miniturised l4?")
   opts <- customExecParser (prefs showHelpOnError) optsParse'
 

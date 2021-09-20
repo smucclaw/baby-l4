@@ -9,11 +9,12 @@ import Control.Monad.Reader (MonadReader (local), Reader, asks, runReader)
 import qualified Data.Set as S
 import PGF ( PGF, showExpr, linearizeAll )
 import Prop
+import Annotation ( HasDefault(defaultVal) )
 import Syntax
 import System.IO (stderr, hPutStrLn)
 import Text.Printf (printf)
 import ToGF.FromL4.TransProp ( transfer, Mode(MOptimize) )
-import ToGF.NormalizeSyntax ( varName, normalizeQuantifGF )
+import ToGF.NormalizeSyntax ( varName, normalizeQuantifGF, pattern BoolT, pattern IntT )
 import ToGF.GenerateLexicon
     ( AtomWithArity(..), GrName, createGF' )
 import Debug.Trace (trace)
@@ -32,39 +33,39 @@ gfl2lang gfLang =
 grName :: GrName
 grName = "Prop"
 
-createGF :: FilePath -> Program t -> IO PGF
-createGF fname prog = trace ("allPreds: " ++ show allPreds) $ createGF' fname grName (lexiconOfProgram prog) allPreds
+createGF :: FilePath -> NewProgram t -> IO PGF
+createGF fname prog = trace ("allPreds: " ++ show allPreds) $ createGF' fname grName (lexiconOfNewProgram prog) allPreds
   where
     allPreds = S.toList $ S.fromList $ concat
       [ getAtoms vardecl
-      | vardecl <- globalsOfProgram prog
+      | vardecl <- globalsOfNewProgram prog
       ]
 
 getAtoms :: VarDecl t -> [AtomWithArity]
 getAtoms (VarDecl _ name tp) =
     AA name (getArity tp) : [ AA nm 0 | nm <- getNames tp]
   where
-    getArity :: Tp -> Int
+    getArity :: Tp t -> Int
     getArity t = case t of
-      FunT _ x -> 1 + getArity x
+      FunT _ _ x -> 1 + getArity x
       _ -> 0
 
-    getNames :: Tp -> [String]
+    getNames :: Tp t -> [String]
     getNames t = case t of
-      IntT -> []
-      BoolT -> []
-      ClassT (ClsNm x) -> [x]
-      FunT t1 t2 -> getNames t1 ++ getNames t2 -- handle tree recursion in leaves
-      TupleT tps -> concatMap getNames tps     -- handle tree recursion in leaves
+      IntT _ -> []
+      BoolT _ -> []
+      ClassT _ (ClsNm x) -> [x]
+      FunT _ t1 t2 -> getNames t1 ++ getNames t2 -- handle tree recursion in leaves
+      TupleT _ tps -> concatMap getNames tps     -- handle tree recursion in leaves
       _ -> []
 
-nlg, nlgAST :: GFlang -> FilePath -> Program Tp -> IO ()
+nlg, nlgAST :: Show t => GFlang -> FilePath -> NewProgram t -> IO ()
 nlg = nlg' False
 nlgAST = nlg' True
 
 
 
-nlg' :: Bool -> GFlang -> FilePath -> Program Tp -> IO ()
+nlg' :: Show t => Bool -> GFlang -> FilePath -> NewProgram t -> IO ()
 nlg' showAST gfl fpath prog = do
     gr <- createGF fpath prog
     sequence_
@@ -83,79 +84,82 @@ nlg' showAST gfl fpath prog = do
 
 -----------------------------------------------------------------------------
 
-type CuteCats = Reader Env
+type CuteCats t = Reader (Env t)
 
-data Env
+data Env t
   = Env
-      { lexicon :: [Mapping Tp],
-        vardecls :: [[VarDecl Tp]]
+      { lexicon :: [Mapping t],
+        vardecls :: [[VarDecl t ]]
       }
 
-program2prop :: Program Tp -> [GProp]
-program2prop e = case e of
-  Program _ lex _cl vars rules _as ->
-    let env0 = Env {lexicon = lex, vardecls = [vars]}
+program2prop :: Show t => NewProgram t -> [GProp]
+program2prop prg = 
+    let lexc = lexiconOfNewProgram prg
+        vars = globalsOfNewProgram prg
+        rules = rulesOfNewProgram prg
+        env0 = Env {lexicon = lexc, vardecls = [vars]}
      in runReader
           (mapM rule2prop rules)
           env0
 
-vardecl2prop :: VarDecl t -> CuteCats GProp
+vardecl2prop :: (HasDefault t, Show t) => VarDecl t -> CuteCats t GProp
 vardecl2prop (VarDecl _ vname vtyp) = do
-  typ <- tp2kind (GlobalVar vname) vtyp
-  name <- var2ind (GlobalVar vname)
+  typ <- tp2kind (GlobalVar (QVarName defaultVal vname)) vtyp
+  name <- var2ind (GlobalVar (QVarName defaultVal vname))
   pure $ GPAtom (GAKind typ name)
 
-var2ind :: Var -> CuteCats GInd
+var2ind :: Var t -> CuteCats t GInd
 var2ind var = do
-  let name = varName var
+  let name =  nameOfQVarName (nameOfVar var)
   lex <- asks lexicon
   return $ case findMapping lex name of
      _:_  -> GIVarN (GAtomNoun (LexAtom name)) -- the var is in lexicon
      _    -> GIVar (GVString (GString name)) -- Fall back to string literal
 
-var2pred :: Var -> CuteCats GPred1
+var2pred :: Var t -> CuteCats t GPred1
 var2pred var = do
-  let name = varName var
+  let name = nameOfQVarName (nameOfVar var)
   return $ GAtomPred1 (LexAtom name)
 
-var2pred2 :: Var -> CuteCats GPred2
+var2pred2 :: Var t -> CuteCats t GPred2
 var2pred2 var = do
-  let name = varName var
+  let name = nameOfQVarName (nameOfVar var)
   return $ GAtomPred2 (LexAtom name)
 
-tp2kind :: Var -> Tp -> CuteCats GKind
+tp2kind :: Show t => Var t -> Tp t -> CuteCats te GKind
 tp2kind v e = case e of
-  BoolT -> pure GBoolean
-  IntT -> pure GNat
-  ClassT (ClsNm name) -> pure $ GKNoun (var2quant v) (GAtomNoun (LexAtom name))
-  FunT arg ret -> GKFun <$> tp2kind v arg <*> tp2kind v ret
+  BoolT _ -> pure GBoolean
+  IntT _ -> pure GNat
+  ClassT _ (ClsNm name) -> pure $ GKNoun (var2quant v) (GAtomNoun (LexAtom name))
+  FunT _ arg ret -> GKFun <$> tp2kind v arg <*> tp2kind v ret
   -- TupleT [Tp]
   -- ErrT
   _ -> error $ "tp2kind: not yet supported: " ++ show e
 
-tp2ind :: Var -> Tp -> CuteCats GInd
+tp2ind :: Var t -> Tp t -> CuteCats te GInd
 tp2ind v e = case e of
   --BoolT -> pure GBoolean
   --IntT -> pure GNat
-  ClassT (ClsNm name) -> pure $ GINoun (var2quant v) (GAtomNoun (LexAtom name))
+  ClassT _ (ClsNm name) -> pure $ GINoun (var2quant v) (GAtomNoun (LexAtom name))
   --FunT arg ret -> GKFun <$> tp2kind arg <*> tp2kind ret
   -- TupleT [Tp]
   -- ErrT
   _ -> pure $ GIVar (GVString (GString "<unsupported>"))
   -- _ -> error $ "tp2kind: not yet supported: " ++ show e
 
-var2quant :: Var -> GQuantifier
+
+var2quant :: Var t -> GQuantifier
 var2quant = GQString . GString . varName
 
-rule2prop :: Rule Tp -> CuteCats GProp
+rule2prop :: Show t => Rule t -> CuteCats t GProp
 rule2prop r =
-  let r'@(Rule _ nm vars ifE thenE) = normalizeQuantifGF r in local (updateVars vars) $
+  let r'@(Rule _ nm _ vars ifE thenE) = normalizeQuantifGF r in local (updateVars vars) $
   do
     ifProp <- expr2prop ifE
     thenProp <- expr2prop thenE
     return $ GPImpl ifProp thenProp
 
-expr2prop :: Syntax.Expr Tp -> CuteCats GProp
+expr2prop :: Show t => Syntax.Expr t -> CuteCats t GProp
 expr2prop e = case e of
   ValE _ val -> pure $ GPAtom (val2atom val)
   FunApp1 f x xTp -> do
@@ -165,17 +169,19 @@ expr2prop e = case e of
     pure $ GPAtom (GAPred1 f' x')
   FunApp2 f x xTp y yTp -> do
     f' <- var2pred2 f
-    x' <- tp2ind x xTp
-    y' <- tp2ind y yTp
+--    x' <- tp2ind x xTp      -- MS: changed in analogy to FunApp1
+    x' <- var2ind x
+--    y' <- tp2ind y yTp      -- MS: changed in analogy to FunApp1
+    y' <- var2ind y
     pure $ GPAtom (GAPred2 f' x' y')
-  Exist x cl exp -> do
+  Exist x exp -> do
     prop <- expr2prop exp
-    typ <- tp2kind (LocalVar x 0) cl
-    pure $ GPExists (GListVar [GVString (GString x)]) typ prop
-  Forall x cl exp -> do
+    typ <- tp2kind (LocalVar (QVarName (annotOfVarDecl x) (nameOfVarDecl x)) 0) (tpOfVarDecl x)
+    pure $ GPExists (GListVar [GVString (GString (nameOfVarDecl x))]) typ prop
+  Forall x exp -> do
     prop <- expr2prop exp
-    typ <- tp2kind (LocalVar x 0) cl
-    pure $ GPUnivs (GListVar [GVString (GString x)]) typ prop
+    typ <- tp2kind (LocalVar (QVarName (annotOfVarDecl x) (nameOfVarDecl x)) 0) (tpOfVarDecl x)
+    pure $ GPUnivs (GListVar [GVString (GString (nameOfVarDecl x))]) typ prop
   And e1 e2 -> do
     exp1 <- expr2prop e1
     exp2 <- expr2prop e2
@@ -210,49 +216,49 @@ val2atom e = case e of
 ----------------------------------------
 -- Patterns
 
-pattern AppU :: Syntax.Expr Tp -> Syntax.Expr Tp -> Syntax.Expr Tp
+pattern AppU :: Syntax.Expr t -> Syntax.Expr t -> Syntax.Expr t
 pattern AppU x y <- AppE _ x y
 
-pattern VarU :: Var -> Tp -> Syntax.Expr Tp
+pattern VarU :: Var t -> t -> Syntax.Expr t
 pattern VarU var tp <- VarE tp var
 
-pattern FunApp1 :: Var -> Var -> Tp -> Syntax.Expr Tp
+pattern FunApp1 :: Var t -> Var t -> t -> Syntax.Expr t
 pattern FunApp1 f x xTp <- AppU (VarU f _) (VarU x xTp)
 
 -- AppU (VarU (GlobalVar f)) (VarU (LocalVar x int))
 
-pattern FunApp2 :: Var -> Var -> Tp -> Var -> Tp -> Syntax.Expr Tp
+pattern FunApp2 :: Var t -> Var t ->  t -> Var t ->  t -> Syntax.Expr t
 pattern FunApp2 f x xTp y yTp <- AppU (FunApp1 f x xTp) (VarU y yTp)
 
 -- Quantification
 
-pattern Exist :: VarName -> Tp -> Syntax.Expr Tp -> Syntax.Expr Tp
-pattern Exist x typ exp <- QuantifE _ Ex x typ exp
+pattern Exist :: VarDecl t -> Syntax.Expr t -> Syntax.Expr t
+pattern Exist x exp <- QuantifE _ Ex x exp
 
-pattern Forall :: VarName -> Tp -> Syntax.Expr Tp -> Syntax.Expr Tp
-pattern Forall x typ exp <- QuantifE _ All x typ exp
+pattern Forall :: VarDecl t -> Syntax.Expr t -> Syntax.Expr t
+pattern Forall x exp <- QuantifE _ All x exp
 
 -- Binary operations
 
-pattern And :: Syntax.Expr Tp -> Syntax.Expr Tp -> Syntax.Expr Tp
+pattern And :: Syntax.Expr t -> Syntax.Expr t -> Syntax.Expr t
 pattern And e1 e2 <- BinOpE _ (BBool BBand) e1 e2
 
-pattern Or :: Syntax.Expr Tp -> Syntax.Expr Tp -> Syntax.Expr Tp
+pattern Or :: Syntax.Expr t -> Syntax.Expr t -> Syntax.Expr t
 pattern Or e1 e2 <- BinOpE _ (BBool BBor) e1 e2
 
-pattern Not :: Syntax.Expr Tp -> Syntax.Expr Tp
-pattern Not e <- UnaOpE _ (UBool UBneg) e
+pattern Not :: Syntax.Expr t -> Syntax.Expr t
+pattern Not e <- UnaOpE _ (UBool UBnot) e
 
-pattern Impl :: Syntax.Expr Tp -> Syntax.Expr Tp -> Syntax.Expr Tp
+pattern Impl :: Syntax.Expr t -> Syntax.Expr t -> Syntax.Expr t
 pattern Impl e1 e2 <- BinOpE _ (BBool BBimpl) e1 e2
 
-pattern IfThenElse :: Syntax.Expr Tp -> Syntax.Expr Tp -> Syntax.Expr Tp -> Syntax.Expr Tp
+pattern IfThenElse :: Syntax.Expr t -> Syntax.Expr t -> Syntax.Expr t -> Syntax.Expr t
 pattern IfThenElse e1 e2 e3 <- IfThenElseE _ e1 e2 e3
 
 ----------------------------------------
 -- Generic helper functions
 
-updateVars :: [VarDecl Tp] -> Env -> Env
+updateVars :: [VarDecl t] -> Env t -> Env t
 updateVars vs env = env {vardecls = vs : vardecls env}
 
 findMapping :: [Mapping t] -> String  -> [String]

@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE TupleSections #-}
 module L4LSP where
 
 import Language.LSP.Server
@@ -19,13 +20,14 @@ import qualified Language.LSP.Types.Lens       as J
 import           Language.LSP.Diagnostics
 import           System.Log.Logger
 -- import Control.Monad.Identity (Identity(runIdentity))
-import Parser (parseProgram)
+-- import Control.Monad.Identity (Identity(runIdentity))
+import Parser (parseNewProgram)
 import Data.Foldable (for_)
 import qualified Data.List as List
 import Syntax
 import Control.Lens.Extras (template)
 import Data.Data (Data)
-import Data.Either.Combinators (maybeToRight, mapLeft)
+import Data.Either.Combinators (maybeToRight, mapLeft, mapRight)
 import Control.Monad.Trans.Except (except)
 import Control.Monad.Except
 -- import Syntax (Pos(..),SRng(..))
@@ -43,8 +45,8 @@ import Control.Monad.Trans.Maybe (MaybeT(..))
 type Config = ()
 
 type Source = T.Text
-type LocAndTp = LocTypeAnnot Tp
-type ResErrOrAst = Either ResponseError (Maybe (Program (LocTypeAnnot Tp)))
+type LocAndTp = LocTypeAnnot (Tp ())
+type ResErrOrAst = Either ResponseError (Maybe (NewProgram LocAndTp))
 data LspError = ReadFileErr Source | TypeCheckerErr [Err] | ParserErr Err deriving (Eq, Show)
 
 tshow :: Show a => a -> T.Text
@@ -150,24 +152,31 @@ sendDiagnosticsOnLeft uri (Right result) = MaybeT $ Just result <$ clearError "N
 
 errorToErrs :: Error -> LspError
 errorToErrs e = TypeCheckerErr $ case e of
-                  (ClassDeclsErr c) ->
-                    case c of
-                      DuplicateClassNamesCDE dc -> mkErrs stringOfClassName "Duplicate class name: " dc
-                      UndefinedSuperclassCDE us -> mkErrs stringOfClassName "Undefined super class: " us
-                      CyclicClassHierarchyCDE cc -> mkErrs stringOfClassName "Cyclic class hierarchy: " cc
-                  (VarDeclsErr v) ->
-                    case v of
-                      DuplicateVarNamesVDE dup -> map (mkErrsVarRule "Duplicate var name: ") dup
-                      UndefinedTypeVDE un      -> map (mkErrsVarRule "Undefined type var decl: ") un
-                  (FieldDeclsErr f) ->
-                    case f of
-                      UndefinedTypeFDE uf -> mkErrs stringOfFieldName "Undefined field type: " uf
-                      DuplicateFieldNamesFDE dupf ->  mkErrsField <$> dupf
-                  (AssertionErr (AssertionErrAE ae)) -> getErrorCause "Assertion Error: " <$> ae
-                  (RuleErr (RuleErrorRE re)) -> getErrorCause "Rule Error: " <$> re
+                  (ErrorCauseErr ecs) -> getErrorCause "" =<< ecs
+                  other -> error $ "Unknown error: " ++ show other
 
-getErrorCause :: String -> (SRng, ErrorCause) -> Err
-getErrorCause errTp (r, ec) = Err r (errTp ++ printErrorCause ec)
+getErrorCause :: String -> ErrorCause -> [Err]
+getErrorCause errTp ec = [Err loc (errTp ++ printErrorCause ec) | loc <- getErrLocation ec]
+
+-- TODO: #98 Replace this temporary workaround when AST is updated with positional information.
+getErrLocation :: ErrorCause -> [SRng]
+getErrLocation (UndefinedClassInType r _) = [r]
+getErrLocation (UndeclaredVariable r _) = [r]
+getErrLocation (IllTypedSubExpr srs _ _) = srs
+getErrLocation (IncompatibleTp srs _) = srs
+getErrLocation (NonScalarExpr srs _) = srs
+getErrLocation (NonFunctionTp srs _) = srs
+getErrLocation (CastIncompatible srs _ _) = srs
+getErrLocation (IncompatiblePattern r) = [r]
+getErrLocation (UnknownFieldName r _ _) = [r]
+getErrLocation (AccessToNonObjectType r) = [r]
+getErrLocation (DuplicateClassNamesCDEErr locNames) = fst <$> locNames
+getErrLocation (UndefinedSuperclassCDEErr locNames) = fst <$> locNames
+getErrLocation (CyclicClassHierarchyCDEErr locNames) = fst <$> locNames
+getErrLocation (DuplicateFieldNamesFDEErr x) =  (\(sr, _cn, _x2) -> sr) <$> x
+getErrLocation (UndefinedTypeFDEErr locNames) = fst <$> locNames
+getErrLocation (DuplicateVarNamesVDEErr locNames) = fst <$> locNames
+getErrLocation (UndefinedTypeVDEErr locNames) = fst <$> locNames
 
 mkErr :: (b -> String) -> String -> (SRng, b) -> Err
 mkErr f msg (r, n) = Err r -- get range
@@ -203,17 +212,17 @@ handleLspErr nuri (Right a) = Right (Just a) <$ clearError "typechecker" nuri
 ----------------------------------------------------------------------
 -- Parsing functionality
 ----------------------------------------------------------------------
-getProg :: J.Uri -> T.Text -> Either LspError (Program SRng)
+getProg :: J.Uri -> T.Text -> Either LspError (NewProgram SRng)
 getProg uri contents = do
   x <- handleUriErrs uri
-  mapLeft ParserErr $ parseProgram x (T.unpack contents)
+  mapLeft ParserErr $ parseNewProgram x (T.unpack contents)
 
-readPrelude :: IO (Program SRng)
+readPrelude :: IO (NewProgram SRng)
 readPrelude = do
   l4PreludeFilepath <- getDataFileName "l4/Prelude.l4"
   do
     contents <- readFile l4PreludeFilepath
-    case parseProgram l4PreludeFilepath contents of
+    case parseNewProgram l4PreludeFilepath contents of
       Right ast -> do
         -- print ast
         return ast
@@ -226,7 +235,7 @@ parseAndSendErrors uri contents = do
   let nuri = toNormalizedUri uri
   handleLspErr nuri lspErrOrAst
 
-parseAndTypecheck :: MonadIO m => J.Uri -> T.Text -> ExceptT LspError m (Program (LocTypeAnnot Tp))
+parseAndTypecheck :: MonadIO m => J.Uri -> T.Text -> ExceptT LspError m (NewProgram LocAndTp)
 parseAndTypecheck uri contents = do
   let errOrProg = getProg uri contents
   ast <- ExceptT $ pure errOrProg
@@ -234,7 +243,7 @@ parseAndTypecheck uri contents = do
   let typedAstOrTypeError = checkError preludeAst ast
   ExceptT $ pure $ mapLeft errorToErrs typedAstOrTypeError
 
-parseVirtualOrRealFile :: Uri -> ExceptT LspError (LspM Config) (Program (LocTypeAnnot Tp))
+parseVirtualOrRealFile :: Uri -> ExceptT LspError (LspM Config) (NewProgram LocAndTp)
 parseVirtualOrRealFile uri = do
     contents <- getVirtualOrRealFile uri
     parseAndTypecheck uri contents
@@ -276,7 +285,7 @@ errorRange (Err s _)
 -- TODO: Use findAllExpressions and findExprAt to extract types for hover
 
 -- | Use magic to find all Expressions in a program
-findAllExpressions :: (Data t) => Program t -> [Expr t]
+findAllExpressions :: (Data t) => NewProgram t -> [Expr t]
 findAllExpressions = toListOf template
 
 -- | Find the smallest subexpression which contains the specified position
@@ -287,7 +296,7 @@ findExprAt pos expr =
     Just sub -> findExprAt pos sub
 
 -- | Given a position and a parsed program, try to find if there is any expression at that location
-findAnyExprAt :: (HasLoc t, Data t) => J.Position -> Program t -> Maybe (Expr t)
+findAnyExprAt :: (HasLoc t, Data t) => J.Position -> NewProgram t -> Maybe (Expr t)
 findAnyExprAt pos = List.find (posInRange pos . getLoc) . findAllExpressions
 
 
@@ -296,13 +305,15 @@ findAnyExprAt pos = List.find (posInRange pos . getLoc) . findAllExpressions
 -- Hover utilities
 ----------------------------------------------------------------------
 data SomeAstNode t
-  = SProg (Program t)
+  = SProg (NewProgram t)
+  | STopLevelElement (TopLevelElement t)
   | SExpr (Expr t)
   | SMapping (Mapping t)
   | SClassDecl (ClassDecl t)
   | SGlobalVarDecl (VarDecl t)
   | SRule (Rule t)
   | SAssertion (Assertion t)
+  | SAutomaton (TA t)
   deriving (Show)
 
 instance HasLoc t => HasLoc (SomeAstNode t) where
@@ -310,20 +321,24 @@ instance HasLoc t => HasLoc (SomeAstNode t) where
 
 instance HasAnnot SomeAstNode where
   getAnnot (SProg pt) = getAnnot pt
+  getAnnot (STopLevelElement t) = getAnnot t
   getAnnot (SExpr et) = getAnnot et
   getAnnot (SMapping et) = getAnnot et
   getAnnot (SClassDecl et) = getAnnot et
   getAnnot (SGlobalVarDecl et) = getAnnot et
   getAnnot (SRule et) = getAnnot et
   getAnnot (SAssertion et) = getAnnot et
+  getAnnot (SAutomaton ta) = getAnnot ta
 
   updateAnnot nt (SProg pt) = SProg $ updateAnnot nt pt
+  updateAnnot nt (STopLevelElement t) = STopLevelElement  $ updateAnnot nt t
   updateAnnot nt (SExpr et) = SExpr $ updateAnnot nt et
   updateAnnot nt (SMapping et) = SMapping $ updateAnnot nt et
   updateAnnot nt (SClassDecl et) = SClassDecl $ updateAnnot nt et
   updateAnnot nt (SGlobalVarDecl et) = SGlobalVarDecl $ updateAnnot nt et
   updateAnnot nt (SRule et) = SRule $ updateAnnot nt et
   updateAnnot nt (SAssertion et) = SAssertion $ updateAnnot nt et
+  updateAnnot nt (SAutomaton ta) = SAutomaton $ updateAnnot nt ta
 
 selectSmallestContaining :: HasLoc t => Position -> [SomeAstNode t] -> SomeAstNode t -> [SomeAstNode t]
 selectSmallestContaining pos parents node =
@@ -332,24 +347,30 @@ selectSmallestContaining pos parents node =
     Just sub -> selectSmallestContaining pos (node:parents) sub
 
 getChildren :: SomeAstNode t -> [SomeAstNode t]
-getChildren (SProg Program {lexiconOfProgram, classDeclsOfProgram, globalsOfProgram, rulesOfProgram, assertionsOfProgram }) =
-  map SMapping lexiconOfProgram ++ map SClassDecl classDeclsOfProgram ++ map SGlobalVarDecl globalsOfProgram ++ map SRule rulesOfProgram ++ map SAssertion assertionsOfProgram
+getChildren (SProg NewProgram {elementsOfNewProgram}) = map STopLevelElement elementsOfNewProgram
+getChildren (STopLevelElement t) = case t of
+  MappingTLE mp -> [SMapping mp]
+  ClassDeclTLE cd -> [SClassDecl cd]
+  VarDeclTLE vd -> [SGlobalVarDecl vd]
+  RuleTLE ru -> [SRule ru]
+  AssertionTLE as -> [SAssertion as]
+  AutomatonTLE ta -> [SAutomaton ta]
 getChildren (SExpr et) = SExpr <$> childExprs et
 getChildren (SMapping _) = []
 getChildren (SClassDecl _) = []
 getChildren (SGlobalVarDecl _) = []
 getChildren (SRule r) = SExpr <$> [precondOfRule r, postcondOfRule r] -- Currently no VarDecl node to show type info, requires change in syntax
 getChildren (SAssertion a) = SExpr <$> [exprOfAssertion a]
-
+getChildren (SAutomaton _ta) = []  -- TODO 
 
 
 ----------------------------------------------------------------------
 -- Hover functionality
 ----------------------------------------------------------------------
-findAstAtPoint :: HasLoc t => Position -> Program t -> [SomeAstNode t]
+findAstAtPoint :: HasLoc t => Position -> NewProgram t -> [SomeAstNode t]
 findAstAtPoint pos = selectSmallestContaining pos [] . SProg
 
-tokensToHover :: Position -> Program LocAndTp -> IO Hover
+tokensToHover :: Position -> NewProgram LocAndTp -> IO Hover
 tokensToHover pos ast = do
       let astNode = findAstAtPoint pos ast
       return $ tokenToHover astNode
@@ -371,12 +392,16 @@ tokenToHover astNode = Hover contents range
 astToTypeInfo :: [SomeAstNode LocAndTp] -> T.Text
 astToTypeInfo (x:_) = tshow $ getType $ getAnnot x
 
+arNameToString :: ARName -> String
+arNameToString Nothing = "(anonymous)"
+arNameToString (Just s) = s
+
 astToText :: [SomeAstNode LocAndTp] -> T.Text
 astToText (SMapping (Mapping _ from to):_) = "This block maps variable " <> T.pack from <> " to CNL description " <> tshow (predOfDescription to)
 astToText (SClassDecl (ClassDecl _ (ClsNm x) _):_) = "Declaration of new class : " <> T.pack x
 astToText (SGlobalVarDecl (VarDecl _ n _):_) = "Declaration of global variable " <> T.pack n
-astToText (SRule (Rule _ n _ _ _):_) = "Declaration of rule " <> T.pack n
-astToText (SAssertion (Assertion _ _):_) = "Declaration of Assertion " <> "rule of no name for now"
+astToText (SRule Rule {nameOfRule = n}:_) = "Declaration of rule " <> T.pack (arNameToString n)
+astToText (SAssertion Assertion {nameOfAssertion = n}:_) = "Declaration of Assertion " <> T.pack (arNameToString n)
 astToText _ = "No hover info found"
 
 lookupTokenBare' :: Position -> Uri -> LspM Config (Either LspError Hover)

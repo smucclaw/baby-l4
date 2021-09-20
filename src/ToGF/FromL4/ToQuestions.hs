@@ -19,12 +19,12 @@ import ToGF.GenerateLexicon (createGF', printGF', AtomWithArity(..), GrName)
 grName :: GrName
 grName = "Questions"
 
-createGF :: FilePath -> Program t -> IO PGF
-createGF fname prog = createGF' fname grName (lexiconOfProgram prog) allPreds
+createGF :: Show t => FilePath -> NewProgram t -> IO PGF
+createGF fname prog = createGF' fname grName (lexiconOfNewProgram prog) allPreds
   where
     allPreds = S.toList $ S.fromList $ concat
       [ getAtoms $ toPred vardecl
-      | vardecl <- globalsOfProgram prog
+      | vardecl <- globalsOfNewProgram prog
       , isPred vardecl ]
 
 printGF :: Gf a => PGF -> a -> IO ()
@@ -38,7 +38,7 @@ getAtoms (GMkPred0 (LexAtom name)) = [AA name 0]
 getAtoms (GMkPred1 (LexAtom name) (LexAtom arg)) = [AA name 1, AA arg 0]
 getAtoms (GMkPred2 (LexAtom name) (LexAtom arg1) (LexAtom arg2)) = [AA name 2, AA arg1 0, AA arg2 0]
 
-createQuestions :: FilePath -> Program t -> IO ()
+createQuestions :: Show t => FilePath -> NewProgram t -> IO ()
 createQuestions filename prog = do
   gr <- createGF filename prog
   let questions = toQuestions prog
@@ -49,13 +49,13 @@ createQuestions filename prog = do
 class Questionable x where
     toQuestions :: x -> [GQuestion]
 
-instance Questionable (VarDecl t) where
+instance Show t => Questionable (VarDecl t) where
   toQuestions v = [GAreThereAny, GAreThereMore,  GProperties] <*>  [toPred v]
 
-instance Questionable (Program a) where
-  toQuestions = concatMap toQuestions . filter isPred.globalsOfProgram
+instance Show a => Questionable (NewProgram a) where
+  toQuestions = concatMap toQuestions . filter isPred.globalsOfNewProgram
 
-toPred :: VarDecl t -> GPred
+toPred :: Show t => VarDecl t -> GPred
 toPred d = case d of
   Pred1 name arg1      -> GMkPred1 (LexAtom (l name)) (LexAtom (l arg1))
   Pred2 name arg1 arg2 -> GMkPred2 (LexAtom (l name)) (LexAtom (l arg1)) (LexAtom (l arg2))
@@ -69,9 +69,9 @@ toPred d = case d of
 isPred :: VarDecl t -> Bool
 isPred = isPred' . tpOfVarDecl
 
-isPred' :: Tp -> Bool
-isPred' (FunT _ BoolT) = True
-isPred' (FunT _ t2) = isPred' t2
+isPred' :: Tp t -> Bool
+isPred' (FunT _ _ (ClassT _ BooleanC)) = True
+isPred' (FunT _ _ t2) = isPred' t2
 isPred' _ = False
 
 -- patterns
@@ -82,8 +82,8 @@ pattern Pred1 name arg1 <- VarDecl _ name (Arg1 arg1)  -- to create VarDecl Stri
 pattern Pred2 :: VarName -> String -> String -> VarDecl t
 pattern Pred2 name arg1 arg2 <- VarDecl _ name (Arg2 arg1 arg2)
 
-pattern Arg1 :: String -> Tp
-pattern Arg1 x <- FunT (ClassT (ClsNm x)) BoolT
+pattern Arg1 :: String -> Tp t
+pattern Arg1 x <- FunT _ (ClassT _ (ClsNm x)) (ClassT _ BooleanC)
 
-pattern Arg2 :: String -> String -> Tp
-pattern Arg2 x y <- FunT (ClassT (ClsNm x)) (Arg1 y)
+pattern Arg2 :: String -> String -> Tp t
+pattern Arg2 x y <- FunT _ (ClassT _ (ClsNm x)) (Arg1 y)
