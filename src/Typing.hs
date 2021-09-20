@@ -313,7 +313,7 @@ maybeToTCEither _ (Just a) = pure a
 -- checkExpectExactType :: (HasAnnot f, TypeCheck f) => Tp () -> Environment te -> SRng -> f Untyped -> TCEither (f Typed)
 -- checkExpectBooleanType :: (HasAnnot f, TypeCheck f) => Environment te -> SRng -> f Untyped -> TCEither (f Typed)
 expectBooleanType :: SRng -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
-expectBooleanType = expectExactType booleanT
+expectBooleanType = expectExactType BooleanT
 
 -- | Returns the type if it's what was expected and throws a type error otherwise
 expectExactType :: Tp () -> SRng -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
@@ -326,7 +326,7 @@ checkBoolTp loc te = expectBooleanType loc (getAnnot te)
 
 expectNumericTp :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> TCEither ()
 expectNumericTp env loc (LocTypeAnnot locT t) = guardMsg msg (isNumberTp env t)
-  where msg = IllTypedSubExpr [loc, locT]  [t] [ExpectedSubTpOf numberT]
+  where msg = IllTypedSubExpr [loc, locT]  [t] [ExpectedSubTpOf NumberT]
 
 
 -- TODO: Make a class for type checking
@@ -353,10 +353,10 @@ checkCompat env ann t1 t2 = checkCompatLeft env ann t1 t2 <|> checkCompatLeft en
 -- TODO: when removinv RecordV, the environment becomes superfluous
 tpConstval ::  Val -> Tp ()
 tpConstval x = case x of
-  BoolV _ -> booleanT
-  IntV _ -> integerT
-  FloatV _ -> floatT
-  StringV _ -> stringT
+  BoolV _ -> BooleanT
+  IntV _ -> IntegerT
+  FloatV _ -> FloatT
+  StringV _ -> StringT
   ErrV -> ErrT
 
   {-
@@ -389,9 +389,9 @@ tpUnaop env lctx lt uop = case uop of
 
 -- TODO: The error message is inappropriate. Change when reworking the type checking algorithm
 tpTime :: SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> BArithOp -> TCEither (Tp ())
-tpTime _ _ _  BAadd = pure timeT
-tpTime _ _ _  BAsub = pure timeT
-tpTime loc0 t1 _t2 _ = tError (IllTypedSubExpr [loc0, getLoc t1] [getType t1] [ExpectedSubTpOf numberT])
+tpTime _ _ _  BAadd = pure TimeT
+tpTime _ _ _  BAsub = pure TimeT
+tpTime loc0 t1 _t2 _ = tError (IllTypedSubExpr [loc0, getLoc t1] [getType t1] [ExpectedSubTpOf NumberT])
 
 tpBarith :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ())-> BArithOp -> TCEither (Tp ())
 tpBarith env l0 lt1 lt2 ba = do
@@ -413,14 +413,14 @@ tpBcompar :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp 
 tpBcompar env loc lt1 lt2 _bc = do
   expectScalarTp loc lt1 *> expectScalarTp loc lt2
   _ <- checkCompat env loc lt1 lt2
-  pure booleanT
+  pure BooleanT
 
 tpBbool :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> BBoolOp -> TCEither (Tp ())
 tpBbool _env locCtx t1 t2 _bc = do
   -- TODO: Should be checked in parallel (and update tests)
   _ <- expectBooleanType locCtx t1
   _ <- expectBooleanType locCtx t2
-  return booleanT
+  return BooleanT
 
 
 tpBinop :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> BinOp -> TCEither (Tp ())
@@ -553,7 +553,7 @@ tpExpr env expr = case expr of
   QuantifE annot q v e -> do
     tv <- tpVarDecl env v
     te <- tpExpr (pushLocalVarDecl tv env) e
-    tres <- booleanT <$ checkBoolTp annot te
+    tres <- BooleanT <$ checkBoolTp annot te
     return $ QuantifE (setType annot tres) q tv te
 
   FldAccE annot e fn -> do
@@ -588,7 +588,7 @@ tpRule env (Rule ann rn instr vds precond postcond) = do
   (teprecond, tepostcond)  <- (,) <$> tpExpr renv precond <*> tpExpr renv postcond
   -- TODO: These could be checked in "parallel" to get more errors at the same time
   _tprec <- checkBoolTp ann teprecond
-  tres <- checkBoolTp ann tepostcond -- tpostcond == booleanT?
+  tres <- checkBoolTp ann tepostcond -- tpostcond == BooleanT?
   return $ (\t -> Rule (setType ann t) rn instr tpdVds teprecond tepostcond) tres
 
 tpAssertion :: Environment t -> Assertion Untyped -> TCEither (Assertion Typed)
@@ -809,7 +809,7 @@ wellFormedTA env (TA nm ta_locs ta_act_clss ta_clks trans init_locs invs lbls) =
         tes = map (tpExpr env . snd) lbls
         ttrans = map (typeTransition env) trans
     in
-      if all (`elem` ta_locs) lbls_locs && all (\te -> getTypeOfExpr te == booleanT) tes
+      if all (`elem` ta_locs) lbls_locs && all (\te -> getTypeOfExpr te == BooleanT) tes
       then TA nm ta_locs ta_act_clss ta_clks ttrans init_locs invs (zip lbls_locs tes)
       else error "ill-formed timed automaton (labels)"
   else error "ill-formed timed automaton (transitions)"
@@ -853,7 +853,7 @@ tpUboolTCResult :: [SRng] -> Tp t -> TCResult (Tp t)
 tpUboolTCResult locs t =
   if isBooleanTp t
   then TCResult t []
-  else TCResult t [IllTypedSubExpr locs [eraseAnn t] [ExpectedExactTp booleanT]]
+  else TCResult t [IllTypedSubExpr locs [eraseAnn t] [ExpectedExactTp BooleanT]]
 
 
 tpUnaopTCResult :: Environment te -> [SRng] -> Tp t -> UnaOp -> TCResult (Tp t)

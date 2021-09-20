@@ -57,7 +57,7 @@ instance (Show t) => DSYaml (DSBlock t) where
 --                               , fieldsOfClassDef = [ FieldDecl { annotOfFieldDecl = _
 --                                                                , nameOfFieldDecl = FldNm "beat"
 --                                                                , tpOfFieldDecl = FunT
---                                                                    ( ClassT ( ClsNm "Sign" ) ) booleanT}]} }
+--                                                                    ( ClassT ( ClsNm "Sign" ) ) BooleanT}]} }
 --
 -- ClassDecl { annotOfClassDecl = _
 --           , nameOfClassDecl = ClsNm "Player"
@@ -66,7 +66,7 @@ instance (Show t) => DSYaml (DSBlock t) where
 --                                                            , ClsNm "Object" ]
 --                                       , fieldsOfClassDef = [ FieldDecl { annotOfFieldDecl = _ 
 --                                                                        , nameOfFieldDecl = FldNm "throw"
---                                                                        , tpOfFieldDecl = FunT ( ClassT ( ClsNm "Sign" ) ) booleanT } ] } }
+--                                                                        , tpOfFieldDecl = FunT ( ClassT ( ClsNm "Sign" ) ) BooleanT } ] } }
 
 -- ClassDecl { annotOfClassDecl = _
 --           , nameOfClassDecl = ClsNm "Game"
@@ -75,11 +75,11 @@ instance (Show t) => DSYaml (DSBlock t) where
 --                                                            , ClsNm "Object" ]
 --                                       , fieldsOfClassDef = [ FieldDecl { annotOfFieldDecl = _
 --                                                                        , nameOfFieldDecl = FldNm "participate_in"
---                                                                        , tpOfFieldDecl = FunT ( ClassT ( ClsNm "Player" ) ) booleanT
+--                                                                        , tpOfFieldDecl = FunT ( ClassT ( ClsNm "Player" ) ) BooleanT
 --                                                                        }
 --                                                            , FieldDecl { annotOfFieldDecl = _
 --                                                                        , nameOfFieldDecl = FldNm "win"
---                                                                        , tpOfFieldDecl = FunT ( ClassT ( ClsNm "Player" ) ) booleanT
+--                                                                        , tpOfFieldDecl = FunT ( ClassT ( ClsNm "Player" ) ) BooleanT
 --                                                                        }
 --                                                            ] } } ]
 

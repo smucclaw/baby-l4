@@ -41,10 +41,10 @@ mkFunTp ts t = foldr (FunT ()) t ts
 -- Logical infrastructure: macros for simplifying formula construction
 ----------------------------------------------------------------------
 mkIntConst :: Integer -> Expr (Tp())
-mkIntConst f = ValE integerT (IntV f)
+mkIntConst f = ValE IntegerT (IntV f)
 
 mkFloatConst :: Float -> Expr (Tp())
-mkFloatConst f = ValE floatT (FloatV f)
+mkFloatConst f = ValE FloatT (FloatV f)
 
 mkVarE :: Var t -> Expr t
 mkVarE v = VarE {annotOfExpr =  annotOfQVarName (nameOfVar v), varOfExprVarE = v}
@@ -68,16 +68,16 @@ applyVars :: Var (Tp()) -> [Var (Tp())] -> Expr (Tp())
 applyVars f args = funArgsToApp (mkVarE f) (map mkVarE args)
 
 notExpr :: Expr (Tp ()) -> Expr (Tp())
-notExpr = UnaOpE booleanT (UBool UBnot)
+notExpr = UnaOpE BooleanT (UBool UBnot)
 
 conjExpr :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
-conjExpr = BinOpE booleanT (BBool BBand)
+conjExpr = BinOpE BooleanT (BBool BBand)
 
 disjExpr :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
-disjExpr = BinOpE booleanT (BBool BBor)
+disjExpr = BinOpE BooleanT (BBool BBor)
 
 implExpr :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
-implExpr = BinOpE booleanT (BBool BBimpl)
+implExpr = BinOpE BooleanT (BBool BBimpl)
 
 conjsExpr :: [Expr (Tp ())] -> Expr (Tp ())
 conjsExpr [] = trueV
@@ -90,10 +90,10 @@ disjsExpr [e] = e
 disjsExpr (e:es) = disjExpr e (disjsExpr es)
 
 eqExpr  :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
-eqExpr = BinOpE booleanT (BCompar BCeq)
+eqExpr = BinOpE BooleanT (BCompar BCeq)
 
 gteExpr  :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
-gteExpr = BinOpE booleanT (BCompar BCgte)
+gteExpr = BinOpE BooleanT (BCompar BCgte)
 
 mkEq :: Var (Tp()) -> Var (Tp()) -> Expr (Tp())
 mkEq v1 v2 = eqExpr (mkVarE v1) (mkVarE v2)
@@ -221,13 +221,13 @@ ruleToFormula r = abstractQD All (varDeclsOfRule r) (implExpr (precondOfRule r) 
 
 -- abstract a Quantified expression over a list of variable Declarations
 abstractQD :: Quantif -> [VarDecl (Tp ())] -> Expr (Tp ()) -> Expr (Tp ())
-abstractQD q vds e = foldr (QuantifE booleanT q) e vds
+abstractQD q vds e = foldr (QuantifE BooleanT q) e vds
 
 -- abstract a Quantified expression over a list of variables
 abstractQ :: Quantif -> [Var (Tp ())] -> Expr (Tp ()) -> Expr (Tp ())
 abstractQ q vs e
   = foldr
-      (\v -> QuantifE booleanT q (VarDecl (annotOfQVarName (nameOfVar v)) (nameOfQVarName (nameOfVar v)) (liftType (annotOfQVarName (nameOfVar v))))) e
+      (\v -> QuantifE BooleanT q (VarDecl (annotOfQVarName (nameOfVar v)) (nameOfQVarName (nameOfVar v)) (liftType (annotOfQVarName (nameOfVar v))))) e
       vs
 
 

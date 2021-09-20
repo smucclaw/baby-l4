@@ -165,7 +165,7 @@ ruleExLInvStep r =
           rmpPostc = zip [ll + 1 .. lvds - 1] [ll .. lvds - 2]
           rmpPrec  = (ll, 0) : zip [0 .. ll - 1] [1 .. ll]
           newPostc = remapExpr rmpPostc postc
-          newPrec = QuantifE booleanT Ex vd (remapExpr rmpPrec prec)
+          newPrec = QuantifE BooleanT Ex vd (remapExpr rmpPrec prec)
       in r{varDeclsOfRule = reverse (lowers++uppers)}{precondOfRule = newPrec}{postcondOfRule = newPostc}
     _ -> error "internal error in splitDecls: "
 
@@ -206,7 +206,7 @@ rulesInversion rls =
   let r1 = head rls
       (VarE _ f, args) = appToFunArgs [] (postcondOfRule r1)
       rn = Just ((nameOfQVarName . nameOfVar) f ++ "Inversion")
-  in Rule booleanT rn [] (varDeclsOfRule r1) (postcondOfRule r1) (disjsExpr (map precondOfRule rls))
+  in Rule BooleanT rn [] (varDeclsOfRule r1) (postcondOfRule r1) (disjsExpr (map precondOfRule rls))
 
 
 -- Adds negated precondition of r1 to r2. Corresponds to:

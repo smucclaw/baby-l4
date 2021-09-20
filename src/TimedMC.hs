@@ -29,14 +29,14 @@ TCTL formulas are composed of:
 ----------------------------------------------------------------------
 
 locPar :: Int -> Var (Tp ())
-locPar = LocalVar (QVarName stateT  "st")
+locPar = LocalVar (QVarName StateT  "st")
 
 clockPars :: Int -> Int -> [Var (Tp ())]
-clockPars l u = map (\i -> LocalVar (QVarName timeT  ("cl"++show i)) i) (reverse [l .. u])
+clockPars l u = map (\i -> LocalVar (QVarName TimeT  ("cl"++show i)) i) (reverse [l .. u])
 
 -- variable of type "state" corresponding to a location
 varOfLoc :: Loc -> Var (Tp())
-varOfLoc (Loc lname) = GlobalVar (QVarName stateT lname)
+varOfLoc (Loc lname) = GlobalVar (QVarName StateT lname)
 
 -- the variables are assumed to be correctly indexed 
 -- with functions such as index or indexListFromTo
@@ -144,9 +144,9 @@ delayTransInv st cls' (l, cnstrs) =
 -- TODO: still missing: invariants of locations
 constrDelayTransition :: TA (Tp ()) -> Var (Tp ()) -> [Var (Tp ())] -> Var (Tp ()) -> [Var (Tp ())] -> Expr (Tp ())
 constrDelayTransition ta st cls st' cls' =
-  let d = LocalVar (QVarName floatT  "d") 0
+  let d = LocalVar (QVarName FloatT  "d") 0
       dgte0 = gteExpr (mkVarE d) (mkFloatConst 0.0)
-      clockshift = conjsExpr (zipWith (\c' c -> eqExpr (mkVarE (liftVar 0 c')) (BinOpE floatT (BArith BAadd) (mkVarE  (liftVar 0 c)) (mkVarE d))) cls' cls)
+      clockshift = conjsExpr (zipWith (\c' c -> eqExpr (mkVarE (liftVar 0 c')) (BinOpE FloatT (BArith BAadd) (mkVarE  (liftVar 0 c)) (mkVarE d))) cls' cls)
   in  conjsExpr [mkEq st st',
                  conjsExpr ([delayTransInv st (zip (clocksOfTA ta) cls') (l, cnstrts) | (l, cnstrts) <- invarsOfTA ta, not (null cnstrts)]),
                  abstractQ Ex [d] (conjExpr dgte0 clockshift)
@@ -154,7 +154,7 @@ constrDelayTransition ta st cls st' cls' =
 
 
 clockConstrToExpr :: [(Clock, Var (Tp()))] -> ClConstr -> Expr (Tp())
-clockConstrToExpr clvarsMap (ClConstr cl compop i) = BinOpE booleanT (BCompar compop) (mkVarE (varOfClockMap clvarsMap cl)) (mkIntConst i)
+clockConstrToExpr clvarsMap (ClConstr cl compop i) = BinOpE BooleanT (BCompar compop) (mkVarE (varOfClockMap clvarsMap cl)) (mkIntConst i)
 
 guardToExpr :: [(Clock, Var (Tp()))] -> TransitionGuard (Tp ()) -> Expr (Tp ())
 guardToExpr clvarsMap (TransitionGuard constr expr) = conjExpr (conjsExpr (map (clockConstrToExpr clvarsMap) constr)) expr
@@ -207,8 +207,8 @@ kFoldExpansion k ta e =
 checkAutomaton :: Int -> TA (Tp()) -> Expr (Tp()) -> Expr (Tp())
 checkAutomaton k ta e =
   let expansion = kFoldExpansion k ta e
-      initialLoc = VarE stateT (varOfLoc (initialLocOfTA ta))
-      initialCls = replicate (length (clocksOfTA ta)) (ValE timeT (FloatV 0.0))
+      initialLoc = VarE StateT (varOfLoc (initialLocOfTA ta))
+      initialCls = replicate (length (clocksOfTA ta)) (ValE TimeT (FloatV 0.0))
   in reduceExpr (funArgsToApp expansion (initialLoc : initialCls))
 
 

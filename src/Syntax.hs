@@ -234,20 +234,21 @@ pattern StringC = ClsNm "String"
 pattern TimeC :: ClassName
 pattern TimeC = ClsNm "Time"
 
-booleanT :: Tp ()
-booleanT = ClassT () BooleanC
-floatT :: Tp ()
-floatT = ClassT () FloatC
-integerT :: Tp ()
-integerT = ClassT () IntegerC
-stateT :: Tp ()
-stateT = ClassT () StateC
-stringT :: Tp ()
-stringT = ClassT () StringC
-timeT :: Tp ()
-timeT = ClassT () TimeC
-numberT :: Tp ()
-numberT = ClassT () NumberC
+-- TODO: Replace these with pattern synonyms like those in NormalizeSyntax.hs
+pattern BooleanT :: Tp ()
+pattern BooleanT = ClassT () BooleanC
+pattern FloatT :: Tp ()
+pattern FloatT = ClassT () FloatC
+pattern IntegerT :: Tp ()
+pattern IntegerT = ClassT () IntegerC
+pattern StateT :: Tp ()
+pattern StateT = ClassT () StateC
+pattern StringT :: Tp ()
+pattern StringT = ClassT () StringC
+pattern TimeT :: Tp ()
+pattern TimeT = ClassT () TimeC
+pattern NumberT :: Tp ()
+pattern NumberT = ClassT () NumberC
 
 
 data VarDecl t = VarDecl {annotOfVarDecl :: t, nameOfVarDecl :: VarName, tpOfVarDecl :: Tp t}
@@ -356,9 +357,9 @@ data Val
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 trueV :: Expr (Tp ())
-trueV = ValE booleanT (BoolV True)
+trueV = ValE BooleanT (BoolV True)
 falseV :: Expr (Tp ())
-falseV = ValE booleanT (BoolV False)
+falseV = ValE BooleanT (BoolV False)
 
 -- TODO: in most cases, the annotation of QVarName seems redundant. 
 data Var t
