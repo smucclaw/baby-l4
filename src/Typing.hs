@@ -223,26 +223,24 @@ kndType _kenv KindT = pure KindT
 -- * Linking classes from the prelude to internal predicates
 ----------------------------------------------------------------------
 
+isClassTp :: ClassName -> Tp t -> Bool
+isClassTp clsNm tp = getClassName tp == Just clsNm
 
 isBooleanTp :: Tp t -> Bool
-isBooleanTp (ClassT _ BooleanC) = True
-isBooleanTp _ = False
+isBooleanTp = isClassTp BooleanC
 
 isNumberTp :: Environment te -> Tp t -> Bool
 isNumberTp env (ClassT _ t) = isSubclassOf env t NumberC
 isNumberTp _ _ = False
 
 isIntegerTp :: Tp t -> Bool
-isIntegerTp (ClassT _ IntegerC) = True
-isIntegerTp _ = False
+isIntegerTp = isClassTp IntegerC
 
 isFloatTp :: Tp t -> Bool
-isFloatTp (ClassT _ FloatC) = True
-isFloatTp _ = False
+isFloatTp = isClassTp FloatC
 
 isTimeTp :: Tp t -> Bool
-isTimeTp (ClassT _ TimeC) = True
-isTimeTp _ = False
+isTimeTp = isClassTp TimeC
 
 isScalarTp :: Tp t -> Bool
 isScalarTp FunT {} = False
@@ -620,7 +618,7 @@ checkClassesForWfError cds prg = do
 
 
 -- ATTENTION, difference wrt. checkClassesForCyclicError: the first parameter is the list of prelude class decls and not the list of all class decls
--- TODO: In this function, the prelude class decs are prefixed to the program elements. 
+-- TODO: In this function, the prelude class decs are prefixed to the program elements.
 checkClassesForCyclicError :: HasLoc t => [ClassDecl t] -> NewProgram t -> TCM (NewProgram t)
 checkClassesForCyclicError preludeCds prg = do
   let cds = preludeCds ++ classDeclsOfNewProgram prg
