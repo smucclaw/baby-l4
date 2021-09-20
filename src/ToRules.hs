@@ -12,16 +12,24 @@ import qualified Data.Set as S
 
 data RuleFormat = Clara | Drools deriving Eq
 
-type Typename = String
-type ProdVarName = String
-type ProdFieldName = String
-type ProdFuncName = String
-
 class ShowClara x where
     showClara :: x -> Doc ann
 
 class ShowDrools x where
     showDrools :: x -> Doc ann
+
+
+
+----------------------------------------------------------------------------------------------------------------
+-- Types & Instances
+----------------------------------------------------------------------------------------------------------------
+
+type Typename = String
+type ProdVarName = String
+type ProdFieldName = String
+type ProdFuncName = String
+
+type RCList = [ConditionalElement]
 
 -- anythin marked string is non-fleshed
 data ProductionSystem = ProductionSystem { package :: String
@@ -32,30 +40,24 @@ data ProductionSystem = ProductionSystem { package :: String
                                          , globals :: String
                                          , rules :: [ProductionRule]
                                          }
-
--- declare Person
---     name: String 
---     age: Integer 
--- end
-
 data ProductionClassDecl = ProductionClassDecl { nameOfProductionClassDecl :: Typename
                                                , fieldsOfProductionClassDecl :: [ProductionClassField]
                                                }
-
 data ProductionClassField = ProductionClassField ProdFieldName ProductionClassType
 newtype ProductionClassType = ProductionClassType Typename
 
 
-data ProductionRule = ProductionRule { nameOfProductionRule :: String
-                                     , varDeclsOfProductionRule :: [ProdVarName]
-                                     , leftHandSide :: RCList -- RuleCondition
-                                     , rightHandSide :: RuleAction
-                                     } deriving Show
+data ProductionRule =
+    ProductionRule { nameOfProductionRule :: String
+                   , varDeclsOfProductionRule :: [ProdVarName]
+                   , leftHandSide :: RCList -- RuleCondition
+                   , rightHandSide :: RuleAction
+                   } deriving Show
 
 instance ShowClara ProductionRule where
     showClara ProductionRule {nameOfProductionRule, varDeclsOfProductionRule, leftHandSide, rightHandSide} = do
         hang 2 $ vsep [ lparen <> pretty "defrule" <+> pretty nameOfProductionRule
-                      , foldr ((<+>) . showClara) (pretty "") leftHandSide
+                      , vsep (map showClara leftHandSide)
                     --   , showClara leftHandSide
                       , pretty "=>"
                       , pretty "(postconds here)" <> rparen <> line -- stylisticly, lisps have no dangling brackets
@@ -66,72 +68,52 @@ instance ShowDrools ProductionRule where
         vsep [ nest 2 $ vsep [pretty "rule" <+> dquotes (pretty nameOfProductionRule)
                              , pretty "when"
                             --  , indent 2 $ showDrools leftHandSide
-                             , foldr ((<+>) . showDrools) (pretty "") leftHandSide
+                             , indent 2 $ vsep (map showDrools leftHandSide)
                              , pretty "then"
                              , pretty "(postconds here)"
                              ]
              , pretty "end" <> line
              ]
 
-type RCList = [ConditionalElement]
 
-
-data RuleCondition
-    = And RuleCondition RuleCondition
-    | Or RuleCondition RuleCondition
-    | Not RuleCondition
-    | RuleCondition ConditionalElement
-    deriving Show
-
-instance ShowClara RuleCondition where
-    showClara (And left right) = brackets $ nest 2 $ vsep [ pretty ":and"
-                                                          , showClara left
-                                                          , showClara right ]
-    showClara (Or left right) = brackets $ nest 2 $ vsep [ pretty ":or"
-                                                         , showClara left -- fix, align left & right column-wise
-                                                         , showClara right ]
-    showClara (Not rc) = brackets (pretty ":not" <+> showClara rc)
-    showClara (RuleCondition ce) = showClara ce
-
-instance ShowDrools RuleCondition where
-    showDrools (And left right) = vsep [ showDrools left
-                                       , showDrools right ]
-    showDrools (Or left right) = parens $ pretty "or" <+> showDrools left <+> showDrools right
-    showDrools (Not rc) = pretty "not" <+> showDrools rc
-    showDrools (RuleCondition ce) = showDrools ce
 
 -- We are restricting ourselves to non-fact bindings 
 -- (see https://docs.jboss.org/drools/release/7.58.0.Final/drools-docs/html_single/index.html#drl-rules-WHEN-con_drl-rules)
 data ConditionalElement
     = ConditionalFuncApp Typename [CEArg]
-    | ConditionalEval BComparOp CEArg CEArg-- TODO: flesh this out  
+    | ConditionalEval BComparOp CEArg CEArg
     deriving Show
-
-cOpToStr :: BComparOp -> String
-cOpToStr BClt  = "<"
-cOpToStr BClte = "<="
-cOpToStr BCgt  = ">"
-cOpToStr BCgte = ">="
-cOpToStr BCne = "!=" -- check with johsi
-cOpToStr BCeq = "=="
 
 instance ShowClara ConditionalElement where
     showClara (ConditionalFuncApp tn args) =
         brackets (pretty (capitalize tn) <+> hsep (map (parens . showClara) args))
-    showClara (ConditionalEval cOp arg1 arg2) = brackets (pretty ":test" <+> parens (pretty (cOpToStr cOp) <+> showClara arg1 <+> showClara arg2))
-    -- showClara (ConditionalVarExpr _) = pretty ""
+    showClara (ConditionalEval cOp arg1 arg2) = brackets (pretty ":test" <+> parens (showClara cOp <+> showClara arg1 <+> showClara arg2))
 
 instance ShowDrools ConditionalElement where
     showDrools (ConditionalFuncApp tn args) =
-        pretty (capitalize tn) <+> parens (hsep $ punctuate comma $ map showDrools args)
-    showDrools (ConditionalEval _ _ _ ) = pretty "ConditionalEval not implemented yet"
-    -- showDrools (ConditionalVarExpr _) = pretty "ConditionalFuncApp not implemented yet"
+        pretty (capitalize tn) <> parens (hsep $ punctuate comma $ map showDrools args)
+    showDrools (ConditionalEval cOp arg1 arg2 ) = pretty "eval" <> parens (showDrools arg1 <+> showDrools cOp <+> showDrools arg2)
 
--- TODO: Figure out what the replacement for String in CEEquality should be
---          Potential alternatives: OkT? ClsNm?
---       *To ask Martin*
+instance ShowClara BComparOp where
+    showClara BClt  = pretty "<"
+    showClara BClte = pretty "<="
+    showClara BCgt  = pretty ">"
+    showClara BCgte = pretty ">="
+    showClara BCne = pretty "!=" -- check with johsi
+    showClara BCeq = pretty "="
+
+instance ShowDrools BComparOp where
+    showDrools BClt  = pretty "<"
+    showDrools BClte = pretty "<="
+    showDrools BCgt  = pretty ">"
+    showDrools BCgte = pretty ">="
+    showDrools BCne = pretty "!="
+    showDrools BCeq = pretty ":=" -- NOTE: Bindings in drools vs Equality in drools
+
+
+
 data CEArg = CEBinding ProdVarName ProdFieldName
-           | CEEquality ProdFieldName String
+           | CEEquality ProdFieldName ProdVarName
            | CEFuncApp ProdFuncName [ProdVarName]
            | CEVarExpr ProdVarName
            deriving Show
@@ -139,17 +121,28 @@ data CEArg = CEBinding ProdVarName ProdFieldName
 instance ShowClara CEArg where
     showClara (CEEquality fn fv) = pretty "=" <+> pretty fn <+> pretty fv
     showClara (CEBinding vn fn) = pretty "=" <+> pretty "?" <> pretty vn <+> pretty fn
-    showClara (CEFuncApp func vns) = pretty func <> parens (hsep (punctuate comma (map ((<>) (pretty "?") . pretty) vns)))
+    showClara (CEFuncApp func vns) = parens (pretty func <+> hsep (punctuate comma (map ((<>) (pretty "?") . pretty) vns)))
     showClara (CEVarExpr vn) = pretty "?" <> pretty vn
 
 instance ShowDrools CEArg where
     showDrools (CEEquality fn fv) = pretty fn <+> pretty "==" <+> pretty fv
-    showDrools (CEBinding vn fn) = pretty "$" <> pretty vn <> pretty ":" <+> pretty fn
-    showDrools (CEFuncApp func vns) = pretty ""
+    showDrools (CEBinding vn fn) = pretty "$" <> pretty vn <+> pretty ":=" <+> pretty fn
+    showDrools (CEFuncApp func vns) = pretty func <> parens (hsep (punctuate comma (map ((<>) (pretty "$") . pretty) vns)))
+    showDrools (CEVarExpr vn) = pretty "$" <> pretty vn
 
 -- We restrict the format of the rules to a singular post condition (to support prolog-style syntax within l4)
 data RuleAction = InsertLogical Typename [Argument] deriving Show
 data Argument = Variable ProdVarName | Value Val deriving Show
+
+
+
+
+
+
+
+----------------------------------------------------------------------------------------------------------------
+-- Logic & Functions
+----------------------------------------------------------------------------------------------------------------
 
 filterRule :: (Ord t) => Rule t -> Either String ProductionRule
 filterRule x
@@ -192,24 +185,12 @@ exprlistToRCList _ [] = []
 exprlistToRCList _ _ = error "exprToRCList used with non-function application or comparison operation"
 
 localVariables :: (Ord t) => Expr t -> S.Set (Var t)
-localVariables (AppE _ f a) = S.union (localVariables f) (localVariables a) 
+localVariables (AppE _ f a) = S.union (localVariables f) (localVariables a)
 localVariables (BinOpE _ _ a1 a2) = S.union (localVariables a1) (localVariables a2)
 localVariables (VarE _ val) = case val of
   GlobalVar _ -> S.empty
-  LocalVar _ _ -> S.singleton val 
+  LocalVar _ _ -> S.singleton val
 localVariables _ = error "localVariables used with non-function application or comparison operation"
-
-
-
-precondToRuleCondition :: Expr t -> RuleCondition
-precondToRuleCondition fApp@AppE {} = RuleCondition $ exprToConditionalFuncApp fApp
-precondToRuleCondition compOp@(BinOpE _ (BCompar _) _ _) = RuleCondition $ exprToConditionalEval compOp
-precondToRuleCondition (BinOpE _ (BBool binOp) arg1 arg2)
-    | binOp == BBand = And (precondToRuleCondition arg1) (precondToRuleCondition arg2)
-    | binOp == BBor = Or (precondToRuleCondition arg1) (precondToRuleCondition arg2)
-precondToRuleCondition (UnaOpE _ unaOp arg)
-    | unaOp == UBool UBnot = Not (precondToRuleCondition arg)
-precondToRuleCondition _ = error "beep boop"
 
 getName :: Expr t -> VarName
 getName = nameOfQVarName . nameOfVar . varOfExprVarE
@@ -243,19 +224,16 @@ exprToCEArg (num, VarE _ (LocalVar name _)) = CEBinding (nameOfQVarName name) (d
 exprToCEArg (num, VarE _ (GlobalVar name)) = CEEquality (defArg num) (nameOfQVarName name)
 exprToCEArg _ = error "nope"
 
-postcondToRuleAction :: Expr t -> RuleCondition
-postcondToRuleAction = undefined
-
 
 astToRules :: Program (Tp ()) -> IO ()
 astToRules x = do
     let lrRules = map filterRule $ rulesOfProgram x
         gdRules = rights lrRules
-    print $ lefts lrRules
-    print $ gdRules !! 4
+    -- print $ lefts lrRules
+    -- print $ gdRules !! 4
     putStrLn ""
-    putStrLn "Clara:"
+    -- putStrLn "Clara:"
     putDoc $ showClara (gdRules !! 4)
     putStrLn ""
     -- putStrLn "Drools:"
-    -- putDoc $ showDrools (gdRules !! 5)
+    -- putDoc $ showDrools (gdRules !! 4)
