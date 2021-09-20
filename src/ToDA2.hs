@@ -116,7 +116,7 @@ eitherTp x1 x2 tp = if isBooleanTp tp || isIntegerTp tp then Right x2 else Left 
 
 showFTname :: Show t => Tp t -> Maybe String
 showFTname tp = case tp of
-  (FunT _ x (ClassT _ (ClsNm "Boolean")))        -> showFTname x
+  (FunT _ x (ClassT _ BooleanC))        -> showFTname x
   (ClassT _ (ClsNm name)) -> Just $ lowercase name
   _                     -> Nothing
 
@@ -142,6 +142,6 @@ instance (Show t, Eq t) => DSYaml (Program (Tp t)) where
 
 instance DSYaml (Tp t) where
   showDS tp = case tp of
-    (ClassT _ (ClsNm "Boolean")) -> "Boolean"
-    (ClassT _ (ClsNm "Integer")) -> "Number"
+    (ClassT _ BooleanC) -> "Boolean"
+    (ClassT _ IntegerC) -> "Number"
     _             -> "Unsupported Type"

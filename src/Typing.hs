@@ -224,30 +224,24 @@ kndType _kenv KindT = pure KindT
 ----------------------------------------------------------------------
 
 
--- checkSimpleTp :: String -> Tp t -> TCEither ()
--- checkSimpleTp _ _ = undefined
-
--- checkBooleanTp :: Tp t -> TCEither ()
--- checkBooleanTp = checkSimpleTp "Boolean"
-
 isBooleanTp :: Tp t -> Bool
-isBooleanTp (ClassT _ (ClsNm "Boolean")) = True
+isBooleanTp (ClassT _ BooleanC) = True
 isBooleanTp _ = False
 
 isNumberTp :: Environment te -> Tp t -> Bool
-isNumberTp env (ClassT _ t) = isSubclassOf env t (ClsNm "Number")
+isNumberTp env (ClassT _ t) = isSubclassOf env t NumberC
 isNumberTp _ _ = False
 
 isIntegerTp :: Tp t -> Bool
-isIntegerTp (ClassT _ (ClsNm "Integer")) = True
+isIntegerTp (ClassT _ IntegerC) = True
 isIntegerTp _ = False
 
 isFloatTp :: Tp t -> Bool
-isFloatTp (ClassT _ (ClsNm "Float")) = True
+isFloatTp (ClassT _ FloatC) = True
 isFloatTp _ = False
 
 isTimeTp :: Tp t -> Bool
-isTimeTp (ClassT _ (ClsNm "Time")) = True
+isTimeTp (ClassT _ TimeC) = True
 isTimeTp _ = False
 
 isScalarTp :: Tp t -> Bool
@@ -318,7 +312,7 @@ expectBooleanType = expectExactType BooleanT
 -- | Returns the type if it's what was expected and throws a type error otherwise
 expectExactType :: Tp () -> SRng -> LocTypeAnnot (Tp ()) -> TCEither (Tp ())
 expectExactType expected loc (LocTypeAnnot loc1 t) = t <$ guardMsg notBoolMsg (t == expected)
-  where 
+  where
     notBoolMsg = IllTypedSubExpr [loc, loc1] [t] [ExpectedExactTp expected]
 
 checkBoolTp :: HasAnnot f => SRng -> f Typed -> TCEither (Tp ())
@@ -439,7 +433,7 @@ castCompatible _te _ctp = True
 
 -- typing of a variable that is initially (after parsing) only known by its name
 tpVar :: Environment te -> SRng -> Var t -> TCEither (Tp ())
-tpVar env loc (GlobalVar (QVarName _ vn)) = 
+tpVar env loc (GlobalVar (QVarName _ vn)) =
   maybeToTCEither (UndeclaredVariable loc vn) $
     lookup vn (globalsOfEnv env) <|> lookup vn (localsOfEnv env)
 tpVar _env _ (LocalVar _ _) = error "internal error: for type checking, variable should be GlobalVar"

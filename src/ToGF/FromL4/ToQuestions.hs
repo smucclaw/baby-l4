@@ -70,7 +70,7 @@ isPred :: VarDecl t -> Bool
 isPred = isPred' . tpOfVarDecl
 
 isPred' :: Tp t -> Bool
-isPred' (FunT _ _ (ClassT _ (ClsNm "Boolean"))) = True
+isPred' (FunT _ _ (ClassT _ BooleanC)) = True
 isPred' (FunT _ _ t2) = isPred' t2
 isPred' _ = False
 
@@ -83,7 +83,7 @@ pattern Pred2 :: VarName -> String -> String -> VarDecl t
 pattern Pred2 name arg1 arg2 <- VarDecl _ name (Arg2 arg1 arg2)
 
 pattern Arg1 :: String -> Tp t
-pattern Arg1 x <- FunT _ (ClassT _ (ClsNm x)) (ClassT _ (ClsNm "Boolean"))
+pattern Arg1 x <- FunT _ (ClassT _ (ClsNm x)) (ClassT _ BooleanC)
 
 pattern Arg2 :: String -> String -> Tp t
 pattern Arg2 x y <- FunT _ (ClassT _ (ClsNm x)) (Arg1 y)

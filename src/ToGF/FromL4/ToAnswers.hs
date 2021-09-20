@@ -78,7 +78,7 @@ pattern Arg0 :: String -> Tp t
 pattern Arg0 x <- ClassT _ (ClsNm x)
 
 pattern Arg1 :: String -> Tp t
-pattern Arg1 x <- FunT _ (Arg0 x) (ClassT _ (ClsNm "Boolean"))
+pattern Arg1 x <- FunT _ (Arg0 x) (ClassT _ BooleanC)
 
 pattern Arg2 :: String -> String -> Tp t
 pattern Arg2 x y <- FunT _ (Arg0 x) (Arg1 y)

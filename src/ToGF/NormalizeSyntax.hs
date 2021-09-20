@@ -135,7 +135,7 @@ pattern Arg2 :: String -> String -> Tp ()
 pattern Arg2 x y = FunT () (Arg0 x) (Arg1 y)
 
 pattern BoolT :: t -> Tp t
-pattern BoolT t = ClassT t (ClsNm "Boolean")
+pattern BoolT t = ClassT t BooleanC
 
 pattern IntT :: t -> Tp t
-pattern IntT t = ClassT t (ClsNm "Integer")
+pattern IntT t = ClassT t IntegerC

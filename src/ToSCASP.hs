@@ -52,7 +52,7 @@ isPred :: VarDecl t -> Bool
 isPred = isPred' . tpOfVarDecl
 
 isPred' :: Tp t -> Bool
-isPred' (FunT _ t (ClassT _ (ClsNm "Boolean"))) = True
+isPred' (FunT _ t (ClassT _ BooleanC)) = True
 isPred' (FunT _ t t2) = isPred' t2
 isPred' _ = False
 
@@ -85,8 +85,8 @@ onlyFacts = filter isFact . globalsOfProgram
     isFact :: VarDecl t -> Bool
     isFact = isFact' . tpOfVarDecl
 
-    isFact' (ClassT _ (ClsNm "Boolean")) = True
-    isFact' (ClassT _ (ClsNm "Integer")) = True
+    isFact' (ClassT _ BooleanC) = True
+    isFact' (ClassT _ IntegerC) = True
     isFact' (ClassT _ _) = True
     -- isFact' (TupleT _) = _ ---- ??????
     isFact' _ = False
@@ -211,15 +211,15 @@ instance Arg (Var t) where
 
 instance Arg (Tp t) where
   mkAtom tp = case tp of
-    ClassT _ (ClsNm "Boolean") -> pretty "bool"
-    ClassT _ (ClsNm "Integer") -> pretty "int"
+    ClassT _ BooleanC -> pretty "bool"
+    ClassT _ IntegerC -> pretty "int"
     ClassT _ (ClsNm (f : irst)) -> pretty $ toLower f : irst
     FunT _ t1 t2 -> mkAtom t1 <> pretty "->" <> mkAtom t2
     TupleT _ ts -> encloseSep lparen rparen comma $ map mkAtom ts
     _ -> pretty "unsupportedtype"
   mkVar tp = pretty $ case tp of
-    ClassT _ (ClsNm "Boolean") -> "Bool"
-    ClassT _ (ClsNm "Integer") -> "Int"
+    ClassT _ BooleanC -> "Bool"
+    ClassT _ IntegerC -> "Int"
     ClassT _ (ClsNm (f : irst)) -> toUpper f : irst
     _ -> "UnsupportedType"
 
