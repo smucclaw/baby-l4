@@ -303,6 +303,16 @@ maybeToTCEither :: ErrorCause -> Maybe a -> TCM a
 maybeToTCEither e Nothing = tError e
 maybeToTCEither _ (Just a) = pure a
 
+expectEmpty :: ([a] -> ErrorCause) -> [a]  -> TCM ()
+expectEmpty err list =
+  case list of
+    [] -> pure ()
+    elems -> tError $ err elems
+
+-- TODO: All uses of this should be replaced with traverse_
+expectEmptyOrThrow :: [a] -> ([a] -> ErrorCause) -> TCM ()
+expectEmptyOrThrow list err = expectEmpty err list
+
 -- checkExpectSubtypeOf :: (HasAnnot f, TypeCheck f) => Tp () -> Environment te -> SRng -> f Untyped -> TCM (f Typed, Tp ()) -- Hmm?
 -- checkExpectExactType :: (HasAnnot f, TypeCheck f) => Tp () -> Environment te -> SRng -> f Untyped -> TCM (f Typed)
 -- checkExpectBooleanType :: (HasAnnot f, TypeCheck f) => Environment te -> SRng -> f Untyped -> TCM (f Typed)
@@ -607,12 +617,10 @@ tpVarDecl env (VarDecl ann vn tp) = do
 checkClassesForWfError :: HasLoc t => [ClassDecl t] -> p -> TCM p
 checkClassesForWfError cds prg = do
   let class_names = map nameOfClassDecl cds
-  case filter (not . definedSuperclass class_names) cds of
-    [] -> pure ()
-    undefs -> tError (UndefinedSuperclassCDEErr (map (\cd -> (getLoc cd, nameOfClassDecl cd)) undefs))
-  case duplicates class_names of
-    [] -> pure ()
-    ds -> tError (DuplicateClassNamesCDEErr [(getLoc cd, nameOfClassDecl cd) | cd <- cds, nameOfClassDecl cd `elem` ds])
+  expectEmptyOrThrow (filter (not . definedSuperclass class_names) cds) $
+      UndefinedSuperclassCDEErr . map (\cd -> (getLoc cd, nameOfClassDecl cd))
+  expectEmptyOrThrow (duplicates class_names) $ 
+      \ds -> DuplicateClassNamesCDEErr [(getLoc cd, nameOfClassDecl cd) | cd <- cds, nameOfClassDecl cd `elem` ds]
   pure prg
 
 
@@ -624,10 +632,9 @@ checkClassesForCyclicError preludeCds prg = do
   let cds = preludeCds ++ classDeclsOfNewProgram prg
       cdfAssoc = classDefAssoc cds
       cyclicClassNames = lefts (map (superClassesConstr cdfAssoc [] . nameOfClassDecl) cds)
+      cyclicClassError cycs = CyclicClassHierarchyCDEErr [(getLoc cd, nameOfClassDecl cd)| cd <- cds, nameOfClassDecl cd `elem` cycs]
 
-  case cyclicClassNames of
-     []   -> pure ()
-     cycs -> tError (CyclicClassHierarchyCDEErr [(getLoc cd, nameOfClassDecl cd)| cd <- cds, nameOfClassDecl cd `elem` cycs])
+  expectEmptyOrThrow cyclicClassNames cyclicClassError
 
   let newProgElems = map ClassDeclTLE preludeCds ++ elementsOfNewProgram prg
       elabSupers = map (mapClassDecl (elaborateSupersInClassDecl (superClasses cdfAssoc))) newProgElems
@@ -636,13 +643,11 @@ checkClassesForCyclicError preludeCds prg = do
   pure (prg {elementsOfNewProgram = elabFields})
 
 checkClassDeclsError :: HasLoc t => NewProgram t -> NewProgram t -> TCM (NewProgram t)
-checkClassDeclsError prelude prg =
+checkClassDeclsError prelude prg = do
   let pcds = classDeclsOfNewProgram prelude
-      initialClassDecls = (pcds ++ classDeclsOfNewProgram prg)
-  in do
-    _ <- checkClassesForWfError initialClassDecls prg
-    checkClassesForCyclicError pcds prg
-
+      initialClassDecls = pcds ++ classDeclsOfNewProgram prg
+  _ <- checkClassesForWfError initialClassDecls prg
+  checkClassesForCyclicError pcds prg
 
 
 
@@ -652,11 +657,10 @@ checkClassDeclsError prelude prg =
 
 checkDuplicateFieldNamesFDE ::HasLoc t =>  NewProgram t -> TCM (NewProgram t)
 checkDuplicateFieldNamesFDE prg =
-  case classDeclsWithDup of
-    [] -> pure prg
-    cds -> tError $ duplicateFldNamesErr cds
+    prg <$ expectEmptyOrThrow classDeclsWithDup duplicateFldNamesErr
   where
     classDeclsWithDup = [cd | cd <- classDeclsOfNewProgram prg, not (null (duplicates (map nameOfFieldDecl ((fieldsOfClassDef . defOfClassDecl)  cd)))) ]
+
     duplicateFldNamesErr cds = DuplicateFieldNamesFDEErr (map (\cd -> (getLoc cd, nameOfClassDecl cd, duplicateFldsForCls cd)) cds)
     duplicateFldsForCls cd = map (\fd -> (getLoc fd, nameOfFieldDecl fd)) (duplicatesWrtFun nameOfFieldDecl (fieldsOfClassDef (defOfClassDecl cd)))
 
@@ -682,9 +686,7 @@ checkFieldDeclsError prg =
 
 checkDuplicateVarNamesVDE :: HasLoc t => NewProgram t -> TCM (NewProgram t)
 checkDuplicateVarNamesVDE prg =
-  case duplicatesWrtFun nameOfVarDecl (globalsOfNewProgram  prg) of
-    [] -> pure prg
-    vds -> tError (DuplicateVarNamesVDEErr (map (\vd -> (getLoc vd, nameOfVarDecl vd)) vds))
+  prg <$ expectEmptyOrThrow (duplicatesWrtFun nameOfVarDecl (globalsOfNewProgram  prg)) (DuplicateVarNamesVDEErr . map (\vd -> (getLoc vd, nameOfVarDecl vd)))
 
 checkUndefinedTypeVDE :: NewProgram Untyped -> TCM (NewProgram Untyped)
 checkUndefinedTypeVDE prg = do
