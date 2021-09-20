@@ -18,7 +18,7 @@ import Data.List.Utils ( countElem )
 
 
 import Annotation
-    ( LocTypeAnnot(LocTypeAnnot), SRng, TypeAnnot(..), HasLoc(..), HasAnnot (getAnnot) )
+    ( LocTypeAnnot(LocTypeAnnot), SRng (DummySRng), TypeAnnot(..), HasLoc(..), HasAnnot (getAnnot) )
 import Error
 import Syntax
 import Control.Applicative (Alternative ((<|>), empty))
@@ -28,7 +28,12 @@ import Control.Applicative (Alternative ((<|>), empty))
 -- | Given the AST for the prelude and a module, return either a list of type errors or a typechecked module
 -- TODO: remove "mapLeft ErrorCauseErr" to get a TCM (NewProgram (LocTypeAnnot (Tp())))
 checkError :: NewProgram Untyped -> NewProgram Untyped -> Either Error (NewProgram Typed)
-checkError prelude prg = mapLeft ErrorCauseErr (getEither $ checkErrorLift prelude prg)
+checkError prelude prg = mapLeft ErrorCauseErr (getEither $ checkErrorLift (forgetPreludeLocation prelude) prg)
+
+-- TODO: Remove this when we have some proper module system
+-- | Hack to prevent prelude locations from confusing the LSP server until we have proper modules
+forgetPreludeLocation :: Functor f => f SRng -> f SRng
+forgetPreludeLocation = fmap $ const $ DummySRng "In prelude"
 
 
 ----------------------------------------------------------------------
