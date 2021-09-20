@@ -405,18 +405,14 @@ tpBarith env l0 lt1 lt2 ba = do
     then tpTime l0 lt1 lt2 ba
     else pure (leastCommonSuperType env t1 t2)
 
+expectScalarTp :: SRng -> LocTypeAnnot (Tp ()) -> TCEither ()
+expectScalarTp loc (LocTypeAnnot l1 t1) = guardMsg (NonScalarExpr [loc, l1] [t1]) (isScalarTp t1)
+
 -- TODO: more liberal condition for comparison?
 tpBcompar :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> BComparOp -> TCEither (Tp ())
 tpBcompar env loc lt1 lt2 _bc = do
-  let t1 = getType lt1
-      t2 = getType lt2
-      l1 = getLoc lt1
-      l2 = getLoc lt2
-  -- TODO: This location information isn't great! We should be precise with which expression is non-scalar
-  -- We could use <|> and change the semantics of it to combine errors
-  guardMsg (NonScalarExpr [loc, l1, l2] [t1, t2]) (isScalarTp t1 && isScalarTp t2)
+  expectScalarTp loc lt1 *> expectScalarTp loc lt2
   _ <- checkCompat env loc lt1 lt2
-  -- guardMsg (IncompatibleTp [loc, l1, l2] [t1, t2]) (compatibleType env t1 t2 || compatibleType env t2 t1)
   pure booleanT
 
 tpBbool :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> LocTypeAnnot (Tp ()) -> BBoolOp -> TCEither (Tp ())

@@ -71,7 +71,7 @@ typeCheckerTests = testGroup "Type Error tests"
         testTypeErrs "undeclVar.l4            undefined variable AssociatedWithAppB"                    "RuleAssertionError/undeclVar.l4"             (mkRange' 7 28 7 46)   3 "Variable AssociatedWithAppB at (7,28) .. (7,46) is undefined."
       , testTypeErrs "illTypedSubExpr.l4      has type Boolean but a subtype of Number was expected"    "RuleAssertionError/illTypedSubExpr.l4"       (mkRange' 2 5  2 13)   2 "has type Boolean but a subtype of Number was expected"
       , testTypeErrs "incompatibleTps.l4      types are not compatible"                                 "RuleAssertionError/incompatibleTps.l4"       (mkRange' 2 4  2 15)   3 "The types are not compatible (one is subtype of the other)"
-      , testTypeErrs "nonScalarTps.l4         at least one type is non-scalar"                          "RuleAssertionError/nonScalarTps.l4"          (mkRange' 5 4  5 25)   3 "At least one type is not scalar (non-functional)"
+      , testTypeErrs "nonScalarTps.l4         at least one type is non-scalar"                          "RuleAssertionError/nonScalarTps.l4"          (mkRange' 5 4  5 25)   2 "At least one type is not scalar (non-functional)"
       , testTypeErrs "nonFunctionTp.l4        which is not a functional type"                           "RuleAssertionError/nonFunctionTp.l4"         (mkRange' 8 40 8 47)   2 "which is not a functional type"
       -- Tuple patterns no longer exists
       -- , testTypeErrs "incompatiblePattern.l4  variable pattern & expected type are incompatible"        "RuleAssertionError/incompatiblePattern.l4"   (mkRange' 2 4  2 35)   1 "the variable pattern and its type are incompatible"
