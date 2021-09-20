@@ -654,13 +654,13 @@ checkClassDeclsError prelude prg =
 
 checkDuplicateFieldNamesFDE ::HasLoc t =>  NewProgram t -> TCM (NewProgram t)
 checkDuplicateFieldNamesFDE prg =
-  let classDeclsWithDup = [cd | cd <- classDeclsOfNewProgram prg, not (null (duplicates (map nameOfFieldDecl ((fieldsOfClassDef . defOfClassDecl)  cd)))) ]
-  in case classDeclsWithDup of
+  case classDeclsWithDup of
     [] -> pure prg
-    cds -> tError (DuplicateFieldNamesFDEErr
-              (map (\cd -> (getLoc cd, nameOfClassDecl cd,
-                    map (\fd -> (getLoc fd, nameOfFieldDecl fd)) (duplicatesWrtFun nameOfFieldDecl (fieldsOfClassDef (defOfClassDecl cd)))))
-               cds))
+    cds -> tError $ duplicateFldNamesErr cds
+  where
+    classDeclsWithDup = [cd | cd <- classDeclsOfNewProgram prg, not (null (duplicates (map nameOfFieldDecl ((fieldsOfClassDef . defOfClassDecl)  cd)))) ]
+    duplicateFldNamesErr cds = DuplicateFieldNamesFDEErr (map (\cd -> (getLoc cd, nameOfClassDecl cd, duplicateFldsForCls cd)) cds)
+    duplicateFldsForCls cd = map (\fd -> (getLoc fd, nameOfFieldDecl fd)) (duplicatesWrtFun nameOfFieldDecl (fieldsOfClassDef (defOfClassDecl cd)))
 
 -- TODO: it would in principle be necessary to rewrite the types occurring in fields with KindT
 -- (same for checkUndefinedTypeVDE)
