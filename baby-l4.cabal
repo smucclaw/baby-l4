@@ -158,11 +158,9 @@ test-suite unit-tests
     exitcode-stdio-1.0
   hs-source-dirs:
     tests
-    src
   main-is:
     Test.hs
-  other-modules:       ToGF.Disambiguate
-                     , DisambiguateTest
+  other-modules:       DisambiguateTest
                      , ToGFTest
                      , Paths_baby_l4
   build-depends:
