@@ -175,9 +175,9 @@ labelledSCC (LG gr indSym _) = map (map (bidirLookup indSym)) (scc gr)
 -- TODO 4
 -- topologically sort graph beginning from leaves
 -- find min and max dependency of each node
-expSys :: Program (Tp ()) -> IO ()
+expSys :: NewProgram (Tp ()) -> IO ()
 expSys x = do
-    let myrules = rulesOfProgram x
+    let myrules = rulesOfNewProgram x
         errs = lefts $ map ruleToSimpleRule myrules
         validRules = rights $ map ruleToSimpleRule myrules
         (usnodes, usedges) = simpleRulesToGrNodes validRules

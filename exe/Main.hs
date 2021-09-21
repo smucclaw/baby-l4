@@ -56,9 +56,10 @@ process args input = do
 
       case format args of
         Fast                     ->  pPrint tpAst
-        (Fgf GFOpts { gflang = gfl, showast = True } ) -> GF.nlgAST gfl tpAstNoSrc
-        (Fgf GFOpts { gflang = gfl, showast = False} ) -> GF.nlg    gfl tpAstNoSrc
-        Fsmt -> proveProgram tpAst
+        Faut                     ->  runAut (fmap typeAnnot tpAst)
+        (Fgf GFOpts { gflang = gfl, showast = True } ) -> GF.nlgAST gfl fpath normalAst
+        (Fgf GFOpts { gflang = gfl, showast = False} ) -> GF.nlg    gfl fpath normalAst
+        Fsmt -> proveProgram tpAstNoSrc
         Fscasp -> createSCasp normalAst
         Fyaml -> do createDSyaml tpAstNoSrc
                     putStrLn "---------------"
@@ -71,6 +72,7 @@ process args input = do
 
 
 data Format   = Fast | Faut | Fgf GFOpts | Fscasp | Fsmt | Fyaml | Fexpsys ESOpts
+  deriving Show
 
 --  l4 gf en          output english only
 --  l4 gf en --ast    output english AND show the GF ast

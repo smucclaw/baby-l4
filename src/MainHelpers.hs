@@ -27,9 +27,9 @@ readPrelude = do
         error "Parser Error in Prelude"
 
 
-getTpAst :: FilePath -> String -> ExceptT HelperErr IO (Program (LocTypeAnnot (Tp ())))
+getTpAst :: FilePath -> String -> ExceptT HelperErr IO (NewProgram (LocTypeAnnot (Tp ())))
 getTpAst fpath contents = do
-  ast <- eitherToExceptT LexErr $ parseProgram fpath contents
+  ast <- eitherToExceptT LexErr $ parseNewProgram fpath contents
   preludeAst <- liftIO readPrelude
   eitherToExceptT TpErr $ checkError preludeAst ast
 

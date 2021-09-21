@@ -236,9 +236,9 @@ exprToCEArg (num, VarE _ (GlobalVar name)) = CEEquality (defArg num) (nameOfQVar
 exprToCEArg _ = error "nope"
 
 
-astToRules :: Program (Tp ()) -> IO ()
+astToRules :: NewProgram (Tp ()) -> IO ()
 astToRules x = do
-    let lrRules = map filterRule $ rulesOfProgram x
+    let lrRules = map filterRule $ rulesOfNewProgram x
         gdRules = rights lrRules
     -- print $ lefts lrRules
     putStrLn "Rule AST:"
