@@ -56,11 +56,11 @@ esUnitTests = withResource acquire release $ \progIO->
           release = mempty
           progToRule progIO rname = do
               prog <- progIO
-              pure $ head $ getRule prog rname
+              pure $ head $ obtRule prog rname
 
 
 -- given a filepath, return a program
-getProg :: FilePath -> IO (Program (Tp ()))
+getProg :: FilePath -> IO (NewProgram (Tp ()))
 getProg fpath = do
     contents <- readFile fpath
     errOrTpAst <- runExceptT $ getTpAst fpath contents
@@ -70,5 +70,5 @@ getProg fpath = do
             error $ show errs -- TODO: Add error printing with proper formatting
 
 -- given rulename, filter out rule from program
-getRule :: Program (Tp ()) -> String -> [Rule (Tp ())]
-getRule prog rname = [r | r <- rulesOfProgram prog, nameOfRule r == Just rname ]
+obtRule :: NewProgram (Tp ()) -> String -> [Rule (Tp ())]
+obtRule prog rname = [r | r <- rulesOfNewProgram prog, nameOfRule r == Just rname ]
