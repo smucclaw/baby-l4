@@ -217,7 +217,7 @@ exprToConditionalEval (BinOpE _ (BCompar bop) x           y@AppE {}) = Condition
 exprToConditionalEval (BinOpE _ (BCompar bop) x           y          ) = ConditionalEval bop (CEVarExpr $ getName x) (CEVarExpr $ getName y)
 exprToConditionalEval _ = error "exprToConditionalEval used for non-BComparOp"
 
-exprToConditionalExist :: Expr t -> ConditionalElement
+exprToConditionalExist :: Expr t -> ConditionalElement -- we restrict not to function applications with variable bindings
 exprToConditionalExist (UnaOpE _ (UBool UBnot) a@AppE {}) = ConditionalExist UBnot $ exprToConditionalFuncApp a
 exprToConditionalExist _ = error "exprToConditionalExist used for non-UnaOpE"
 
