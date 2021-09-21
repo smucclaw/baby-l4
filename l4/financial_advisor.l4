@@ -97,7 +97,7 @@ then savings_account adequate
 # 5
 rule <savingsInad>
 for x: Integer, y: Integer
-if amount_saved x && dependents y && x <= minsavings y
+if amount_saved x && dependents y && x <= minsavings y && not amount_saved x
 then savings_account inadequate
 
 # 6
@@ -109,7 +109,7 @@ then income adequate
 # 7
 rule <incomeInadESteady>
 for x: Integer, y: Integer
-if earnings x steady && dependents y && x <= minincome y 
+if earnings x steady && dependents y && x <= minincome y
 then income inadequate
 
 # 8

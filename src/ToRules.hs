@@ -9,6 +9,7 @@ import SimpleRules (isRule, condValid)
 import Data.Either (lefts, rights)
 import Data.Char (toUpper)
 import qualified Data.Set as S
+import Documentation.SBV.Examples.WeakestPreconditions.Append (AppS(xs))
 
 data RuleFormat = Clara | Drools deriving Eq
 
@@ -82,17 +83,20 @@ instance ShowDrools ProductionRule where
 data ConditionalElement
     = ConditionalFuncApp Typename [CEArg]
     | ConditionalEval BComparOp CEArg CEArg
+    | ConditionalExist UBoolOp ConditionalElement 
     deriving Show
 
 instance ShowClara ConditionalElement where
     showClara (ConditionalFuncApp tn args) =
         brackets (pretty (capitalize tn) <+> hsep (map (parens . showClara) args))
     showClara (ConditionalEval cOp arg1 arg2) = brackets (pretty ":test" <+> parens (showClara cOp <+> showClara arg1 <+> showClara arg2))
+    showClara (ConditionalExist UBnot arg) = brackets (pretty ":not" <+> showClara arg)
 
 instance ShowDrools ConditionalElement where
     showDrools (ConditionalFuncApp tn args) =
         pretty (capitalize tn) <> parens (hsep $ punctuate comma $ map showDrools args)
     showDrools (ConditionalEval cOp arg1 arg2 ) = pretty "eval" <> parens (showDrools arg1 <+> showDrools cOp <+> showDrools arg2)
+    showDrools (ConditionalExist UBnot arg) = pretty "not" <+> parens (showDrools arg)
 
 instance ShowClara BComparOp where
     showClara BClt  = pretty "<"
@@ -172,21 +176,24 @@ precondToRCList :: Expr t -> [Expr t] -- todo : rename to reflect new typesig
 precondToRCList (BinOpE _ (BBool BBand) arg1 arg2) = precondToRCList arg1 ++ precondToRCList arg2
 precondToRCList fApp@(AppE {}) = [fApp]
 precondToRCList bcomp@(BinOpE _ (BCompar _) _ _) = [bcomp]
+precondToRCList unot@(UnaOpE _ (UBool UBnot) _) = [unot]
 precondToRCList _ = error "non and operation"
 
 exprlistToRCList :: (Ord t) => S.Set (Var t) -> [Expr t] -> RCList
-exprlistToRCList vs (x@(AppE {}):xs) =
-    let appVars = localVariables x
-    in exprToConditionalFuncApp x : exprlistToRCList (S.union appVars vs) xs
-exprlistToRCList vs (x@(BinOpE _ (BCompar _) _ _): xs) =
-    let compVars = localVariables x
-    in if S.isSubsetOf compVars vs then exprToConditionalEval x : exprlistToRCList (S.union compVars vs) xs else error "Reorder ur predicates"
+exprlistToRCList vs (x:xs) = 
+    case x of 
+        (AppE {})                   -> exprToConditionalFuncApp x : exprlistToRCList newVars xs
+        (BinOpE _ (BCompar _) _ _)  -> if S.isSubsetOf xlocVars vs then exprToConditionalEval x : exprlistToRCList newVars xs else error "Reorder ur predicates"
+        (UnaOpE _ (UBool UBnot) _)  -> if S.isSubsetOf xlocVars vs then exprToConditionalExist x : exprlistToRCList newVars xs else error "`Not` statements require a prior variable binding"
+        _                           -> error "exprToRCList can only be used with function application, comparison operation or negation"
+    where xlocVars = localVariables x
+          newVars = S.union xlocVars vs
 exprlistToRCList _ [] = []
-exprlistToRCList _ _ = error "exprToRCList used with non-function application or comparison operation"
 
 localVariables :: (Ord t) => Expr t -> S.Set (Var t)
 localVariables (AppE _ f a) = S.union (localVariables f) (localVariables a)
 localVariables (BinOpE _ _ a1 a2) = S.union (localVariables a1) (localVariables a2)
+localVariables (UnaOpE _ _ a) = localVariables a
 localVariables (VarE _ val) = case val of
   GlobalVar _ -> S.empty
   LocalVar _ _ -> S.singleton val
@@ -210,6 +217,10 @@ exprToConditionalEval (BinOpE _ (BCompar bop) x           y@AppE {}) = Condition
 exprToConditionalEval (BinOpE _ (BCompar bop) x           y          ) = ConditionalEval bop (CEVarExpr $ getName x) (CEVarExpr $ getName y)
 exprToConditionalEval _ = error "exprToConditionalEval used for non-BComparOp"
 
+exprToConditionalExist :: Expr t -> ConditionalElement
+exprToConditionalExist (UnaOpE _ (UBool UBnot) a@AppE {}) = ConditionalExist UBnot $ exprToConditionalFuncApp a
+exprToConditionalExist _ = error "exprToConditionalExist used for non-UnaOpE"
+
 defArg :: Int -> ProdFieldName
 defArg x = "arg" ++ show x
 
@@ -230,10 +241,11 @@ astToRules x = do
     let lrRules = map filterRule $ rulesOfProgram x
         gdRules = rights lrRules
     -- print $ lefts lrRules
-    -- print $ gdRules !! 4
+    putStrLn "Rule AST:"
+    print $ gdRules !! 4
     putStrLn ""
-    -- putStrLn "Clara:"
+    putStrLn "Clara:"
     putDoc $ showClara (gdRules !! 4)
     putStrLn ""
-    -- putStrLn "Drools:"
-    -- putDoc $ showDrools (gdRules !! 4)
+    putStrLn "Drools:"
+    putDoc $ showDrools (gdRules !! 4)
