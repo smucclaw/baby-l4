@@ -6,19 +6,34 @@ import MainHelpers ( getTpAst )
 
 import Control.Monad.Except (runExceptT)
 import qualified SimpleRules as SR
+import qualified ToRules as TR
 import Test.Tasty
 import Test.Tasty.HUnit
-import Data.Either (rights, fromRight)
+import Data.Either ( rights )
 import Data.Set as S
 
 
 
--- esUnitTests :: IO ()
--- esUnitTests = putStrLn "Import works"
+-- given a filepath, return a program
+getProg :: FilePath -> IO (NewProgram (Tp ()))
+getProg fpath = do
+    contents <- readFile fpath
+    errOrTpAst <- runExceptT $ getTpAst fpath contents
+    case errOrTpAst of
+        Right prog -> return $ typeAnnot <$> prog
+        Left errs -> do
+            error $ show errs -- TODO: Add error printing with proper formatting
+ 
+-- given rulename, filter out rule from program
+obtRule :: NewProgram (Tp ()) -> String -> [Rule (Tp ())]
+obtRule prog rname = [r | r <- rulesOfNewProgram prog, nameOfRule r == Just rname ]
 
-esUnitTests :: TestTree
-esUnitTests = withResource acquire release $ \progIO->
-    testGroup "Expert System Tests"
+
+
+
+esGraphUTs :: TestTree
+esGraphUTs = withResource acquire release $ \progIO->
+    testGroup "Expert System: Graph Generation Tests"
         [ testGroup "isRule"
             [ testCase "returns True for <accInad>" $ do
                 rule <- progToRule progIO "accInad"
@@ -59,16 +74,12 @@ esUnitTests = withResource acquire release $ \progIO->
               pure $ head $ obtRule prog rname
 
 
--- given a filepath, return a program
-getProg :: FilePath -> IO (NewProgram (Tp ()))
-getProg fpath = do
-    contents <- readFile fpath
-    errOrTpAst <- runExceptT $ getTpAst fpath contents
-    case errOrTpAst of
-        Right prog -> return $ typeAnnot <$> prog
-        Left errs -> do
-            error $ show errs -- TODO: Add error printing with proper formatting
-
--- given rulename, filter out rule from program
-obtRule :: NewProgram (Tp ()) -> String -> [Rule (Tp ())]
-obtRule prog rname = [r | r <- rulesOfNewProgram prog, nameOfRule r == Just rname ]
+esRuleUTs :: TestTree 
+esRuleUTs = testGroup "Expert System: Rule Translation Tests" -- todo: fill in the rest
+    [ testGroup "exprToCEArg"
+        [ testCase "returns CEBinding for a LocalVar expr" $ do
+            TR.exprToCEArg (0, VarE () (LocalVar (QVarName () "foo") 0)) @?= TR.CEBinding "foo" "arg0"
+        , testCase "returns CEEquality for a GlobalVar expr" $ do 
+            TR.exprToCEArg (0, VarE () (GlobalVar (QVarName () "foo"))) @?= TR.CEEquality "arg0" "foo"
+        ]
+    ]

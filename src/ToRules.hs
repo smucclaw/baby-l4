@@ -119,8 +119,8 @@ instance ShowDrools BComparOp where
 data CEArg = CEBinding ProdVarName ProdFieldName
            | CEEquality ProdFieldName ProdVarName
            | CEFuncApp ProdFuncName [ProdVarName]
-           | CEVarExpr ProdVarName
-           deriving Show
+           | CEVarExpr ProdVarName 
+           deriving (Eq, Show)
 
 instance ShowClara CEArg where
     showClara (CEEquality fn fv) = pretty "=" <+> pretty fn <+> pretty fv
