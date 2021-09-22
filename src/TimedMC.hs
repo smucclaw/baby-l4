@@ -28,6 +28,17 @@ TCTL formulas are composed of:
 -- Handling of types / variables
 ----------------------------------------------------------------------
 
+-- the Int parameter is the number of clock variables
+actionTransTrace :: Var (Tp())
+actionTransTrace  =
+  let t = mkFunTp [StateT, StateT] BooleanT
+  in GlobalVar (QVarName t "ATrans")
+
+delayTransTrace :: Int -> Var (Tp())
+delayTransTrace n =
+  let t = mkFunTp ((StateT : replicate n TimeT) ++ (StateT : replicate n TimeT)) BooleanT
+  in GlobalVar (QVarName t "DTrans")
+
 locPar :: Int -> Var (Tp ())
 locPar = LocalVar (QVarName StateT  "st")
 
@@ -93,30 +104,27 @@ goalFun ta e =
 -- stv: state variable (local)
 -- clvs: list of clock variables (local)
 -- transv: transition variable (global)
-constrEFStepAbstrOld :: Var (Tp()) -> Var (Tp()) -> [Var (Tp())] -> Var (Tp()) -> Expr (Tp())
-constrEFStepAbstrOld fnv stv clvs transv =
-    let sclvs = stv : clvs
-        n = length sclvs
-        stvi = index (n - 1) stv
-        clvsi = indexListFromTo 0 (n - 2) clvs
-        sclvsi = stvi : clvsi
-    in abstractF sclvsi
-                 (disjExpr (applyVars fnv sclvsi)
-                           (abstractQ Ex sclvsi
-                                     (conjExpr (applyVars transv (map (liftVarBy 0 n) sclvsi ++ sclvsi))
-                                               (applyVars fnv sclvsi))))
 
-constrEFStepAbstr :: TA (Tp()) -> Expr (Tp()) -> Expr (Tp())
-constrEFStepAbstr ta fnv =
+-- Path quantifiers are: E (some branch) and A (all branches)
+-- State quantifiers are: <> (eventually) and [] (always)
+-- Expansion steps are:
+-- - for A<>: f(j+1)(x) = f(j)(x) || All x'. Trans(x, x') --> f(j)(x')
+-- - for A[]: f(j+1)(x) = f(j)(x) && All x'. Trans(x, x') --> f(j)(x')
+-- - for E<>: f(j+1)(x) = f(j)(x) || Ex x'. Trans(x, x') && f(j)(x')
+-- - for E[]: f(j+1)(x) = f(j)(x) && Ex x'. Trans(x, x') && f(j)(x')
+constrExpansionStep :: TA (Tp()) -> Quantif -> Quantif -> Expr (Tp()) -> Expr (Tp())
+constrExpansionStep ta pQuantif sQuantif fnv =
   let n = length (clocksOfTA ta) + 1
       st  = locPar (n - 1)
       cls = clockPars 0 (n - 2)
       sclvs = st : cls
+      relativOp = case pQuantif of All -> implExpr; Ex -> conjExpr
+      composOp = case sQuantif  of All -> conjExpr; Ex -> disjExpr
   in abstractF sclvs
-                 (disjExpr (reduceExpr (funArgsToApp fnv (map mkVarE sclvs)))
-                           (abstractQ Ex sclvs
-                                    (conjExpr (reduceExpr  (funArgsToApp (constrTransitions ta) (map mkVarE (map (liftVarBy 0 n) sclvs ++ sclvs))))
-                                              (reduceExpr (funArgsToApp fnv (map mkVarE sclvs))))))
+        (composOp (reduceExpr (funArgsToApp fnv (map mkVarE sclvs)))
+                  (abstractQ Ex sclvs
+                      (relativOp (reduceExpr (funArgsToApp (constrTransitions ta) (map mkVarE (map (liftVarBy 0 n) sclvs ++ sclvs))))
+                                 (reduceExpr (funArgsToApp fnv (map mkVarE sclvs))))))
 
 -- Relation composition: for sclvs = [s, c1 .. cn], construct
 -- \s \c1 .. \cn \s' \c1' .. \cn'  -> exists \s'' \c1'' .. \cn''. r1 s c1 .. cn s'' c1'' .. cn'' && r2 s'' c1'' .. cn'' s' c1' .. cn'
@@ -149,7 +157,8 @@ constrDelayTransition ta st cls st' cls' =
       clockshift = conjsExpr (zipWith (\c' c -> eqExpr (mkVarE (liftVar 0 c')) (BinOpE FloatT (BArith BAadd) (mkVarE  (liftVar 0 c)) (mkVarE d))) cls' cls)
   in  conjsExpr [mkEq st st',
                  conjsExpr ([delayTransInv st (zip (clocksOfTA ta) cls') (l, cnstrts) | (l, cnstrts) <- invarsOfTA ta, not (null cnstrts)]),
-                 abstractQ Ex [d] (conjExpr dgte0 clockshift)
+                 abstractQ Ex [d] (conjExpr dgte0 clockshift),
+                 applyVars (delayTransTrace (length cls)) ((st:cls) ++ (st':cls'))
                 ]
 
 
@@ -177,7 +186,8 @@ constrActionTransition ta st cls st' cls' t =
     mkEq st' (varOfLoc (targetOfTransition t)),
     guardToExpr (zip (clocksOfTA ta) cls) (guardOfTransition t),
     actionToExpr (zip (clocksOfTA ta) cls) (zip (clocksOfTA ta) cls') (clocksOfTA ta) (actionOfTransition t),
-    conjsExpr (concatMap (map (clockConstrToExpr (zip (clocksOfTA ta) cls'))) [cnstrts | (l, cnstrts) <- invarsOfTA ta, l == targetOfTransition t ])
+    conjsExpr (concatMap (map (clockConstrToExpr (zip (clocksOfTA ta) cls'))) [cnstrts | (l, cnstrts) <- invarsOfTA ta, l == targetOfTransition t ]),
+    applyVars actionTransTrace [st, st']
   ]
 
 --constrActionTransitions :: TA (Tp()) -> Var (Tp()) ->[Var (Tp())] -> Expr (Tp())
@@ -197,19 +207,27 @@ constrTransitions ta =
   in abstractF (sclvs ++ sclvs')
       (disjExpr (constrActionTransitions ta st cls st' cls') (constrDelayTransition ta st cls st' cls'))
 
-kFoldExpansion ::  Int -> TA (Tp()) -> Expr (Tp()) -> Expr (Tp())
-kFoldExpansion k ta e =
+kFoldExpansion ::  Int -> TA (Tp()) -> Quantif -> Quantif ->  Expr (Tp()) -> Expr (Tp())
+kFoldExpansion k ta pQuantif sQuantif e =
   if k == 0
   then goalFun ta e
-  else constrEFStepAbstr ta (kFoldExpansion (k-1) ta e)
+  else constrExpansionStep ta pQuantif sQuantif (kFoldExpansion (k-1) ta  pQuantif sQuantif e)
 
 -- create formula to model check automaton by k-fold expansion of a formula
 checkAutomaton :: Int -> TA (Tp()) -> Expr (Tp()) -> Expr (Tp())
 checkAutomaton k ta e =
-  let expansion = kFoldExpansion k ta e
-      initialLoc = VarE StateT (varOfLoc (initialLocOfTA ta))
-      initialCls = replicate (length (clocksOfTA ta)) (ValE TimeT (FloatV 0.0))
-  in reduceExpr (funArgsToApp expansion (initialLoc : initialCls))
+  case e of
+    UnaOpE _ (UTemporal tempOp) eBody ->
+      let (pQuantif, sQuantif) = case tempOp of
+            UTAF -> (All, Ex)
+            UTAG -> (All, All)
+            UTEF -> (Ex, Ex)
+            UTEG -> (Ex, All)
+          expansion = kFoldExpansion k ta pQuantif sQuantif eBody
+          initialLoc = VarE StateT (varOfLoc (initialLocOfTA ta))
+          initialCls = replicate (length (clocksOfTA ta)) (ValE TimeT (FloatV 0.0))
+      in reduceExpr (funArgsToApp expansion (initialLoc : initialCls))
+    _ -> error "in checkAutomaton: not a temporal formula"
 
 
 ----------------------------------------------------------------------
