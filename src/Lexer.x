@@ -30,7 +30,7 @@ import Data.Word (Word8)
 
 import Data.Char (ord)
 import qualified Data.Bits
-import qualified Language.LSP.Types            as J
+-- import qualified Language.LSP.Types            as J
 
 import Annotation (Located(..),HasLoc(..), RealSRng(..), SRng(..), Pos(..), coordFromTo, tokenRange)
 
