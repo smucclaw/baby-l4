@@ -279,13 +279,13 @@ checkAutomaton k ta e =
 -- Wiring with rest
 ----------------------------------------------------------------------
 
-runAut :: NewProgram (Tp ()) -> IO ()
+runAut :: Program (Tp ()) -> IO ()
 {--}
 runAut prg =
-  let ta = head (automataOfNewProgram prg)
-      asrt = head (assertionsOfNewProgram prg)
-      cdecls = classDeclsOfNewProgram prg
-      globals = globalsOfNewProgram prg
+  let ta = head (automataOfProgram prg)
+      asrt = head (assertionsOfProgram prg)
+      cdecls = classDeclsOfProgram prg
+      globals = globalsOfProgram prg
       actTransDef = defineActionTransitions ta
       delayTransDef = defineDelayTransition ta
       instr = fromMaybe (MapVM []) (selectAssocOfMap "SMT" (instrOfAssertion asrt))
@@ -301,7 +301,7 @@ runAut prg =
   -- in putStrLn $ renameAndPrintExpr [] (checkAutomaton 1 ta (exprOfAssertion asrt))
   -- in putStrLn $ printExpr  proofTarget
   -- in putStrLn $ renameAndPrintExpr [] (kFoldExpansion 2 ta (exprOfAssertion asrt))
-  --runAut prg = putStrLn $ unlines (map constrAutTransitionTest (automataOfNewProgram prg))
+  --runAut prg = putStrLn $ unlines (map constrAutTransitionTest (automataOfProgram prg))
 -}
 
 ----------------------------------------------------------------------

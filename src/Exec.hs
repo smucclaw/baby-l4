@@ -139,9 +139,9 @@ substClos env d (ListE t lop es) = ListE t lop (map (substClos env d) es)
 
 {- For testing evaluation / reduction:
   for an assert (P e), reduce expression e -}
-testReduction :: NewProgram (Tp ()) -> IO ()
+testReduction :: Program (Tp ()) -> IO ()
 testReduction prg =
-  let a = head (assertionsOfNewProgram prg)
+  let a = head (assertionsOfProgram prg)
       e = argOfExprAppE (exprOfAssertion a)
       ev = evalExpr [] e
   in  case ev of

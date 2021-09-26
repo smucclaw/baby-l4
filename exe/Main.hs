@@ -4,8 +4,8 @@
 module Main where
 
 
-import Parser (parseNewProgram)
-import Syntax (NewProgram, ClassName)
+import Parser (parseProgram)
+import Syntax (Program, ClassName)
 import Typing ( checkError )
 --import SmtSBV (proveProgram)
 import Smt (proveProgram)
@@ -31,12 +31,12 @@ import Data.Either (rights)
 import ToDA2 (createDSyaml)
 import TimedMC (runAut)
 
-readPrelude :: IO (NewProgram SRng)
+readPrelude :: IO (Program SRng)
 readPrelude = do
   l4PreludeFilepath <- getDataFileName "l4/Prelude.l4"
   do
     contents <- readFile l4PreludeFilepath
-    case parseNewProgram l4PreludeFilepath contents of
+    case parseProgram l4PreludeFilepath contents of
       Right ast -> do
         -- print ast
         return ast
@@ -46,7 +46,7 @@ readPrelude = do
 process :: InputOpts -> String -> IO ()
 process args input = do
   let fpath = filepath args
-      ast = parseNewProgram fpath input
+      ast = parseProgram fpath input
   case ast of
     Right ast -> do
       preludeAst <- readPrelude

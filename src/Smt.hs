@@ -303,14 +303,14 @@ proveExpr config checkSat cdecls vardecls vardefns e = do
 
 
 -- TODO: to be defined in detail
-defaultRuleSet :: NewProgram t -> [Rule t]
-defaultRuleSet = rulesOfNewProgram
+defaultRuleSet :: Program t -> [Rule t]
+defaultRuleSet = rulesOfProgram
 
 -- TODO: rule specs are here supposed to be comma separated lists of rule names inclosed in { .. } 
 -- It should also be possible to specify transformations to the rules 
-rulesOfRuleSpec :: NewProgram t -> ValueKVM -> [Rule t]
+rulesOfRuleSpec :: Program t -> ValueKVM -> [Rule t]
 rulesOfRuleSpec p (MapVM kvm) =
-  let nameRuleAssoc = map (\r -> (fromMaybe "" (nameOfRule r), r)) (filter isNamedRule (rulesOfNewProgram p))
+  let nameRuleAssoc = map (\r -> (fromMaybe "" (nameOfRule r), r)) (filter isNamedRule (rulesOfProgram p))
   in map (\(k, v) -> fromMaybe (error ("rule name " ++ k ++ " unknown in rule set")) (lookup k nameRuleAssoc)) kvm
 rulesOfRuleSpec p instr =
   error ("rule specification " ++ show instr ++ " should be a list (in { .. }) of rule names and transformations")
@@ -324,7 +324,7 @@ delFromRuleSet :: [Rule t] -> [Rule t] -> [Rule t]
 delFromRuleSet rs1 rs2 = [r1 | r1 <- rs1 ,  Prelude.not (any (\r2 -> nameOfRule r1 == nameOfRule r2) rs2) ]
 
 
-composeApplicableRuleSet :: NewProgram t -> Maybe ValueKVM -> Maybe ValueKVM -> Maybe ValueKVM -> [Rule t]
+composeApplicableRuleSet :: Program t -> Maybe ValueKVM -> Maybe ValueKVM -> Maybe ValueKVM -> [Rule t]
 composeApplicableRuleSet p mbadd mbdel mbonly =
   case mbonly of
     Just onlyRls -> addToRuleSet [] (rulesOfRuleSpec p onlyRls)
@@ -333,7 +333,7 @@ composeApplicableRuleSet p mbadd mbdel mbonly =
                                 (rulesOfRuleSpec p (fromMaybe (MapVM []) mbdel)))
                   (rulesOfRuleSpec p (fromMaybe (MapVM []) mbadd))
 
-selectApplicableRules :: NewProgram t -> ValueKVM -> [Rule t]
+selectApplicableRules :: Program t -> ValueKVM -> [Rule t]
 selectApplicableRules p instr =
   case selectAssocOfValue "rules" instr of
     Nothing -> defaultRuleSet p
@@ -342,14 +342,14 @@ selectApplicableRules p instr =
                       (selectAssocOfValue "del" rulespec)
                       (selectAssocOfValue "only" rulespec)
 
-proveAssertionSMT :: NewProgram (Tp ()) -> ValueKVM -> Assertion (Tp ()) -> IO ()
+proveAssertionSMT :: Program (Tp ()) -> ValueKVM -> Assertion (Tp ()) -> IO ()
 proveAssertionSMT p instr asrt = do
   putStrLn "Launching SMT solver"
   let proveConsistency = selectOneOfInstr ["consistent", "valid"] instr == "consistent"
   let applicableRules = selectApplicableRules p instr
   let proofTarget = constrProofTarget proveConsistency asrt applicableRules
   let config = selectAssocOfValue "config" instr
-  proveExpr config proveConsistency (classDeclsOfNewProgram p) (globalsOfNewProgram p) [] proofTarget
+  proveExpr config proveConsistency (classDeclsOfProgram p) (globalsOfProgram p) [] proofTarget
 
 
 constrProofTarget :: Bool -> Assertion (Tp ()) -> [Rule (Tp ())] -> Expr (Tp ())
@@ -361,10 +361,10 @@ constrProofTarget sat asrt rls =
      else conjsExpr (notExpr concl : forms)
 
 -- TODO: details to be filled in
-proveAssertionsCASP :: Show t => NewProgram t -> ValueKVM  -> Assertion t -> IO ()
+proveAssertionsCASP :: Show t => Program t -> ValueKVM  -> Assertion t -> IO ()
 proveAssertionsCASP p v asrt = putStrLn "No sCASP solver implemented"
 
-proveAssertion :: NewProgram (Tp ()) -> Assertion (Tp ()) -> IO ()
+proveAssertion :: Program (Tp ()) -> Assertion (Tp ()) -> IO ()
 proveAssertion p asrt = foldM (\r (k,instr) ->
             case k of
               "SMT" -> proveAssertionSMT p instr asrt
@@ -372,14 +372,14 @@ proveAssertion p asrt = foldM (\r (k,instr) ->
               _ -> return ())
           () (instrOfAssertion asrt)
 
-proveProgram :: NewProgram (Tp ()) -> IO ()
+proveProgram :: Program (Tp ()) -> IO ()
 proveProgram p = do
-  let transfRules = rewriteRuleSetDerived (rewriteRuleSetSubjectTo (rewriteRuleSetDespite (rulesOfNewProgram p)))
-  let updRules = [e | e <- elementsOfNewProgram p, not (typeOfTLE getRule e)] ++ map RuleTLE transfRules
-  let transfProg = p{elementsOfNewProgram = updRules}
+  let transfRules = rewriteRuleSetDerived (rewriteRuleSetSubjectTo (rewriteRuleSetDespite (rulesOfProgram p)))
+  let updRules = [e | e <- elementsOfProgram p, not (typeOfTLE getRule e)] ++ map RuleTLE transfRules
+  let transfProg = p{elementsOfProgram = updRules}
   putStrLn "Generated rules:"
   putStrLn (concatMap (renameAndPrintRule (namesUsedInProgram transfProg)) transfRules)
-  foldM (\r a -> proveAssertion transfProg a) () (assertionsOfNewProgram transfProg)
+  foldM (\r a -> proveAssertion transfProg a) () (assertionsOfProgram transfProg)
 
 {-
 proveProgramTest :: Program (LocTypeAnnot (Tp ())) -> IO ()

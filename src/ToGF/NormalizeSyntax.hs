@@ -96,10 +96,10 @@ normaliseConditionsAndConclusions (Rule ann nm instr decls ifE thenE) =
     goConc e = [e]
 
 -- Make VarDecls out of ClassDecls
-normalizeProg :: NewProgram t -> NewProgram t
-normalizeProg prg = prg{elementsOfNewProgram = elementsOfNewProgram prg ++ map VarDeclTLE newGlobals}
+normalizeProg :: Program t -> Program t
+normalizeProg prg = prg{elementsOfProgram = elementsOfProgram prg ++ map VarDeclTLE newGlobals}
   where
-    newGlobals = concatMap cd2vd (classDeclsOfNewProgram prg)
+    newGlobals = concatMap cd2vd (classDeclsOfProgram prg)
     cd2vd (ClassDecl annot clsname def) =
       [VarDecl annot functname (FunT annot argtype returntype)    -- TODO (MS): the annotations probably do not contain the correct info
       | (functname, returntype) <- getFieldNmNType def]
