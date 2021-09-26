@@ -12,7 +12,7 @@ import SyntaxManipulation (
       spine,
       ruleToFormula,
       conjsExpr,
-      notExpr)
+      notExpr, etaExpand, decomposeFun)
 import Typing (isBooleanTp, isIntegerTp, isFloatTp, superClassesOfClassDecl)
 import RuleTransfo
     ( isNamedRule,
@@ -22,7 +22,7 @@ import RuleTransfo
 
 import qualified SimpleSMT as SMT
 import Control.Monad ( when, foldM )
-import PrintProg (renameAndPrintRule, namesUsedInProgram )
+import PrintProg (renameAndPrintRule, namesUsedInProgram, renameExpr )
 import Data.Maybe (fromMaybe)
 import Model (displayableModel, printDisplayableModel)
 
@@ -98,14 +98,26 @@ varTypeToSExprTD se vn t = SMT.List [SMT.List [SMT.Atom vn, snd (tpToRank se t)]
 -- SMT variable / function declaration
 varDeclToFun :: Show t => SMT.Solver -> SMTSortEnv -> VarDecl t -> IO (VarName, SMT.SExpr)
 varDeclToFun s se (VarDecl _ vn vt) =
-  let (args, res) = tpToRank se vt
+  let (argTs, resT) = tpToRank se vt
   in do
-     se <- SMT.declareFun s vn args res
-     return (vn, se)
+     sf <- SMT.declareFun s vn argTs resT
+     return (vn, sf)
 
 varDeclsToFunEnv :: Show t => SMT.Solver -> SMTSortEnv -> [VarDecl t] -> IO SMTFunEnv
 varDeclsToFunEnv s se = mapM (varDeclToFun s se)
 
+varDefnToFun :: SMT.Solver -> SMTEnv -> VarDefn (Tp()) -> IO SMTEnv --(VarName, SMT.SExpr)
+varDefnToFun s env (VarDefn _ vn vt e) =
+  let (_, resT) = tpToRank (sortEnv env) vt
+      (vds, bd) = decomposeFun (etaExpand (renameExpr [] e))
+      params = map (\vd -> (nameOfVarDecl vd, tpToSort (sortEnv env) (tpOfVarDecl vd))) vds
+      bdSE = exprToSExpr env bd
+  in do
+     sf <- SMT.defineFun s vn params resT bdSE
+     return env{funEnv = funEnv env ++ [(vn, sf)]}
+
+varDefnsToSMTEnv :: SMT.Solver -> SMTEnv -> [VarDefn (Tp())] -> IO SMTEnv
+varDefnsToSMTEnv s = foldM (varDefnToFun s)
 
 topLevelUserClassDecl :: ClassDecl t -> Bool
 topLevelUserClassDecl cd = (length (superClassesOfClassDecl cd) >= 2) && superClassesOfClassDecl cd!!1 == ClassC
@@ -202,6 +214,8 @@ sExprApply f a = case f of
   SMT.Atom _ -> SMT.List [f, a]
   SMT.List es -> SMT.List (es ++ [a])
 
+-- Important: Consistent references in Expr are maintained via de Bruijn indices, which do not exist in SExpr
+-- Therefore, calls of exprToSExpr should be preceded by a call to renameExpr
 exprToSExpr :: Show t => SMTEnv -> Expr t -> SMT.SExpr
 exprToSExpr _   (ValE _ v) = valToSExpr v
 exprToSExpr env (VarE _ v) = varToSExpr (funEnv env) v
@@ -258,14 +272,20 @@ selectLogic s config =
   in SMT.setLogic s logicName
 
 
-proveExpr :: Show t => Maybe ValueKVM -> Bool -> [ClassDecl t] -> [VarDecl t] -> Expr t ->IO ()
-proveExpr config checkSat cds vds e = do
+-- Prove an expression e
+-- For checkSat == True, check for satisfiability, otherwise for unsatisfiability
+-- The expression e is assumed to be closed (no unbound local variables), 
+-- but may contain references to global declared or defined variables as in vardecls / vardefns
+
+proveExpr :: Maybe ValueKVM -> Bool -> [ClassDecl (Tp())] -> [VarDecl (Tp())] -> [VarDefn (Tp())] -> Expr (Tp()) ->IO ()
+proveExpr config checkSat cdecls vardecls vardefns e = do
   l <- SMT.newLogger (selectLogLevel config)
   s <- createSolver config (Just l)
   selectLogic s config
-  sEnv <- classDeclsToSortEnv s cds
-  fEnv <- varDeclsToFunEnv s sEnv vds
-  SMT.assert s (exprToSExpr (SMTEnv sEnv fEnv) e)
+  sEnv <- classDeclsToSortEnv s cdecls
+  fEnv <- varDeclsToFunEnv s sEnv vardecls
+  varDefnEnv <- varDefnsToSMTEnv s (SMTEnv sEnv fEnv) vardefns
+  SMT.assert s (exprToSExpr varDefnEnv (renameExpr [] e))
   checkRes <- SMT.check s
   when (checkRes == SMT.Sat) $ do
     if checkSat
@@ -329,7 +349,7 @@ proveAssertionSMT p instr asrt = do
   let applicableRules = selectApplicableRules p instr
   let proofTarget = constrProofTarget proveConsistency asrt applicableRules
   let config = selectAssocOfValue "config" instr
-  proveExpr config proveConsistency (classDeclsOfNewProgram p) (globalsOfNewProgram p) proofTarget
+  proveExpr config proveConsistency (classDeclsOfNewProgram p) (globalsOfNewProgram p) [] proofTarget
 
 
 constrProofTarget :: Bool -> Assertion (Tp ()) -> [Rule (Tp ())] -> Expr (Tp ())

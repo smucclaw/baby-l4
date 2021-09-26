@@ -73,15 +73,7 @@ Explicit: '{Player} participates in {Game}'
 
 
 ----- Program
-{-
-data Program t = Program{ annotOfProgram :: t
-                            , lexiconOfProgram :: [Mapping t]
-                            , classDeclsOfProgram ::  [ClassDecl t]
-                            , globalsOfProgram :: [VarDecl t]
-                            , rulesOfProgram :: [Rule t]
-                            , assertionsOfProgram :: [Assertion t] }
-  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
--}
+
 data TopLevelElement t
   = MappingTLE (Mapping t)
   | ClassDeclTLE (ClassDecl t)
@@ -206,7 +198,7 @@ instance HasAnnot Program where
 -- for the parser to do the right job
 data Tp t
   = ClassT {annotOfTp :: t, classNameOfTp :: ClassName}
-  | FunT {annotOfTp :: t, funTp :: Tp t, argTp :: Tp t}
+  | FunT {annotOfTp :: t, paramTp :: Tp t, resultTp :: Tp t}
   | TupleT {annotOfTp :: t, componentsOfTpTupleT :: [Tp t]}
   | ErrT
   | OkT        -- fake type appearing in constructs (classes, rules etc.) that do not have a genuine type
@@ -257,13 +249,22 @@ pattern NumberT = ClassT () NumberC
 data VarDecl t = VarDecl {annotOfVarDecl :: t, nameOfVarDecl :: VarName, tpOfVarDecl :: Tp t}
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
+data VarDefn t = VarDefn {annotOfVarDefn :: t, nameOfVarDefn :: VarName, tpOfVarDefn :: Tp t, bodyOfVarDefn :: Expr t}
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
 instance HasLoc t => HasLoc (VarDecl t) where
   getLoc = getLoc . annotOfVarDecl
+
+instance HasLoc t => HasLoc (VarDefn t) where
+  getLoc = getLoc . annotOfVarDefn
+
+instance HasAnnot VarDefn where
+  getAnnot = annotOfVarDefn
+  updateAnnot f p = p { annotOfVarDefn = f (annotOfVarDefn p)}
 
 instance HasAnnot VarDecl where
   getAnnot = annotOfVarDecl
   updateAnnot f p = p { annotOfVarDecl = f (annotOfVarDecl p)}
-
 data Mapping t = Mapping { annotOfMapping :: t
                           , fromMapping :: VarName
                           , toMapping :: Description}
