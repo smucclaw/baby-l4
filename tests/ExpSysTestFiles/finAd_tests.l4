@@ -1,0 +1,57 @@
+# Example taken from:
+# George Luger: Artificial Intelligence, 6th edition
+# Section 2.4: A logic-based financial adivsor
+
+class FinancialStatus
+class EarningsStatus
+class InvestmentStrategy
+
+# Enumeration of members of FinancialStatus
+decl adequate: FinancialStatus
+decl inadequate: FinancialStatus
+
+decl savings: InvestmentStrategy
+decl combination: InvestmentStrategy
+decl stocks: InvestmentStrategy
+decl investment: InvestmentStrategy -> Boolean
+
+decl savings_account: FinancialStatus -> Boolean
+decl income: FinancialStatus -> Boolean
+decl earnings: Integer -> EarningsStatus -> Boolean
+
+decl amount_saved: Integer -> Boolean
+decl dependents: Integer -> Boolean
+
+
+# TEST CASES 
+# Variable bindings
+rule <singleGlobalVar>
+if savings_account inadequate
+then investment savings 
+
+rule <singleLocalVar>
+for x : Integer
+if amount_saved x
+then investment savings
+
+
+# Evaluations
+rule <BinOpE_BClt>
+for x : Integer, y : Integer
+if amount_saved x && dependents y && x < y
+then investment savings 
+
+rule <unboundEval>
+for x : Integer, y: Integer
+if amount_saved x && (x > y)
+then investment savings
+
+rule <singleNot>
+for x : Integer
+if not (amount_saved x)
+then investment savings
+
+rule <singleNotWithBinding>
+for x : Integer
+if amount_saved x && not (amount_saved x)
+then investment savings
