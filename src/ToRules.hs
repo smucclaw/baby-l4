@@ -19,6 +19,13 @@ class ShowClara x where
 class ShowDrools x where
     showDrools :: x -> Doc ann
 
+-- Some notes:
+
+-- Currently we have failure types for ConditionalElement & CEArg to allow for tests
+-- of expected failure (especially so for testing if vars are bound in rules). It's
+-- probably not wise to extend this treatment to the other types, and we should begin 
+-- incorporating ExceptT (& other necessary monad transformers) for error-handling. 
+
 
 
 ----------------------------------------------------------------------------------------------------------------
@@ -84,20 +91,22 @@ data ConditionalElement
     = ConditionalFuncApp Typename [CEArg]
     | ConditionalEval BComparOp CEArg CEArg
     | ConditionalExist UBoolOp ConditionalElement 
-    deriving Show
+    | ConditionalElementFail String
+    deriving (Eq, Show)
 
 instance ShowClara ConditionalElement where
     showClara (ConditionalFuncApp tn args) =
         brackets (pretty (capitalize tn) <+> hsep (map (parens . showClara) args))
     showClara (ConditionalEval cOp arg1 arg2) = brackets (pretty ":test" <+> parens (showClara cOp <+> showClara arg1 <+> showClara arg2))
     showClara (ConditionalExist UBnot arg) = brackets (pretty ":not" <+> showClara arg)
+    showClara (ConditionalElementFail err) = error $ "ConditionalElementFailure: " ++ show err
 
 instance ShowDrools ConditionalElement where
     showDrools (ConditionalFuncApp tn args) =
         pretty (capitalize tn) <> parens (hsep $ punctuate comma $ map showDrools args)
     showDrools (ConditionalEval cOp arg1 arg2 ) = pretty "eval" <> parens (showDrools arg1 <+> showDrools cOp <+> showDrools arg2)
     showDrools (ConditionalExist UBnot arg) = pretty "not" <+> parens (showDrools arg)
-
+    showDrools (ConditionalElementFail err) = error $ "ConditionalElementFailure: " ++ show err
 instance ShowClara BComparOp where
     showClara BClt  = pretty "<"
     showClara BClte = pretty "<="
@@ -120,6 +129,7 @@ data CEArg = CEBinding ProdVarName ProdFieldName
            | CEEquality ProdFieldName ProdVarName
            | CEFuncApp ProdFuncName [ProdVarName]
            | CEVarExpr ProdVarName 
+           | CEArgFail String
            deriving (Eq, Show)
 
 instance ShowClara CEArg where
@@ -127,12 +137,14 @@ instance ShowClara CEArg where
     showClara (CEBinding vn fn) = pretty "=" <+> pretty "?" <> pretty vn <+> pretty fn
     showClara (CEFuncApp func vns) = parens (pretty func <+> hsep (punctuate comma (map ((<>) (pretty "?") . pretty) vns)))
     showClara (CEVarExpr vn) = pretty "?" <> pretty vn
+    showClara (CEArgFail err) = error $ "Transpilation failure: " ++ show err 
 
 instance ShowDrools CEArg where
     showDrools (CEEquality fn fv) = pretty fn <+> pretty "==" <+> pretty fv
     showDrools (CEBinding vn fn) = pretty "$" <> pretty vn <+> pretty ":=" <+> pretty fn
     showDrools (CEFuncApp func vns) = pretty func <> parens (hsep (punctuate comma (map ((<>) (pretty "$") . pretty) vns)))
     showDrools (CEVarExpr vn) = pretty "$" <> pretty vn
+    showDrools (CEArgFail err) = error $ "Transpilation failure: " ++ show err 
 
 -- We restrict the format of the rules to a singular post condition (to support prolog-style syntax within l4)
 data RuleAction = InsertLogical Typename [Argument] deriving Show
@@ -148,12 +160,12 @@ data Argument = Variable ProdVarName | Value Val deriving Show
 -- Logic & Functions
 ----------------------------------------------------------------------------------------------------------------
 
-filterRule :: (Ord t) => Rule t -> Either String ProductionRule
+filterRule :: (Ord t, Show t) => Rule t -> Either String ProductionRule
 filterRule x
     | isRule x = Right $ ruleToProductionRule x
     | otherwise = Left $ "Not a valid rule: " ++ arNameToString (nameOfRule x) ++ "\n"
 
-ruleToProductionRule :: (Ord t) => Rule t -> ProductionRule
+ruleToProductionRule :: (Ord t, Show t) => Rule t -> ProductionRule
 ruleToProductionRule Rule {nameOfRule, varDeclsOfRule, precondOfRule, postcondOfRule}
     = ProductionRule { nameOfProductionRule = arNameToString nameOfRule
                      , varDeclsOfProductionRule = [""]
@@ -179,13 +191,13 @@ precondToRCList bcomp@(BinOpE _ (BCompar _) _ _) = [bcomp]
 precondToRCList unot@(UnaOpE _ (UBool UBnot) _) = [unot]
 precondToRCList _ = error "non and operation"
 
-exprlistToRCList :: (Ord t) => S.Set (Var t) -> [Expr t] -> RCList
+exprlistToRCList :: (Ord t, Show t) => S.Set (Var t) -> [Expr t] -> RCList
 exprlistToRCList vs (x:xs) = 
     case x of 
         (AppE {})                   -> exprToConditionalFuncApp x : exprlistToRCList newVars xs
-        (BinOpE _ (BCompar _) _ _)  -> if S.isSubsetOf xlocVars vs then exprToConditionalEval x : exprlistToRCList newVars xs else error "Reorder ur predicates"
-        (UnaOpE _ (UBool UBnot) _)  -> if S.isSubsetOf xlocVars vs then exprToConditionalExist x : exprlistToRCList newVars xs else error "`Not` statements require a prior variable binding"
-        _                           -> error "exprToRCList can only be used with function application, comparison operation or negation"
+        (BinOpE _ (BCompar _) _ _)  -> if S.isSubsetOf xlocVars vs then exprToConditionalEval x : exprlistToRCList newVars xs else [ConditionalElementFail "Reorder ur predicates"]
+        (UnaOpE _ (UBool UBnot) _)  -> if S.isSubsetOf xlocVars vs then exprToConditionalExist x : exprlistToRCList newVars xs else [ConditionalElementFail "`Not` statements require a prior variable binding"]
+        _                           -> [ConditionalElementFail "exprToRCList can only be used with function application, comparison operation or negation"]
     where xlocVars = localVariables x
           newVars = S.union xlocVars vs
 exprlistToRCList _ [] = []
@@ -202,13 +214,13 @@ localVariables _ = error "localVariables used with non-function application or c
 getName :: Expr t -> VarName
 getName = nameOfQVarName . nameOfVar . varOfExprVarE
 
-exprToConditionalFuncApp :: Expr t -> ConditionalElement
+exprToConditionalFuncApp :: (Show t) => Expr t -> ConditionalElement
 exprToConditionalFuncApp fApp@AppE {} =
     let (fexpr, args) = appToFunArgs [] fApp
     in ConditionalFuncApp (getName fexpr) (map (exprToCEArg) $ zip [0.. ((length args)-1)] args)
 exprToConditionalFuncApp _ = error "exprToConditionalFuncApp used for non-AppE"
 
-exprToConditionalEval :: Expr t -> ConditionalElement
+exprToConditionalEval :: (Show t) => Expr t -> ConditionalElement
 exprToConditionalEval (BinOpE _ (BCompar bop) x@AppE {} y@AppE {}) =
     ConditionalEval bop (exprToCEFuncApp x) (exprToCEFuncApp y)
 exprToConditionalEval (BinOpE _ (BCompar bop) x@AppE {} y          ) =
@@ -217,23 +229,26 @@ exprToConditionalEval (BinOpE _ (BCompar bop) x           y@AppE {}) = Condition
 exprToConditionalEval (BinOpE _ (BCompar bop) x           y          ) = ConditionalEval bop (CEVarExpr $ getName x) (CEVarExpr $ getName y)
 exprToConditionalEval _ = error "exprToConditionalEval used for non-BComparOp"
 
-exprToConditionalExist :: Expr t -> ConditionalElement -- we restrict not to function applications with variable bindings
+exprToConditionalExist :: (Show t) => Expr t -> ConditionalElement -- we restrict not to function applications with variable bindings
 exprToConditionalExist (UnaOpE _ (UBool UBnot) a@AppE {}) = ConditionalExist UBnot $ exprToConditionalFuncApp a
 exprToConditionalExist _ = error "exprToConditionalExist used for non-UnaOpE"
 
 defArg :: Int -> ProdFieldName
 defArg x = "arg" ++ show x
 
-exprToCEFuncApp :: Expr t -> CEArg
+-- a note: CEFuncApp is meant to be part of the ConditionalEval expression (e.g. the `minIncome y` of `x > minIncome y`)
+--         rather than a ConditionalFuncApp expression (e.g. `amount_saved x`)
+--         but they both act on AppE expressions, so there is no need to distinguish between testing mechanisms
+exprToCEFuncApp :: (Show t) => Expr t -> CEArg
 exprToCEFuncApp fApp@AppE {} =
     let (fexpr, args) = appToFunArgs [] fApp
     in CEFuncApp (getName fexpr) (map getName args)
-exprToCEFuncApp _ = error "exprToCEFuncApp received non-AppE expr"
+exprToCEFuncApp expr = CEArgFail $ "exprToCEFuncApp received non-AppE expr" ++ show expr
 
-exprToCEArg :: (Int, Expr t) -> CEArg -- assumption: either local or global var expr
+exprToCEArg :: (Show t) => (Int, Expr t) -> CEArg -- assumption: either local or global var expr
 exprToCEArg (num, VarE _ (LocalVar name _)) = CEBinding (nameOfQVarName name) (defArg num)
 exprToCEArg (num, VarE _ (GlobalVar name)) = CEEquality (defArg num) (nameOfQVarName name)
-exprToCEArg _ = error "nope"
+exprToCEArg (_, expr) = CEArgFail $ "exprToCEArg cannot transpile expression: " ++ show expr
 
 
 astToRules :: NewProgram (Tp ()) -> IO ()
@@ -242,9 +257,11 @@ astToRules x = do
         gdRules = rights lrRules
     -- print $ lefts lrRules
     putStrLn "Rule AST:"
+    print $ gdRules !! 0
     print $ gdRules !! 4
     putStrLn ""
     putStrLn "Clara:"
+    putDoc $ showClara (gdRules !! 0)
     putDoc $ showClara (gdRules !! 4)
     putStrLn ""
     putStrLn "Drools:"
