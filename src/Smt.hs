@@ -25,6 +25,7 @@ import Control.Monad ( when, foldM )
 import PrintProg (renameAndPrintRule, namesUsedInProgram, renameExpr )
 import Data.Maybe (fromMaybe)
 import Model (displayableModel, printDisplayableModel)
+import qualified AutoAnnotations as SMT
 
 
 -------------------------------------------------------------
@@ -103,8 +104,15 @@ varDeclToFun s se (VarDecl _ vn vt) =
      sf <- SMT.declareFun s vn argTs resT
      return (vn, sf)
 
+predefinedToFun :: SMTFunEnv
+predefinedToFun = [("distinct", SMT.Atom "distinct")]
+
 varDeclsToFunEnv :: Show t => SMT.Solver -> SMTSortEnv -> [VarDecl t] -> IO SMTFunEnv
-varDeclsToFunEnv s se = mapM (varDeclToFun s se)
+varDeclsToFunEnv s se vds = 
+  let predefEnv  = predefinedToFun
+  in do 
+     funDeclEnv <- mapM (varDeclToFun s se) vds
+     return (predefEnv ++ funDeclEnv)
 
 varDefnToFun :: SMT.Solver -> SMTEnv -> VarDefn (Tp()) -> IO SMTEnv --(VarName, SMT.SExpr)
 varDefnToFun s env (VarDefn _ vn vt e) =

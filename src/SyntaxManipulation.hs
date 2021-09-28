@@ -264,7 +264,3 @@ etaExpand e =
         (etaExpand (AppE rt (liftExpr 0 e) (VarE pt (LocalVar (QVarName pt "etaVar") 0))))
     _ -> e
 
-foo = renameAndPrintExpr [] (etaExpand (VarE (FunT () BooleanT (FunT () IntegerT IntegerT))
-            (GlobalVar (QVarName (FunT () BooleanT (FunT () IntegerT IntegerT)) "f"))))
--- >>> foo
--- "( \\ etaVar: Boolean -> ( \\ etaVar_0: Integer -> ((f etaVar) etaVar_0)))"
