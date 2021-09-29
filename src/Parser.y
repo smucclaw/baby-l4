@@ -16,7 +16,7 @@
 -}
 
 module Parser (
-  parseNewProgram,
+  parseProgram,
 --  parseProgram
 --  , parseTokens,
 ) where
@@ -130,7 +130,7 @@ QualifVar : VAR { QVarName (getLoc $1) (tokenSym $1) }
 --Program : Lexicon ClassDecls GlobalVarDecls Rules Assertions
 --                                   { Program (tokenRangeList [getLoc $1, getLoc $2, getLoc $3, getLoc $4, getLoc $5]) (reverse $ unLoc $1) (reverse $2)  (reverse $3) (reverse $4) (reverse $5) }
 
-Program : TopLevelElements { NewProgram (tokenRangeList (map getLoc $1)) (reverse $1) }
+Program : TopLevelElements { Program (tokenRangeList (map getLoc $1)) (reverse $1) }
 
 TopLevelElements : TopLevelElement                  { [$1] }
                  | TopLevelElementGroup             { $1 }
@@ -403,9 +403,7 @@ parseError (L p t) =
 -- parseError (l:ls) = throwError (show l)
 -- parseError [] = throwError "Unexpected end of Input"
 
-parseNewProgram :: FilePath -> String -> Either Err (NewProgram SRng)
-parseNewProgram = runAlex' program
+parseProgram :: FilePath -> String -> Either Err (Program SRng)
+parseProgram = runAlex' program
 
---parseProgram :: FilePath -> String -> Either Err (Program SRng)
---parseProgram fp inp = mapRight newProgramToProgram (parseNewProgram fp inp)
 }

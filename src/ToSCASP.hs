@@ -56,7 +56,7 @@ isPred' (FunT _ t (ClassT _ BooleanC)) = True
 isPred' (FunT _ t t2) = isPred' t2
 isPred' _ = False
 
-createSCasp :: Show t => NewProgram (Tp t) -> IO ()
+createSCasp :: Show t => Program (Tp t) -> IO ()
 createSCasp = putDoc . unstash . showSC
 
 indent' :: Doc ann -> Doc ann
@@ -79,8 +79,8 @@ class SCasp x where
 -- removePred = filter (not . isPred) . globalsOfProgram
 
 -- Whitelist version: only accept facts of the form Foo : Bar
-onlyFacts :: NewProgram t -> [VarDecl t]
-onlyFacts = filter isFact . globalsOfNewProgram
+onlyFacts :: Program t -> [VarDecl t]
+onlyFacts = filter isFact . globalsOfProgram
   where
     isFact :: VarDecl t -> Bool
     isFact = isFact' . tpOfVarDecl
@@ -102,11 +102,11 @@ dotList xs = endDot $ vsep $ punctuate dot xs -- terminator: a. b. c.
 endDot :: Doc ann -> Doc ann
 endDot x = x <> dot
 
-instance Show t => SCasp (NewProgram (Tp t)) where
+instance Show t => SCasp (Program (Tp t)) where
   showSC p' = let p = normalizeProg p' in
-    showSClist (assertionsOfNewProgram p) -- These become queries
+    showSClist (assertionsOfProgram p) -- These become queries
       <> showSClist (onlyFacts p)      -- These become facts
-      <> showSClist (rulesOfNewProgram p >>= normaliseConditionsAndConclusions >>= normalizeQuantif) -- These become rules and facts
+      <> showSClist (rulesOfProgram p >>= normaliseConditionsAndConclusions >>= normalizeQuantif) -- These become rules and facts
   showSingle = unstash . showSC
 
 

@@ -19,16 +19,16 @@ import ToGF.NormalizeSyntax (pattern IntT, pattern BoolT)
 grName :: GrName
 grName = "Answer"
 
-createGF :: FilePath -> NewProgram t -> IO PGF
-createGF fname prog = createGF' fname grName (lexiconOfNewProgram prog) allPreds
+createGF :: FilePath -> Program t -> IO PGF
+createGF fname prog = createGF' fname grName (lexiconOfProgram prog) allPreds
   where
     allPreds = S.toList $ S.fromList $ concat
       [ getAtoms vardecl
-      | vardecl <- globalsOfNewProgram prog
+      | vardecl <- globalsOfProgram prog
       ]
 
 
-createPGFforAnswers :: FilePath -> NewProgram t -> IO ()
+createPGFforAnswers :: FilePath -> Program t -> IO ()
 createPGFforAnswers filename prog = do
   _ <- createGF filename prog
   -- Feel free to remove this printout, it's just there so that people know that this has changed :-P

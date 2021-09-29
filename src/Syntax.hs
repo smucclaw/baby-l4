@@ -73,15 +73,7 @@ Explicit: '{Player} participates in {Game}'
 
 
 ----- Program
-{-
-data Program t = Program{ annotOfProgram :: t
-                            , lexiconOfProgram :: [Mapping t]
-                            , classDeclsOfProgram ::  [ClassDecl t]
-                            , globalsOfProgram :: [VarDecl t]
-                            , rulesOfProgram :: [Rule t]
-                            , assertionsOfProgram :: [Assertion t] }
-  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
--}
+
 data TopLevelElement t
   = MappingTLE (Mapping t)
   | ClassDeclTLE (ClassDecl t)
@@ -116,13 +108,13 @@ instance HasAnnot TopLevelElement where
   getAnnot = getAnnotOfTLE
   updateAnnot = updateAnnotOfTLE
 
-data NewProgram t = NewProgram { annotOfNewProgram :: t
-                               , elementsOfNewProgram :: [TopLevelElement t] }
+data Program t = Program { annotOfProgram :: t
+                               , elementsOfProgram :: [TopLevelElement t] }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
-instance HasAnnot NewProgram where
-  getAnnot = annotOfNewProgram
-  updateAnnot f p = p { annotOfNewProgram = f (annotOfNewProgram p)}
+instance HasAnnot Program where
+  getAnnot = annotOfProgram
+  updateAnnot f p = p { annotOfProgram = f (annotOfProgram p)}
 
 
 getMapping :: TopLevelElement t -> Maybe (Mapping t)
@@ -152,23 +144,23 @@ getAutomaton _ = Nothing
 typeOfTLE :: (t -> Maybe a) -> t -> Bool
 typeOfTLE g = isJust . g
 
-lexiconOfNewProgram :: NewProgram t -> [Mapping t]
-lexiconOfNewProgram = mapMaybe getMapping . elementsOfNewProgram
+lexiconOfProgram :: Program t -> [Mapping t]
+lexiconOfProgram = mapMaybe getMapping . elementsOfProgram
 
-classDeclsOfNewProgram :: NewProgram t -> [ClassDecl t]
-classDeclsOfNewProgram = mapMaybe getClassDecl . elementsOfNewProgram
+classDeclsOfProgram :: Program t -> [ClassDecl t]
+classDeclsOfProgram = mapMaybe getClassDecl . elementsOfProgram
 
-globalsOfNewProgram :: NewProgram t -> [VarDecl t]
-globalsOfNewProgram = mapMaybe getVarDecl . elementsOfNewProgram
+globalsOfProgram :: Program t -> [VarDecl t]
+globalsOfProgram = mapMaybe getVarDecl . elementsOfProgram
 
-rulesOfNewProgram :: NewProgram t -> [Rule t]
-rulesOfNewProgram = mapMaybe getRule . elementsOfNewProgram
+rulesOfProgram :: Program t -> [Rule t]
+rulesOfProgram = mapMaybe getRule . elementsOfProgram
 
-assertionsOfNewProgram :: NewProgram t -> [Assertion t]
-assertionsOfNewProgram = mapMaybe getAssertion . elementsOfNewProgram
+assertionsOfProgram :: Program t -> [Assertion t]
+assertionsOfProgram = mapMaybe getAssertion . elementsOfProgram
 
-automataOfNewProgram :: NewProgram t -> [TA t]
-automataOfNewProgram = mapMaybe getAutomaton . elementsOfNewProgram
+automataOfProgram :: Program t -> [TA t]
+automataOfProgram = mapMaybe getAutomaton . elementsOfProgram
 
 mapClassDecl :: (ClassDecl t -> ClassDecl t)-> TopLevelElement t -> TopLevelElement t
 mapClassDecl f e = case e of
@@ -184,21 +176,6 @@ mapAssertion :: (Assertion t -> Assertion t) -> TopLevelElement t -> TopLevelEle
 mapAssertion f e = case e of
   AssertionTLE r -> AssertionTLE (f r)
   x -> x
-{-
-newProgramToProgram :: NewProgram t -> Program t
-newProgramToProgram np = Program {
-  annotOfProgram = annotOfNewProgram np,
-  lexiconOfProgram = lexiconOfNewProgram np,
-  classDeclsOfProgram = classDeclsOfNewProgram np,
-  globalsOfProgram = globalsOfNewProgram np,
-  rulesOfProgram = rulesOfNewProgram np,
-  assertionsOfProgram = assertionsOfNewProgram np
-}
-
-instance HasAnnot Program where
-  getAnnot = annotOfProgram
-  updateAnnot f p = p { annotOfProgram = f (annotOfProgram p)}
--}
 
 
 ----- Types
@@ -206,7 +183,7 @@ instance HasAnnot Program where
 -- for the parser to do the right job
 data Tp t
   = ClassT {annotOfTp :: t, classNameOfTp :: ClassName}
-  | FunT {annotOfTp :: t, funTp :: Tp t, argTp :: Tp t}
+  | FunT {annotOfTp :: t, paramTp :: Tp t, resultTp :: Tp t}
   | TupleT {annotOfTp :: t, componentsOfTpTupleT :: [Tp t]}
   | ErrT
   | OkT        -- fake type appearing in constructs (classes, rules etc.) that do not have a genuine type
@@ -257,13 +234,22 @@ pattern NumberT = ClassT () NumberC
 data VarDecl t = VarDecl {annotOfVarDecl :: t, nameOfVarDecl :: VarName, tpOfVarDecl :: Tp t}
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
+data VarDefn t = VarDefn {annotOfVarDefn :: t, nameOfVarDefn :: VarName, tpOfVarDefn :: Tp t, bodyOfVarDefn :: Expr t}
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
 instance HasLoc t => HasLoc (VarDecl t) where
   getLoc = getLoc . annotOfVarDecl
+
+instance HasLoc t => HasLoc (VarDefn t) where
+  getLoc = getLoc . annotOfVarDefn
+
+instance HasAnnot VarDefn where
+  getAnnot = annotOfVarDefn
+  updateAnnot f p = p { annotOfVarDefn = f (annotOfVarDefn p)}
 
 instance HasAnnot VarDecl where
   getAnnot = annotOfVarDecl
   updateAnnot f p = p { annotOfVarDecl = f (annotOfVarDecl p)}
-
 data Mapping t = Mapping { annotOfMapping :: t
                           , fromMapping :: VarName
                           , toMapping :: Description}

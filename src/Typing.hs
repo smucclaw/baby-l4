@@ -26,8 +26,8 @@ import Control.Applicative (Alternative ((<|>), empty))
 -- * Main API
 
 -- | Given the AST for the prelude and a module, return either a list of type errors or a typechecked module
--- TODO: remove "mapLeft ErrorCauseErr" to get a TCM (NewProgram (LocTypeAnnot (Tp())))
-checkError :: NewProgram Untyped -> NewProgram Untyped -> Either Error (NewProgram Typed)
+-- TODO: remove "mapLeft ErrorCauseErr" to get a TCM (Program (LocTypeAnnot (Tp())))
+checkError :: Program Untyped -> Program Untyped -> Either Error (Program Typed)
 checkError prelude prg = mapLeft ErrorCauseErr (getEither $ checkErrorLift (forgetPreludeLocation prelude) prg)
 
 -- TODO: Remove this when we have some proper module system
@@ -632,25 +632,25 @@ checkClassesForWfError cds prg = do
 
 -- ATTENTION, difference wrt. checkClassesForCyclicError: the first parameter is the list of prelude class decls and not the list of all class decls
 -- TODO: In this function, the prelude class decs are prefixed to the program elements.
-checkClassesForCyclicError :: HasLoc t => [ClassDecl t] -> NewProgram t -> TCM (NewProgram t)
+checkClassesForCyclicError :: HasLoc t => [ClassDecl t] -> Program t -> TCM (Program t)
 checkClassesForCyclicError preludeCds prg = do
-  let cds = preludeCds ++ classDeclsOfNewProgram prg
+  let cds = preludeCds ++ classDeclsOfProgram prg
       cdfAssoc = classDefAssoc cds
       cyclicClassNames = lefts (map (superClassesConstr cdfAssoc [] . nameOfClassDecl) cds)
       cyclicClassError cycs = CyclicClassHierarchyCDEErr [(getLoc cd, nameOfClassDecl cd)| cd <- cds, nameOfClassDecl cd `elem` cycs]
 
   expectEmptyOrThrow cyclicClassNames cyclicClassError
 
-  let newProgElems = map ClassDeclTLE preludeCds ++ elementsOfNewProgram prg
+  let newProgElems = map ClassDeclTLE preludeCds ++ elementsOfProgram prg
       elabSupers = map (mapClassDecl (elaborateSupersInClassDecl (superClasses cdfAssoc))) newProgElems
       elabFields = map (mapClassDecl (elaborateFieldsInClassDecl (fieldAssoc cds))) elabSupers
 
-  pure (prg {elementsOfNewProgram = elabFields})
+  pure (prg {elementsOfProgram = elabFields})
 
-checkClassDeclsError :: HasLoc t => NewProgram t -> NewProgram t -> TCM (NewProgram t)
+checkClassDeclsError :: HasLoc t => Program t -> Program t -> TCM (Program t)
 checkClassDeclsError prelude prg = do
-  let pcds = classDeclsOfNewProgram prelude
-      initialClassDecls = pcds ++ classDeclsOfNewProgram prg
+  let pcds = classDeclsOfProgram prelude
+      initialClassDecls = pcds ++ classDeclsOfProgram prg
   _ <- checkClassesForWfError initialClassDecls prg
   checkClassesForCyclicError pcds prg
 
@@ -660,13 +660,13 @@ checkClassDeclsError prelude prg = do
 -- * Field declaration errors
 ----------------------------------------------------------------------
 
-checkDuplicateFieldNamesFDE ::HasLoc t =>  NewProgram t -> TCM (NewProgram t)
+checkDuplicateFieldNamesFDE ::HasLoc t =>  Program t -> TCM (Program t)
 checkDuplicateFieldNamesFDE prg =
     prg <$ expectEmptyOrThrow classDeclsWithDup DuplicateFieldNamesFDEErr
   where
     classDeclsWithDup = 
         [(getLoc cd, nameOfClassDecl cd, duplicateFldsForCls duplicateFields)
-        | cd <- classDeclsOfNewProgram prg
+        | cd <- classDeclsOfProgram prg
         , let fieldDecls = fieldsOfClassDef $ defOfClassDecl  cd
         , let duplicateFields = duplicatesWrtFun nameOfFieldDecl fieldDecls
         , not $ null duplicateFields ]
@@ -675,14 +675,14 @@ checkDuplicateFieldNamesFDE prg =
 
 -- TODO: it would in principle be necessary to rewrite the types occurring in fields with KindT
 -- (same for checkUndefinedTypeVDE)
-checkUndefinedTypeFDE :: NewProgram Untyped -> TCM (NewProgram Untyped)
+checkUndefinedTypeFDE :: Program Untyped -> TCM (Program Untyped)
 checkUndefinedTypeFDE prg = do
-  let kenv = map nameOfClassDecl (classDeclsOfNewProgram prg)
-      fds = concatMap (fieldsOfClassDef . defOfClassDecl) (classDeclsOfNewProgram prg)
+  let kenv = map nameOfClassDecl (classDeclsOfProgram prg)
+      fds = concatMap (fieldsOfClassDef . defOfClassDecl) (classDeclsOfProgram prg)
   _undefTps <- traverse (kndType kenv . tpOfFieldDecl) fds
   return prg
 
-checkFieldDeclsError :: NewProgram Untyped -> TCM (NewProgram Untyped)
+checkFieldDeclsError :: Program Untyped -> TCM (Program Untyped)
 checkFieldDeclsError prg =
   do
     _ <- checkDuplicateFieldNamesFDE prg
@@ -693,17 +693,17 @@ checkFieldDeclsError prg =
 -- * Global variable declaration errors
 ----------------------------------------------------------------------
 
-checkDuplicateVarNamesVDE :: HasLoc t => NewProgram t -> TCM (NewProgram t)
+checkDuplicateVarNamesVDE :: HasLoc t => Program t -> TCM (Program t)
 checkDuplicateVarNamesVDE prg =
-  prg <$ expectEmptyOrThrow (duplicatesWrtFun nameOfVarDecl (globalsOfNewProgram  prg)) (DuplicateVarNamesVDEErr . map (\vd -> (getLoc vd, nameOfVarDecl vd)))
+  prg <$ expectEmptyOrThrow (duplicatesWrtFun nameOfVarDecl (globalsOfProgram  prg)) (DuplicateVarNamesVDEErr . map (\vd -> (getLoc vd, nameOfVarDecl vd)))
 
-checkUndefinedTypeVDE :: NewProgram Untyped -> TCM (NewProgram Untyped)
+checkUndefinedTypeVDE :: Program Untyped -> TCM (Program Untyped)
 checkUndefinedTypeVDE prg = do
-  let kenv = map nameOfClassDecl (classDeclsOfNewProgram prg)
-  _undefTps <- traverse (kndType kenv . tpOfVarDecl) (globalsOfNewProgram prg)
+  let kenv = map nameOfClassDecl (classDeclsOfProgram prg)
+  _undefTps <- traverse (kndType kenv . tpOfVarDecl) (globalsOfProgram prg)
   return prg
 
-checkVarDeclsError :: NewProgram Untyped -> TCM (NewProgram Untyped)
+checkVarDeclsError :: Program Untyped -> TCM (Program Untyped)
 checkVarDeclsError prg =
   do
     _ <- checkDuplicateVarNamesVDE prg
@@ -720,17 +720,16 @@ tpComponent env e = case e of
   RuleTLE c -> fmap RuleTLE (tpRule env c)
   x -> pure $ addDummyTypes x
 
-checkComponentsError :: NewProgram Untyped -> TCM (NewProgram Typed)
+checkComponentsError :: Program Untyped -> TCM (Program Typed)
 checkComponentsError  prg = do
-  let env = initialEnvOfProgram (classDeclsOfNewProgram prg) (globalsOfNewProgram prg)
-  tpdComponents <- traverse (tpComponent env) (elementsOfNewProgram prg)
-  return $ (addDummyTypes prg) {elementsOfNewProgram = tpdComponents}
+  let env = initialEnvOfProgram (classDeclsOfProgram prg) (globalsOfProgram prg)
+  tpdComponents <- traverse (tpComponent env) (elementsOfProgram prg)
+  return $ (addDummyTypes prg) {elementsOfProgram = tpdComponents}
 
 ----------------------------------------------------------------------
 -- Summing up: all errors
 -- the lifted version of the checkError function below
--- checkErrorGen :: (TypeAnnot f, HasLoc (f (Tp()))) => Program (f (Tp())) -> Program (f (Tp())) -> Either Error (Program (f (Tp())))
-checkErrorLift :: NewProgram Untyped -> NewProgram Untyped -> TCM (NewProgram Typed)
+checkErrorLift :: Program Untyped -> Program Untyped -> TCM (Program Typed)
 checkErrorLift prelude prg =
   do
     prgClsDecls <- checkClassDeclsError prelude prg

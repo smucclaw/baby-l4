@@ -15,7 +15,8 @@ import qualified Data.Set as Set
 --import Annotation
 --import KeyValueMap
 import Syntax
-import Typing (eraseAnn)
+import Typing (eraseAnn, getTypeOfExpr)
+import PrintProg (printExpr, renameAndPrintExpr)
 
 
 ----------------------------------------------------------------------
@@ -25,9 +26,9 @@ import Typing (eraseAnn)
 liftType :: Tp () -> Tp (Tp ())
 liftType t = KindT <$ t
 
-forceArgTp :: Tp () -> Tp ()
-forceArgTp (FunT _ ftp atp) = atp
-forceArgTp _ = ErrT
+forceResultTp :: Tp () -> Tp ()
+forceResultTp (FunT _ _ptp rtp) = rtp
+forceResultTp _ = ErrT
 
 isLocalVar :: Var t -> Bool
 isLocalVar (LocalVar _ _) = True
@@ -62,7 +63,7 @@ appToFunArgs acc t = (t, acc)
 
 -- compose (f, [a1 .. an]) to (f a1 .. an)
 funArgsToApp :: Expr (Tp ()) -> [Expr (Tp ())] -> Expr (Tp ())
-funArgsToApp = foldl (\ f -> AppE (forceArgTp (annotOfExpr f)) f)
+funArgsToApp = foldl (\ f -> AppE (forceResultTp (annotOfExpr f)) f)
 
 applyVars :: Var (Tp()) -> [Var (Tp())] -> Expr (Tp())
 applyVars f args = funArgsToApp (mkVarE f) (map mkVarE args)
@@ -246,3 +247,20 @@ abstractFvd vds e
   = foldr
       (\ vd re -> FunE (FunT () (annotOfVarDecl vd) (annotOfExpr re)) vd re) e
       vds
+
+
+-- The following decomposition functions are the (pseudo-)inverses of the abstraction functions,
+-- Decomposing a FunE into a list of its variable declarations and a body 
+decomposeFun :: Expr t -> ([VarDecl t], Expr t)
+decomposeFun (FunE _ vd f) = let (vds, bd) = decomposeFun f in (vd:vds, bd)
+decomposeFun e = ([], e)
+
+etaExpand :: Expr (Tp()) -> Expr (Tp())
+etaExpand (FunE t vd f) = FunE t vd (etaExpand f)
+etaExpand e =
+  case annotOfExpr e of
+    FunT _ pt rt ->
+      abstractFvd [VarDecl pt "etaVar" (liftType pt)] 
+        (etaExpand (AppE rt (liftExpr 0 e) (VarE pt (LocalVar (QVarName pt "etaVar") 0))))
+    _ -> e
+

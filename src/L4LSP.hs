@@ -21,7 +21,7 @@ import           Language.LSP.Diagnostics
 import           System.Log.Logger
 -- import Control.Monad.Identity (Identity(runIdentity))
 -- import Control.Monad.Identity (Identity(runIdentity))
-import Parser (parseNewProgram)
+import Parser (parseProgram)
 import Data.Foldable (for_)
 import qualified Data.List as List
 import Syntax
@@ -46,7 +46,7 @@ type Config = ()
 
 type Source = T.Text
 type LocAndTp = LocTypeAnnot (Tp ())
-type ResErrOrAst = Either ResponseError (Maybe (NewProgram LocAndTp))
+type ResErrOrAst = Either ResponseError (Maybe (Program LocAndTp))
 data LspError = ReadFileErr Source | TypeCheckerErr [Err] | ParserErr Err deriving (Eq, Show)
 
 tshow :: Show a => a -> T.Text
@@ -212,17 +212,17 @@ handleLspErr nuri (Right a) = Right (Just a) <$ clearError "typechecker" nuri
 ----------------------------------------------------------------------
 -- Parsing functionality
 ----------------------------------------------------------------------
-getProg :: J.Uri -> T.Text -> Either LspError (NewProgram SRng)
+getProg :: J.Uri -> T.Text -> Either LspError (Program SRng)
 getProg uri contents = do
   x <- handleUriErrs uri
-  mapLeft ParserErr $ parseNewProgram x (T.unpack contents)
+  mapLeft ParserErr $ parseProgram x (T.unpack contents)
 
-readPrelude :: IO (NewProgram SRng)
+readPrelude :: IO (Program SRng)
 readPrelude = do
   l4PreludeFilepath <- getDataFileName "l4/Prelude.l4"
   do
     contents <- readFile l4PreludeFilepath
-    case parseNewProgram l4PreludeFilepath contents of
+    case parseProgram l4PreludeFilepath contents of
       Right ast -> do
         -- print ast
         return ast
@@ -235,7 +235,7 @@ parseAndSendErrors uri contents = do
   let nuri = toNormalizedUri uri
   handleLspErr nuri lspErrOrAst
 
-parseAndTypecheck :: MonadIO m => J.Uri -> T.Text -> ExceptT LspError m (NewProgram LocAndTp)
+parseAndTypecheck :: MonadIO m => J.Uri -> T.Text -> ExceptT LspError m (Program LocAndTp)
 parseAndTypecheck uri contents = do
   let errOrProg = getProg uri contents
   ast <- ExceptT $ pure errOrProg
@@ -243,7 +243,7 @@ parseAndTypecheck uri contents = do
   let typedAstOrTypeError = checkError preludeAst ast
   ExceptT $ pure $ mapLeft errorToErrs typedAstOrTypeError
 
-parseVirtualOrRealFile :: Uri -> ExceptT LspError (LspM Config) (NewProgram LocAndTp)
+parseVirtualOrRealFile :: Uri -> ExceptT LspError (LspM Config) (Program LocAndTp)
 parseVirtualOrRealFile uri = do
     contents <- getVirtualOrRealFile uri
     parseAndTypecheck uri contents
@@ -285,7 +285,7 @@ errorRange (Err s _)
 -- TODO: Use findAllExpressions and findExprAt to extract types for hover
 
 -- | Use magic to find all Expressions in a program
-findAllExpressions :: (Data t) => NewProgram t -> [Expr t]
+findAllExpressions :: (Data t) => Program t -> [Expr t]
 findAllExpressions = toListOf template
 
 -- | Find the smallest subexpression which contains the specified position
@@ -296,7 +296,7 @@ findExprAt pos expr =
     Just sub -> findExprAt pos sub
 
 -- | Given a position and a parsed program, try to find if there is any expression at that location
-findAnyExprAt :: (HasLoc t, Data t) => J.Position -> NewProgram t -> Maybe (Expr t)
+findAnyExprAt :: (HasLoc t, Data t) => J.Position -> Program t -> Maybe (Expr t)
 findAnyExprAt pos = List.find (posInRange pos . getLoc) . findAllExpressions
 
 
@@ -305,7 +305,7 @@ findAnyExprAt pos = List.find (posInRange pos . getLoc) . findAllExpressions
 -- Hover utilities
 ----------------------------------------------------------------------
 data SomeAstNode t
-  = SProg (NewProgram t)
+  = SProg (Program t)
   | STopLevelElement (TopLevelElement t)
   | SExpr (Expr t)
   | SMapping (Mapping t)
@@ -347,7 +347,7 @@ selectSmallestContaining pos parents node =
     Just sub -> selectSmallestContaining pos (node:parents) sub
 
 getChildren :: SomeAstNode t -> [SomeAstNode t]
-getChildren (SProg NewProgram {elementsOfNewProgram}) = map STopLevelElement elementsOfNewProgram
+getChildren (SProg Program {elementsOfProgram}) = map STopLevelElement elementsOfProgram
 getChildren (STopLevelElement t) = case t of
   MappingTLE mp -> [SMapping mp]
   ClassDeclTLE cd -> [SClassDecl cd]
@@ -367,10 +367,10 @@ getChildren (SAutomaton _ta) = []  -- TODO
 ----------------------------------------------------------------------
 -- Hover functionality
 ----------------------------------------------------------------------
-findAstAtPoint :: HasLoc t => Position -> NewProgram t -> [SomeAstNode t]
+findAstAtPoint :: HasLoc t => Position -> Program t -> [SomeAstNode t]
 findAstAtPoint pos = selectSmallestContaining pos [] . SProg
 
-tokensToHover :: Position -> NewProgram LocAndTp -> IO Hover
+tokensToHover :: Position -> Program LocAndTp -> IO Hover
 tokensToHover pos ast = do
       let astNode = findAstAtPoint pos ast
       return $ tokenToHover astNode

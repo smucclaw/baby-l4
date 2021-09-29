@@ -182,8 +182,8 @@ printRule r =
     "if   " ++ printExpr (precondOfRule r) ++ "\n" ++
     "then " ++ printExpr (postcondOfRule r) ++ "\n\n"
 
-namesUsedInProgram :: NewProgram t -> [VarName]
-namesUsedInProgram = map nameOfVarDecl . globalsOfNewProgram
+namesUsedInProgram :: Program t -> [VarName]
+namesUsedInProgram = map nameOfVarDecl . globalsOfProgram
 
 renameAndPrintExpr :: Show t => [String] -> Expr t -> String
 renameAndPrintExpr nms  = printExpr . renameExpr nms

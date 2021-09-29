@@ -19,12 +19,12 @@ import ToGF.GenerateLexicon (createGF', printGF', AtomWithArity(..), GrName)
 grName :: GrName
 grName = "Questions"
 
-createGF :: Show t => FilePath -> NewProgram t -> IO PGF
-createGF fname prog = createGF' fname grName (lexiconOfNewProgram prog) allPreds
+createGF :: Show t => FilePath -> Program t -> IO PGF
+createGF fname prog = createGF' fname grName (lexiconOfProgram prog) allPreds
   where
     allPreds = S.toList $ S.fromList $ concat
       [ getAtoms $ toPred vardecl
-      | vardecl <- globalsOfNewProgram prog
+      | vardecl <- globalsOfProgram prog
       , isPred vardecl ]
 
 printGF :: Gf a => PGF -> a -> IO ()
@@ -38,7 +38,7 @@ getAtoms (GMkPred0 (LexAtom name)) = [AA name 0]
 getAtoms (GMkPred1 (LexAtom name) (LexAtom arg)) = [AA name 1, AA arg 0]
 getAtoms (GMkPred2 (LexAtom name) (LexAtom arg1) (LexAtom arg2)) = [AA name 2, AA arg1 0, AA arg2 0]
 
-createQuestions :: Show t => FilePath -> NewProgram t -> IO ()
+createQuestions :: Show t => FilePath -> Program t -> IO ()
 createQuestions filename prog = do
   gr <- createGF filename prog
   let questions = toQuestions prog
@@ -52,8 +52,8 @@ class Questionable x where
 instance Show t => Questionable (VarDecl t) where
   toQuestions v = [GAreThereAny, GAreThereMore,  GProperties] <*>  [toPred v]
 
-instance Show a => Questionable (NewProgram a) where
-  toQuestions = concatMap toQuestions . filter isPred.globalsOfNewProgram
+instance Show a => Questionable (Program a) where
+  toQuestions = concatMap toQuestions . filter isPred.globalsOfProgram
 
 toPred :: Show t => VarDecl t -> GPred
 toPred d = case d of

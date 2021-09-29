@@ -8,6 +8,7 @@ import Typing
 import SyntaxManipulation (mkFunTp, abstractF, abstractFvd, liftExpr, dropVar, liftType)
 import PrintProg (renameAndPrintExpr, printExpr)
 import Data.Maybe (fromMaybe)
+import Text.Pretty.Simple (pPrint)
 
 liftUarithOp :: UArithOp -> Val -> Val
 liftUarithOp u c = case (u, c) of
@@ -97,7 +98,7 @@ evalExpr env x = case x of
     _ -> ExprResult (ValE ErrT ErrV)
   AppE t f a ->
     case evalExpr env f of
-      ExprResult fres -> evalExpr [evalExpr env a] fres
+      ExprResult fres -> ExprResult (AppE t fres (reduceEvalResult (evalExpr env a)))
       ClosResult clenv v fbd -> evalExpr (evalExpr env a:clenv) fbd
   FunE t v e -> ClosResult env v e
   e -> ExprResult (substClos (map reduceEvalResult env) 0 e)
@@ -137,9 +138,10 @@ substClos env d (ListE t lop es) = ListE t lop (map (substClos env d) es)
 ----------------------------------------------------------------------
 
 {- For testing evaluation / reduction:
-  for an assert (P e), reduce expression e
+  for an assert (P e), reduce expression e -}
+testReduction :: Program (Tp ()) -> IO ()
 testReduction prg =
-  let a = head (assertionsOfNewProgram prg)
+  let a = head (assertionsOfProgram prg)
       e = argOfExprAppE (exprOfAssertion a)
       ev = evalExpr [] e
   in  case ev of
@@ -147,4 +149,4 @@ testReduction prg =
    cl -> do
      pPrint cl
      putStrLn  (printExpr (reduceExpr e))
--}
+

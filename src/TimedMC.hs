@@ -4,9 +4,9 @@
 module TimedMC where
 
 import Syntax
-import SyntaxManipulation (conjExpr, disjExpr, implExpr, abstractQ, abstractF, liftVarBy, conjsExpr, disjsExpr, applyVars, mkVarE, mkEq, mkFloatConst, mkFunTp, index, indexListFromTo, gteExpr, eqExpr, mkIntConst, liftVar, funArgsToApp, notExpr)
+import SyntaxManipulation (conjExpr, disjExpr, implExpr, abstractQ, abstractF, liftVarBy, conjsExpr, disjsExpr, applyVars, mkVarE, mkEq, mkFloatConst, mkFunTp, index, indexListFromTo, gteExpr, eqExpr, mkIntConst, liftVar, funArgsToApp, notExpr, liftType)
 
-import PrintProg (renameAndPrintExpr, renameExpr)
+import PrintProg (renameAndPrintExpr, renameExpr, printExpr)
 import Data.List (find)
 import Data.Maybe (fromMaybe)
 import Text.Pretty.Simple (pPrint)
@@ -27,6 +27,50 @@ TCTL formulas are composed of:
 ----------------------------------------------------------------------
 -- Handling of types / variables
 ----------------------------------------------------------------------
+
+-- name of action / delay transition relation (defined according to transition rel of TA)
+actionTransitionName :: String
+actionTransitionName = "ATrans"
+delayTransitionName :: String
+delayTransitionName = "DTrans"
+
+-- name of action / delay transition trace relation (declared, no definition)
+actionTransitionTraceName :: String
+actionTransitionTraceName = "ATransTrace"
+delayTransitionTraceName :: String
+delayTransitionTraceName = "DTransTrace"
+
+
+-- name of action / delay transition relation together with trace 
+-- (defined as the conjunction of the above)
+actionTransitionWithTraceName :: String
+actionTransitionWithTraceName = "ATransWithTrace"
+delayTransitionWithTraceName :: String
+delayTransitionWithTraceName = "DTransWithTrace"
+
+
+{-
+actionTransTrace :: Var (Tp())
+actionTransTrace  =
+  let t = mkFunTp [StateT, StateT] BooleanT
+  in GlobalVar (QVarName t actionTransitionName)
+-}
+
+-- the Int parameter is the number of clock variables
+transitionFunTp :: Int -> Tp()
+transitionFunTp n = mkFunTp ((StateT : replicate n TimeT) ++ (StateT : replicate n TimeT)) BooleanT
+
+traceFunTp :: Int -> Tp()
+traceFunTp n = mkFunTp ((IntegerT : StateT : replicate n TimeT) ++ (StateT : replicate n TimeT)) BooleanT
+
+-- TODO: function still needed?
+transTrace :: String -> Int -> Var (Tp())
+transTrace transname n =
+  let t = traceFunTp n
+  in GlobalVar (QVarName t transname)
+
+stepPar :: Int -> Var (Tp ())
+stepPar = LocalVar (QVarName IntegerT  "step")
 
 locPar :: Int -> Var (Tp ())
 locPar = LocalVar (QVarName StateT  "st")
@@ -50,12 +94,13 @@ varOfClockMap ivars cl =
   fromMaybe (error ("in varOfClock: clock with name " ++ show (nameOfClock cl) ++ " not in map"))
    (lookup cl ivars)
 
+{- Currently not used
 clockOfVar :: Var t -> Clock
 clockOfVar v = Clock (nameOfQVarName (nameOfVar v))
 
 toClockVarAssoc :: Var t -> (Clock, Var t)
 toClockVarAssoc v = (Clock (nameOfQVarName (nameOfVar v)), v)
-
+-}
 
 ----------------------------------------------------------------------
 -- Construction of formulas
@@ -75,6 +120,7 @@ goalForm ta st cls e = case e of
   AppE tp f a  -> AppE tp (goalForm ta st cls f) (goalForm ta st cls a)
   e -> error ("goalForm: case " ++ show e ++ " currently not handled")
 
+{-
 goalFun :: TA (Tp ()) ->  Expr (Tp ()) -> Expr (Tp ())
 goalFun ta e =
   let n = length (clocksOfTA ta) + 1
@@ -82,6 +128,23 @@ goalFun ta e =
       cls = clockPars 0 (n - 2)
       sclvs  = (st : cls)
   in abstractF sclvs (goalForm ta st cls e)
+-}
+
+
+-- Function abstracting over (state, clocks)
+initialForm :: TA (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
+initialForm ta e =
+  let n = length (clocksOfTA ta) + 1
+      st = locPar (n - 1)
+      cls = clockPars 0 (n - 2)
+      sclvs  = (st : cls)
+      sclvs' = indexListFromTo n (2 * n - 1) sclvs
+      goal = goalForm ta st cls e
+      varTp = mkFunTp (StateT : replicate (n-1) TimeT) BooleanT
+      delayTransitionVar = GlobalVar (QVarName varTp delayTransitionName)
+  in abstractF sclvs
+      (disjExpr goal
+                (abstractQ Ex sclvs (conjExpr (applyVars delayTransitionVar (sclvs' ++ sclvs)) goal)))
 
 
 -- construct one expansion step of fixpoint calculation.
@@ -93,35 +156,35 @@ goalFun ta e =
 -- stv: state variable (local)
 -- clvs: list of clock variables (local)
 -- transv: transition variable (global)
-constrEFStepAbstrOld :: Var (Tp()) -> Var (Tp()) -> [Var (Tp())] -> Var (Tp()) -> Expr (Tp())
-constrEFStepAbstrOld fnv stv clvs transv =
-    let sclvs = stv : clvs
-        n = length sclvs
-        stvi = index (n - 1) stv
-        clvsi = indexListFromTo 0 (n - 2) clvs
-        sclvsi = stvi : clvsi
-    in abstractF sclvsi
-                 (disjExpr (applyVars fnv sclvsi)
-                           (abstractQ Ex sclvsi
-                                     (conjExpr (applyVars transv (map (liftVarBy 0 n) sclvsi ++ sclvsi))
-                                               (applyVars fnv sclvsi))))
 
-constrEFStepAbstr :: TA (Tp()) -> Expr (Tp()) -> Expr (Tp())
-constrEFStepAbstr ta fnv =
+-- Path quantifiers are: E (some branch) and A (all branches)
+-- State quantifiers are: <> (eventually) and [] (always)
+-- Expansion steps are:
+-- - for A<>: f(j+1)(x) = f(j)(x) || All x'. Trans(x, x') --> f(j)(x')
+-- - for A[]: f(j+1)(x) = f(j)(x) && All x'. Trans(x, x') --> f(j)(x')
+-- - for E<>: f(j+1)(x) = f(j)(x) || Ex x'. Trans(x, x') && f(j)(x')
+-- - for E[]: f(j+1)(x) = f(j)(x) && Ex x'. Trans(x, x') && f(j)(x')
+-- TODO: at least for E<>, the generated formula looks redundant;
+-- f(j)(x) means: goal can be reached in j steps or less, 
+-- and not: can be reached in exactly j steps.
+-- Function abstracting over (state, clocks), where also fnv is a fun abstracting over (state, clocks)
+constrExpansionStep :: Integer -> TA (Tp()) -> Quantif -> Quantif -> Expr (Tp()) -> Expr (Tp())
+constrExpansionStep k ta pQuantif sQuantif fnv =
   let n = length (clocksOfTA ta) + 1
       st  = locPar (n - 1)
       cls = clockPars 0 (n - 2)
       sclvs = st : cls
+      relativOp = case pQuantif of All -> implExpr; Ex -> conjExpr
+      composOp = case sQuantif  of All -> conjExpr; Ex -> disjExpr
   in abstractF sclvs
-                 (disjExpr (reduceExpr (funArgsToApp fnv (map mkVarE sclvs)))
-                           (abstractQ Ex sclvs
-                                    (conjExpr (reduceExpr  (funArgsToApp (constrTransitions ta) (map mkVarE (map (liftVarBy 0 n) sclvs ++ sclvs))))
-                                              (reduceExpr (funArgsToApp fnv (map mkVarE sclvs))))))
+        (composOp (reduceExpr (funArgsToApp fnv (map mkVarE sclvs)))
+                  (abstractQ Ex sclvs
+                      (relativOp (reduceExpr (funArgsToApp (constrTransitionsNamed ta) (ValE IntegerT (IntV k) : map mkVarE (map (liftVarBy 0 n) sclvs ++ sclvs))))
+                                 (reduceExpr (funArgsToApp fnv (map mkVarE sclvs))))))
 
 -- Relation composition: for sclvs = [s, c1 .. cn], construct
 -- \s \c1 .. \cn \s' \c1' .. \cn'  -> exists \s'' \c1'' .. \cn''. r1 s c1 .. cn s'' c1'' .. cn'' && r2 s'' c1'' .. cn'' s' c1' .. cn'
-{-
-constrCompos :: [Var (Tp())] -> Var (Tp()) -> Var (Tp()) -> Expr (Tp())
+constrCompos :: [Var (Tp())] -> Expr (Tp()) -> Expr (Tp()) -> Expr (Tp())
 constrCompos sclvs r1 r2 =
   let n = length sclvs
       scls   = indexListFromTo (2 * n) (3 * n - 1) sclvs
@@ -129,9 +192,9 @@ constrCompos sclvs r1 r2 =
       scls'' = indexListFromTo 0 (n - 1) sclvs
   in abstractF (sclvs ++ sclvs)
         (abstractQ Ex sclvs
-          (conjExpr (applyVars r1 ( scls ++ scls'' ) )
-                    (applyVars r2 ( scls'' ++ scls' ) ) ))
--}
+          (conjExpr (funArgsToApp r1 (map mkVarE ( scls ++ scls'' ) ))
+                    (funArgsToApp r2 (map mkVarE ( scls'' ++ scls' ) ) )))
+
 
 delayTransInv :: Var (Tp ()) -> [(Clock, Var (Tp ()))] -> (Loc, [ClConstr]) -> Expr (Tp ())
 delayTransInv st cls' (l, cnstrs) =
@@ -170,8 +233,9 @@ actionToExpr :: [(Clock, Var (Tp ()))] -> [(Clock, Var (Tp ()))] -> [Clock] -> T
 actionToExpr clvarsMap clvarsMap' allCls (TransitionAction _act resetcls _cmd) =
   conjsExpr (map (resetToExpr clvarsMap clvarsMap' resetcls) allCls)
 
-constrActionTransition :: TA (Tp()) -> Var (Tp()) ->[Var (Tp())] -> Var (Tp()) ->[Var (Tp())] -> Transition (Tp()) -> Expr (Tp())
-constrActionTransition ta st cls st' cls' t =
+-- construct an action transition formula for a single transition of the TA
+constrSingleActionTransition :: TA (Tp()) -> Var (Tp()) ->[Var (Tp())] -> Var (Tp()) ->[Var (Tp())] -> Transition (Tp()) -> Expr (Tp())
+constrSingleActionTransition ta st cls st' cls' t =
  conjsExpr [
     mkEq st (varOfLoc (sourceOfTransition t)),
     mkEq st' (varOfLoc (targetOfTransition t)),
@@ -180,13 +244,81 @@ constrActionTransition ta st cls st' cls' t =
     conjsExpr (concatMap (map (clockConstrToExpr (zip (clocksOfTA ta) cls'))) [cnstrts | (l, cnstrts) <- invarsOfTA ta, l == targetOfTransition t ])
   ]
 
---constrActionTransitions :: TA (Tp()) -> Var (Tp()) ->[Var (Tp())] -> Expr (Tp())
-constrActionTransitions :: TA (Tp ()) -> Var (Tp ()) -> [Var (Tp ())] -> Var (Tp ()) -> [Var (Tp ())] -> Expr (Tp ())
-constrActionTransitions ta st cls st' cls' =
-  disjsExpr (map (constrActionTransition ta st cls st' cls') (transitionsOfTA ta))
+-- construct an action transition formula for all transitions of the TA
+constrActionTransition :: TA (Tp ()) -> Var (Tp ()) -> [Var (Tp ())] -> Var (Tp ()) -> [Var (Tp ())] -> Expr (Tp ())
+constrActionTransition ta st cls st' cls' =
+  disjsExpr (map (constrSingleActionTransition ta st cls st' cls') (transitionsOfTA ta))
 
-constrTransitions :: TA (Tp()) -> Expr (Tp())
-constrTransitions ta =
+transitionFunParams :: TA t -> (Int, Var (Tp ()), Var (Tp ()), [Var (Tp ())], [Var (Tp ())])
+transitionFunParams ta = 
+  let n = length (clocksOfTA ta) + 1
+  in ( n
+     , locPar (2 * n - 1)           -- st
+     , locPar (n - 1)               -- st'
+     , clockPars n (2 * n - 2)      -- cls
+     , clockPars 0 (n - 2)          -- cls'
+    )
+
+defineActionTransition :: TA (Tp ()) -> VarDefn (Tp ())
+defineActionTransition ta =
+  let (n, st, st', cls, cls') = transitionFunParams ta
+      sclvs  = (st : cls)
+      sclvs' = (st' : cls')
+      actionFun = abstractF (sclvs ++ sclvs') (constrActionTransition ta st cls st' cls')
+      funTp = transitionFunTp (n - 1)
+  in VarDefn funTp actionTransitionName (liftType funTp) actionFun
+
+defineDelayTransition :: TA (Tp ()) -> VarDefn (Tp ())
+defineDelayTransition ta =
+  let (n, st, st', cls, cls') = transitionFunParams ta
+      sclvs  = (st : cls)
+      sclvs' = (st' : cls')
+      delayFun = abstractF (sclvs ++ sclvs') (constrDelayTransition ta st cls st' cls')
+      funTp = transitionFunTp (n - 1)
+  in VarDefn funTp delayTransitionName (liftType funTp) delayFun
+
+defineTransitionWithTrace :: TA (Tp ()) -> String -> String -> String -> VarDefn (Tp ())
+defineTransitionWithTrace ta transName transTraceName transWithTraceName =
+  let (n, st, st', cls, cls') = transitionFunParams ta
+      step = stepPar (2 * n)
+      sclvs  = (st : cls)
+      sclvs' = (st' : cls')
+      transTp = transitionFunTp (n - 1)
+      traceTp = traceFunTp (n - 1)
+      defFun = abstractF (step: sclvs ++ sclvs')
+                  (conjExpr
+                      (applyVars (GlobalVar (QVarName transTp transName))
+                                 ((st:cls) ++ (st':cls')))
+                      (applyVars (GlobalVar (QVarName traceTp transTraceName))
+                                 (step :(st:cls) ++ (st':cls'))))
+  in VarDefn traceTp transWithTraceName (liftType traceTp) defFun
+
+
+-- transition formula with transition relations fully expanded
+constrTransitionsForm :: TA (Tp()) -> Expr (Tp())
+constrTransitionsForm ta =
+  let (_, st, st', cls, cls') = transitionFunParams ta
+      sclvs  = (st : cls)
+      sclvs' = (st' : cls')
+  in abstractF (sclvs ++ sclvs')
+      (disjExpr (constrActionTransition ta st cls st' cls') (constrDelayTransition ta st cls st' cls'))
+
+-- transition formula with reference to transition name using *composition* of relations
+-- Function abstracting over (step, state, clocks, state', clocks')
+constrTransitionsNamed :: TA (Tp()) -> Expr (Tp())
+constrTransitionsNamed ta =
+  let n = length (clocksOfTA ta) + 1
+      step = stepPar (3 * n)  -- the step variable is used from within the relation composition
+      st = locPar (n - 1)
+      cls = clockPars 0 (n - 2)
+      sclvs  = (st : cls)
+      varTp = traceFunTp (n - 1)
+      actionTransition = applyVars (GlobalVar (QVarName varTp actionTransitionWithTraceName)) [step]
+      delayTransition = applyVars (GlobalVar (QVarName varTp delayTransitionWithTraceName)) [step]
+  in abstractF [step] (constrCompos sclvs delayTransition actionTransition)
+
+{-
+constrTransitionsNamed ta =
   let n = length (clocksOfTA ta) + 1
       st  = locPar (2 * n - 1)
       st' = locPar (n - 1)
@@ -194,41 +326,71 @@ constrTransitions ta =
       cls' = clockPars 0 (n - 2)
       sclvs  = (st : cls)
       sclvs' = (st' : cls')
+      varTp = mkFunTp (StateT : replicate (n-1) TimeT) BooleanT 
+      actionTransitionVar = GlobalVar (QVarName varTp actionTransitionName)
+      delayTransitionVar = GlobalVar (QVarName varTp delayTransitionName)
   in abstractF (sclvs ++ sclvs')
-      (disjExpr (constrActionTransitions ta st cls st' cls') (constrDelayTransition ta st cls st' cls'))
+      (disjExpr (applyVars actionTransitionVar (sclvs ++ sclvs')) (applyVars delayTransitionVar (sclvs ++ sclvs')))
+-}
 
-kFoldExpansion ::  Int -> TA (Tp()) -> Expr (Tp()) -> Expr (Tp())
-kFoldExpansion k ta e =
+
+-- Function abstracting over (state, clocks)
+kFoldExpansion ::  Integer -> TA (Tp()) -> Quantif -> Quantif ->  Expr (Tp()) -> Expr (Tp())
+kFoldExpansion k ta pQuantif sQuantif e =
   if k == 0
-  then goalFun ta e
-  else constrEFStepAbstr ta (kFoldExpansion (k-1) ta e)
+  then initialForm ta e
+  else constrExpansionStep k ta pQuantif sQuantif (kFoldExpansion (k-1) ta  pQuantif sQuantif e)
 
 -- create formula to model check automaton by k-fold expansion of a formula
-checkAutomaton :: Int -> TA (Tp()) -> Expr (Tp()) -> Expr (Tp())
-checkAutomaton k ta e =
-  let expansion = kFoldExpansion k ta e
-      initialLoc = VarE StateT (varOfLoc (initialLocOfTA ta))
-      initialCls = replicate (length (clocksOfTA ta)) (ValE TimeT (FloatV 0.0))
-  in reduceExpr (funArgsToApp expansion (initialLoc : initialCls))
+goalSpecificForms :: Integer -> TA (Tp()) -> Expr (Tp()) -> Expr (Tp())
+goalSpecificForms k ta e =
+  case e of
+    UnaOpE _ (UTemporal tempOp) eBody ->
+      let (pQuantif, sQuantif) = case tempOp of
+            UTAF -> (All, Ex)
+            UTAG -> (All, All)
+            UTEF -> (Ex, Ex)
+            UTEG -> (Ex, All)
+          expansion = kFoldExpansion k ta pQuantif sQuantif eBody
+          initialLoc = VarE StateT (varOfLoc (initialLocOfTA ta))
+          initialCls = replicate (length (clocksOfTA ta)) (ValE TimeT (FloatV 0.0))
+      in reduceExpr (funArgsToApp expansion (initialLoc : initialCls))
+    _ -> error "in checkAutomaton: not a temporal formula"
 
+-- Formula: (distinct loc1 .. locn)
+genericForms :: TA (Tp()) -> Expr (Tp())
+genericForms ta =
+  let locs = locsOfTA ta
+      n = length locs
+      locVars = map varOfLoc locs
+      varTp = mkFunTp (replicate n TimeT) BooleanT
+  in applyVars (GlobalVar (QVarName varTp "distinct")) locVars
+
+checkAutomaton :: Integer -> TA (Tp()) -> Expr (Tp()) -> Expr (Tp())
+checkAutomaton k ta e = conjExpr (genericForms ta) (goalSpecificForms k ta e)
 
 ----------------------------------------------------------------------
 -- Wiring with rest
 ----------------------------------------------------------------------
 
-runAut :: NewProgram (Tp ()) -> IO ()
+runAut :: Program (Tp ()) -> IO ()
 {--}
 runAut prg =
-  let ta = head (automataOfNewProgram prg)
-      asrt = head (assertionsOfNewProgram prg)
-      cds = classDeclsOfNewProgram prg
-      gl = globalsOfNewProgram prg
+  let ta = head (automataOfProgram prg)
+      asrt = head (assertionsOfProgram prg)
+      cdecls = classDeclsOfProgram prg
+      globals = globalsOfProgram prg
+      actTransDef = defineActionTransition ta
+      delayTransDef = defineDelayTransition ta
+      actTraceDef = defineTransitionWithTrace ta actionTransitionName actionTransitionTraceName actionTransitionWithTraceName
+      delayTraceDef = defineTransitionWithTrace ta delayTransitionName delayTransitionTraceName delayTransitionWithTraceName
+      defs = [actTransDef, delayTransDef, actTraceDef, delayTraceDef]
       instr = fromMaybe (MapVM []) (selectAssocOfMap "SMT" (instrOfAssertion asrt))
       config = selectAssocOfValue "config" instr
-      proveConsistency = False -- prove validity
-      -- TODO: renameExpr has to be done more systematically before generation of SMT expresssions
-      proofTarget = renameExpr [] (notExpr (checkAutomaton 2 ta (exprOfAssertion asrt)))
-  in proveExpr config proveConsistency cds gl proofTarget -- launching the real checker
+      proveConsistency = True -- prove consistency
+      proofTarget = checkAutomaton 4 ta (exprOfAssertion asrt)
+  in proveExpr config proveConsistency cdecls globals defs proofTarget -- launching the real checker
+  -- in putStrLn $ renameAndPrintExpr [] (constrTransitionsNamed ta )  -- printout of the generated formula
 
 {-
   -- TESTS:
@@ -236,7 +398,7 @@ runAut prg =
   -- in putStrLn $ renameAndPrintExpr [] (checkAutomaton 1 ta (exprOfAssertion asrt))
   -- in putStrLn $ printExpr  proofTarget
   -- in putStrLn $ renameAndPrintExpr [] (kFoldExpansion 2 ta (exprOfAssertion asrt))
-  --runAut prg = putStrLn $ unlines (map constrAutTransitionTest (automataOfNewProgram prg))
+  --runAut prg = putStrLn $ unlines (map constrAutTransitionTest (automataOfProgram prg))
 -}
 
 ----------------------------------------------------------------------
@@ -244,10 +406,10 @@ runAut prg =
 ----------------------------------------------------------------------
 
 constrAutTransitionTest :: TA (Tp ()) -> String
-constrAutTransitionTest ta = renameAndPrintExpr [] (constrTransitions ta)
+constrAutTransitionTest ta = renameAndPrintExpr [] (constrTransitionsForm ta)
 
 constrAutGoalTest :: TA (Tp ()) -> Expr (Tp ()) -> String
-constrAutGoalTest ta e = renameAndPrintExpr [] (goalFun ta e)
+constrAutGoalTest ta e = renameAndPrintExpr [] (initialForm ta e)
 
-constrAutExpTest :: Int -> TA (Tp ()) -> Expr (Tp ()) -> String
+constrAutExpTest :: Integer -> TA (Tp ()) -> Expr (Tp ()) -> String
 constrAutExpTest k ta e = renameAndPrintExpr [] (checkAutomaton k ta e)
