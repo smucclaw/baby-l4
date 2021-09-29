@@ -6,7 +6,7 @@ import Typing
 import Annotation
 import Paths_baby_l4 (getDataFileName)
 import Lexer (Err)
-import Parser (parseNewProgram)
+import Parser (parseProgram)
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Control.Monad.Trans.Except ( ExceptT(..) )
 import Data.Either.Extra (mapLeft)
@@ -14,12 +14,12 @@ import Data.Either.Extra (mapLeft)
 
 data HelperErr = LexErr Err | TpErr Error deriving (Eq, Show)
 
-readPrelude :: IO (NewProgram SRng)
+readPrelude :: IO (Program SRng)
 readPrelude = do
   l4PreludeFilepath <- getDataFileName "l4/Prelude.l4"
   do
     contents <- readFile l4PreludeFilepath
-    case parseNewProgram l4PreludeFilepath contents of
+    case parseProgram l4PreludeFilepath contents of
       Right ast -> do
         -- print ast
         return ast
@@ -27,9 +27,9 @@ readPrelude = do
         error "Parser Error in Prelude"
 
 
-getTpAst :: FilePath -> String -> ExceptT HelperErr IO (NewProgram (LocTypeAnnot (Tp ())))
+getTpAst :: FilePath -> String -> ExceptT HelperErr IO (Program (LocTypeAnnot (Tp ())))
 getTpAst fpath contents = do
-  ast <- eitherToExceptT LexErr $ parseNewProgram fpath contents
+  ast <- eitherToExceptT LexErr $ parseProgram fpath contents
   preludeAst <- liftIO readPrelude
   eitherToExceptT TpErr $ checkError preludeAst ast
 
