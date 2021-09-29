@@ -251,9 +251,9 @@ exprToCEArg (num, VarE _ (GlobalVar name)) = CEEquality (defArg num) (nameOfQVar
 exprToCEArg (_, expr) = CEArgFail $ "exprToCEArg cannot transpile expression: " ++ show expr
 
 
-astToRules :: NewProgram (Tp ()) -> IO ()
+astToRules :: Program (Tp ()) -> IO ()
 astToRules x = do
-    let lrRules = map filterRule $ rulesOfNewProgram x
+    let lrRules = map filterRule $ rulesOfProgram x
         gdRules = rights lrRules
     -- print $ lefts lrRules
     putStrLn "Rule AST:"
