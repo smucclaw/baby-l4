@@ -17,7 +17,7 @@ import SyntaxManipulation (appToFunArgs)
 
 
 -- given a filepath, return a program
-getProg :: FilePath -> IO (NewProgram (Tp ()))
+getProg :: FilePath -> IO (Program (Tp ()))
 getProg fpath = do
     contents <- readFile fpath
     errOrTpAst <- runExceptT $ getTpAst fpath contents
@@ -27,8 +27,8 @@ getProg fpath = do
             error $ show errs -- TODO: Add error printing with proper formatting
 
 -- given rulename, filter out rule from program
-obtRule :: NewProgram (Tp ()) -> String -> [Rule (Tp ())]
-obtRule prog rname = [r | r <- rulesOfNewProgram prog, nameOfRule r == Just rname ]
+obtRule :: Program (Tp ()) -> String -> [Rule (Tp ())]
+obtRule prog rname = [r | r <- rulesOfProgram prog, nameOfRule r == Just rname ]
 
 
 
