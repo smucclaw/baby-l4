@@ -1,9 +1,55 @@
+{-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 
 module Error where
+import Data.Data (Data, Typeable)
 import Syntax
 import Annotation (RealSRng(..), SRng(..), Pos(Pos) )
 
-type ExprError = [(SRng, ErrorCause)]
+
+data ExpectedType
+  = ExpectedString  String
+  | ExpectedExactTp (Tp())
+  | ExpectedSubTpOf (Tp())
+  deriving (Eq, Ord, Show, Read, Data, Typeable)
+
+data ErrorCause
+  = UndefinedClassInType SRng ClassName
+  | UndeclaredVariable SRng VarName
+  | IllTypedSubExpr { exprRangesITSE :: [SRng]    -- operators that require specific types  for their arguments
+                    , receivedITSE :: [Tp()]
+                    , expectedITSE :: [ExpectedType] }
+  | IncompatibleTp { exprRangesITSE :: [SRng]     -- when we need two types to be the same for an operation, or perhaps a subtype (to check)
+                    , receivedITSE :: [Tp()] }
+  | NonScalarExpr { exprRangesITSE :: [SRng]      -- functions are not scalar types and not comparable
+                    , receivedITSE :: [Tp()] }
+  | NonFunctionTp { exprRangesITSE :: [SRng] -- call function when not function
+                    , receivedFunTpITSE :: Tp() }
+  | CastIncompatible { exprRangesITSE :: [SRng] -- typecasting from int to string for example (and its not compatible)
+                    , receivedCastITSE :: Tp()
+                    , castToITSE :: Tp() }
+    -- TODO: the following has become obsolete
+  | IncompatiblePattern SRng          -- pattern matching failure for tuples (l4)
+  | UnknownFieldName SRng FieldName ClassName   -- class has no such field
+  | AccessToNonObjectType SRng  -- when using dot notation on something thats not an object
+
+  -- Previously spread out in several other types
+  | DuplicateClassNamesCDEErr [(SRng, ClassName)]  -- classes whose name is defined multiple times
+  | UndefinedSuperclassCDEErr [(SRng, ClassName)]  -- classes having undefined superclasses
+  | CyclicClassHierarchyCDEErr [(SRng, ClassName)]  -- classes involved in a cyclic class definition
+
+  | DuplicateFieldNamesFDEErr [(SRng, ClassName, [(SRng, FieldName)])]     -- field names with duplicate defs
+    -- TODO: the following has become obsolete
+  | UndefinedTypeFDEErr [(SRng, FieldName)]                                -- field names containing undefined types
+
+  | DuplicateVarNamesVDEErr [(SRng, VarName)]
+    -- TODO: the following has become obsolete
+  | UndefinedTypeVDEErr [(SRng, VarName)]
+  deriving (Eq, Ord, Show, Read, Data, Typeable)
+
+{-# DEPRECATED IncompatiblePattern "Tuple patterns are no longer supported" #-}
+{-# DEPRECATED UndefinedTypeFDEErr "This is now obsolete" #-}
+{-# DEPRECATED UndefinedTypeVDEErr "This is now obsolete" #-}
 
 data ClassDeclsError
     = DuplicateClassNamesCDE [(SRng, ClassName)]  -- classes whose name is defined multiple times
@@ -30,7 +76,8 @@ data AssertionError
   deriving (Eq, Ord, Show, Read)
 
 -- TODO: after restructuring, only ErrorCauseErr remain. 
--- It will then be possible to remove the Error type altogether
+-- It will then be possible to remove the Error type altogether, and also the types
+-- ClassDeclsError, FieldDeclsError, VarDeclsError, RuleError, AssertionError
 data Error
     = ClassDeclsErr ClassDeclsError
     | FieldDeclsErr FieldDeclsError
@@ -74,12 +121,14 @@ printExpectedTp (ExpectedSubTpOf t) = "a subtype of " ++ printTp t
 printPos :: Pos -> String
 printPos (Pos l c) = "(" ++ show l ++ "," ++ show c ++ ")"
 
+
 printSRng :: SRng -> String
 --printSRng = show
 printSRng (RealSRng(SRng spos epos)) = printPos spos ++ " .. " ++ printPos epos
 printSRng (DummySRng reason) = show reason
 
 printErrorCause :: ErrorCause -> String
+printErrorCause (UndefinedClassInType r cn) = "Class name " ++ printClassName cn ++ " at " ++ (printSRng r) ++ " is undefined."
 printErrorCause (UndeclaredVariable r vn) = "Variable " ++ printVarName vn ++ " at " ++ (printSRng r) ++ " is undefined."
 printErrorCause (IllTypedSubExpr rngs givents expts) =
   "Expression at " ++ (printSRng (head rngs)) ++ " is ill-typed:\n" ++
@@ -110,7 +159,13 @@ printErrorCause (UnknownFieldName r fn cn) =
     "Expression at "++ printSRng r ++ " is ill-typed: access to an unknown field " ++ printFieldName fn ++ " in class " ++ printClassName cn
 printErrorCause (AccessToNonObjectType r) =
   "Expression at "++ printSRng r ++ " is ill-typed: access to a field of a non-object type\n"
-printErrorCause c = show c
+printErrorCause (DuplicateClassNamesCDEErr cls) = printClassDeclsError $ DuplicateClassNamesCDE cls -- TODO: Inline these definitions
+printErrorCause (UndefinedSuperclassCDEErr cls) = printClassDeclsError $ UndefinedSuperclassCDE cls
+printErrorCause (CyclicClassHierarchyCDEErr cls) = printClassDeclsError $ CyclicClassHierarchyCDE cls
+printErrorCause (DuplicateFieldNamesFDEErr dfs) = printFieldDeclsError $ DuplicateFieldNamesFDE dfs
+printErrorCause (UndefinedTypeFDEErr dfs) = printFieldDeclsError $ UndefinedTypeFDE dfs
+printErrorCause (DuplicateVarNamesVDEErr vdloc) = printVarDeclsError $ DuplicateVarNamesVDE vdloc
+printErrorCause (UndefinedTypeVDEErr vdloc) = printVarDeclsError $ UndefinedTypeVDE vdloc
 
 printClassLocName :: (SRng, ClassName) -> String
 printClassLocName (r, cn) = "At " ++ printSRng r ++ " class name " ++ printClassName cn

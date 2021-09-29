@@ -65,7 +65,6 @@ tokens :-
   lexicon                       { lex' TokenLexicon }
   fact                          { lex' TokenFact }
   rule                          { lex' TokenRule }
-  derivable                     { lex' TokenDerivable }
 
   process                       { lex' TokenProcess }
   clock                         { lex' TokenClock }
@@ -411,7 +410,6 @@ data TokenKind
   | TokenLexicon
   | TokenFact
   | TokenRule
-  | TokenDerivable
 
   -- Automata
   | TokenProcess
@@ -478,7 +476,6 @@ unLex TokenExtends   = "extends"
 unLex TokenLexicon   = "lexicon"
 unLex TokenFact      = "fact"
 unLex TokenRule      = "rule"
-unLex TokenDerivable = "derivable"
 unLex TokenProcess   = "process"
 unLex TokenClock     = "clock"
 unLex TokenState     = "state"
@@ -603,7 +600,7 @@ alex2lspRng tokenPos tokenLen = RealSRng $ SRng startPos endPos
     endPos = offset tokenLen startPos
 
 aposToPos :: AlexPosn -> Pos
-aposToPos (AlexPn _ l c) = Pos (l - 1) (c - 1)
+aposToPos (AlexPn _ l c) = Pos l c
 
 -- horizontal offset, assuming tokens do not extend over several lines
 offset :: Int -> Pos -> Pos

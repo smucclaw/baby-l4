@@ -52,7 +52,7 @@ isPred :: VarDecl t -> Bool
 isPred = isPred' . tpOfVarDecl
 
 isPred' :: Tp t -> Bool
-isPred' (FunT _ t (ClassT _ (ClsNm "Boolean"))) = True
+isPred' (FunT _ t (ClassT _ BooleanC)) = True
 isPred' (FunT _ t t2) = isPred' t2
 isPred' _ = False
 
@@ -85,8 +85,8 @@ onlyFacts = filter isFact . globalsOfProgram
     isFact :: VarDecl t -> Bool
     isFact = isFact' . tpOfVarDecl
 
-    isFact' (ClassT _ (ClsNm "Boolean")) = True
-    isFact' (ClassT _ (ClsNm "Integer")) = True
+    isFact' (ClassT _ BooleanC) = True
+    isFact' (ClassT _ IntegerC) = True
     isFact' (ClassT _ _) = True
     -- isFact' (TupleT _) = _ ---- ??????
     isFact' _ = False
@@ -143,9 +143,9 @@ instance SCasp (VarDecl t) where
 
 instance Show t => SCasp (Expr (Tp t)) where
   -- We don't need a case for Forall, because normalizeQuantif has taken care of it already earlier
-  showSingle (Exist x typ exp) = vsep $ existX : suchThat
+  showSingle (Exist x exp) = vsep $ existX : suchThat
     where
-      existX = mkAtom typ <> parens (mkVar (nameOfQVarName x, typ))
+      existX = mkAtom (tpOfVarDecl x) <> parens (mkVar (nameOfVarDecl x, tpOfVarDecl x))
       suchThat =
         showSingle <$> case normalizeAndExpr exp of
           ListE _ _ es -> es
@@ -155,12 +155,11 @@ instance Show t => SCasp (Expr (Tp t)) where
     FunApp1 f x xTp -> mkAtom f <> parens (mkVar ((nameOfQVarName .nameOfVar) x, xTp))
     FunApp2 f x xTp y yTp -> mkAtom f <> encloseSep lparen rparen comma (mkVar <$> [((nameOfQVarName .nameOfVar) x, xTp), ((nameOfQVarName .nameOfVar) y, yTp)])
     ListE _ _ es -> commaList $ map showSingle es
-    QuantifE _ _ _ _ es -> showSingle es
+    QuantifE _ _ _ es -> showSingle es
     BinOpE _ _ e1 e2 -> showSingle e1 <+> showSingle e2
     UnaOpE _ unaop exp -> showSingle unaop <+> showSingle exp
-    NotDeriv ann _ e  -> showSingle $ UnaOpE ann (UBool UBnot) e
     AppE _ e1 e2 -> showSingle e1 <+> showSingle e2
-    FunE _ _ _ es -> showSingle es
+    FunE _ _ es -> showSingle es
     --IfThenElseE _ ifE thenE elseE -> vsep [
     --                                  showSC ifE <> comma,
     --                                showSC thenE,
@@ -212,15 +211,15 @@ instance Arg (Var t) where
 
 instance Arg (Tp t) where
   mkAtom tp = case tp of
-    ClassT _ (ClsNm "Boolean") -> pretty "bool"
-    ClassT _ (ClsNm "Integer") -> pretty "int"
+    ClassT _ BooleanC -> pretty "bool"
+    ClassT _ IntegerC -> pretty "int"
     ClassT _ (ClsNm (f : irst)) -> pretty $ toLower f : irst
     FunT _ t1 t2 -> mkAtom t1 <> pretty "->" <> mkAtom t2
     TupleT _ ts -> encloseSep lparen rparen comma $ map mkAtom ts
     _ -> pretty "unsupportedtype"
   mkVar tp = pretty $ case tp of
-    ClassT _ (ClsNm "Boolean") -> "Bool"
-    ClassT _ (ClsNm "Integer") -> "Int"
+    ClassT _ BooleanC -> "Bool"
+    ClassT _ IntegerC -> "Int"
     ClassT _ (ClsNm (f : irst)) -> toUpper f : irst
     _ -> "UnsupportedType"
 

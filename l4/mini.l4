@@ -5,27 +5,31 @@ UnauthorizedSharingFees -> "involves sharing fees with unauthorized persons for 
 DetractsFromDignity -> "detracts from dignity of legal profession"
 DerogatesFromDignity -> "derogates from dignity of legal profession"
 IncompatibleWithDignity -> "incompatible with dignity of legal profession"
-r34_1_a_applies -> "sole independent contractor"
+TransitivePredicate -> "threatens the life of"
 
-class Business {
-    Unfair: Boolean
-    DescribedInFirstSchedule: Boolean
-    Prohibited: Boolean
+
+class Business
+class Person
+
+decl Unfair : Business -> Boolean
+decl DescribedInFirstSchedule : Business -> Boolean
+decl Prohibited : Business -> Boolean
     # UnauthorizedSharingFees : Bool    # has lexicon entry
     # DetractsFromDignity: Bool         # has lexicon entry
     # IncompatibleWithDignity: Bool     # has lexicon entry
     # DerogatesFromDignity: Bool        # has lexicon entry
-    DescribedInSectionOne : Boolean         # rest parsed from the predicate name
-}
+decl DescribedInSectionOne : Business -> Boolean         # rest parsed from the predicate name
+decl TransitivePredicate : Person -> Business -> Boolean
+
 
 decl r34_1_a_applies: Business -> Boolean
 
 rule <r34_1_a>
-for b: Business
+for b : Business
 if (
     # b.DetractsFromDignity ||
     # b.IncompatibleWithDignity  ||
     # b.DerogatesFromDignity
-    b.Unfair
+    Unfair b
 )
-then b.DescribedInSectionOne && r34_1_a_applies b
+then DescribedInSectionOne b && exists p : Person . TransitivePredicate p b

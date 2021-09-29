@@ -20,6 +20,7 @@ extra-source-files:  README.org
                    , grammars/ParsePredicates.gf
 data-files:          l4/Prelude.l4
                    , grammars/Prop.gf
+                   , grammars/PropI.gf
                    , grammars/PropEng.gf
                    , grammars/Atoms.gf
                    , grammars/AtomsEng.gf
@@ -76,6 +77,7 @@ library
                   Model
                   Syntax
                   SyntaxManipulation
+                  MainHelpers
 
                   -- lsp
                   L4LSP
@@ -94,9 +96,11 @@ library
                   ToGF.FromL4.ToAnswers
                   ToSCASP
                   ToDA2
+                  SimpleRules
+                  ToRules
 
                   --ExampleInput
-                  --Exec
+                  Exec
                   --InterfaceNunchaku
                   --RuleToTa
                   --TaToUppaal
@@ -135,6 +139,9 @@ library
                      , sbv
                      -- required for graph processing (rule transformation)
                      , fgl >= 5.7
+                     , graphviz
+                     , tasty
+                     , tasty-hunit
                      -- required for lsp
                      , lsp        >=1.0.0.0
                      , lsp-types  >=1.0.0.0
@@ -157,20 +164,24 @@ test-suite unit-tests
     exitcode-stdio-1.0
   hs-source-dirs:
     tests
-    src
   main-is:
     Test.hs
-  other-modules:       ToGF.Disambiguate
-                     , DisambiguateTest
+  other-modules:       DisambiguateTest
+                     , ToGFTest
                      , Paths_baby_l4
+                     , ExpSysTest
   build-depends:
       base >= 4 && < 5
     , baby-l4
     , containers
+    , extra
     , gf
+    , gf-ud
     , l4-generated
+    , prettyprinter
     , split
     , safe
+    , mtl
     , tasty
     , tasty-expected-failure
     , tasty-golden

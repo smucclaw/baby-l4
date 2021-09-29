@@ -49,8 +49,8 @@ type RuleTransformer t = Rule t -> Rule t
 ruleAllR :: RuleTransformer (Tp ())
 ruleAllR r =
   case postcondOfRule r of
-    QuantifE _ All vn tp e ->
-      r{postcondOfRule = e}{precondOfRule = liftExpr 0 (precondOfRule r)}{varDeclsOfRule = varDeclsOfRule r ++ [VarDecl (eraseAnn  tp) (nameOfQVarName vn) tp]}
+    QuantifE _ All v e ->
+      r{postcondOfRule = e}{precondOfRule = liftExpr 0 (precondOfRule r)}{varDeclsOfRule = varDeclsOfRule r ++ [v]}
     _ -> r
 
 ruleImplR :: RuleTransformer (Tp ())
@@ -133,9 +133,7 @@ ruleExLStep r =
       prec = precondOfRule r
       postc = postcondOfRule r
   in case prec of
-    QuantifE _ Ex vn vt e ->
-      let nvd = VarDecl (() <$ vt) (nameOfQVarName vn) vt
-      in r{varDeclsOfRule = vds ++ [nvd]}{precondOfRule = e}{postcondOfRule = liftExpr 0 postc}
+    QuantifE _ Ex v e -> r{varDeclsOfRule = vds ++ [v]}{precondOfRule = e}{postcondOfRule = liftExpr 0 postc}
     _ -> r
 
 ruleExL :: RuleTransformer (Tp ())
@@ -167,7 +165,7 @@ ruleExLInvStep r =
           rmpPostc = zip [ll + 1 .. lvds - 1] [ll .. lvds - 2]
           rmpPrec  = (ll, 0) : zip [0 .. ll - 1] [1 .. ll]
           newPostc = remapExpr rmpPostc postc
-          newPrec = QuantifE booleanT Ex (QVarName (annotOfVarDecl vd) (nameOfVarDecl vd)) (tpOfVarDecl vd) (remapExpr rmpPrec prec)
+          newPrec = QuantifE BooleanT Ex vd (remapExpr rmpPrec prec)
       in r{varDeclsOfRule = reverse (lowers++uppers)}{precondOfRule = newPrec}{postcondOfRule = newPostc}
     _ -> error "internal error in splitDecls: "
 
@@ -208,7 +206,7 @@ rulesInversion rls =
   let r1 = head rls
       (VarE _ f, args) = appToFunArgs [] (postcondOfRule r1)
       rn = Just ((nameOfQVarName . nameOfVar) f ++ "Inversion")
-  in Rule booleanT rn [] (varDeclsOfRule r1) (postcondOfRule r1) (disjsExpr (map precondOfRule rls))
+  in Rule BooleanT rn [] (varDeclsOfRule r1) (postcondOfRule r1) (disjsExpr (map precondOfRule rls))
 
 
 -- Adds negated precondition of r1 to r2. Corresponds to:

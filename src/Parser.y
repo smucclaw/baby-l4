@@ -16,8 +16,8 @@
 -}
 
 module Parser (
-  parseNewProgram,
-  parseProgram
+  parseProgram,
+--  parseProgram
 --  , parseTokens,
 ) where
 
@@ -54,7 +54,6 @@ import Data.Either.Combinators (mapRight)
     lexicon { L _ TokenLexicon }
     fact    { L _ TokenFact }
     rule    { L _ TokenRule }
-    derivable { L _ TokenDerivable }
 
     process     { L _ TokenProcess }
     clock       { L _ TokenClock }
@@ -131,7 +130,7 @@ QualifVar : VAR { QVarName (getLoc $1) (tokenSym $1) }
 --Program : Lexicon ClassDecls GlobalVarDecls Rules Assertions
 --                                   { Program (tokenRangeList [getLoc $1, getLoc $2, getLoc $3, getLoc $4, getLoc $5]) (reverse $ unLoc $1) (reverse $2)  (reverse $3) (reverse $4) (reverse $5) }
 
-Program : TopLevelElements { NewProgram (tokenRangeList (map getLoc $1)) (reverse $1) }
+Program : TopLevelElements { Program (tokenRangeList (map getLoc $1)) (reverse $1) }
 
 TopLevelElements : TopLevelElement                  { [$1] }
                  | TopLevelElementGroup             { $1 }
@@ -156,8 +155,8 @@ TopLevelElement : ClassDecl     { ClassDeclTLE $1 }
 Mappings :  LexiconMapping  { [$1] }
           | Mappings Mapping { $2 : $1 }
 
-LexiconMapping : lexicon VAR '->' STRLIT { Mapping (tokenRange $1 $4) (tokenSym $2) (tokenStringLit $4) }
-Mapping        : VAR '->' STRLIT { Mapping (tokenRange $1 $3) (tokenSym $1) (tokenStringLit $3) }
+LexiconMapping : lexicon VAR '->' STRLIT { Mapping (tokenRange $1 $4) (tokenSym $2) (parseDescription $ tokenStringLit $4) }
+Mapping        : VAR '->' STRLIT { Mapping (tokenRange $1 $3) (tokenSym $1) (parseDescription $ tokenStringLit $3) }
 
 ClassDecls :                       { [] }
            | ClassDecls ClassDecl  { $2 : $1 }
@@ -194,8 +193,8 @@ GlobalVarDecl : decl VAR ':' Tp          { VarDecl (tokenRange $1 $4) (tokenSym 
 VarDeclsCommaSep :  VarDecl              { [$1] }
          | VarDeclsCommaSep  ',' VarDecl { $3 : $1 }
 
-VarDecl : VAR ':' Tp                     { VarDecl (tokenRange $1 $3) (tokenSym $1) $3 }
-
+VarDecl    : VAR ':' Tp                     { VarDecl (tokenRange $1 $3) (tokenSym $1) $3 }
+VarDeclATp : VAR ':' ATp                    { VarDecl (tokenRange $1 $3) (tokenSym $1) $3 }
 
 -- Atomic type
 -- Used to resolve ambigouity of     \x : A -> B -> x
@@ -218,13 +217,13 @@ QVarsCommaSep :                            { [] }
             | QualifVar                    { [$1] }
             | QVarsCommaSep ',' QualifVar  { $3 : $1 }
 
-VarsCommaSep :                            { [] }
+VarsCommaSep :                       { [] }
             | VAR                    { [tokenSym $1] }
-            | VarsCommaSep ',' VAR  { (tokenSym $3) : $1 }
+            | VarsCommaSep ',' VAR   { (tokenSym $3) : $1 }
 
-Expr : '\\' Pattern ':' ATp '->' Expr  { FunE (tokenRange $1 $6) $2 $4 $6 }
-     | forall QualifVar ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) All $2 $4 $6 }
-     | exists QualifVar ':' Tp '.' Expr      { QuantifE (tokenRange $1 $6) Ex  $2 $4 $6 }
+Expr : '\\' VarDeclATp '->' Expr    { FunE (tokenRange $1 $4) $2 $4 }
+     | forall VarDecl '.' Expr      { QuantifE (tokenRange $1 $4) All $2 $4 }
+     | exists VarDecl '.' Expr      { QuantifE (tokenRange $1 $4) Ex  $2 $4 }
      | 'A<>' Expr                  { UnaOpE (tokenRange $1 $2) (UTemporal UTAF) $2 }
      | 'A[]' Expr                  { UnaOpE (tokenRange $1 $2) (UTemporal UTAG) $2 }
      | 'E<>' Expr                  { UnaOpE (tokenRange $1 $2) (UTemporal UTEF) $2 }
@@ -234,10 +233,6 @@ Expr : '\\' Pattern ':' ATp '->' Expr  { FunE (tokenRange $1 $6) $2 $4 $6 }
      | Expr '&&' Expr              { BinOpE (tokenRange $1 $3) (BBool BBand) $1 $3 }
      | if Expr then Expr else Expr { IfThenElseE (tokenRange $1 $6) $2 $4 $6 }
      | not Expr                    { UnaOpE (tokenRange $1 $2) (UBool UBnot) $2 }
-     | not derivable QualifVar           { NotDeriv (tokenRange $1 $3) True (VarE (getLoc $3) (GlobalVar $3)) }
-     | not derivable not QualifVar       { NotDeriv (tokenRange $1 $4) False (VarE (getLoc $4) (GlobalVar $4)) }
-     | not derivable QualifVar Atom      { NotDeriv (tokenRange $1 $4) True (AppE (tokenRange $3 $4)  (VarE (getLoc $3) (GlobalVar $3)) $4) }
-     | not derivable not QualifVar Atom  { NotDeriv (tokenRange $1 $5) False (AppE (tokenRange $4 $5) (VarE (getLoc $4) (GlobalVar $4)) $5) }
      | Expr '<' Expr               { BinOpE (tokenRange $1 $3) (BCompar BClt) $1 $3 }
      | Expr '<=' Expr              { BinOpE (tokenRange $1 $3) (BCompar BClte) $1 $3 }
      | Expr '>' Expr               { BinOpE (tokenRange $1 $3) (BCompar BCgt) $1 $3 }
@@ -300,11 +295,10 @@ Fact : fact ARName  KVMap RuleVarDecls Expr { Rule (tokenRange $1 $5) $2 $3 $4 (
 
 -- TODO: labellings still to be added, channels to be added
 -- TODO: annotation is a rough approximation, to be synthesized from annotations of subexpressions
-Automaton : Clocks 
-  process VAR '(' ')' '{' States Initial Transitions '}'
-  { TA {annotOfTA = (tokenRange $2 $5),
-        nameOfTA = (tokenSym $3), locsOfTA = (map fst $7), channelsOfTA = [], clocksOfTA = $1,
-        transitionsOfTA = $9, initialLocsOfTA = $8, invarsOfTA = $7, labellingOfTA = []}}
+Automaton : process VAR '(' ')' '{' Clocks States Initial Transitions '}'
+  { TA {annotOfTA = (tokenRange $1 $10),
+        nameOfTA = (tokenSym $2), locsOfTA = (map fst (reverse $7)), channelsOfTA = [], clocksOfTA = reverse $6,
+        transitionsOfTA = reverse $9, initialLocOfTA = $8, invarsOfTA = (reverse $7), labellingOfTA = []}}
 
 
 -- Channels : channels VARsCommaSep ';' { map ClsNm $2 }
@@ -332,8 +326,7 @@ Invar : VAR '<' INT  { ClConstr (Clock (tokenSym $1)) BClt $3 }
       | VAR '==' INT { ClConstr (Clock (tokenSym $1)) BCeq $3 }
       | VAR '/=' INT { ClConstr (Clock (tokenSym $1)) BCne $3 }
 
--- Here just one initial variable
-Initial : init VAR  ';' { [Loc (tokenSym $2)] }
+Initial : init VAR  ';' { Loc (tokenSym $2) }
 
 Transitions : trans TransitionsCommaSep ';' { $2 }
 
@@ -410,9 +403,7 @@ parseError (L p t) =
 -- parseError (l:ls) = throwError (show l)
 -- parseError [] = throwError "Unexpected end of Input"
 
-parseNewProgram :: FilePath -> String -> Either Err (NewProgram SRng)
-parseNewProgram = runAlex' program
-
 parseProgram :: FilePath -> String -> Either Err (Program SRng)
-parseProgram fp inp = mapRight newProgramToProgram (parseNewProgram fp inp)
+parseProgram = runAlex' program
+
 }

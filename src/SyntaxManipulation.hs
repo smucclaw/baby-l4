@@ -15,6 +15,8 @@ import qualified Data.Set as Set
 --import Annotation
 --import KeyValueMap
 import Syntax
+import Typing (eraseAnn, getTypeOfExpr)
+import PrintProg (printExpr, renameAndPrintExpr)
 
 
 ----------------------------------------------------------------------
@@ -24,9 +26,9 @@ import Syntax
 liftType :: Tp () -> Tp (Tp ())
 liftType t = KindT <$ t
 
-forceArgTp :: Tp () -> Tp ()
-forceArgTp (FunT _ ftp atp) = atp
-forceArgTp _ = ErrT 
+forceResultTp :: Tp () -> Tp ()
+forceResultTp (FunT _ _ptp rtp) = rtp
+forceResultTp _ = ErrT
 
 isLocalVar :: Var t -> Bool
 isLocalVar (LocalVar _ _) = True
@@ -40,10 +42,10 @@ mkFunTp ts t = foldr (FunT ()) t ts
 -- Logical infrastructure: macros for simplifying formula construction
 ----------------------------------------------------------------------
 mkIntConst :: Integer -> Expr (Tp())
-mkIntConst f = ValE integerT (IntV f)
+mkIntConst f = ValE IntegerT (IntV f)
 
 mkFloatConst :: Float -> Expr (Tp())
-mkFloatConst f = ValE floatT (FloatV f)
+mkFloatConst f = ValE FloatT (FloatV f)
 
 mkVarE :: Var t -> Expr t
 mkVarE v = VarE {annotOfExpr =  annotOfQVarName (nameOfVar v), varOfExprVarE = v}
@@ -61,22 +63,22 @@ appToFunArgs acc t = (t, acc)
 
 -- compose (f, [a1 .. an]) to (f a1 .. an)
 funArgsToApp :: Expr (Tp ()) -> [Expr (Tp ())] -> Expr (Tp ())
-funArgsToApp = foldl (\ f -> AppE (forceArgTp (annotOfExpr f)) f)
+funArgsToApp = foldl (\ f -> AppE (forceResultTp (annotOfExpr f)) f)
 
 applyVars :: Var (Tp()) -> [Var (Tp())] -> Expr (Tp())
 applyVars f args = funArgsToApp (mkVarE f) (map mkVarE args)
 
 notExpr :: Expr (Tp ()) -> Expr (Tp())
-notExpr = UnaOpE booleanT (UBool UBnot)
+notExpr = UnaOpE BooleanT (UBool UBnot)
 
 conjExpr :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
-conjExpr = BinOpE booleanT (BBool BBand)
+conjExpr = BinOpE BooleanT (BBool BBand)
 
 disjExpr :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
-disjExpr = BinOpE booleanT (BBool BBor)
+disjExpr = BinOpE BooleanT (BBool BBor)
 
 implExpr :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
-implExpr = BinOpE booleanT (BBool BBimpl)
+implExpr = BinOpE BooleanT (BBool BBimpl)
 
 conjsExpr :: [Expr (Tp ())] -> Expr (Tp ())
 conjsExpr [] = trueV
@@ -89,10 +91,10 @@ disjsExpr [e] = e
 disjsExpr (e:es) = disjExpr e (disjsExpr es)
 
 eqExpr  :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
-eqExpr = BinOpE booleanT (BCompar BCeq)
+eqExpr = BinOpE BooleanT (BCompar BCeq)
 
 gteExpr  :: Expr (Tp ()) -> Expr (Tp ()) -> Expr (Tp ())
-gteExpr = BinOpE booleanT (BCompar BCgte)
+gteExpr = BinOpE BooleanT (BCompar BCgte)
 
 mkEq :: Var (Tp()) -> Var (Tp()) -> Expr (Tp())
 mkEq v1 v2 = eqExpr (mkVarE v1) (mkVarE v2)
@@ -130,13 +132,16 @@ fv (UnaOpE _  _ e) = fv e
 fv (BinOpE _  _ e1 e2) = Set.union (fv e1) (fv e2)
 fv (IfThenElseE _ c e1 e2) = Set.unions [fv c, fv e1, fv e2]
 fv (AppE _ f a) = Set.union (fv f) (fv a)
-fv (FunE _ p _ e) = Set.map (dropVarBy (patternLength p)) (Set.filter (localVarLowerThan (patternLength p - 1)) (fv e))
+fv FunE {bodyOfFunE = e} = Set.map (dropVarBy 1) (Set.filter (localVarLowerThan 0) (fv e))
 fv QuantifE {bodyOfExprQ = e} = Set.map (dropVarBy 1) (Set.filter (localVarLowerThan 0) (fv e))
 fv (FldAccE _ e _) = fv e
 fv (TupleE _ es) = Set.unions (map fv es)
 fv (CastE _ _ e) = fv e
 fv (ListE _ _ es) = Set.unions (map fv es)
-fv (NotDeriv _ _ e) = fv e
+
+dropVar :: Int -> Var t -> Var t
+dropVar n (LocalVar vn i) = LocalVar vn (i - n)
+dropVar n v = v
 
 -- Lift variables and expressions: 
 -- Increase by one all indices of bound variables with index number >= n
@@ -160,13 +165,12 @@ liftExpr n (UnaOpE t u et) = UnaOpE t u (liftExpr n et)
 liftExpr n (BinOpE t b et1 et2) = BinOpE t b (liftExpr n et1) (liftExpr n et2)
 liftExpr n (IfThenElseE t et1 et2 et3) = IfThenElseE t (liftExpr n et1) (liftExpr n et2) (liftExpr n et3)
 liftExpr n (AppE t et1 et2) = AppE t (liftExpr n et1) (liftExpr n et2)
-liftExpr n (FunE t p ptp et) = FunE t p ptp (liftExpr (n + patternLength p) et)
-liftExpr n (QuantifE t q vn vt et) = QuantifE t q vn vt (liftExpr (n+1) et)
+liftExpr n (FunE t v et) = FunE t v (liftExpr (n + 1) et)
+liftExpr n (QuantifE t q v et) = QuantifE t q v (liftExpr (n+1) et)
 liftExpr n (FldAccE t et f) = FldAccE t (liftExpr n et) f
 liftExpr n (TupleE t ets) = TupleE t (map (liftExpr n) ets)
 liftExpr n (CastE t tp et) = CastE t tp (liftExpr n et)
 liftExpr n (ListE t lop ets) = ListE t lop (map (liftExpr n) ets)
-liftExpr n (NotDeriv t b et) = NotDeriv t b (liftExpr n et)
 
 -- Remap variables and expressions: 
 -- Exchange indices of bound variables as indicated in the map
@@ -182,35 +186,34 @@ remapExpr m (UnaOpE t u et) = UnaOpE t u (remapExpr m et)
 remapExpr m (BinOpE t b et1 et2) = BinOpE t b (remapExpr m et1) (remapExpr m et2)
 remapExpr m (IfThenElseE t et1 et2 et3) = IfThenElseE t (remapExpr m et1) (remapExpr m et2) (remapExpr m et3)
 remapExpr m (AppE t et1 et2) = AppE t (remapExpr m et1) (remapExpr m et2)
-remapExpr m (FunE t p ptp et) = FunE t p ptp (remapExpr (map (\(x, y) -> (x + patternLength p, y + patternLength p)) m) et)
-remapExpr m (QuantifE t q vn vt et) = QuantifE t q vn vt (remapExpr (map (\(x, y) -> (x+1, y+1)) m) et)
+remapExpr m (FunE t v et) = FunE t v (remapExpr (map (\(x, y) -> (x + 1, y + 1)) m) et)
+remapExpr m (QuantifE t q v et) = QuantifE t q v (remapExpr (map (\(x, y) -> (x+1, y+1)) m) et)
 remapExpr m (FldAccE t et f) = FldAccE t (remapExpr m et) f
 remapExpr m (TupleE t ets) = TupleE t (map (remapExpr m) ets)
 remapExpr m (CastE t tp et) = CastE t tp (remapExpr m et)
 remapExpr m (ListE t lop ets) = ListE t lop (map (remapExpr m) ets)
-remapExpr m (NotDeriv t b et) = NotDeriv t b (remapExpr m et)
 
 swapQuantif :: Quantif -> Quantif
 swapQuantif All = Ex
 swapQuantif Ex  = All
 
 prenexUnary :: t -> UBoolOp -> Expr t -> Expr t
-prenexUnary t UBnot (QuantifE tq q vn vt et) = QuantifE tq (swapQuantif q) vn vt (UnaOpE t (UBool UBnot) et)
+prenexUnary t UBnot (QuantifE tq q v et) = QuantifE tq (swapQuantif q) v (UnaOpE t (UBool UBnot) et)
 prenexUnary t u e = UnaOpE t (UBool u) e
 
 prenexBinary :: t -> BBoolOp -> Expr t -> Expr t -> Expr t
-prenexBinary t b e1 (QuantifE t2 q2 vn2 vt2 e2) = QuantifE t2 q2 vn2 vt2 (prenexBinary t b (liftExpr 0 e1) e2)
-prenexBinary t b (QuantifE t1 q1 vn1 vt1 e1) e2 =
+prenexBinary t b e1 (QuantifE t2 q2 v2 e2) = QuantifE t2 q2 v2 (prenexBinary t b (liftExpr 0 e1) e2)
+prenexBinary t b (QuantifE t1 q1 v1 e1) e2 =
     let q = case b of
               BBimpl -> swapQuantif q1
               _ -> q1
-    in QuantifE t1 q vn1 vt1 (prenexBinary t b e1 (liftExpr 0 e2))
+    in QuantifE t1 q v1 (prenexBinary t b e1 (liftExpr 0 e2))
 prenexBinary t b e1 e2 = BinOpE t (BBool b) e1 e2
 
 prenexForm :: Expr t -> Expr t
 prenexForm (UnaOpE t (UBool u) et) = prenexUnary t u (prenexForm et)
 prenexForm (BinOpE t (BBool b) et1 et2) = prenexBinary t b (prenexForm et1) (prenexForm et2)
-prenexForm (QuantifE t q vn vt et) = QuantifE t q vn vt (prenexForm et)
+prenexForm (QuantifE t q v et) = QuantifE t q v (prenexForm et)
 prenexForm e = e
 
 
@@ -219,16 +222,13 @@ ruleToFormula r = abstractQD All (varDeclsOfRule r) (implExpr (precondOfRule r) 
 
 -- abstract a Quantified expression over a list of variable Declarations
 abstractQD :: Quantif -> [VarDecl (Tp ())] -> Expr (Tp ()) -> Expr (Tp ())
-abstractQD q vds e
-  = foldr
-      (\ vd -> QuantifE booleanT q (QVarName (annotOfVarDecl vd) (nameOfVarDecl vd)) (tpOfVarDecl vd)) e
-      vds
+abstractQD q vds e = foldr (QuantifE BooleanT q) e vds
 
 -- abstract a Quantified expression over a list of variables
 abstractQ :: Quantif -> [Var (Tp ())] -> Expr (Tp ()) -> Expr (Tp ())
 abstractQ q vs e
   = foldr
-      (\ v -> QuantifE booleanT q (nameOfVar v) (liftType (annotOfQVarName (nameOfVar v)))) e
+      (\v -> QuantifE BooleanT q (VarDecl (annotOfQVarName (nameOfVar v)) (nameOfQVarName (nameOfVar v)) (liftType (annotOfQVarName (nameOfVar v))))) e
       vs
 
 
@@ -238,6 +238,29 @@ abstractF vs e
   = foldr
       (\ v re ->
         let t = annotOfQVarName (nameOfVar v)
-        in FunE (FunT () t (annotOfExpr re))  (VarP (nameOfVar v)) (liftType t) re) e
+        in FunE (FunT () t (annotOfExpr re))  (VarDecl t (nameOfQVarName (nameOfVar v)) (liftType t)) re) e
       vs
+
+
+abstractFvd :: [VarDecl (Tp())] -> Expr (Tp ()) -> Expr (Tp ())
+abstractFvd vds e
+  = foldr
+      (\ vd re -> FunE (FunT () (annotOfVarDecl vd) (annotOfExpr re)) vd re) e
+      vds
+
+
+-- The following decomposition functions are the (pseudo-)inverses of the abstraction functions,
+-- Decomposing a FunE into a list of its variable declarations and a body 
+decomposeFun :: Expr t -> ([VarDecl t], Expr t)
+decomposeFun (FunE _ vd f) = let (vds, bd) = decomposeFun f in (vd:vds, bd)
+decomposeFun e = ([], e)
+
+etaExpand :: Expr (Tp()) -> Expr (Tp())
+etaExpand (FunE t vd f) = FunE t vd (etaExpand f)
+etaExpand e =
+  case annotOfExpr e of
+    FunT _ pt rt ->
+      abstractFvd [VarDecl pt "etaVar" (liftType pt)] 
+        (etaExpand (AppE rt (liftExpr 0 e) (VarE pt (LocalVar (QVarName pt "etaVar") 0))))
+    _ -> e
 

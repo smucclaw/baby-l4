@@ -57,7 +57,7 @@ instance (Show t) => DSYaml (DSBlock t) where
 --                               , fieldsOfClassDef = [ FieldDecl { annotOfFieldDecl = _
 --                                                                , nameOfFieldDecl = FldNm "beat"
 --                                                                , tpOfFieldDecl = FunT
---                                                                    ( ClassT ( ClsNm "Sign" ) ) booleanT}]} }
+--                                                                    ( ClassT ( ClsNm "Sign" ) ) BooleanT}]} }
 --
 -- ClassDecl { annotOfClassDecl = _
 --           , nameOfClassDecl = ClsNm "Player"
@@ -66,7 +66,7 @@ instance (Show t) => DSYaml (DSBlock t) where
 --                                                            , ClsNm "Object" ]
 --                                       , fieldsOfClassDef = [ FieldDecl { annotOfFieldDecl = _ 
 --                                                                        , nameOfFieldDecl = FldNm "throw"
---                                                                        , tpOfFieldDecl = FunT ( ClassT ( ClsNm "Sign" ) ) booleanT } ] } }
+--                                                                        , tpOfFieldDecl = FunT ( ClassT ( ClsNm "Sign" ) ) BooleanT } ] } }
 
 -- ClassDecl { annotOfClassDecl = _
 --           , nameOfClassDecl = ClsNm "Game"
@@ -75,11 +75,11 @@ instance (Show t) => DSYaml (DSBlock t) where
 --                                                            , ClsNm "Object" ]
 --                                       , fieldsOfClassDef = [ FieldDecl { annotOfFieldDecl = _
 --                                                                        , nameOfFieldDecl = FldNm "participate_in"
---                                                                        , tpOfFieldDecl = FunT ( ClassT ( ClsNm "Player" ) ) booleanT
+--                                                                        , tpOfFieldDecl = FunT ( ClassT ( ClsNm "Player" ) ) BooleanT
 --                                                                        }
 --                                                            , FieldDecl { annotOfFieldDecl = _
 --                                                                        , nameOfFieldDecl = FldNm "win"
---                                                                        , tpOfFieldDecl = FunT ( ClassT ( ClsNm "Player" ) ) booleanT
+--                                                                        , tpOfFieldDecl = FunT ( ClassT ( ClsNm "Player" ) ) BooleanT
 --                                                                        }
 --                                                            ] } } ]
 
@@ -116,7 +116,7 @@ eitherTp x1 x2 tp = if isBooleanTp tp || isIntegerTp tp then Right x2 else Left 
 
 showFTname :: Show t => Tp t -> Maybe String
 showFTname tp = case tp of
-  (FunT _ x (ClassT _ (ClsNm "Boolean")))        -> showFTname x
+  (FunT _ x (ClassT _ BooleanC))        -> showFTname x
   (ClassT _ (ClsNm name)) -> Just $ lowercase name
   _                     -> Nothing
 
@@ -131,10 +131,10 @@ class DSYaml x where
 
 
 instance (Show t, Eq t) => DSYaml (Program (Tp t)) where
-  showDS Program { lexiconOfProgram,classDeclsOfProgram,globalsOfProgram,rulesOfProgram,assertionsOfProgram} = do
+  showDS prg = do
     vsep [ "rules: "
          , "query: "
-         , "data:"      , hang 2 $ showDSlist $ map classDeclToBlock $ reverse $ drop 7 classDeclsOfProgram
+         , "data:"      , hang 2 $ showDSlist $ map classDeclToBlock $ reverse $ drop 7 (classDeclsOfProgram prg)
          , "terms: "
          , "options: " <> PP.line
          ]
@@ -142,6 +142,6 @@ instance (Show t, Eq t) => DSYaml (Program (Tp t)) where
 
 instance DSYaml (Tp t) where
   showDS tp = case tp of
-    (ClassT _ (ClsNm "Boolean")) -> "Boolean"
-    (ClassT _ (ClsNm "Integer")) -> "Number"
+    (ClassT _ BooleanC) -> "Boolean"
+    (ClassT _ IntegerC) -> "Number"
     _             -> "Unsupported Type"

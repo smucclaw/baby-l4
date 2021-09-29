@@ -1,17 +1,16 @@
 --# -path=.:present
 
-incomplete concrete PropI of Prop = open 
-  Syntax, 
-  Symbolic, 
+incomplete concrete PropI of Prop = Atoms ** open
+  Syntax,
+  Symbolic,
   Sentence, ---- ExtAdvS
-  WordNet,
   Extend,
   Verb,
   Prelude in {
 
 lincat
   Prop = {s : S ; c : Bool} ; -- c = True for connectives
-  Atom = {s : NP ; vp : MyPol => VPS} ;
+  PropAtom = {s : NP ; vp : MyPol => VPS} ;
   Pred1 = MyPol => VPS ;
   Pred2 = MyPol => VPS2 ;
   Var = Symb ;
@@ -19,25 +18,18 @@ lincat
   Ind  = {s : NP ; isSymbolic : Bool} ;
   Fun1 = {s : Symb ; v : N2} ;
   Fun2 = {s : Symb ; v : N2} ;
-  Noun = N ;
-  Noun2 = N2 ;
-  Adj = A ;
-  Adj2 = A2 ;
-  Verb = V ;
-  Verb2 = V2 ;
-  PassVerb2 = VP ;
+  Noun = CN ;
 
   Quantifier = {ap : AP ; np : NP ; qt : QType} ;
 
 param
-  MyPol = MyPos | MyNeg ;
   QType = QQuant | QStr | QNothing ;
 
 lin
   PAtom a = {s = PredVPS a.s (a.vp ! MyPos) ; c = False} ;
-  PNeg p = { 
-    s = mkS negativePol (mkCl 
-          (mkVP (mkNP the_Quant (mkCN case_N (mkAdv that_Subj p.s))))) ; 
+  PNeg p = {
+    s = mkS negativePol (mkCl
+          (mkVP (mkNP the_Quant (mkCN case_N (mkAdv that_Subj p.s))))) ;
     c = False ---- ?
     } ;
   PConj c p q = {s = mkS c.s p.s q.s ; c = True} ; -- can be ambiguous; cf. PConjs
@@ -46,8 +38,8 @@ lin
     s = ExtAdvS (mkAdv for_Prep (mkNP all_Predet (symb v.s))) p.s ;
     c = False
     } ;
-  PExist v p = { 
-    s = mkS (mkCl (mkNP a_Quant (mkCN (mkCN element_N (symb v.s)) 
+  PExist v p = {
+    s = mkS (mkCl (mkNP a_Quant (mkCN (mkCN element_N (symb v.s))
             (mkAP (mkAP such_A) p.s)))) ;
     c = False
     } ;
@@ -77,7 +69,7 @@ lin
 
   CAnd = {s = and_Conj ; c = mkS (mkCl (mkNP all_Predet these_NP) hold_V)} ;
   COr = {
-    s = or_Conj ; 
+    s = or_Conj ;
     c = mkS (mkCl (mkNP (mkNP (mkDet (mkCard at_least_AdN (mkCard "1")))) (mkAdv part_Prep these_NP)) hold_V)
     } ;
 
@@ -90,18 +82,9 @@ lincat
   [Ind] = [NP] ;
   [Var] = {s : NP ; d : Det} ;
 
-oper
-  myVPS : VP -> MyPol => Extend.VPS = \vp ->
-    let vps : Pol -> VPS = \pol -> Extend.MkVPS (mkTemp presentTense simultaneousAnt) pol vp ;
-     in table { MyPos => vps positivePol ;
-                MyNeg => vps negativePol } ;   
-  myVPS2 : VPSlash -> MyPol => Extend.VPS2 = \vp -> 
-    let vps2 : Pol -> VPS2 = \pol -> Extend.MkVPS2 (mkTemp presentTense simultaneousAnt) pol vp ;
-     in table { MyPos => vps2 positivePol ;
-                MyNeg => vps2 negativePol } ;  
 
 lin
-  AKind k x = 
+  AKind k x =
     {s = x.s ;
      vp = case k.isClass of {
             True => myVPS (mkVP have_V2 (mkNP k.s)) ;
@@ -109,7 +92,7 @@ lin
     } ;
 
   PConjs c ps = case ps.c of {
-    True  => {s = mkS <colonConj : Conj> c.c (mkS <bulletConj : Conj> ps.s) ; c = False} ; ----
+    True  => {s = mkS <colonConj : Syntax.Conj> c.c (mkS <bulletConj : Syntax.Conj> ps.s) ; c = False} ; ----
     False => {s = mkS c.s ps.s ; c = True}
     } ;
   PUnivs vs k p = {
@@ -141,18 +124,23 @@ lin
   BasePred1 p q = \\pol => BaseVPS (p ! pol) (q ! pol) ;
   ConsPred1 p ps = \\pol => ConsVPS (p ! pol) (ps ! pol) ;
 
-  PAdj1 a = myVPS (mkVP a) ;
-  PAdj2 a = myVPS2 (A2VPSlash a) ;
---  PAdj12 a = myVPS2 (mkVP a) ;
-  PNoun1 n = myVPS (mkVP n) ;
-  PNoun2 n = myVPS2 (N2VPSlash n) ;
-  PVerb1 v = myVPS (mkVP v) ;
-  PVerb2 v = myVPS2 (mkVPSlash v) ;
-  Passive = passiveVP ;
-  PPassV2 vp = myVPS vp ;
+  -- new 2021-08-23
+  --  : Atom -> * ;
+  AtomPred2 a = case a.atype of {
+    AN2 => myVPS2 (N2VPSlash a.n2) ;
+    AV2 => a.v2 ;
+    _ => a.v2
+--    _ => Predef.error "AtomPred2: not a transitive atom :("
+    } ;
+  AtomPred1 a = pred1 a ;
 
-  PVar1 var = myVPS (mkVP (symb var)) ;
-  PVar2 var = myVPS2 (VPSlashPrep (mkVP (symb var)) to_Prep) ; ----
+--  AtomKind  : Atom -> Kind ;
+  AtomNoun a = case a.atype of {
+    ACN => a.cn ;
+    AN2 => mkCN a.n2 ;
+    _ => a.cn
+--    _ => Predef.error "AtomNoun: not a nouny atom :("
+   } ;
 
 lin
   ConjPred1 c ps = \\pol => ConjVPS c.s (ps ! pol) ;
@@ -169,13 +157,13 @@ lin
 
   -- ModKind k m = k ** {s = mkCN m k.s} ;
 
-  PartPred f x = \\pol => ComplVPS2 (f ! pol) x.s ; 
+  PartPred f x = \\pol => ComplVPS2 (f ! pol) x.s ;
 
   IInt i = {s = symb i.s ; isSymbolic = True} ;
 
   BTrue = {s = symb "true" ; isSymbolic = True} ;
   BFalse = {s = symb "false" ; isSymbolic = True} ;
-  KInd ind = {s = mkCN type_5_N ind.s ; isClass = True} ;
+  KInd ind = {s = mkCN type_N ind.s ; isClass = True} ;
 
   KNoun qnt noun = {
     s = case qnt.qt of {
@@ -189,7 +177,7 @@ lin
     s = case qnt.qt of {
           QStr => mkNP (mkCN noun qnt.np) ;
           QQuant => mkNP the_Det (mkCN qnt.ap noun) ;
-          QNothing => mkNP  noun } ; 
+          QNothing => mkNP  noun } ;
     isSymbolic = False
     } ;
 
@@ -197,8 +185,8 @@ lin
   Second = {ap = mkAP (mkOrd (mkNumeral n2_Unit)) ; np = nothing_NP ; qt = QQuant} ;
   Third = {ap = mkAP (mkOrd (mkNumeral n3_Unit)) ; np = nothing_NP ; qt = QQuant} ;
   Fourth = {ap = mkAP (mkOrd (mkNumeral n4_Unit)) ; np = nothing_NP ; qt = QQuant} ;
-  Other = {ap = mkAP other_1_A ; np = nothing_NP ; qt = QQuant} ;
-  QString str = {ap = mkAP other_1_A ; np = symb str ; qt = QStr} ;
+  Other = {ap = mkAP other_A ; np = nothing_NP ; qt = QQuant} ;
+  QString str = {ap = mkAP other_A ; np = symb str ; qt = QStr} ;
   NoQuant q = q ** {qt = QNothing} ;
 
 oper
@@ -206,9 +194,9 @@ oper
     {s = mkCN f (mkNP the_Det arg.s) (mkNP a_Det ret.s) ;
      isClass = False} ;
 
-  app1 : Symb -> NP -> NP = \f,x -> symbNP (f.s ++ "{" ++ (mkUtt x).s ++ "}") ; 
-  app2 : Symb -> NP -> NP -> NP = \f,x,y -> 
-    symbNP (f.s ++ "{" ++ (mkUtt x).s ++ "}" ++ "{" ++ (mkUtt y).s ++ "}") ; 
+  app1 : Symb -> NP -> NP = \f,x -> symbNP (f.s ++ "{" ++ (mkUtt x).s ++ "}") ;
+  app2 : Symb -> NP -> NP -> NP = \f,x,y ->
+    symbNP (f.s ++ "{" ++ (mkUtt x).s ++ "}" ++ "{" ++ (mkUtt y).s ++ "}") ;
 
   symbNP : Str -> NP = \s -> (symb (mkSymb s)) ;
 
