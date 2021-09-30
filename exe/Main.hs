@@ -22,10 +22,10 @@ import ToGF.FromSCasp.ToAnswer ( nlgModels )
 import ToGF.FromL4.ToQuestions ( createQuestions )
 import ToGF.FromL4.ToAnswers ( createPGFforAnswers )
 import ToGF.NormalizeSyntax
-import Annotation ( SRng, LocTypeAnnot (typeAnnot) )
+import L4.Annotation ( SRng, LocTypeAnnot (typeAnnot) )
 import Paths_baby_l4 (getDataFileName)
 import Text.Pretty.Simple ( pPrint, pPrintString, pPrint )
-import Error (printError)
+import L4.Error (printError)
 import Data.Either (rights)
 
 import TimedMC (runAut)
