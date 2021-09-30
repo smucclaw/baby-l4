@@ -14,7 +14,6 @@ import Data.List ( elemIndex, nub )
 import Data.Maybe ( fromMaybe )
 import Data.Either (lefts)
 import Data.Either.Combinators (mapLeft)
-import Data.List.Utils ( countElem )
 
 
 import L4.Annotation
@@ -900,3 +899,11 @@ tpExprTCResult env x = case x of
   _ -> undefined
 
 -}
+
+----------------------------------------------------------------------
+-- * utils
+----------------------------------------------------------------------
+
+-- | from `MissingH` Data.List.Utils
+countElem :: Eq a => a -> [a] -> Int
+countElem i = length . filter (i==)
