@@ -12,7 +12,7 @@ import Test.Tasty.ExpectedFailure
 import Test.Tasty.HUnit
 import Data.Either ( rights )
 import Data.Set as S
-import SyntaxManipulation (appToFunArgs)
+import L4.SyntaxManipulation (appToFunArgs)
 
 
 
