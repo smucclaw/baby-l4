@@ -8,7 +8,7 @@ import Language.LSP.Server
 import Language.LSP.Types
 import Control.Monad.IO.Class
 import qualified Data.Text as T
-import Lexer
+import L4.Lexer
 import Data.Text.IO (hPutStrLn)
 import qualified Data.Text.IO as TIO
 import qualified Data.Map as Map

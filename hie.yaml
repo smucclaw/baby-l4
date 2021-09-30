@@ -49,3 +49,8 @@ cradle:
 
             - path: "./lsp-tests/Test.hs"
               component: "baby-l4:test:lsp-server-tests"
+    
+    - path: "./baby-l4-core/"
+      config:
+        cradle:
+          stack: {}

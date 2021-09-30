@@ -5,13 +5,13 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE PatternSynonyms #-}
 
-module Syntax where
+module L4.Syntax where
 
 
 -- Class for annotated expressions
 import Data.Data (Data, Typeable)
-import Annotation
-import KeyValueMap
+import L4.Annotation
+import L4.KeyValueMap
 import Data.Maybe ( mapMaybe, isJust )
 
 ----------------------------------------------------------------------

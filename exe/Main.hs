@@ -4,9 +4,9 @@
 module Main where
 
 
-import Parser (parseProgram)
-import Syntax (Program, ClassName)
-import Typing ( checkError )
+import L4.Parser (parseProgram)
+import L4.Syntax (Program, ClassName)
+import L4.Typing ( checkError )
 --import SmtSBV (proveProgram)
 import Smt (proveProgram)
 import System.Environment ( getEnv )

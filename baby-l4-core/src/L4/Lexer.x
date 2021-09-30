@@ -4,7 +4,7 @@
 {-# OPTIONS -w  #-}
 {- HLINT ignore -}
 
-module Lexer
+module L4.Lexer
 -- (
 --   Token(..)
 --   -- scanTokens,
@@ -15,7 +15,7 @@ module Lexer
 --   , runAlex'
 --   , alexMonadScan'
 --   , alexError'
---   , module Lexer
+--   , module L4.Lexer
 -- )
  where
 
@@ -30,9 +30,8 @@ import Data.Word (Word8)
 
 import Data.Char (ord)
 import qualified Data.Bits
-import qualified Language.LSP.Types            as J
 
-import Annotation (Located(..),HasLoc(..), RealSRng(..), SRng(..), Pos(..), coordFromTo, tokenRange)
+import L4.Annotation (Located(..),HasLoc(..), RealSRng(..), SRng(..), Pos(..), coordFromTo, tokenRange)
 
 
 }

@@ -1,12 +1,12 @@
 module MainHelpers (readPrelude, getTpAst, HelperErr(..)) where
 
-import Syntax
-import Error
-import Typing
-import Annotation
+import L4.Syntax
+import L4.Error
+import L4.Typing
+import L4.Annotation
 import Paths_baby_l4 (getDataFileName)
-import Lexer (Err)
-import Parser (parseProgram)
+import L4.Lexer (Err)
+import L4.Parser (parseProgram)
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Control.Monad.Trans.Except ( ExceptT(..) )
 import Data.Either.Extra (mapLeft)

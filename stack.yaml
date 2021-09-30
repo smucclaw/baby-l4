@@ -2,6 +2,7 @@ resolver: lts-16.20
 
 packages:
   - .
+  - ./baby-l4-core
 
 extra-deps:
   - github: GrammaticalFramework/gf-core

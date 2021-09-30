@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DeriveFunctor #-}
 
-module Annotation where
+module L4.Annotation where
 
 import Data.Data (Data, Typeable)
 
