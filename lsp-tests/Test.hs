@@ -10,7 +10,7 @@ import Language.LSP.Types
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import qualified Data.Text as T
 import qualified Language.LSP.Types as J
-import L4.L4LSP (handleUriErrs, LspError (ReadFileErr), realSRngToRange, posToPosition)
+import L4LSP (handleUriErrs, LspError (ReadFileErr), realSRngToRange, posToPosition)
 import L4.Lexer (Err(Err))
 import L4.Annotation (SRng(DummySRng), Pos (Pos), RealSRng(..))
 
