@@ -3,7 +3,7 @@ module ToRules where
 
 import Prettyprinter
 import Prettyprinter.Render.Text (putDoc)
-import Syntax
+import L4.Syntax
 import L4LSP (arNameToString)
 import SimpleRules (isRule, condValid)
 import Data.Either (lefts, rights)

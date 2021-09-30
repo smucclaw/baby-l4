@@ -4,7 +4,7 @@
 
 module SimpleRules where
 
-import Syntax
+import L4.Syntax
 import qualified Data.Set as S
 import Data.Graph.Inductive.Graph
 import Data.Graph.Inductive.PatriciaTree ( Gr )

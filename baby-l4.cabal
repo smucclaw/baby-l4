@@ -165,6 +165,7 @@ test-suite unit-tests
                      , ExpSysTest
   build-depends:
       base >= 4 && < 5
+    , baby-l4-core
     , baby-l4
     , containers
     , extra
@@ -216,6 +217,7 @@ test-suite lsp-server-tests
     Test.hs
   build-depends:
       base >= 4 && < 5
+    , baby-l4-core
     , tasty
     , tasty-hunit
     , tasty-expected-failure

@@ -4,15 +4,15 @@ module Main where
 import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Tasty.ExpectedFailure
-import Syntax hiding (Assertion)
+import L4.Syntax hiding (Assertion)
 import Language.LSP.Test
 import Language.LSP.Types
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import qualified Data.Text as T
 import qualified Language.LSP.Types as J
-import L4LSP (handleUriErrs, LspError (ReadFileErr), realSRngToRange, posToPosition)
+import L4.L4LSP (handleUriErrs, LspError (ReadFileErr), realSRngToRange, posToPosition)
 import L4.Lexer (Err(Err))
-import Annotation (SRng(DummySRng), Pos (Pos), RealSRng(..))
+import L4.Annotation (SRng(DummySRng), Pos (Pos), RealSRng(..))
 
 main :: IO ()
 main = defaultMain $ testGroup "Tests" [hoverTests, hoverTypeInfoTests, typeCheckerTests, unitTests]

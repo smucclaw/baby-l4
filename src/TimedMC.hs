@@ -3,7 +3,7 @@
 
 module TimedMC where
 
-import Syntax
+import L4.Syntax
 import SyntaxManipulation (conjExpr, disjExpr, implExpr, abstractQ, abstractF, liftVarBy, conjsExpr, disjsExpr, applyVars, mkVarE, mkEq, mkFloatConst, mkFunTp, index, indexListFromTo, gteExpr, eqExpr, mkIntConst, liftVar, funArgsToApp, notExpr, liftType)
 
 import PrintProg (renameAndPrintExpr, renameExpr, printExpr)
@@ -12,7 +12,7 @@ import Data.Maybe (fromMaybe)
 import Text.Pretty.Simple (pPrint)
 import Exec (reduceExpr)
 import Smt (proveExpr)
-import KeyValueMap
+import L4.KeyValueMap
     ( selectAssocOfMap, selectAssocOfValue, ValueKVM(MapVM) )
 
 {- Assumptions about TCTL formulas:

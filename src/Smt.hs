@@ -2,18 +2,18 @@
 
 module Smt(proveProgram, proveExpr) where
 
-import Annotation (LocTypeAnnot (typeAnnot))
-import KeyValueMap
+import L4.Annotation (LocTypeAnnot (typeAnnot))
+import L4.KeyValueMap
     ( ValueKVM(MapVM, IntVM, IdVM),
       selectOneOfInstr,
       selectAssocOfValue )
-import Syntax
+import L4.Syntax
 import SyntaxManipulation (
       spine,
       ruleToFormula,
       conjsExpr,
       notExpr, etaExpand, decomposeFun)
-import Typing (isBooleanTp, isIntegerTp, isFloatTp, superClassesOfClassDecl)
+import L4.Typing (isBooleanTp, isIntegerTp, isFloatTp, superClassesOfClassDecl)
 import RuleTransfo
     ( isNamedRule,
       rewriteRuleSetDespite,
