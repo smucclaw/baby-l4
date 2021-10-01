@@ -10,7 +10,7 @@ module ToGF.FromL4.ToQuestions where
 import qualified Data.Set as S
 import Data.Char (toLower)
 import Questions
-import Syntax
+import L4.Syntax
 import PGF
 import ToGF.GenerateLexicon (createGF', printGF', AtomWithArity(..), GrName)
 

@@ -8,7 +8,7 @@ import Control.Monad.Writer.Class
 import Data.Char (toLower, toUpper)
 import Prettyprinter as PP
 import Prettyprinter.Render.Text (putDoc)
-import Syntax
+import L4.Syntax
 import ToGF.NormalizeSyntax
 import ToGF.FromL4.ToProp
 

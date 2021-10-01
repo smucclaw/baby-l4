@@ -1,9 +1,9 @@
 {-# LANGUAGE EmptyCase #-}
 module PrintProg where
 
-import Syntax
-import KeyValueMap ( KVMap )
-import Error (printTp)
+import L4.Syntax
+import L4.KeyValueMap ( KVMap )
+import L4.Error (printTp)
 
 
 -------------------------------------------------------------

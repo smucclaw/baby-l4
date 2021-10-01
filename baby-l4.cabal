@@ -5,9 +5,9 @@ version:             0.1.0.0
 homepage:            https://github.com/smucclaw/baby-l4
 license:             BSD3
 license-file:        LICENSE
-author:              Author name here
+author:              SMU CCLAW
 maintainer:          example@example.com
-copyright:           2020 Author name here
+copyright:           2020 SMU CCLAW
 category:            Web
 -- build-type:          Simple
 Build-Type:          Custom
@@ -67,15 +67,7 @@ library l4-generated
 
 library
   exposed-modules:
-                  -- generated
-                  Lexer
-                  Parser
-                  -- from src
-                  Annotation
-                  Error
-                  KeyValueMap
                   Model
-                  Syntax
                   SyntaxManipulation
                   MainHelpers
 
@@ -109,12 +101,12 @@ library
                   Smt
                   TimedMC
                   -- SmtSBV
-                  Typing
   other-modules: Paths_baby_l4
   hs-source-dirs:
     src
 
   build-depends:       base >= 4.7 && < 5
+                     , baby-l4-core
                      , l4-generated
                      , array
                      , containers
@@ -172,6 +164,7 @@ test-suite unit-tests
                      , ExpSysTest
   build-depends:
       base >= 4 && < 5
+    , baby-l4-core
     , baby-l4
     , containers
     , extra
@@ -194,6 +187,7 @@ executable l4
   default-language:    Haskell2010
   other-modules:       Paths_baby_l4
   build-depends:       base >= 4.7 && < 5
+                     , baby-l4-core
                      , baby-l4
                      , array
                      , containers
@@ -207,6 +201,7 @@ executable lsp-server-bl4
   main-is:             Main.hs
   default-language:    Haskell2010
   build-depends:       base >= 4.7 && < 5
+                     , baby-l4-core
                      , baby-l4
   ghc-options: -Wall
 
@@ -223,6 +218,7 @@ test-suite lsp-server-tests
     Test.hs
   build-depends:
       base >= 4 && < 5
+    , baby-l4-core
     , tasty
     , tasty-hunit
     , tasty-expected-failure

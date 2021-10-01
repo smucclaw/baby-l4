@@ -1,13 +1,13 @@
 module ToGFTest where
 
-import Syntax
+import L4.Syntax
     ( ClassName(ClsNm, stringOfClassName),
       Mapping(..),
       VarDecl(..),
       Tp(OkT, FunT, ClassT),
       Description(Descr),
       parseDescription )
-import Annotation
+import L4.Annotation
 import ToGF.NormalizeSyntax
 import ToGF.FromL4.ToAnswers ( getAtoms )
 import ToGF.GenerateLexicon ( AtomWithArity(AA) )
