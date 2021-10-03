@@ -2,12 +2,28 @@
 # Part VIA - Notification of Data Breaches &
 # Personal Data Protection (Notification of Data Breaches) Regulations 2021
 
+
+
+# ---------------------------- General remarks ----------------------
+
+# To be discussed with legal experts:
+# Some provisions are so vague or general that they seem to be meaningless. 
+# How to translate them, if at all? They are:
+# s26b_2b/3b: in other prescribed circumstances
+# s26c_4: in accordance with an prescribed requirements: which ones?
+# s26d_1: as soon as is practicable: tautologously true
+# s26d_3: ... all the information that is prescribed ...: which one?
+# s26d_4: ... in the manner required by the Commission: specified where?
+
 #############################################################################
 ############################# Class definitions ##############################
 ##############################################################################
 
 # ---------------------------- Party definitions ----------------------
-class Individual  {
+
+class Actor
+
+class Individual extends Actor  {
     NaturalPersonLivingOrDeceased: Boolean
 }
 
@@ -15,7 +31,7 @@ class PublicAgency
 
 class Commission
 
-class Organisation
+class Organisation extends Actor
 
 class DataIntermediary extends Organisation  {
     ProcessesDataOnBehalfOfAnotherOrganisation: Boolean
@@ -105,9 +121,6 @@ class CommissionSoDirects extends DirectionBy
 
 class PrescribedLawEnforcementInstructs extends DirectionBy
 
-class WavierByCommission extends DirectionBy
-
-class InBreach
 
 #------------------------------- Notification requirements ----------------------------
 
@@ -207,7 +220,7 @@ decl prescribedlawenforcement: PrescribedLawEnforcementInstructs -> Boolean
 decl priorto: PriorTo -> Boolean
 decl commissionsodirects: CommissionSoDirects -> Boolean
 decl applicationbyorg: ApplicationByOrg -> Boolean
-decl waiverbycommission: WavierByCommission -> Boolean
+
 
 decl dataintermediaryonbehalfofpublicagency: DataIntermediaryOnBehalfOfPublicAgency -> Boolean
 
@@ -296,166 +309,117 @@ then requiresAssessmentIfNotifiable org db
 
 decl processesInBehalfOf : DataIntermediary -> Data -> Organisation -> Boolean
 
-# obligationToNotify org1 org2 ev: org1 has the obligation to notify org2 about event ev
-decl obligationToNotify : Organisation -> Organisation -> Event -> Boolean
+# obligationToNotify act1 act2 ev: act1 has the obligation to notify act2 about event ev
+decl obligationToNotify : Actor -> Actor -> Event -> Boolean
+# exemptFromObligationToNotify act1 act2 ev: act1 is not obliged to notify act2 about event ev
+decl exemptFromObligationToNotify: Actor -> Actor -> Event -> Boolean
+# prohibitionToNotify act1 act2 ev: act1 is not allowed to notify act2 about event ev
+decl prohibitionToNotify: Actor -> Actor -> Event -> Boolean
+
 decl workingForPublicAgency : Organisation -> Boolean
 
 # The requirement "not working for public agency" is imprecise (also in the Act)
 # It is probably meant that the organisation is related to the public agency concerning the breached data
 # and not concerning a non-critical project
+
 rule <s26c_3a>
 for dt: Data, db: DataBreach, interm: DataIntermediary, org: Organisation
 if processesInBehalfOf interm dt org
-&& not (workingForPublicAgency interm)
+&& not (isPublicAgency org)
 && dataOfBreach dt db
 then obligationToNotify interm org db 
 
 # TODO: s26c_3b: to be encoded in an automaton
 
-# s26C(3)(a): Duty for data intermediary to inform other organisation
-rule <s26c_3_a>
-for di: DataIntermediary, rb: ReasonToBelieve, db: DataBreach, pa: PublicAgency, s26c_1_applies: Boolean
-if (    
-    dataintermediary di && reasontobelieve rb && databreach db && (not PublicAgency) && s26c_1_applies
-)
-then NotificationofOtherOrg
 
-
-# s26C(3)(b): Duty for other organisation to conduct assessment
-rule <s26c_3_b_applies>
-if s26c_3_a_applies
-then AssessmentOfDataBreach
-
-
-# s26C(2) - Duty to conduct assessment of data breach
-rule <s26c_2_applies>
-for rb: ReasonToBelieve, s26c_1_applies: Boolean
-if (
-    reasontobelieve rb && (not s26c_3_a_applies) && s26c_1_applies
-)
-then AssessmentOfDataBreach
-
-# NOTE: s26C(4) can it be represented as the attribute of class AssessmentOfDataBreach?
-
-
-#------------------------------ s26D: Duty to Notify Occurrence of Notifiable Data Breach ------------------------------ 
+# ------------------------------ s26D: Duty to Notify Occurrence of Notifiable Data Breach ------------------------------ 
 
 # s26D(1) - Notification to commission
+# TODO: code in automaton
 
 # decl bestofknowledgeandbelief: BestofKnowledgeAndBelief -> Boolean
 # decl days: Days -> Integer -> Boolean
 
-# class InBreachofPDPA
+decl pdpCommission: Organisation
+decl responsibleFor: Organisation -> DataBreach -> Boolean
 
-rule <s26d_1_applies>
-for ndb: NotifiableDataBreach, bfb: BestofKnowledgeAndBelief, d: Days
-if (
-    notifiabledatabreach ndb && bestofknowledgeandbelief bfb && days 3
-)
-then NotificationtoCommission
+rule <s26d_1>
+for db: DataBreach, org: Organisation
+if isNotifiableDataBreach db 
+&& responsibleFor org db
+then obligationToNotify org pdpCommission db
 
-
-# rule <s26d_1_else_in_breach>
-# for ndb: NotifiableDataBreach, bfb: BestofKnowledgeAndBelief, d: Days
-# if (
-#    notifiabledatabreach ndb && (not (bestofknowledgeandbelief bfb) || not (days 3))
-# )
-# then InBreachOfPDPA
-
-
+# this might be defined with dataOfBreach and dataRelatedToIndividual,
+# see rule s26b_2
+decl affectedIndividual: Individual -> DataBreach -> Boolean
 
 # s26D(2) - Notification to Individuals
-rule <s26d_2_applies>
-for ndb: NotifiableDataBreach, 
-    s26d_5_a_applies: Boolean, s26d_5_b_applies: Boolean, 
-    s26d_6_a_applies: Boolean, s26d_6_b_applies: Boolean, s26d_7_applies: Boolean
-if (
-    notifiabledatabreach ndb && (s26d_5_a_applies || s26d_5_b_applies || s26d_6_a_applies || s26d_6_b_applies || s26d_7_applies)
-)
-then NotificationtoCommissionWithoutNotificationToIndividual
+# The "subject to" conditions are dealt with explicitly instead of with a 
+# subjectTo clause (the exception conditions are not negations of the postconditions)
 
-rule <s26d_2_applies_else>
-for ndb: NotifiableDataBreach, 
-    s26d_5_a_applies: Boolean, s26d_5_b_applies: Boolean, 
-    s26d_6_a_applies: Boolean, s26d_6_b_applies: Boolean, s26d_7_applies: Boolean
-if not (
-    notifiabledatabreach ndb && (s26d_5_a_applies || s26d_5_b_applies || s26d_6_a_applies || s26d_6_b_applies || s26d_7_applies)
-)
-then NotificationtoCommission
+rule <s26d_2>
+for db: DataBreach, org: Organisation, indiv: Individual
+if isNotifiableDataBreach db 
+&& not exemptFromObligationToNotify org indiv db
+&& not prohibitionToNotify org indiv db
+&& responsibleFor org db
+&& affectedIndividual indiv db
+then obligationToNotify org indiv db
 
+# s26d_3: not applicable
+# s26d_4: not applicable
 
-# s26D(5)(a) - Exceptions to notification to individuals
-rule <s26d_5_a_applies>
-for ndb: NotifiableDataBreach, at: ActionTaken, pr: PrescribedRequirements, sh: SignificantHarmToIndividual
-if (
-    notifiabledatabreach ndb && actiontaken at && prescribedrequirements pr && (not significantharm sh)
-)
-then NotificationtoCommissionWithoutNotificationToIndividual
+# TODO: joined (a) and (b) into one rule
+# Has to be coded in an automaton
+rule <s26d_5>
+for db: DataBreach, org: Organisation, indiv: Individual
+if isNotifiableDataBreach db 
+&& responsibleFor org db
+&& affectedIndividual indiv db
+&& not (significantHarm db indiv)
+then exemptFromObligationToNotify org indiv db
 
+decl prohibitionByLawEnforcementAgency: Actor -> Actor -> Event -> Boolean
+decl prohibitionByCommission: Actor -> Actor -> Event -> Boolean
 
+rule <s26d_6>
+for db: DataBreach, org: Organisation, indiv: Individual
+if prohibitionByLawEnforcementAgency org indiv db
+|| prohibitionByCommission org indiv db
+then prohibitionToNotify org indiv db
 
-# s26D(5)(b) - Exception to notification to individuals
-rule <s26d_5_b_applies>
-for ndb: NotifiableDataBreach, tm: TechnologicalMeasure, pt: PriorTo, sh: SignificantHarmToIndividual
-if (
-    notifiabledatabreach ndb && technologicalmeasure tm && priorto pt && (not significantharm sh)
-)
-then NotificationtoCommissionWithoutNotificationToIndividual
+decl waiveNotificationOfAffectedIndividual: Actor -> Actor -> Boolean
 
-
-
-# s26D(6)(a) - Exception to notification to individuals
-rule <s26d_6_a_applies>
-for ndb: NotifiableDataBreach, le: PrescribedLawEnforcementInstructs
-if (
-    notifiabledatabreach ndb && prescribedlawenforcement le
-)
-then NotificationtoCommissionWithoutNotificationToIndividual
+# TODO: not clear what "under subsection (2)" means. 
+# Note: the two subsections are mutually dependent.
+rule <s26d_7>
+for db: DataBreach, org: Organisation, indiv: Individual
+if waiveNotificationOfAffectedIndividual org indiv
+&& not (significantHarm db indiv)
+then exemptFromObligationToNotify org indiv db
 
 
+# s26D(8) - Organisation not in breach of law
+# TO BE DONE. 
+# This is a typical interface specification with other laws:
+# A notification action resulting from this Act, when interfaced with
+# other laws, cannot lead to a data breach state 
 
-# s26D(6)(b) - Exception to notification to individuals
-rule <s26d_6_a_applies>
-for ndb: NotifiableDataBreach, cd: CommissionSoDirects
-if (
-    notifiabledatabreach ndb && commissionsodirects cd
-)
-then NotificationtoCommissionWithoutNotificationToIndividual
-
-
-# s26D(7) - Wavier by Commission
-rule <s26d_7_applies>
-for ndb: NotifiableDataBreach, ao: ApplicationByOrg, wc: WavierByCommission
-if (
-    notifiabledatabreach ndb && applicationbyorg ao && waiverbycommission wc
-)
-then NotificationtoCommissionWithoutNotificationToIndividual
-
-
-
-# s26D(8)(a) - Organisation not in breach of law
-rule <s26d_8_a_applies>
-for s26d_1_applies: Boolean, s26d_2_applies: Boolean
-if (
-    s26d_1_applies || s26b_2_applies
-)
-then (not ObligationUnderLawNotToDisclose)
-
-
-# s26D(8)(b) - Organisation not in breach of professional conduct
-rule <s26d_8_b_applies>
-for s26d_1_applies: Boolean, s26d_2_applies: Boolean
-if (
-    s26d_1_applies || s26d_2_applies
-)
-then (not RuleOfProfessionalConduct)
-
+# s26D(9) - Concurrent applicability
+# TODO: similarly to the above: application of law-induced actions
+# may neither lead to a deadlock nor to a breached state
 
 #------------------------------ s26E: Notification of public agency ------------------------------ 
 
-rule <s26e_applies>
-for di: DataIntermediaryOnBehalfOfPublicAgency, rb: ReasonToBelieve, db: DataBreach
-if (
-    dataintermediaryonbehalfofpublicagency di && reasontobelieve rb && databreach db
-)
-then NotificationtoPublicAgency
+decl isPublicAgency : Organisation -> Boolean
+
+# Rules s26c_3a and s26e could be merged into one rule because both rules stipulate the requirement
+# that the intermediary notifies the organisation (whether a public agency or not)
+# Only difference: the public agency is apparently exempted from the obligation to conduct an assessment
+# whether the breach is notifiable to the Commission.
+rule <s26e>
+for dt: Data, db: DataBreach, interm: DataIntermediary, org: Organisation
+if processesInBehalfOf interm dt org
+&& isPublicAgency org
+&& workingForPublicAgency interm && dataOfBreach dt db
+then obligationToNotify interm org db 
