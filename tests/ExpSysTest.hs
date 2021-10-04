@@ -80,15 +80,15 @@ esRuleUTs :: TestTree
 esRuleUTs = withResource acquire release $ \progIO->
     testGroup "Expert System: Rule Translation Tests" -- todo: fill in the rest
         [ testGroup "Type: CEArg"
-            [ testGroup "exprToCEArg"
+            [ testGroup "exprToCEBindEq"
                 [ testCase "returns CEBinding for a LocalVar expr" $ do
                     rule <- progToRule progIO "singleLocalVar"
                     let (_, varExpr) = appToFunArgs [] $ precondOfRule rule
-                    TR.exprToCEArg (0, head varExpr) @?= TR.CEBinding "x" "arg0"
+                    TR.exprToCEBindEq (0, head varExpr) @?= TR.CEBinding "x" "arg0"
                 , testCase "returns CEEquality for a GlobalVar expr" $ do
                     rule <- progToRule progIO "singleGlobalVar"
                     let (_, varExpr) = appToFunArgs [] $ precondOfRule rule
-                    TR.exprToCEArg (0, head varExpr) @?= TR.CEEquality "arg0" "inadequate"
+                    TR.exprToCEBindEq (0, head varExpr) @?= TR.CEEquality "arg0" "inadequate"
                 ]
             , testGroup "exprToCEFuncApp"
                 [ testCase "returns CEFuncApp for a AppE" $ do
@@ -105,13 +105,13 @@ esRuleUTs = withResource acquire release $ \progIO->
             , testGroup "exprToConditionalEval"
                 [ testCase "returns ConditionalEval for BinOpE with BClt" $ do
                     rule <- progToRule progIO "BinOpE_BClt"
-                    let evalExpr = last . TR.precondToRCList . precondOfRule $ rule
+                    let evalExpr = last . TR.precondToExprList . precondOfRule $ rule
                     TR.exprToConditionalEval evalExpr @?= TR.ConditionalEval BClt (TR.CEVarExpr "x") (TR.CEVarExpr "y")
                 ]
             , testGroup "exprToConditionalExist"
                 [ testCase "returns ConditionalExist for UnaOpE with UBnot" $ do
                     rule <- progToRule progIO "singleNot"
-                    let notExpr = last . TR.precondToRCList . precondOfRule $ rule
+                    let notExpr = last . TR.precondToExprList . precondOfRule $ rule
                     TR.exprToConditionalExist notExpr @?= TR.ConditionalExist UBnot (TR.ConditionalFuncApp "amount_saved" [TR.CEBinding "x" "arg0"])
                 ]
             ]
@@ -121,16 +121,39 @@ esRuleUTs = withResource acquire release $ \progIO->
                 TR.exprlistToRCList S.empty [precondOfRule rule] @?= [TR.ConditionalFuncApp "savings_account" [TR.CEEquality "arg0" "inadequate"]]
             , testCase "returns [ConditionalFuncApp, ConditionalFuncApp, ConditionalEval] for [AppE \"x\", AppE \"y\", BinOpE \"x < y\"]" $ do
                 rule <- progToRule progIO "BinOpE_BClt"
-                TR.exprlistToRCList  S.empty (TR.precondToRCList $ precondOfRule rule) @?= [TR.ConditionalFuncApp "amount_saved" [TR.CEBinding "x" "arg0"], TR.ConditionalFuncApp "dependents" [TR.CEBinding "y" "arg0"], TR.ConditionalEval BClt (TR.CEVarExpr "x") (TR.CEVarExpr "y")]
+                TR.exprlistToRCList  S.empty (TR.precondToExprList $ precondOfRule rule) @?= [TR.ConditionalFuncApp "amount_saved" [TR.CEBinding "x" "arg0"], TR.ConditionalFuncApp "dependents" [TR.CEBinding "y" "arg0"], TR.ConditionalEval BClt (TR.CEVarExpr "x") (TR.CEVarExpr "y")]
             , testCase "returns [ConditionalFuncApp, ConditionalExist] for [AppE \"x\", UnaOpE UBnot" $ do
                 rule <- progToRule progIO "singleNotWithBinding"
-                TR.exprlistToRCList S.empty (TR.precondToRCList . precondOfRule $ rule) @?= [TR.ConditionalFuncApp "amount_saved" [TR.CEBinding "x" "arg0"], TR.ConditionalExist UBnot (TR.ConditionalFuncApp "amount_saved" [TR.CEBinding "x" "arg0"])]
-            , expectFail $ testCase "fails for singleNot" $ do
+                TR.exprlistToRCList S.empty (TR.precondToExprList . precondOfRule $ rule) @?= [TR.ConditionalFuncApp "amount_saved" [TR.CEBinding "x" "arg0"], TR.ConditionalExist UBnot (TR.ConditionalFuncApp "amount_saved" [TR.CEBinding "x" "arg0"])]
+            , testCase "fails for singleNot" $ do
                 rule <- progToRule progIO "singleNot"
-                TR.exprlistToRCList S.empty [precondOfRule rule] @?= [TR.ConditionalExist UBnot (TR.ConditionalFuncApp "amount_saved" [TR.CEBinding "x" "arg0"])]
-            , expectFail $ testCase "fails for unboundEval" $ do
+                TR.exprlistToRCList S.empty [precondOfRule rule] @?= [TR.ConditionalElementFail "`Not` statements require a prior variable binding"]
+            , testCase "fails for unboundEval" $ do
                 rule <- progToRule progIO "unboundEval"
-                TR.exprlistToRCList S.empty (TR.precondToRCList $ precondOfRule rule) @?= [TR.ConditionalFuncApp "amount_saved" [TR.CEBinding "x" "arg0"], TR.ConditionalEval BCgt (TR.CEVarExpr "x") (TR.CEVarExpr "y")]
+                TR.exprlistToRCList S.empty (TR.precondToExprList $ precondOfRule rule) @?= [TR.ConditionalFuncApp "amount_saved" [TR.CEBinding "x" "arg0"], TR.ConditionalElementFail "Reorder ur predicates"]
+            , expectFailBecause "implementing now" $ testCase "returns [ConditionalFuncApp, ConditionalFuncApp, ConditionEval (CEArithmetic) (CELiteral)] for [AppE \"x\", AppE \"y\", BinOpE \"(x + y) > 10\"]" $ do
+                rule <- progToRule progIO "preCond_arith_2args"
+                TR.exprlistToRCList S.empty (TR.precondToExprList . precondOfRule $ rule) @?= [TR.ConditionalFuncApp "amount_saved" [TR.CEBinding "x" "arg0"]]
+            , expectFailBecause "implementing now" $ testCase "returns [ConditionalFuncApp, ConditionalFuncApp, ConditionEval (CEArithmetic) (CELiteral)] for [AppE \"x\", AppE \"y\", BinOpE \"(x + y) > 10\"]" $ do
+                rule <- progToRule progIO "preCond_arith_3args"
+                TR.exprlistToRCList S.empty (TR.precondToExprList . precondOfRule $ rule) @?= [TR.ConditionalFuncApp "amount_saved" [TR.CEBinding "x" "arg0"]]
+            , expectFailBecause "implementing now" $ testCase "fails for preCond_arith_noBinding" $ do
+                rule <- progToRule progIO "preCond_arith_noBinding"
+                TR.exprlistToRCList S.empty (TR.precondToExprList .precondOfRule $ rule) @?= [TR.ConditionalFuncApp "amount_saved" [TR.CEBinding "x" "arg0"]]
+            ]
+        , testGroup "Type: RuleAction" 
+            [ testGroup "exprToRuleAction" 
+                [ expectFail $ testCase "returns ActionExprErr for AppE with GlobalVar" $ do
+                    rule <- progToRule progIO "postCond_withGlobal"
+                    TR.exprToRuleAction (postcondOfRule rule) @?= (TR.ActionFuncApp "investment" [TR.Value "savings"])
+                , expectFailBecause "not implemented yet" $ testCase "returns ActionExprErr for AppE with LocalVar with prior binding in preconds" $ do
+                    rule <- progToRule progIO "postCond_withLocal_withBinding"
+                    1 @?= 0
+                , expectFailBecause "not implemented yet" $ testCase "fails for postCond_withLocal_withoutBinding" $ do
+                    rule <- progToRule progIO "postCond_withLocal_withoutBinding"
+                    1 @?= 0
+                ]
+
             ]
         ]
     where acquire = getProg "tests/ExpSysTestFiles/finAd_tests.l4"

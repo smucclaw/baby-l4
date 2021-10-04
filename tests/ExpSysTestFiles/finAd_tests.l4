@@ -9,6 +9,8 @@ class InvestmentStrategy
 # Enumeration of members of FinancialStatus
 decl adequate: FinancialStatus
 decl inadequate: FinancialStatus
+decl steady: EarningsStatus
+decl unsteady: EarningsStatus
 
 decl savings: InvestmentStrategy
 decl combination: InvestmentStrategy
@@ -55,3 +57,43 @@ rule <singleNotWithBinding>
 for x : Integer
 if amount_saved x && not (amount_saved x)
 then investment savings
+
+# Test case for arithmetic operations in preconditions
+rule <preCond_arith_2args>
+for x : Integer, y : Integer
+if amount_saved x && dependents y && (x + y > 10)
+then investment savings
+
+# Test case for arithmetic operations in preconditions
+rule <preCond_arith_3args>
+for x : Integer, y : Integer, z : Integer
+if amount_saved x && dependents y && earnings z steady && (x + y - z > 10)
+then investment savings
+
+rule <preCond_arith_noBinding>
+for x : Integer, y : Integer
+if amount_saved x && (x + y > 10)
+then investment savings
+
+rule <postCond_withGlobal>
+if savings_account adequate 
+then investment savings
+
+# This rule should pass, as x is bound within the pre-conditions
+rule <postCond_withLocal_withBinding>
+for x : Integer
+if amount_saved x
+then dependents x
+
+# This rule should fail because y is not bound within the precond
+rule <postCond_withLocal_withoutBinding>
+for x : Integer, y : Integer
+if amount_saved x
+then dependents y
+
+
+# Test case for arithmetic operations in postconditions
+rule <postCond_arithmetic>
+for x : Integer, y : Integer
+if amount_saved x && dependents y && (x + y > 10)
+then earnings (x+y) steady 
