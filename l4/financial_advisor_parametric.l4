@@ -1,0 +1,212 @@
+# Example taken from:
+# George Luger: Artificial Intelligence, 6th edition
+# Section 2.4: A logic-based financial adivsor
+# HERE: As compared to financial_advisor.l4, the predicates are parameterized with a type Person
+
+class FinancialStatus
+class EarningsStatus
+class InvestmentStrategy
+
+class Person
+class Family
+
+# Enumeration of members of FinancialStatus
+decl adequate: FinancialStatus
+decl inadequate: FinancialStatus
+
+# Enumeration of members of EarningsStatus
+decl steady: EarningsStatus
+decl unsteady: EarningsStatus
+
+# Enumeration of members of InvestmentStrategy
+decl savings: InvestmentStrategy
+decl combination: InvestmentStrategy
+decl stocks: InvestmentStrategy
+
+decl savings_account: Person -> FinancialStatus -> Boolean
+decl income: Person -> FinancialStatus -> Boolean
+decl earnings: Person -> Integer -> EarningsStatus -> Boolean
+
+decl investment: Person -> InvestmentStrategy -> Boolean
+
+decl minsavings: Integer -> Integer
+decl minincome: Integer -> Integer
+
+decl amount_saved: Person -> Integer -> Boolean
+decl dependents: Person -> Integer -> Boolean
+
+decl member: Person -> Family -> Boolean
+
+decl isDead: Person -> Boolean
+
+decl incomeSol: FinancialStatus
+decl incomeSol2: FinancialStatus
+decl xSol: Integer
+decl ySol: Integer
+decl zSol: Integer
+
+
+## Exhaustiveness and disjointness
+
+fact <financialStatusExhaustive>
+for x: FinancialStatus
+(x == adequate) || (x == inadequate)
+
+fact <earningStatusExhaustive>
+for x: EarningsStatus
+(x == steady) || (x == unsteady)
+
+fact <investmentStrategyExhaustive>
+for x: InvestmentStrategy
+(x == savings) || (x == combination) || (x == stocks)
+
+fact <financialStatusDisj>
+adequate /= inadequate
+
+fact <earningStatusDisj>
+steady /= unsteady
+
+fact <investmentStrategyDisj>
+(savings /= combination) && (savings /= combination) && (combination /= stocks)
+
+## Definitions of functions
+
+fact <minsavingsDef>
+for x: Integer
+minsavings x == 5000 * x
+
+fact <minincomeDef>
+for x: Integer
+minincome x == 15000 + 4000 * x
+
+## General rules
+
+# 1
+rule <accInad>
+for p: Person
+if savings_account p inadequate
+then investment p savings 
+
+# 2
+rule <accAdIncAd>
+for p: Person
+if savings_account p adequate && income p adequate
+then investment p stocks
+
+# 3
+rule <accAdIncInad>
+for p: Person
+if savings_account p adequate && income p inadequate
+then investment p combination
+
+# 4
+rule <savingsAd>
+for p: Person, x: Integer, y: Integer
+if amount_saved p x && dependents p y && x > minsavings y
+then savings_account p adequate
+
+# 5
+rule <savingsInad>
+for p: Person, x: Integer, y: Integer
+if amount_saved p x && dependents p y && x <= minsavings y && not amount_saved p x
+then savings_account p inadequate
+
+# 6
+rule <incomeAd>
+for p: Person, x: Integer, y: Integer
+if earnings p x steady && dependents p y && x > minincome y 
+then income p adequate
+
+# 7
+rule <incomeInadESteady>
+for p: Person, x: Integer, y: Integer
+if earnings p x steady && dependents p y && x <= minincome y
+then income p inadequate
+
+# 8
+rule <incomeInadEUnsteady>
+for p: Person, x: Integer
+# for demonstrating cycles: if earnings x unsteady && investment stocks
+if earnings p x unsteady
+then income p inadequate
+
+rule <noEarningsForDead>
+for p: Person
+if isDead p
+then earnings p 0 steady
+
+## Derived rules
+
+rule <investmentInversion>
+     {derived: {apply: {inversion,
+     	       	        apply: {normalize, accInad},
+     	       	        apply: {normalize, accAdIncAd},
+     	       	        apply: {normalize, accAdIncInad}}}}
+
+rule <savings_accountInversion>
+     {derived: {apply: {inversion,
+     	       	        apply: {normalize, savingsAd},
+     	       	        apply: {normalize, savingsInad}}}}
+
+rule <incomeInversion>
+     {derived: {apply: {inversion,
+     	       	        apply: {normalize, incomeAd},
+     	       	        apply: {normalize, incomeInadESteady},
+     	       	        apply: {normalize, incomeInadEUnsteady}}}}
+
+rule <amount_savedInversion> 
+     {derived: {apply: {inversion,
+     	       	        apply: {normalize, amount_savedAdam},
+						apply: {normalize, amount_savedEve}}}}
+
+rule <earningsInversion> 
+     {derived: {apply: {inversion,
+     	       	        apply: {normalize, earningsAdam},
+						apply: {normalize, earningsEve}}}}
+
+rule <dependentsInversion> 
+     {derived: {apply: {inversion,
+     	       	        apply: {normalize, dependentsAdam},
+						apply: {normalize, dependentsEve}}}}
+
+
+## Facts concerning a specific case
+
+decl adam: Person
+decl eve: Person
+decl cain: Person
+decl abel: Person
+decl edenFamily: Family
+
+# 9
+fact <amount_savedAdam>
+amount_saved adam 22000
+
+fact <amount_savedEve>
+amount_saved eve 15000
+
+# 10
+fact <earningsAdam>
+earnings adam 25000 steady
+
+fact <earningsEve>
+earnings eve 30000 unsteady
+
+# 11
+fact <dependentsAdam>
+dependents adam 2
+
+fact <dependentsEve>
+dependents eve 2
+
+fact <isDeadAbel>
+isDead abel
+
+assert <incomeAdam> {SMT: valid}
+income adam adequate
+
+assert <incomeEve> {SMT: valid}
+income eve inadequate
+
+assert <investmentAbel> {SMT: valid}
+investment abel savings
