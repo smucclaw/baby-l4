@@ -130,58 +130,6 @@ class NotificationofOtherOrg extends Notification
 
 class UponNotification extends Notification
 
-# r5(1) of PDPR 
-class NotificationtoCommission extends UponNotification {
-    
-    DateWhichBreachFirstOccurred: Integer 
-    StepsTakenByOrgAfterBreach: String
-    HowTheBreachOccurred: String
-    NumOfAffectedIndividuals: Integer
-    DataAffectedByBreach: String
-    PotentialHarmToIndividuals: String
-
-    ActionTakenBeforeOrAfterBreachToEliminateOrMitigateHarm: String
-    ActionTakenBeforeOrAfterBreachToAddressAnyFailureThatMayHaveCausedBreach: String
-
-    InfoOnOrgPlanToInformAffectedIndividuals: String
-    BusinessContactofOrg: String
-}
-
-
-# r5(2)
-class NotificationtoCommissionAfterExpiry extends NotificationtoCommission {
-    ReasonsForLateNotification: String
-    SupportingEvidence: String
-}
-
-# r5(3)
-class NotificationtoCommissionWithoutNotificationToIndividual extends NotificationtoCommission {
-    GroundsForNotNotifyingIndividual: String
-}
-
-class NotificationtoPublicAgency extends Notification
-
-class PrescribedRequirements
-
-class RestrictionOnTheDisclosureofInformation  {
-    DutyorObligationUnderLaw: Boolean
-    DutyUnderContract: Boolean
-    RuleOfProfessionalConduct: Boolean
-}
-
-
-#--------------------------- Time classes and misc ------------------------------
-class PriorTo
-
-class Days
-
-class DateofDataBreach
-
-class TechnologicalMeasure
-
-class ObligationUnderLawNotToDiscloseOrRuleOfProfessionalConduct
-
-class RuleOfProfessionalConduct
 
 ###########################################################################
 ############################### Declarations ##############################
@@ -201,8 +149,6 @@ decl dataBreachOnlyWithinOrg: DataBreach -> Boolean
 class significantHarmToIndividualClass
 
 
-
-
 #------------------------------ s26C: Duty to conduct assessment of data breach ----------------------
 decl reasontobelieve: ReasonToBelieve -> Boolean
 decl dataintermediary: DataIntermediary -> Boolean
@@ -214,10 +160,7 @@ decl notificationootherorg: NotificationofOtherOrg -> Boolean
 # NOTE: Maybe these functions that convert the classes to booleans can be part of the local scope of the general rule? (ie. defined within an object called s26D)
 
 decl actiontaken: ActionTaken -> Boolean
-decl prescribedrequirements: PrescribedRequirements -> Boolean
-decl technologicalmeasure: TechnologicalMeasure -> Boolean
 decl prescribedlawenforcement: PrescribedLawEnforcementInstructs -> Boolean
-decl priorto: PriorTo -> Boolean
 decl commissionsodirects: CommissionSoDirects -> Boolean
 decl applicationbyorg: ApplicationByOrg -> Boolean
 
@@ -283,12 +226,6 @@ then exemptFromNotification db
 
 
 #------------------------------ s26C: Duty to Conduct Assessment of Breach ------------------------------ 
-
-# This is supposed to be a date
-# class Commencementofs13ofPDPA extends Days
-
-# s26C(1): Section applies to data breach that occurs on or after date of commencement of s13 of PDPA
-# >= here is used to represent "on or after"
 
 # TODO: it would be ideal to have a notion of "context"
 # Proposed syntax:
