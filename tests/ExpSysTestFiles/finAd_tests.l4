@@ -38,22 +38,22 @@ then investment savings
 
 
 # Evaluations
-rule <BinOpE_BClt>
+rule <preCond_singleEval_BClt>
 for x : Integer, y : Integer
 if amount_saved x && dependents y && x < y
 then investment savings 
 
-rule <unboundEval>
+rule <preCond_singleEval_noBinding>
 for x : Integer, y: Integer
 if amount_saved x && (x > y)
 then investment savings
 
-rule <singleNot>
+rule <preCond_singleNot_noBinding>
 for x : Integer
 if not (amount_saved x)
 then investment savings
 
-rule <singleNotWithBinding>
+rule <preCond_singleNot_withBinding>
 for x : Integer
 if amount_saved x && not (amount_saved x)
 then investment savings

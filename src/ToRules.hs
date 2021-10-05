@@ -147,14 +147,18 @@ data CEArg = CEBinding ProdVarName ProdFieldName
 instance ShowClara CEArg where
     showClara (CEEquality fn fv) = pretty "=" <+> pretty fn <+> pretty fv
     showClara (CEBinding vn fn) = pretty "=" <+> pretty "?" <> pretty vn <+> pretty fn
+    showClara (CEArithmetic aOp v1 v2) = lparen <> showClara aOp <+> showClara v1 <+> showClara v2 <> rparen
     showClara (CEFuncApp func vns) = parens (pretty func <+> hsep (punctuate comma (map ((<>) (pretty "?") . pretty) vns)))
+    showClara (CELiteral x) = pretty x
     showClara (CEVarExpr vn) = pretty "?" <> pretty vn
     showClara (CEArgFail err) = error $ "Transpilation failure: " ++ show err 
 
 instance ShowDrools CEArg where
     showDrools (CEEquality fn fv) = pretty fn <+> pretty "==" <+> pretty fv
     showDrools (CEBinding vn fn) = pretty "$" <> pretty vn <+> pretty ":=" <+> pretty fn
+    showDrools (CEArithmetic aOp v1 v2) = lparen <> showDrools v1 <+> showDrools aOp <+> showDrools v2 <> rparen
     showDrools (CEFuncApp func vns) = pretty func <> parens (hsep (punctuate comma (map ((<>) (pretty "$") . pretty) vns)))
+    showDrools (CELiteral x) = pretty x
     showDrools (CEVarExpr vn) = pretty "$" <> pretty vn
     showDrools (CEArgFail err) = error $ "Transpilation failure: " ++ show err 
 
@@ -294,20 +298,37 @@ exprToRuleAction fApp@(AppE {}) =
     in ActionFuncApp (getName fexpr) (map (Value . getName) args)
 exprToRuleAction x = ActionExprErr $ "error: cannot convert expression into rule-action: " ++ show x  
 
-
+obtRule :: Program (Tp ()) -> String -> [Rule (Tp ())]
+obtRule prog rname = [r | r <- rulesOfProgram prog, nameOfRule r == Just rname ]
 
 astToRules :: Program (Tp ()) -> IO ()
 astToRules x = do
     let lrRules = map filterRule $ rulesOfProgram x
         gdRules = rights lrRules
+        r1 = map filterRule $ obtRule x "preCond_arith_2args"
+        r2 = map filterRule $ obtRule x "preCond_arith_3args"
+        rf = map filterRule $ obtRule x "preCond_arith_noBinding"
+        rules = rights $ r1 ++ r2 ++ rf 
     -- print $ lefts lrRules
     putStrLn "Rule AST:"
-    print $ gdRules !! 0
-    print $ gdRules !! 4
+    -- print $ gdRules !! 0
+    -- print $ gdRules !! 4
     putStrLn ""
     putStrLn "Clara:"
-    putDoc $ showClara (gdRules !! 0)
-    putDoc $ showClara (gdRules !! 4)
+    putDoc $ showClara $ rules !! 0
     putStrLn ""
     putStrLn "Drools:"
-    putDoc $ showDrools (gdRules !! 4)
+    putDoc $ showDrools $ rules !! 0
+    -- putDoc $ showDrools (gdRules !! 4)
+    putStrLn ""
+    putStrLn "Clara:"
+    putDoc $ showClara $ rules !! 1
+    putStrLn ""
+    putStrLn "Drools:"
+    putDoc $ showDrools $ rules !! 1
+    putStrLn ""
+    putStrLn "Clara:"
+    putDoc $ showClara $ rules !! 2
+    putStrLn ""
+    putStrLn "Drools:"
+    putDoc $ showDrools $ rules !! 2

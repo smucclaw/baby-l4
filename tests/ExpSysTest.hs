@@ -104,13 +104,13 @@ esRuleUTs = withResource acquire release $ \progIO->
                 ]
             , testGroup "exprToConditionalEval"
                 [ testCase "returns ConditionalEval for BinOpE with BClt" $ do
-                    rule <- progToRule progIO "BinOpE_BClt"
+                    rule <- progToRule progIO "preCond_singleEval_BClt"
                     let evalExpr = last . TR.precondToExprList . precondOfRule $ rule
                     TR.exprToConditionalEval evalExpr @?= TR.ConditionalEval BClt (TR.CEVarExpr "x") (TR.CEVarExpr "y")
                 ]
             , testGroup "exprToConditionalExist"
                 [ testCase "returns ConditionalExist for UnaOpE with UBnot" $ do
-                    rule <- progToRule progIO "singleNot"
+                    rule <- progToRule progIO "preCond_singleNot_withBinding"
                     let notExpr = last . TR.precondToExprList . precondOfRule $ rule
                     TR.exprToConditionalExist notExpr @?= TR.ConditionalExist UBnot (TR.ConditionalFuncApp "amount_saved" [TR.CEBinding "x" "arg0"])
                 ]
@@ -119,27 +119,27 @@ esRuleUTs = withResource acquire release $ \progIO->
             [ testCase "returns ConditionalFuncApp for an AppE" $ do
                 rule <- progToRule progIO "singleGlobalVar"
                 TR.exprlistToRCList S.empty [precondOfRule rule] @?= [TR.ConditionalFuncApp "savings_account" [TR.CEEquality "arg0" "inadequate"]]
-            , testCase "returns [ConditionalFuncApp, ConditionalFuncApp, ConditionalEval] for [AppE \"x\", AppE \"y\", BinOpE \"x < y\"]" $ do
-                rule <- progToRule progIO "BinOpE_BClt"
+            , testCase "returns [ConditionalFuncApp, ConditionalFuncApp, ConditionalEval] for preCond_singleEval_BClt" $ do
+                rule <- progToRule progIO "preCond_singleEval_BClt"
                 TR.exprlistToRCList  S.empty (TR.precondToExprList $ precondOfRule rule) @?= [TR.ConditionalFuncApp "amount_saved" [TR.CEBinding "x" "arg0"], TR.ConditionalFuncApp "dependents" [TR.CEBinding "y" "arg0"], TR.ConditionalEval BClt (TR.CEVarExpr "x") (TR.CEVarExpr "y")]
-            , testCase "returns [ConditionalFuncApp, ConditionalExist] for [AppE \"x\", UnaOpE UBnot" $ do
-                rule <- progToRule progIO "singleNotWithBinding"
+            , testCase "returns [ConditionalFuncApp, ConditionalExist] for preCond_singleNot_withBinding" $ do
+                rule <- progToRule progIO "preCond_singleNot_withBinding"
                 TR.exprlistToRCList S.empty (TR.precondToExprList . precondOfRule $ rule) @?= [TR.ConditionalFuncApp "amount_saved" [TR.CEBinding "x" "arg0"], TR.ConditionalExist UBnot (TR.ConditionalFuncApp "amount_saved" [TR.CEBinding "x" "arg0"])]
-            , testCase "fails for singleNot" $ do
-                rule <- progToRule progIO "singleNot"
+            , testCase "fails for preCond_singleNot_noBinding" $ do
+                rule <- progToRule progIO "preCond_singleNot_noBinding"
                 TR.exprlistToRCList S.empty [precondOfRule rule] @?= [TR.ConditionalElementFail "`Not` statements require a prior variable binding"]
-            , testCase "fails for unboundEval" $ do
-                rule <- progToRule progIO "unboundEval"
+            , testCase "fails for preCond_singleEval_noBinding" $ do
+                rule <- progToRule progIO "preCond_singleEval_noBinding"
                 TR.exprlistToRCList S.empty (TR.precondToExprList $ precondOfRule rule) @?= [TR.ConditionalFuncApp "amount_saved" [TR.CEBinding "x" "arg0"], TR.ConditionalElementFail "Reorder ur predicates"]
-            , expectFailBecause "implementing now" $ testCase "returns [ConditionalFuncApp, ConditionalFuncApp, ConditionEval (CEArithmetic) (CELiteral)] for [AppE \"x\", AppE \"y\", BinOpE \"(x + y) > 10\"]" $ do
+            , testCase "returns [ConditionalFuncApp, ConditionalFuncApp, ConditionEval (CEArithmetic) (CELiteral)] for preCond_arith_2args" $ do
                 rule <- progToRule progIO "preCond_arith_2args"
-                TR.exprlistToRCList S.empty (TR.precondToExprList . precondOfRule $ rule) @?= [TR.ConditionalFuncApp "amount_saved" [TR.CEBinding "x" "arg0"]]
-            , expectFailBecause "implementing now" $ testCase "returns [ConditionalFuncApp, ConditionalFuncApp, ConditionEval (CEArithmetic) (CELiteral)] for [AppE \"x\", AppE \"y\", BinOpE \"(x + y) > 10\"]" $ do
+                TR.exprlistToRCList S.empty (TR.precondToExprList . precondOfRule $ rule) @?= [TR.ConditionalFuncApp "amount_saved" [TR.CEBinding "x" "arg0"],TR.ConditionalFuncApp "dependents" [TR.CEBinding "y" "arg0"],TR.ConditionalEval BCgt (TR.CEArithmetic BAadd (TR.CEVarExpr "x") (TR.CEVarExpr "y")) (TR.CELiteral "10")]
+            , testCase "returns [ConditionalFuncApp, ConditionalFuncApp, ConditionEval (CEArithmetic (CEArithmetic)) (CELiteral)] for preCond_arith_3args" $ do
                 rule <- progToRule progIO "preCond_arith_3args"
-                TR.exprlistToRCList S.empty (TR.precondToExprList . precondOfRule $ rule) @?= [TR.ConditionalFuncApp "amount_saved" [TR.CEBinding "x" "arg0"]]
-            , expectFailBecause "implementing now" $ testCase "fails for preCond_arith_noBinding" $ do
+                TR.exprlistToRCList S.empty (TR.precondToExprList . precondOfRule $ rule) @?= [TR.ConditionalFuncApp "amount_saved" [TR.CEBinding "x" "arg0"],TR.ConditionalFuncApp "dependents" [TR.CEBinding "y" "arg0"],TR.ConditionalFuncApp "earnings" [TR.CEBinding "z" "arg0",TR.CEEquality "arg1" "steady"],TR.ConditionalEval BCgt (TR.CEArithmetic BAsub (TR.CEArithmetic BAadd (TR.CEVarExpr "x") (TR.CEVarExpr "y")) (TR.CEVarExpr "z")) (TR.CELiteral "10")] 
+            , testCase "fails for preCond_arith_noBinding" $ do
                 rule <- progToRule progIO "preCond_arith_noBinding"
-                TR.exprlistToRCList S.empty (TR.precondToExprList .precondOfRule $ rule) @?= [TR.ConditionalFuncApp "amount_saved" [TR.CEBinding "x" "arg0"]]
+                TR.exprlistToRCList S.empty (TR.precondToExprList .precondOfRule $ rule) @?= [TR.ConditionalFuncApp "amount_saved" [TR.CEBinding "x" "arg0"],TR.ConditionalElementFail "Reorder ur predicates"]
             ]
         , testGroup "Type: RuleAction" 
             [ testGroup "exprToRuleAction" 
