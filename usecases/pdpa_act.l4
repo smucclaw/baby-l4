@@ -1,6 +1,7 @@
-# l4 encoding of PDPA 
+# L4 encoding of PDPA 
 # Part VIA - Notification of Data Breaches &
-# Personal Data Protection (Notification of Data Breaches) Regulations 2021
+# Personal Data Protection (Notification of Data Breaches) Act 2021
+# https://drive.google.com/drive/u/1/folders/1zP9IGW88XQ_4qoPbsQXIn4I3IcSElIuZ
 
 
 
@@ -145,8 +146,6 @@ decl isOfSignificantScale: DataBreach -> Boolean
 decl databreach: DataBreach -> Boolean
 decl dataBreachOnlyWithinOrg: DataBreach -> Boolean 
 
-# TODO: this is certainly not the right thing
-class significantHarmToIndividualClass
 
 
 #------------------------------ s26C: Duty to conduct assessment of data breach ----------------------

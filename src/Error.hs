@@ -5,7 +5,7 @@ module Error where
 import Data.Data (Data, Typeable)
 import Syntax
 import Annotation (RealSRng(..), SRng(..), Pos(Pos) )
-
+import PrintProg (printTp)
 
 data ExpectedType
   = ExpectedString  String
@@ -99,15 +99,6 @@ printFieldName (FldNm fn) = fn
 
 printVarName :: VarName -> String
 printVarName = id
-
-printTp :: Tp t -> String
-printTp t = case t of
-  ClassT _ cn -> printClassName cn
-  FunT _ t1 t2 -> "(" ++ printTp t1 ++ " -> " ++ printTp t2 ++")"
-  TupleT _ [] -> "()"
-  TupleT _ [t] -> "(" ++ printTp t ++ ")"
-  TupleT _ (t:ts) -> "(" ++ printTp t ++ ", " ++ (foldr (\s r -> ((printTp s) ++ ", " ++ r)) "" ts) ++ ")"
-  _ -> error "internal error in printTp: ErrT or OkT not printable"
 
 printExpectedTp :: ExpectedType -> String
 printExpectedTp (ExpectedString s) = s

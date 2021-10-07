@@ -10,6 +10,8 @@ import Data.Either (lefts, rights)
 import Data.Char (toUpper)
 import qualified Data.Set as S
 import Documentation.SBV.Examples.WeakestPreconditions.Append (AppS(xs))
+import Util (capitalise)
+import SyntaxManipulation (appToFunArgs)
 
 data RuleFormat = Clara | Drools deriving Eq
 
@@ -96,14 +98,14 @@ data ConditionalElement
 
 instance ShowClara ConditionalElement where
     showClara (ConditionalFuncApp tn args) =
-        brackets (pretty (capitalize tn) <+> hsep (map (parens . showClara) args))
+        brackets (pretty (capitalise tn) <+> hsep (map (parens . showClara) args))
     showClara (ConditionalEval cOp arg1 arg2) = brackets (pretty ":test" <+> parens (showClara cOp <+> showClara arg1 <+> showClara arg2))
     showClara (ConditionalExist UBnot arg) = brackets (pretty ":not" <+> showClara arg)
     showClara (ConditionalElementFail err) = error $ "ConditionalElementFailure: " ++ show err
 
 instance ShowDrools ConditionalElement where
     showDrools (ConditionalFuncApp tn args) =
-        pretty (capitalize tn) <> parens (hsep $ punctuate comma $ map showDrools args)
+        pretty (capitalise tn) <> parens (hsep $ punctuate comma $ map showDrools args)
     showDrools (ConditionalEval cOp arg1 arg2 ) = pretty "eval" <> parens (showDrools arg1 <+> showDrools cOp <+> showDrools arg2)
     showDrools (ConditionalExist UBnot arg) = pretty "not" <+> parens (showDrools arg)
     showDrools (ConditionalElementFail err) = error $ "ConditionalElementFailure: " ++ show err
@@ -175,14 +177,6 @@ ruleToProductionRule Rule {nameOfRule, varDeclsOfRule, precondOfRule, postcondOf
 
 varDeclToProdVarName :: VarDecl t -> ProdVarName
 varDeclToProdVarName = undefined
-
-capitalize :: String -> String
-capitalize xs = toUpper (head xs) : tail xs
-
--- remove this after merging to main (add "import SyntaxManipulations (appToFunArgs")
-appToFunArgs :: [Expr t] -> Expr t -> (Expr t, [Expr t])
-appToFunArgs acc (AppE _ f a) = appToFunArgs (a:acc) f
-appToFunArgs acc t = (t, acc)
 
 precondToRCList :: Expr t -> [Expr t] -- todo : rename to reflect new typesig
 precondToRCList (BinOpE _ (BBool BBand) arg1 arg2) = precondToRCList arg1 ++ precondToRCList arg2

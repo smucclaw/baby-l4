@@ -6,7 +6,7 @@ import Annotation ( HasDefault(defaultVal))
 import KeyValueMap
     ( ValueKVM(..), KVMap, KeyKVM, hasPathMap, getAssocOfPathMap, stringListAsKVMap, putAssocOfPathMap )
 import Syntax
-import SyntaxManipulation (appToFunArgs, funArgsToApp, conjExpr, conjsExpr, liftType, notExpr, disjsExpr, remapExpr, eqExpr, liftExpr, isLocalVar, fv )
+import SyntaxManipulation (appToFunArgs, funArgsToApp, conjExpr, conjsExpr, liftType, notExpr, disjsExpr, remapExpr, eqExpr, liftExpr, isLocalVar, fv, dnf, nnf )
 import Typing (distinct, eraseAnn)
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
@@ -46,6 +46,8 @@ type DecompRule t = Rule t -> [Rule t]
 type DecompWorklist t = [Rule t] -> [Rule t]
 type RuleTransformer t = Rule t -> Rule t
 
+-- Transforms: for x: Tx if A then all y: Ty. F into: for x: Tx, y: Ty if A then F
+-- (one step, rule unchanged if transfo not applicable)
 ruleAllR :: RuleTransformer (Tp ())
 ruleAllR r =
   case postcondOfRule r of
@@ -53,13 +55,15 @@ ruleAllR r =
       r{postcondOfRule = e}{precondOfRule = liftExpr 0 (precondOfRule r)}{varDeclsOfRule = varDeclsOfRule r ++ [v]}
     _ -> r
 
+-- Transforms: if A then B --> C into: if A, B then C
+-- (one step, rule unchanged if transfo not applicable)
 ruleImplR :: RuleTransformer (Tp ())
 ruleImplR r =
   case postcondOfRule r of
     BinOpE _ (BBool BBimpl) e1 e2 -> r{postcondOfRule = e2}{precondOfRule = conjExpr (precondOfRule r) e1}
     _ -> r
 
-
+-- Transforms rule: if A then B && C into two rules: if A then B and: if A then C
 ruleConjR :: DecompRule t
 ruleConjR r =
   case postcondOfRule r of
@@ -67,6 +71,18 @@ ruleConjR r =
       [ r{postcondOfRule = e1}{nameOfRule = modifyARName (nameOfRule r) "Conj1"}
       , r{postcondOfRule = e2}{nameOfRule = modifyARName (nameOfRule r) "Conj2"}]
     _ -> [r]
+
+-- Transforms rule: if A1 || ... An then C into n rules: if A1 then C ... and if An then C
+-- If the precondition is not explicitly a disjunction, it is converted into disjunctive normal form first
+ruleDisjL :: DecompRule (Tp())
+ruleDisjL r =
+  let dnfDecomp = dnf (nnf True (precondOfRule r))
+  in case dnfDecomp of
+    [_] -> [r]     -- decomposition yields one disjunct --> return rule unchanged
+    _ -> zipWith (\ cnjs i -> r {precondOfRule = conjsExpr cnjs}
+                                {nameOfRule = modifyARName (nameOfRule r) ("Disj" ++ show i)})
+                 dnfDecomp [0 .. length dnfDecomp - 1]
+
 
 -- suggestion for new variable name, without guarantees that this name is unique
 -- takes into account the variable's type and its rank
