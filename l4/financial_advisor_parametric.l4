@@ -38,6 +38,7 @@ decl dependents: Person -> Integer -> Boolean
 decl member: Person -> Family -> Boolean
 
 decl isDead: Person -> Boolean
+decl spendthrift: Person -> Boolean
 
 decl incomeSol: FinancialStatus
 decl incomeSol2: FinancialStatus
@@ -108,14 +109,21 @@ then savings_account p adequate
 # 5
 rule <savingsInad>
 for p: Person, x: Integer, y: Integer
-if amount_saved p x && dependents p y && x <= minsavings y && not amount_saved p x
+if amount_saved p x && dependents p y && x <= minsavings y
 then savings_account p inadequate
 
 # 6
 rule <incomeAd>
 for p: Person, x: Integer, y: Integer
-if earnings p x steady && dependents p y && x > minincome y 
+if earnings p x steady && dependents p y && x > minincome y && not spendthrift p
 then income p adequate
+
+#6a 
+# A spendthrift person never has enough money
+rule <incomeInadSpendthrift>
+for p: Person
+if spendthrift p
+then income p inadequate
 
 # 7
 rule <incomeInadESteady>
