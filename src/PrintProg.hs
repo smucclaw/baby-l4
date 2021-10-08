@@ -331,6 +331,6 @@ fooDec = map printExpr (decomposeBinop (BBool BBor) bar2)
 -- exp. result of CNF: [[a, c], [b, c]]
 
 fooNF :: [[String]]
-fooNF = map (map printExpr) (dnf bar1s)
+fooNF = map (map printExpr) (dnf bar2)
 -- >>> fooNF
--- [["a"],["b0","b1"]]
+-- [["a","b0"],["a","b1"],["c"]]

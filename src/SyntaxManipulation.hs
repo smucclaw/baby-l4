@@ -110,29 +110,43 @@ decomposeBinop bop e@(BinOpE _ bop' e1 e2) =
     else [e]
 decomposeBinop _ e = [e]
 
-listProduct :: [[a]] -> [[a]] -> [[a]]
-listProduct xss yss = map (++) xss <*> yss
+-- lps and lpconcats are two different forms of list products used for computing cnf / dnf
 
---lp :: [a] -> [[a]] -> [[a]]
 lp :: Applicative f => f a -> f [a] -> f [a]
 lp xs yss = fmap (:) xs <*> yss
 
-
+-- Multiply out a list of lists by forming all possible combinations of the elements of the lists.
+-- Example: lps [[0, 1], [10, 11, 12], [20, 21]]
+-- [[0,10,20],[0,10,21],[0,11,20],[0,11,21],[0,12,20],[0,12,21],[1,10,20],[1,10,21],[1,11,20],[1,11,21],[1,12,20],[1,12,21]]
 lps :: Foldable t => t [a] -> [[a]]
 lps = foldr lp [[]]
 
+lpconcat :: Applicative f => f [a] -> f [a] -> f [a]
+lpconcat xs yss = fmap (++) xs <*> yss
+
+-- Multiply out a list of lists of lists by concatenating combinations of sublists
+-- Example: lpconcats [[[0, 1], [10, 11, 12]], [[20, 21]]]
+-- [[0,1,20,21],[10,11,12,20,21]]
+lpconcats :: Foldable t => t [[a]] -> [[a]]
+lpconcats = foldr lpconcat [[]]
+
+
 -- conjunctive normal form: conjunction of disjunctions
+-- The commented line alone (together with the non-recursive terminal case) would be a correct implementation
+-- but produces a complex and redundant cnf
 cnf :: Expr (Tp()) -> [[Expr (Tp())]]
 cnf e@BinOpE {binOpOfExprBinOpE = (BBool BBimpl)} = cnf (nnf True e)
---cnf e@BinOpE {binOpOfExprBinOpE = (BBool _)} = foldr (listProduct . dnf) [[]] (decomposeBinop (BBool BBand) e)
-cnf e@BinOpE {binOpOfExprBinOpE = (BBool _)} = concatMap (lps . dnf) (decomposeBinop (BBool BBand) e)
+--cnf e@BinOpE {binOpOfExprBinOpE = (BBool _)} = concatMap (lps . dnf) (decomposeBinop (BBool BBand) e)
+cnf e@BinOpE {binOpOfExprBinOpE = (BBool BBand)} = concatMap cnf (decomposeBinop (BBool BBand) e)
+cnf e@BinOpE {binOpOfExprBinOpE = (BBool BBor)} = lpconcats (map cnf (decomposeBinop (BBool BBor) e))
 cnf e = [[e]]
 
 -- disjunctive normal form: disjunction of conjunctions
 dnf :: Expr (Tp()) -> [[Expr (Tp())]]
 dnf e@BinOpE {binOpOfExprBinOpE = (BBool BBimpl)} = dnf (nnf True e)
---dnf e@BinOpE {binOpOfExprBinOpE = (BBool _)} =  foldr (listProduct . cnf) [[]] (decomposeBinop (BBool BBor) e)
-dnf e@BinOpE {binOpOfExprBinOpE = (BBool _)} =  concatMap (lps . cnf) (decomposeBinop (BBool BBor) e)
+--dnf e@BinOpE {binOpOfExprBinOpE = (BBool _)} =  concatMap (lps . cnf) (decomposeBinop (BBool BBor) e)
+dnf e@BinOpE {binOpOfExprBinOpE = (BBool BBor)} =  concatMap dnf (decomposeBinop (BBool BBor) e)
+dnf e@BinOpE {binOpOfExprBinOpE = (BBool BBand)} =  lpconcats (map dnf (decomposeBinop (BBool BBand) e))
 dnf e = [[e]]
 
 
