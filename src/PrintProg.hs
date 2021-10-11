@@ -6,12 +6,12 @@ module PrintProg where
 import Syntax
 import KeyValueMap ( KVMap )
 import Prettyprinter
-import Prettyprinter.Render.Text (putDoc)
-import qualified Data.Maybe
+--import Prettyprinter.Render.Text (putDoc)
+--import qualified Data.Maybe
 import Data.List (find)
-import Data.Maybe (fromMaybe)
+--import Data.Maybe (fromMaybe)
 import Util (capitalise)
-import SyntaxManipulation (appToFunArgs, decomposeBinop, dnf, cnf)
+import SyntaxManipulation (appToFunArgs)
 
 -------------------------------------------------------------
 -- Rename variables in rules and expressions
@@ -53,7 +53,7 @@ renameQVarNames nms accqvns (qvn:qvns) =
     in renameQVarNames (nnm:nms) (nqvn:accqvns) qvns
 
 renameVar :: [String] -> Var t -> Var t
-renameVar nms v@(GlobalVar _) = v
+renameVar _nms v@(GlobalVar _) = v
 renameVar nms v@(LocalVar vn i) =
     let nnm = nms!!i
         nqvn = vn{nameOfQVarName = nnm}
@@ -64,7 +64,7 @@ renamePattern nms (VarP qvn) = let (nnm, nqvn) = renameQVarName nms qvn in (nnm:
 renamePattern nms (VarListP qvns) = let (nnms, nqvns) = renameQVarNames nms [] qvns in (nnms, VarListP nqvns)
 
 renameExpr :: [String] -> Expr t -> Expr t
-renameExpr nms e@ValE {} = e
+renameExpr _nms e@ValE {} = e
 renameExpr nms e@VarE {varOfExprVarE = v} = e{varOfExprVarE = renameVar nms v}
 renameExpr nms e@UnaOpE {subEOfExprUnaOpE = se} = e{subEOfExprUnaOpE = renameExpr nms se}
 renameExpr nms e@BinOpE {subE1OfExprBinOpE = se1, subE2OfExprBinOpE = se2} =
@@ -98,12 +98,12 @@ renameRule nms rl =
 -------------------------------------------------------------
 
 printTp :: Tp t -> String
-printTp t = case t of
+printTp tp = case tp of
   ClassT _ cn -> stringOfClassName cn
   FunT _ t1 t2 -> "(" ++ printTp t1 ++ " -> " ++ printTp t2 ++")"
   TupleT _ [] -> "()"
   TupleT _ [t] -> "(" ++ printTp t ++ ")"
-  TupleT _ (t:ts) -> "(" ++ printTp t ++ ", " ++ (foldr (\s r -> ((printTp s) ++ ", " ++ r)) "" ts) ++ ")"
+  TupleT _ (t:ts) -> "(" ++ printTp t ++ ", " ++ foldr (\s r -> (printTp s ++ ", " ++ r)) "" ts ++ ")"
   _ -> error "internal error in printTp: ErrT or OkT not printable"
 
 printARName :: ARName -> String
@@ -214,9 +214,18 @@ renameAndPrintRule nms  = printRule . renameRule nms
 
 -- Configuration of printing functions. 
 -- The first constructor of the following types should be the default
-data PrintVarIndex = PrintName | PrintIndexedName
-data PrintVarCase = AsGiven | Capitalize
-data PrintCurried = Curried | MultiArg
+data PrintVarIndex
+    = PrintName                             -- print local variable name without additional info
+    | PrintIndexedName                      -- print local variable name with de Bruijn index (for debugging)
+data PrintVarCase
+    = AsGiven                               -- print names as given
+    | CapitalizeLocalVar                    -- capitalize (first letter of) local variables
+    | CapitalizeVar                         -- capitalize all variables
+
+data PrintCurried
+    = Curried                               -- print function application curried: f a1 a2 .. an
+    | MultiArg                              -- print application as function + list of args: f(a1, .., an)
+
 data PrintConfig =
       PrintVarIndex PrintVarIndex
     | PrintVarCase PrintVarCase
@@ -259,13 +268,13 @@ instance ShowL4 (Var t) where
     showL4 cfs (GlobalVar qvn) = pretty name
         where
             name = case printVarCase cfs of
-                   AsGiven -> nameOfQVarName qvn
-                   Capitalize -> capitalise (nameOfQVarName qvn)
+                    CapitalizeVar -> capitalise (nameOfQVarName qvn)
+                    _ -> nameOfQVarName qvn
     showL4 cfs (LocalVar qvn i) = pretty name <> pretty index
         where
             name = case printVarCase cfs of
-                   AsGiven -> nameOfQVarName qvn
-                   Capitalize -> capitalise (nameOfQVarName qvn)
+                    AsGiven -> nameOfQVarName qvn
+                    _ -> capitalise (nameOfQVarName qvn)
             index = case printVarIndex cfs of
                     PrintName -> ""
                     PrintIndexedName -> "@" ++ show i
@@ -299,38 +308,3 @@ instance Show t => ShowL4 (Rule t) where
              , pretty "if" <+> showL4 cfs (precondOfRule r)
              , pretty "then" <+> showL4 cfs (postcondOfRule r)
              ]
-
--- (b0 || b1)
-bar0 :: Expr (Tp ())
-bar0 = BinOpE BooleanT (BBool BBor) (VarE BooleanT (GlobalVar (QVarName BooleanT "b0"))) (VarE BooleanT (GlobalVar (QVarName BooleanT "b1")) )
-
--- (b0 && b1)
-bar0s :: Expr (Tp ())
-bar0s = BinOpE BooleanT (BBool BBand) (VarE BooleanT (GlobalVar (QVarName BooleanT "b0"))) (VarE BooleanT (GlobalVar (QVarName BooleanT "b1")) )
-
-
--- a && (b0 || b1)
-bar1 :: Expr (Tp ())
-bar1 = BinOpE BooleanT (BBool BBand) (VarE BooleanT (GlobalVar (QVarName BooleanT "a"))) bar0
-
--- a || (b0 && b1)
-bar1s :: Expr (Tp ())
-bar1s = BinOpE BooleanT (BBool BBor) (VarE BooleanT (GlobalVar (QVarName BooleanT "a"))) bar0s
-
-
-
--- (a && (b0 || b1)) || c
-bar2 :: Expr (Tp ())
-bar2 = BinOpE BooleanT (BBool BBor) bar1 (VarE BooleanT (GlobalVar (QVarName BooleanT "c")) )
-
-fooDec :: [String]
-fooDec = map printExpr (decomposeBinop (BBool BBor) bar2)
--- ["(a&&b)","c"]
-
--- exp. result of DNF: [[a, b], [c]]
--- exp. result of CNF: [[a, c], [b, c]]
-
-fooNF :: [[String]]
-fooNF = map (map printExpr) (dnf bar2)
--- >>> fooNF
--- [["a","b0"],["a","b1"],["c"]]
