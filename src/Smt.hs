@@ -22,7 +22,7 @@ import RuleTransfo
 
 import qualified SimpleSMT as SMT
 import Control.Monad ( when, foldM )
-import PrintProg (renameAndPrintRule, namesUsedInProgram, renameExpr )
+import PrintProg (renameAndPrintRule, namesUsedInProgram, renameExpr, printARName )
 import Data.Maybe (fromMaybe)
 import Model (displayableModel, printDisplayableModel)
 import qualified AutoAnnotations as SMT
@@ -108,9 +108,9 @@ predefinedToFun :: SMTFunEnv
 predefinedToFun = [("distinct", SMT.Atom "distinct")]
 
 varDeclsToFunEnv :: Show t => SMT.Solver -> SMTSortEnv -> [VarDecl t] -> IO SMTFunEnv
-varDeclsToFunEnv s se vds = 
+varDeclsToFunEnv s se vds =
   let predefEnv  = predefinedToFun
-  in do 
+  in do
      funDeclEnv <- mapM (varDeclToFun s se) vds
      return (predefEnv ++ funDeclEnv)
 
@@ -308,6 +308,7 @@ proveExpr config checkSat cdecls vardecls vardefns e = do
     else putStrLn "Formula valid."
   when (checkRes == SMT.Unknown) $ do
     putStrLn "Solver produced unknown output."
+  putStrLn ""
 
 
 -- TODO: to be defined in detail
@@ -352,7 +353,7 @@ selectApplicableRules p instr =
 
 proveAssertionSMT :: Program (Tp ()) -> ValueKVM -> Assertion (Tp ()) -> IO ()
 proveAssertionSMT p instr asrt = do
-  putStrLn "Launching SMT solver"
+  putStrLn ("Launching SMT solver on " ++ printARName (nameOfAssertion asrt))
   let proveConsistency = selectOneOfInstr ["consistent", "valid"] instr == "consistent"
   let applicableRules = selectApplicableRules p instr
   let proofTarget = constrProofTarget proveConsistency asrt applicableRules
