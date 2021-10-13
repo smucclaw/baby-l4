@@ -39,14 +39,16 @@ negationPredicate e = (e, Nothing)
 
 ruleToASPRule :: Rule (Tp ()) -> (ASPRule (Tp ()), [(Var (Tp ()), Var (Tp ()), Int)])
 ruleToASPRule r =
-    let precondNeg = map negationPredicate (decomposeBinop (BBool BBand)(precondOfRule r))
-        preconds = map fst precondNeg
-        negpreds = mapMaybe snd precondNeg
+    let precondsNeg = map negationPredicate (decomposeBinop (BBool BBand)(precondOfRule r))
+        postcondNeg = negationPredicate (postcondOfRule r)
+        preconds = map fst precondsNeg
+        postcond = fst postcondNeg
+        negpreds = mapMaybe snd (postcondNeg : precondsNeg)
     in  ( ASPRule
                 (fromJust $ nameOfRule r)
                 (varDeclsOfRule r)
                 preconds
-                (postcondOfRule r)
+                postcond
         , negpreds)
 
 
@@ -62,8 +64,14 @@ aspPrintConfig = [PrintVarCase CapitalizeLocalVar, PrintCurried MultiArg]
 instance Show t => ShowASP (Expr t) where
     showASP (AccordingToE rn) e =
         pretty "according_to" <> parens (pretty rn <> pretty "," <+> showASP RawL4 e)
-    showASP LegallyHoldsE e =
+
+    -- predicates (App expressions) are written wrapped into legally_holds, 
+    -- whereas any other expressions are written as is.
+    showASP LegallyHoldsE e@AppE{} =
         pretty "legally_holds" <> parens (showASP RawL4 e)
+    showASP LegallyHoldsE e =
+        showASP RawL4 e
+
     showASP RawL4 e = showL4 aspPrintConfig e
     showASP _ _ = pretty ""   -- not implemented
 
@@ -72,9 +80,11 @@ instance Show t => ShowOppClause (OpposesClause t) where
         pretty "opposes" <>
             parens (showASP RawL4 pos <> pretty "," <+> showASP RawL4 neg) <+>
         pretty ":-" <+>
-            showASP (AccordingToE "R1") pos <> pretty "," <+>
-            showASP (AccordingToE "R2") neg <>
-        pretty "." <> line <>
+            showASP (AccordingToE "R") pos <> pretty "." <> line <>
+        pretty "opposes" <>
+            parens (showASP RawL4 pos <> pretty "," <+> showASP RawL4 neg) <+>
+        pretty ":-" <+>
+            showASP (AccordingToE "R") neg <> pretty "." <> line <>
         pretty ":-" <+>
         showASP LegallyHoldsE pos <> pretty "," <+>
         showASP LegallyHoldsE neg <>
@@ -91,12 +101,14 @@ instance Show t => ShowASP (ASPRule t) where
                     parens (
                         showASP RawL4 pc <> pretty "," <+>
                         showASP RawL4 postcond <+>
+                        pretty "," <>
                         pretty "_N+1"
                         ) <+>
                     pretty ":-" <+>
                     pretty "query" <>
                     parens (
                             showASP RawL4 postcond <+>
+                            pretty "," <> 
                             pretty "_N"
                             ) <>
                     pretty "."
@@ -139,7 +151,7 @@ astToASP prg = do
     let oppClausePrednames = nub (concatMap snd aspRulesWithNegs)
     let oppClauses = map genOppClause oppClausePrednames
     putStrLn "ASP rules:"
-    putDoc $ vsep (map (showASP AccordingToR) aspRules) <> line
-    putDoc $ vsep (map (showASP ExplainsR) aspRules) <> line
-    putDoc $ vsep (map (showASP CausedByR) aspRules) <> line
+    putDoc $ vsep (map (showASP AccordingToR) aspRules) <> line <> line
+    putDoc $ vsep (map (showASP ExplainsR) aspRules) <> line <> line
+    putDoc $ vsep (map (showASP CausedByR) aspRules) <> line <> line
     putDoc $ vsep (map showOppClause oppClauses) <> line
