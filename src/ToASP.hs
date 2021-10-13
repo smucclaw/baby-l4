@@ -8,6 +8,7 @@ import RuleTransfo (ruleDisjL, clarify)
 import Data.Maybe (fromJust, catMaybes, mapMaybe)
 import SyntaxManipulation (decomposeBinop, appToFunArgs, funArgsToApp, applyVars)
 import Data.List (nub)
+import Data.Graph.Inductive.Graph (prettify)
 
 data ASPRule t = ASPRule {
                      nameOfASPRule :: String
@@ -69,7 +70,15 @@ instance Show t => ShowASP (Expr t) where
 instance Show t => ShowOppClause (OpposesClause t) where
     showOppClause (OpposesClause pos neg) =
         pretty "opposes" <>
-        parens (showASP RawL4 pos <> pretty "," <+> showASP RawL4 neg) <>  pretty "."
+            parens (showASP RawL4 pos <> pretty "," <+> showASP RawL4 neg) <+>
+        pretty ":-" <+>
+            showASP (AccordingToE "R1") pos <> pretty "," <+>
+            showASP (AccordingToE "R2") neg <>
+        pretty "." <> line <>
+        pretty ":-" <+>
+        showASP LegallyHoldsE pos <> pretty "," <+>
+        showASP LegallyHoldsE neg <>
+        pretty "." 
 
 instance Show t => ShowASP (ASPRule t) where
     showASP AccordingToR (ASPRule rn _vds preconds postcond) =
