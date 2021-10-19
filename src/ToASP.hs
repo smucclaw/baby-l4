@@ -144,13 +144,13 @@ genOppClause (posvar, negvar, n) =
 astToASP :: Program (Tp ()) -> IO ()
 astToASP prg = do
     let rules = concatMap ruleDisjL (clarify (rulesOfProgram prg))
-    putStrLn "Simplified L4 rules:"
-    putDoc $ vsep (map (showL4 []) rules) <> line
+    -- putStrLn "Simplified L4 rules:"
+    -- putDoc $ vsep (map (showL4 []) rules) <> line
     let aspRulesWithNegs = map ruleToASPRule rules
     let aspRules = map fst aspRulesWithNegs
     let oppClausePrednames = nub (concatMap snd aspRulesWithNegs)
     let oppClauses = map genOppClause oppClausePrednames
-    putStrLn "ASP rules:"
+    -- putStrLn "ASP rules:"
     putDoc $ vsep (map (showASP AccordingToR) aspRules) <> line <> line
     putDoc $ vsep (map (showASP ExplainsR) aspRules) <> line <> line
     putDoc $ vsep (map (showASP CausedByR) aspRules) <> line <> line
