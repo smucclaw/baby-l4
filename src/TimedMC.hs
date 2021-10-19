@@ -290,7 +290,7 @@ defineTransitionWithTrace ta transName transTraceName transWithTraceName =
                       (applyVars (GlobalVar (QVarName transTp transName))
                                  ((st:cls) ++ (st':cls')))
                       (applyVars (GlobalVar (QVarName traceTp transTraceName))
-                                 (step :(st:cls) ++ (st':cls'))))
+                                 (step : (st:cls) ++ (st':cls'))))
   in VarDefn traceTp transWithTraceName (liftType traceTp) defFun
 
 
@@ -358,13 +358,33 @@ goalSpecificForms k ta e =
     _ -> error "in checkAutomaton: not a temporal formula"
 
 -- Formula: (distinct loc1 .. locn)
-genericForms :: TA (Tp()) -> Expr (Tp())
-genericForms ta =
+distinctLocs :: TA (Tp()) -> Expr (Tp())
+distinctLocs ta =
   let locs = locsOfTA ta
       n = length locs
       locVars = map varOfLoc locs
       varTp = mkFunTp (replicate n TimeT) BooleanT
   in applyVars (GlobalVar (QVarName varTp "distinct")) locVars
+
+traceImplTrans :: TA (Tp()) -> String -> String -> Expr (Tp())
+traceImplTrans ta transName transTraceName =
+  let (n, st, st', cls, cls') = transitionFunParams ta
+      step = stepPar (2 * n)
+      transTp = transitionFunTp (n - 1)
+      traceTp = traceFunTp (n - 1)
+  in abstractQ All [step]
+      (abstractQ Ex ((st : cls) ++ (st' : cls'))
+        (implExpr
+            (applyVars (GlobalVar (QVarName traceTp transTraceName))
+                                 (step : (st:cls) ++ (st':cls')))
+                      (applyVars (GlobalVar (QVarName transTp transName))
+                                 ((st:cls) ++ (st':cls')))))
+
+genericForms :: TA (Tp()) -> Expr (Tp())
+genericForms ta = 
+  conjsExpr [ distinctLocs ta
+            , traceImplTrans ta actionTransitionName actionTransitionTraceName
+            , traceImplTrans ta delayTransitionName delayTransitionTraceName]
 
 checkAutomaton :: Integer -> TA (Tp()) -> Expr (Tp()) -> Expr (Tp())
 checkAutomaton k ta e = conjExpr (genericForms ta) (goalSpecificForms k ta e)
@@ -388,7 +408,7 @@ runAut prg =
       instr = fromMaybe (MapVM []) (selectAssocOfMap "SMT" (instrOfAssertion asrt))
       config = selectAssocOfValue "config" instr
       proveConsistency = True -- prove consistency
-      proofTarget = checkAutomaton 4 ta (exprOfAssertion asrt)
+      proofTarget = checkAutomaton 0 ta (exprOfAssertion asrt)
   in proveExpr config proveConsistency cdecls globals defs proofTarget -- launching the real checker
   -- in putStrLn $ renameAndPrintExpr [] (constrTransitionsNamed ta )  -- printout of the generated formula
 
