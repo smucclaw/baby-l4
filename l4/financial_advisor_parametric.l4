@@ -114,6 +114,7 @@ then savings_account p inadequate
 
 # 6
 rule <incomeAd>
+	{restrict: {subjectTo: incomeInadSpendthrift}}
 for p: Person, x: Integer, y: Integer
 if earnings p x steady && dependents p y && x > minincome y && not spendthrift p
 then income p adequate
@@ -138,10 +139,11 @@ for p: Person, x: Integer
 if earnings p x unsteady
 then income p inadequate
 
-rule <noEarningsForDead>
-for p: Person
-if isDead p
-then earnings p 0 steady
+# The following rule introduces an inconsistency
+# rule <noEarningsForDead>
+# for p: Person
+# if isDead p
+# then earnings p 0 steady
 
 ## Derived rules
 
@@ -213,8 +215,8 @@ isDead abel
 assert <incomeAdam> {SMT: valid}
 income adam adequate
 
-assert <incomeEve> {SMT: valid}
+assert <incomeEve> {SMT: {valid, config: {loglevel: 0}}}
 income eve inadequate
 
-assert <investmentAbel> {SMT: valid}
-investment abel savings
+assert <investmentEve> {SMT: valid}
+investment eve combination
