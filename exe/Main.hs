@@ -35,7 +35,7 @@ import Control.Monad.Except (runExceptT)
 
 import ToDA2 (createDSyaml)
 import SimpleRules ( expSys )
-import ToRules (astToRules)
+import ToRules.FromL4 (genREP)
 import ToASP (astToASP)
 
 
@@ -69,7 +69,8 @@ process args input = do
                     putStrLn "---------------"
                     createPGFforAnswers fpath normalAst
         (Fexpsys Graph) -> expSys tpAstNoSrc 
-        (Fexpsys Rules) -> astToRules tpAstNoSrc
+        -- (Fexpsys Rules) -> astToRules tpAstNoSrc
+        (Fexpsys Rules) -> genREP tpAstNoSrc
 
 
 data Format   = Fasp | Fast | Faut | Fgf GFOpts | Fscasp  | Fsmt | Fyaml | Fexpsys ESOpts

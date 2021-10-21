@@ -98,7 +98,9 @@ library
                   ToSCASP
                   ToDA2
                   SimpleRules
-                  ToRules
+                  ToRules.FromL4
+                  ToRules.ToDecls
+                  ToRules.Types
 
                   --ExampleInput
                   Exec
