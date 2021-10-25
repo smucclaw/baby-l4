@@ -2,7 +2,6 @@
 module ToRules.FromL4 where
 
 import Prettyprinter
-import Prettyprinter.Render.Text (putDoc)
 import ToRules.Types
 import ToRules.ToDecls (astToDecls)
 import Syntax
@@ -11,10 +10,24 @@ import L4LSP (arNameToString)
 import SimpleRules (isRule)
 import Data.Either (rights)
 import qualified Data.Set as S
-import PPC.Instr (Instr(XORIS))
-import Util (capitalise)
 
 data RuleFormat = Clara | Drools deriving Eq
+
+-- TODO 22/10/2021
+--  1) account for bindings within post conditions
+--  2) generate justification objects on a per-rule basis
+--  3) integrate justification objects into rule transpilations
+--      a) positive literals should have bindings to their justification objects
+--      b) `not` expressions (negative literals) should not have bindings to their justifications (since bindings don't make sense within a `not` statement for drools)
+--      c) evaluative expressions should not have bindings to their justifications 
+--  
+-- Thoughts 22/10/2021
+--  1) how is a single rule containing a `not` expression with equality test currently transcribed?
+--       >  with the `:=` syntax in drools being a binding in first occurrence and equality after,
+--          it is likely that the `not` expression would not have the expected interpretation in drools.
+
+
+
 
 -- Some notes:
 
@@ -37,9 +50,11 @@ ruleToProductionRule :: (Ord t, Show t) => Rule t -> ProductionRule
 ruleToProductionRule Rule {nameOfRule, varDeclsOfRule, precondOfRule, postcondOfRule}
     = ProductionRule { nameOfProductionRule = arNameToString nameOfRule
                      , varDeclsOfProductionRule = [""]
-                     , leftHandSide = exprlistToRCList S.empty $ precondToExprList precondOfRule -- precondToRuleCondition precondOfRule
-                     , rightHandSide = [exprToRuleAction postcondOfRule]
+                     , leftHandSide =  condElems -- exprlistToRCList S.empty $ precondToExprList precondOfRule 
+                     , rightHandSide = [exprToRuleAction boundLocals postcondOfRule]
                      }
+    where (boundLocals, condElems) = exprlistToRCList' S.empty [] $ precondToExprList precondOfRule
+
 
 varDeclToProdVarName :: VarDecl t -> ProdVarName
 varDeclToProdVarName = undefined
@@ -50,6 +65,21 @@ precondToExprList fApp@AppE {} = [fApp]
 precondToExprList bcomp@(BinOpE _ (BCompar _) _ _) = [bcomp]
 precondToExprList unot@(UnaOpE _ (UBool UBnot) _) = [unot]
 precondToExprList _ = error "non and operation"
+
+exprlistToRCList' :: (Ord t, Show t) => S.Set (Var t) -> RCList -> [Expr t] -> (S.Set (Var t), RCList)
+exprlistToRCList' vs acc (x:xs) = exprlistToRCList' nvs (acc <> [ce]) xs where (nvs, ce) = exprToRC (vs, x) 
+exprlistToRCList' vs acc [] = (vs, acc)
+
+exprToRC :: (Ord t, Show t) => (S.Set (Var t), Expr t) -> (S.Set (Var t), ConditionalElement)
+exprToRC (vs, x) = 
+    case x of
+        AppE {}                   -> (newVars, exprToConditionalFuncApp x)
+        (BinOpE _ (BCompar _) _ _)  -> if S.isSubsetOf xlocVars vs then (newVars, exprToConditionalEval x)  else (vs, ConditionalElementFail "Reorder ur predicates")
+        (UnaOpE _ (UBool UBnot) _)  -> if S.isSubsetOf xlocVars vs then (newVars, exprToConditionalExist x)  else (vs, ConditionalElementFail "`Not` statements require a prior variable binding")
+        _                           -> (vs, ConditionalElementFail "exprToRCList can only be used with function application, comparison operation or negation")
+    where xlocVars = localVariables x
+          newVars = S.union xlocVars vs
+
 
 exprlistToRCList :: (Ord t, Show t) => S.Set (Var t) -> [Expr t] -> RCList
 exprlistToRCList vs (x:xs) =
@@ -111,21 +141,18 @@ exprToCEBindEq (_, expr) = CEArgFail $ "exprToCEBindEq cannot transpile expressi
 
 exprToCEArg :: (Show t) => Expr t -> CEArg
 exprToCEArg (BinOpE _ (BArith aOp) x y) = CEArithmetic aOp (exprToCEArg x) (exprToCEArg y)
-exprToCEArg (ValE _ x) = CELiteral (case x of
-   BoolV b -> show b
-   IntV n -> show n
-   FloatV y -> show y
-   StringV s -> show s
-   ErrV -> error "The compiler should have failed before transpilation occurs here.")
-exprToCEArg ve@(VarE _ _) = CEVarExpr $ getName ve
+exprToCEArg (ValE _ ErrV) = error "The compiler should have failed before transpilation occurs here."
+exprToCEArg (ValE _ x) = CELiteral x
+exprToCEArg ve@(VarE _ (GlobalVar {})) = CELiteral $ StringV $ getName ve
+exprToCEArg ve@(VarE _ (LocalVar {})) = CEVarExpr $ getName ve
 exprToCEArg _ = CEArgFail "you shouldn't have gotten this"
 
 -- TODO: Account for local variable bindings within post condition fApps
-exprToRuleAction :: (Show t) => Expr t -> RuleAction
-exprToRuleAction fApp@(AppE {}) =
+exprToRuleAction :: (Show t) => S.Set (Var t) -> Expr t -> RuleAction
+exprToRuleAction lvs fApp@(AppE {}) =
     let (fexpr, args) = appToFunArgs [] fApp
-    in ActionFuncApp (getName fexpr) (map (Value . getName) args)
-exprToRuleAction x = ActionExprErr $ "error: cannot convert expression into rule-action: " ++ show x
+    in ActionFuncApp (getName fexpr) (map exprToCEArg args)
+exprToRuleAction _ x = ActionExprErr $ "error: cannot convert expression into rule-action: " ++ show x
 
 obtRule :: Program (Tp ()) -> String -> [Rule (Tp ())]
 obtRule prog rname = [r | r <- rulesOfProgram prog, nameOfRule r == Just rname ]

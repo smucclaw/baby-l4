@@ -132,8 +132,8 @@ data CEArg = CEBinding ProdVarName ProdFieldName
            | CEEquality ProdFieldName ProdVarName
            | CEArithmetic BArithOp CEArg CEArg
            | CEFuncApp ProdFuncName [ProdVarName]
-           | CELiteral ProdVarName 
            | CEVarExpr ProdVarName 
+           | CELiteral Val 
            | CEArgFail String
            deriving (Eq, Show)
 
@@ -142,7 +142,7 @@ instance ShowClara CEArg where
     showClara (CEBinding vn fn) = pretty "=" <+> pretty "?" <> pretty vn <+> pretty fn
     showClara (CEArithmetic aOp v1 v2) = lparen <> showClara aOp <+> showClara v1 <+> showClara v2 <> rparen
     showClara (CEFuncApp func vns) = parens (pretty func <+> hsep (punctuate comma (map ((<>) (pretty "?") . pretty) vns)))
-    showClara (CELiteral x) = pretty x
+    showClara (CELiteral x) = showClara x
     showClara (CEVarExpr vn) = pretty "?" <> pretty vn
     showClara (CEArgFail err) = error $ "Transpilation failure: " ++ show err 
 
@@ -151,12 +151,27 @@ instance ShowDrools CEArg where
     showDrools (CEBinding vn fn) = pretty "$" <> pretty vn <+> pretty ":=" <+> pretty fn
     showDrools (CEArithmetic aOp v1 v2) = lparen <> showDrools v1 <+> showDrools aOp <+> showDrools v2 <> rparen
     showDrools (CEFuncApp func vns) = pretty func <> parens (hsep (punctuate comma (map ((<>) (pretty "$") . pretty) vns)))
-    showDrools (CELiteral x) = pretty x
+    showDrools (CELiteral x) = showDrools x
     showDrools (CEVarExpr vn) = pretty "$" <> pretty vn
     showDrools (CEArgFail err) = error $ "Transpilation failure: " ++ show err 
 
+instance ShowClara Val where
+    showClara (StringV x) = squotes $ pretty x
+    showClara (BoolV x) = pretty x
+    showClara (IntV x) = pretty x
+    showClara (FloatV x) = pretty x
+    showClara e = error $ "No Clara output defined for value: " ++ show e
+
+
+instance ShowDrools Val where
+    showDrools (StringV x) = squotes $ pretty x
+    showDrools (BoolV x) = pretty x
+    showDrools (IntV x) = pretty x
+    showDrools (FloatV x) = pretty x
+    showDrools e = error $ "No Drools output defined for value: " ++ show e
+
 -- We restrict the format of the rules to a singular post condition (to support prolog-style syntax within l4)
-data RuleAction = ActionFuncApp Typename [Argument] 
+data RuleAction = ActionFuncApp Typename [CEArg] 
                 | ActionExprErr String
                 deriving (Eq, Show)
 
@@ -165,7 +180,7 @@ instance ShowClara RuleAction where
     showClara (ActionExprErr x) = pretty x
 
 instance ShowDrools RuleAction where
-    showDrools (ActionFuncApp fname args) = pretty "insertLogical(new" <+> pretty (capitalise fname) <> parens ( hsep (punctuate comma $ map (squotes . showDrools) args)) <> pretty ");"
+    showDrools (ActionFuncApp fname args) = pretty "insertLogical(new" <+> pretty (capitalise fname) <> parens ( hsep (punctuate comma $ map showDrools args)) <> pretty ");"
     showDrools (ActionExprErr x) = pretty x
 
 
