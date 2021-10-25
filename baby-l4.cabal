@@ -105,6 +105,7 @@ library
                   --InterfaceNunchaku
                   --RuleToTa
                   --TaToUppaal
+                  Proof
                   PrintProg
                   RuleTransfo
                   Smt

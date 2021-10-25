@@ -8,7 +8,7 @@ import Parser (parseProgram)
 import Syntax (Program, ClassName)
 import Typing ( checkError )
 --import SmtSBV (proveProgram)
-import Smt (proveProgram)
+import Proof (proveProgram)
 import System.Environment ( getEnv )
 import Options.Applicative
 import qualified ToGF.FromL4.ToProp as GF

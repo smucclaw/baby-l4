@@ -3,6 +3,10 @@ module ToASP where
 import Prettyprinter
 import Prettyprinter.Render.Text (putDoc)
 import Syntax
+import KeyValueMap
+    ( ValueKVM(MapVM, IntVM, IdVM),
+      selectOneOfInstr,
+      selectAssocOfValue )
 import PrintProg (showL4, PrintCurried (MultiArg), PrintConfig (PrintVarCase, PrintCurried), PrintVarCase (CapitalizeLocalVar))
 import RuleTransfo (ruleDisjL, clarify)
 import Data.Maybe (fromJust, catMaybes, mapMaybe)
@@ -155,3 +159,9 @@ astToASP prg = do
     putDoc $ vsep (map (showASP ExplainsR) aspRules) <> line <> line
     putDoc $ vsep (map (showASP CausedByR) aspRules) <> line <> line
     putDoc $ vsep (map showOppClause oppClauses) <> line
+
+
+-- TODO: details to be filled in
+proveAssertionASP :: Show t => Program t -> ValueKVM  -> Assertion t -> IO ()
+proveAssertionASP p v asrt = putStrLn "ASP solver implemented"
+

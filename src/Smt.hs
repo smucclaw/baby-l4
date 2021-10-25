@@ -1,6 +1,6 @@
 -- L4 to SMT interface using the SimpleSMT library
 
-module Smt(proveProgram, proveExpr) where
+module Smt(proveAssertionSMT, proveExpr) where
 
 import Annotation (LocTypeAnnot (typeAnnot))
 import KeyValueMap
@@ -352,13 +352,13 @@ selectApplicableRules p instr =
                       (selectAssocOfValue "only" rulespec)
 
 proveAssertionSMT :: Program (Tp ()) -> ValueKVM -> Assertion (Tp ()) -> IO ()
-proveAssertionSMT p instr asrt = do
+proveAssertionSMT prg instr asrt = do
   putStrLn ("Launching SMT solver on " ++ printARName (nameOfAssertion asrt))
   let proveConsistency = selectOneOfInstr ["consistent", "valid"] instr == "consistent"
-  let applicableRules = selectApplicableRules p instr
+  let applicableRules = selectApplicableRules prg instr
   let proofTarget = constrProofTarget proveConsistency asrt applicableRules
   let config = selectAssocOfValue "config" instr
-  proveExpr config proveConsistency (classDeclsOfProgram p) (globalsOfProgram p) [] proofTarget
+  proveExpr config proveConsistency (classDeclsOfProgram prg) (globalsOfProgram prg) [] proofTarget
 
 
 constrProofTarget :: Bool -> Assertion (Tp ()) -> [Rule (Tp ())] -> Expr (Tp ())
@@ -368,27 +368,6 @@ constrProofTarget sat asrt rls =
   in if sat
      then conjsExpr (concl : forms)
      else conjsExpr (notExpr concl : forms)
-
--- TODO: details to be filled in
-proveAssertionsCASP :: Show t => Program t -> ValueKVM  -> Assertion t -> IO ()
-proveAssertionsCASP p v asrt = putStrLn "No sCASP solver implemented"
-
-proveAssertion :: Program (Tp ()) -> Assertion (Tp ()) -> IO ()
-proveAssertion p asrt = foldM (\r (k,instr) ->
-            case k of
-              "SMT" -> proveAssertionSMT p instr asrt
-              "sCASP"-> proveAssertionsCASP p instr asrt
-              _ -> return ())
-          () (instrOfAssertion asrt)
-
-proveProgram :: Program (Tp ()) -> IO ()
-proveProgram p = do
-  let transfRules = rewriteRuleSetDerived (rewriteRuleSetSubjectTo (rewriteRuleSetDespite (rulesOfProgram p)))
-  let updRules = [e | e <- elementsOfProgram p, not (typeOfTLE getRule e)] ++ map RuleTLE transfRules
-  let transfProg = p{elementsOfProgram = updRules}
-  putStrLn "Generated rules:"
-  putStrLn (concatMap (renameAndPrintRule (namesUsedInProgram transfProg)) transfRules)
-  foldM (\r a -> proveAssertion transfProg a) () (assertionsOfProgram transfProg)
 
 {-
 proveProgramTest :: Program (LocTypeAnnot (Tp ())) -> IO ()

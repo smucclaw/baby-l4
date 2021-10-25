@@ -13,7 +13,7 @@ import Text.Pretty.Simple (pPrint)
 import Exec (reduceExpr)
 import Smt (proveExpr)
 import KeyValueMap
-    ( selectAssocOfMap, selectAssocOfValue, ValueKVM(MapVM) )
+    ( selectAssocOfMap, selectAssocOfValue, ValueKVM(MapVM), selectOneOfInstr )
 
 {- Assumptions about TCTL formulas:
 TCTL formulas are composed of:
@@ -393,8 +393,9 @@ checkAutomaton k ta e = conjExpr (genericForms ta) (goalSpecificForms k ta e)
 -- Wiring with rest
 ----------------------------------------------------------------------
 
+-- Function called from the shell with:
+-- stack run aut l4/aut.l4
 runAut :: Program (Tp ()) -> IO ()
-{--}
 runAut prg =
   let ta = head (automataOfProgram prg)
       asrt = head (assertionsOfProgram prg)
@@ -405,10 +406,10 @@ runAut prg =
       actTraceDef = defineTransitionWithTrace ta actionTransitionName actionTransitionTraceName actionTransitionWithTraceName
       delayTraceDef = defineTransitionWithTrace ta delayTransitionName delayTransitionTraceName delayTransitionWithTraceName
       defs = [actTransDef, delayTransDef, actTraceDef, delayTraceDef]
-      instr = fromMaybe (MapVM []) (selectAssocOfMap "SMT" (instrOfAssertion asrt))
+      instr = fromMaybe (MapVM []) (selectAssocOfMap "TA" (instrOfAssertion asrt))
       config = selectAssocOfValue "config" instr
       proveConsistency = True -- prove consistency
-      proofTarget = checkAutomaton 0 ta (exprOfAssertion asrt)
+      proofTarget = checkAutomaton 4 ta (exprOfAssertion asrt)
   in proveExpr config proveConsistency cdecls globals defs proofTarget -- launching the real checker
   -- in putStrLn $ renameAndPrintExpr [] (constrTransitionsNamed ta )  -- printout of the generated formula
 
@@ -420,6 +421,23 @@ runAut prg =
   -- in putStrLn $ renameAndPrintExpr [] (kFoldExpansion 2 ta (exprOfAssertion asrt))
   --runAut prg = putStrLn $ unlines (map constrAutTransitionTest (automataOfProgram prg))
 -}
+
+
+proveAssertionTA :: Program (Tp ()) -> ValueKVM -> Assertion (Tp ()) -> IO ()
+proveAssertionTA prg instr asrt = 
+  let ta = head (automataOfProgram prg)
+      cdecls = classDeclsOfProgram prg
+      globals = globalsOfProgram prg
+      actTransDef = defineActionTransition ta
+      delayTransDef = defineDelayTransition ta
+      actTraceDef = defineTransitionWithTrace ta actionTransitionName actionTransitionTraceName actionTransitionWithTraceName
+      delayTraceDef = defineTransitionWithTrace ta delayTransitionName delayTransitionTraceName delayTransitionWithTraceName
+      defs = [actTransDef, delayTransDef, actTraceDef, delayTraceDef]
+      config = selectAssocOfValue "config" instr
+      proveConsistency = selectOneOfInstr ["consistent", "valid"] instr == "consistent"  
+      proofTarget = checkAutomaton 4 ta (exprOfAssertion asrt)
+  in proveExpr config proveConsistency cdecls globals defs proofTarget -- launching the real checker
+  
 
 ----------------------------------------------------------------------
 -- Tests
