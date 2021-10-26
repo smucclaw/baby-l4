@@ -4,15 +4,12 @@ import Prettyprinter
 import Prettyprinter.Render.Text (putDoc)
 import Syntax
 import KeyValueMap
-    ( ValueKVM(MapVM, IntVM, IdVM),
-      selectOneOfInstr,
-      selectAssocOfValue )
+    ( ValueKVM(IdVM) )
 import PrintProg (showL4, PrintCurried (MultiArg), PrintConfig (PrintVarCase, PrintCurried), PrintVarCase (CapitalizeLocalVar))
 import RuleTransfo (ruleDisjL, clarify)
-import Data.Maybe (fromJust, catMaybes, mapMaybe)
+import Data.Maybe (fromJust, mapMaybe)
 import SyntaxManipulation (decomposeBinop, appToFunArgs, funArgsToApp, applyVars)
 import Data.List (nub)
-import Data.Graph.Inductive.Graph (prettify)
 
 data ASPRule t = ASPRule {
                      nameOfASPRule :: String
