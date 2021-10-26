@@ -1,10 +1,8 @@
-{-# LANGUAGE NamedFieldPuns #-}
 module ToRules.ToDecls where
 
-import Prettyprinter
+import Prettyprinter ( line )
 import Syntax
 import SyntaxManipulation
-import Annotations
 import Data.Either (rights)
 import ToRules.Types
 

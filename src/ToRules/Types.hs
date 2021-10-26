@@ -114,7 +114,7 @@ instance ShowDrools ConditionalElement where
         pretty (capitalise tn) <> parens (hsep $ punctuate comma $ map showDrools args)
     showDrools (ConditionalEval cOp arg1 arg2 ) = pretty "eval" <> parens (showDrools arg1 <+> showDrools cOp <+> showDrools arg2)
     showDrools (ConditionalExist UBnot arg) = pretty "not" <+> parens (showDrools arg)
-    showDrools (ConditionalElementFail err) = error $ "ConditionalElementFailure: " ++ show err
+    showDrools (ConditionalElementFail err) = pretty $ "ConditionalElementFailure: " ++ show err
 instance ShowClara BComparOp where
     showClara BClt  = pretty "<"
     showClara BClte = pretty "<="

@@ -6,13 +6,14 @@ import MainHelpers ( getTpAst )
 
 import Control.Monad.Except (runExceptT)
 import qualified SimpleRules as SR
-import qualified ToRules.FromL4 as TRL4
+import qualified ToRules.ToRules as TRTR
 import qualified ToRules.Types as TRTp
 import Test.Tasty
 import Test.Tasty.ExpectedFailure
 import Test.Tasty.HUnit
 import Data.Either ( rights )
 import Data.Set as S
+import Data.Tuple (snd)
 import SyntaxManipulation (appToFunArgs)
 
 
@@ -31,8 +32,11 @@ getProg fpath = do
 obtRule :: Program (Tp ()) -> String -> [Rule (Tp ())]
 obtRule prog rname = [r | r <- rulesOfProgram prog, nameOfRule r == Just rname ]
 
-
-
+-- extract a single rule with a given name
+progToRule :: IO (Program (Tp ())) -> String -> IO (Rule (Tp ()))
+progToRule progIO rname = do
+    prog <- progIO
+    pure $ head $ obtRule prog rname
 
 esGraphUTs :: TestTree
 esGraphUTs = withResource acquire release $ \progIO->
@@ -72,9 +76,6 @@ esGraphUTs = withResource acquire release $ \progIO->
         ]
     where acquire = getProg "tests/ExpSysTestFiles/financial_advisor.l4"
           release = mempty
-          progToRule progIO rname = do
-              prog <- progIO
-              pure $ head $ obtRule prog rname
 
 
 esRuleUTs :: TestTree
@@ -85,68 +86,68 @@ esRuleUTs = withResource acquire release $ \progIO->
                 [ testCase "returns CEBinding for a LocalVar expr" $ do
                     rule <- progToRule progIO "singleLocalVar"
                     let (_, varExpr) = appToFunArgs [] $ precondOfRule rule
-                    TRL4.exprToCEBindEq (0, head varExpr) @?= TRTp.CEBinding "x" "arg0"
+                    TRTR.exprToCEBindEq (0, head varExpr) @?= TRTp.CEBinding "x" "arg0"
                 , testCase "returns CEEquality for a GlobalVar expr" $ do
                     rule <- progToRule progIO "singleGlobalVar"
                     let (_, varExpr) = appToFunArgs [] $ precondOfRule rule
-                    TRL4.exprToCEBindEq (0, head varExpr) @?= TRTp.CEEquality "arg0" "inadequate"
+                    TRTR.exprToCEBindEq (0, head varExpr) @?= TRTp.CEEquality "arg0" "inadequate"
                 ]
             , testGroup "exprToCEFuncApp"
                 [ testCase "returns CEFuncApp for a AppE" $ do
                     rule <- progToRule progIO "singleGlobalVar"
-                    TRL4.exprToCEFuncApp (precondOfRule rule) @?= TRTp.CEFuncApp "savings_account" ["inadequate"]
+                    TRTR.exprToCEFuncApp (precondOfRule rule) @?= TRTp.CEFuncApp "savings_account" ["inadequate"]
                 ]
             ]
         , testGroup "Type: ConditionalElement" 
             [ testGroup "exprToConditionalFuncApp"
                 [ testCase "returns ConditionalFuncApp for an AppE" $ do
                     rule <- progToRule progIO "singleGlobalVar"
-                    TRL4.exprToConditionalFuncApp (precondOfRule rule) @?= TRTp.ConditionalFuncApp "savings_account" [TRTp.CEEquality "arg0" "inadequate"]
+                    TRTR.exprToConditionalFuncApp (precondOfRule rule) @?= TRTp.ConditionalFuncApp "savings_account" [TRTp.CEEquality "arg0" "inadequate"]
                 ]
             , testGroup "exprToConditionalEval"
                 [ testCase "returns ConditionalEval for BinOpE with BClt" $ do
                     rule <- progToRule progIO "preCond_singleEval_BClt"
-                    let evalExpr = last . TRL4.precondToExprList . precondOfRule $ rule
-                    TRL4.exprToConditionalEval evalExpr @?= TRTp.ConditionalEval BClt (TRTp.CEVarExpr "x") (TRTp.CEVarExpr "y")
+                    let evalExpr = last . TRTR.precondToExprList . precondOfRule $ rule
+                    TRTR.exprToConditionalEval evalExpr @?= TRTp.ConditionalEval BClt (TRTp.CEVarExpr "x") (TRTp.CEVarExpr "y")
                 ]
             , testGroup "exprToConditionalExist"
                 [ testCase "returns ConditionalExist for UnaOpE with UBnot" $ do
                     rule <- progToRule progIO "preCond_singleNot_withBinding"
-                    let notExpr = last . TRL4.precondToExprList . precondOfRule $ rule
-                    TRL4.exprToConditionalExist notExpr @?= TRTp.ConditionalExist UBnot (TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "x" "arg0"])
+                    let notExpr = last . TRTR.precondToExprList . precondOfRule $ rule
+                    TRTR.exprToConditionalExist notExpr @?= TRTp.ConditionalExist UBnot (TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "x" "arg0"])
                 ]
             ]
         , testGroup "Function: exprlistToRCList" 
-            [ testCase "returns ConditionalFuncApp for an AppE" $ do
-                rule <- progToRule progIO "singleGlobalVar"
-                TRL4.exprlistToRCList S.empty [precondOfRule rule] @?= [TRTp.ConditionalFuncApp "savings_account" [TRTp.CEEquality "arg0" "inadequate"]]
-            , testCase "returns [ConditionalFuncApp, ConditionalFuncApp, ConditionalEval] for preCond_singleEval_BClt" $ do
-                rule <- progToRule progIO "preCond_singleEval_BClt"
-                TRL4.exprlistToRCList  S.empty (TRL4.precondToExprList $ precondOfRule rule) @?= [TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "x" "arg0"], TRTp.ConditionalFuncApp "dependents" [TRTp.CEBinding "y" "arg0"], TRTp.ConditionalEval BClt (TRTp.CEVarExpr "x") (TRTp.CEVarExpr "y")]
-            , testCase "returns [ConditionalFuncApp, ConditionalExist] for preCond_singleNot_withBinding" $ do
-                rule <- progToRule progIO "preCond_singleNot_withBinding"
-                TRL4.exprlistToRCList S.empty (TRL4.precondToExprList . precondOfRule $ rule) @?= [TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "x" "arg0"], TRTp.ConditionalExist UBnot (TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "x" "arg0"])]
+            [ testCase "returns ConditionalFuncApp for an AppE" $ 
+                test_ExprListToRCList progIO "singleGlobalVar" [TRTp.ConditionalFuncApp "savings_account" [TRTp.CEEquality "arg0" "inadequate"]]
+
+            , testCase "returns [ConditionalFuncApp, ConditionalFuncApp, ConditionalEval] for preCond_singleEval_BClt" $ 
+                test_ExprListToRCList progIO "preCond_singleEval_BClt" [TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "x" "arg0"], TRTp.ConditionalFuncApp "dependents" [TRTp.CEBinding "y" "arg0"], TRTp.ConditionalEval BClt (TRTp.CEVarExpr "x") (TRTp.CEVarExpr "y")]
+
+            , testCase "returns [ConditionalFuncApp, ConditionalExist] for preCond_singleNot_withBinding" $ 
+                test_ExprListToRCList progIO "preCond_singleNot_withBinding" [TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "x" "arg0"], TRTp.ConditionalExist UBnot (TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "x" "arg0"])]
+
             , testCase "fails for preCond_singleNot_noBinding" $ do
-                rule <- progToRule progIO "preCond_singleNot_noBinding"
-                TRL4.exprlistToRCList S.empty [precondOfRule rule] @?= [TRTp.ConditionalElementFail "`Not` statements require a prior variable binding"]
+                test_ExprListToRCList progIO "preCond_singleNot_noBinding" [TRTp.ConditionalElementFail "`Not` statements require a prior variable binding"]
+
             , testCase "fails for preCond_singleEval_noBinding" $ do
-                rule <- progToRule progIO "preCond_singleEval_noBinding"
-                TRL4.exprlistToRCList S.empty (TRL4.precondToExprList $ precondOfRule rule) @?= [TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "x" "arg0"], TRTp.ConditionalElementFail "Reorder ur predicates"]
+                test_ExprListToRCList progIO "preCond_singleEval_noBinding" [TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "x" "arg0"], TRTp.ConditionalElementFail "Reorder ur predicates"]
+
             , testCase "returns [ConditionalFuncApp, ConditionalFuncApp, ConditionEval (CEArithmetic) (CELiteral)] for preCond_arith_2args" $ do
-                rule <- progToRule progIO "preCond_arith_2args"
-                TRL4.exprlistToRCList S.empty (TRL4.precondToExprList . precondOfRule $ rule) @?= [TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "x" "arg0"],TRTp.ConditionalFuncApp "dependents" [TRTp.CEBinding "y" "arg0"],TRTp.ConditionalEval BCgt (TRTp.CEArithmetic BAadd (TRTp.CEVarExpr "x") (TRTp.CEVarExpr "y")) (TRTp.CELiteral "10")]
+                test_ExprListToRCList progIO "preCond_arith_2args" [TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "x" "arg0"],TRTp.ConditionalFuncApp "dependents" [TRTp.CEBinding "y" "arg0"],TRTp.ConditionalEval BCgt (TRTp.CEArithmetic BAadd (TRTp.CEVarExpr "x") (TRTp.CEVarExpr "y")) (TRTp.CELiteral (IntV 10))]
+
             , testCase "returns [ConditionalFuncApp, ConditionalFuncApp, ConditionEval (CEArithmetic (CEArithmetic)) (CELiteral)] for preCond_arith_3args" $ do
-                rule <- progToRule progIO "preCond_arith_3args"
-                TRL4.exprlistToRCList S.empty (TRL4.precondToExprList . precondOfRule $ rule) @?= [TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "x" "arg0"],TRTp.ConditionalFuncApp "dependents" [TRTp.CEBinding "y" "arg0"],TRTp.ConditionalFuncApp "earnings" [TRTp.CEBinding "z" "arg0",TRTp.CEEquality "arg1" "steady"],TRTp.ConditionalEval BCgt (TRTp.CEArithmetic BAsub (TRTp.CEArithmetic BAadd (TRTp.CEVarExpr "x") (TRTp.CEVarExpr "y")) (TRTp.CEVarExpr "z")) (TRTp.CELiteral "10")] 
+                test_ExprListToRCList progIO "preCond_arith_3args" [TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "x" "arg0"],TRTp.ConditionalFuncApp "dependents" [TRTp.CEBinding "y" "arg0"],TRTp.ConditionalFuncApp "earnings" [TRTp.CEBinding "z" "arg0",TRTp.CEEquality "arg1" "steady"],TRTp.ConditionalEval BCgt (TRTp.CEArithmetic BAsub (TRTp.CEArithmetic BAadd (TRTp.CEVarExpr "x") (TRTp.CEVarExpr "y")) (TRTp.CEVarExpr "z")) (TRTp.CELiteral (IntV 10))] 
+
             , testCase "fails for preCond_arith_noBinding" $ do
-                rule <- progToRule progIO "preCond_arith_noBinding"
-                TRL4.exprlistToRCList S.empty (TRL4.precondToExprList .precondOfRule $ rule) @?= [TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "x" "arg0"],TRTp.ConditionalElementFail "Reorder ur predicates"]
+                test_ExprListToRCList progIO "preCond_arith_noBinding" [TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "x" "arg0"],TRTp.ConditionalElementFail "Reorder ur predicates"]
             ]
         , testGroup "Type: RuleAction" 
             [ testGroup "exprToRuleAction" 
                 [ expectFail $ testCase "returns ActionExprErr for AppE with GlobalVar" $ do
                     rule <- progToRule progIO "postCond_withGlobal"
-                    TRL4.exprToRuleAction (postcondOfRule rule) @?= (TRTp.ActionFuncApp "investment" [TRTp.Value "savings"])
+                    -- TRTR.exprToRuleAction (postcondOfRule rule) @?= (TRTp.ActionFuncApp "investment" [TRTp.Value "savings"])
+                    1 @?= 0
                 , expectFailBecause "not implemented yet" $ testCase "returns ActionExprErr for AppE with LocalVar with prior binding in preconds" $ do
                     rule <- progToRule progIO "postCond_withLocal_withBinding"
                     1 @?= 0
@@ -159,6 +160,10 @@ esRuleUTs = withResource acquire release $ \progIO->
         ]
     where acquire = getProg "tests/ExpSysTestFiles/finAd_tests.l4"
           release = mempty
-          progToRule progIO rname = do
-              prog <- progIO
-              pure $ head $ obtRule prog rname
+
+
+test_ExprListToRCList :: IO (Program (Tp ())) -> String -> TRTp.RCList -> IO()
+test_ExprListToRCList pIO rName expected = do
+    rule <- progToRule pIO rName
+    let pc = TRTR.precondToExprList $ precondOfRule rule
+    snd (TRTR.exprlistToRCList S.empty [] pc) @?= expected
