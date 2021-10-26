@@ -107,7 +107,7 @@ instance ShowClara ConditionalElement where
         brackets (pretty (capitalise tn) <+> hsep (map (parens . showClara) args))
     showClara (ConditionalEval cOp arg1 arg2) = brackets (pretty ":test" <+> parens (showClara cOp <+> showClara arg1 <+> showClara arg2))
     showClara (ConditionalExist UBnot arg) = brackets (pretty ":not" <+> showClara arg)
-    showClara (ConditionalElementFail err) = error $ "ConditionalElementFailure: " ++ show err
+    showClara (ConditionalElementFail err) = pretty $ "ConditionalElementFailure: " ++ show err
 
 instance ShowDrools ConditionalElement where
     showDrools (ConditionalFuncApp tn args) =
