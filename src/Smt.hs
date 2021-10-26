@@ -1,12 +1,12 @@
 -- L4 to SMT interface using the SimpleSMT library
 
-module Smt(proveAssertionSMT, proveExpr) where
+module Smt(proveAssertionSMT, proveExpr, constrProofTarget) where
 
 import Annotation (LocTypeAnnot (typeAnnot))
 import KeyValueMap
     ( ValueKVM(MapVM, IntVM, IdVM),
       selectOneOfInstr,
-      selectAssocOfValue )
+      getAssocOfPathValue )
 import Syntax
 import SyntaxManipulation (
       spine,
@@ -246,7 +246,7 @@ exprToSExpr _    e = error ("exprToSExpr: term " ++ show e ++ " not translatable
 selectLogLevel :: Maybe ValueKVM -> Int
 selectLogLevel config =
   let defaultLogLevel = 1
-  in case selectAssocOfValue "loglevel" (fromMaybe (IntVM 0) config) of
+  in case getAssocOfPathValue ["loglevel"] (fromMaybe (IntVM 0) config) of
     Nothing -> defaultLogLevel
     Just (IntVM n) -> fromIntegral n
     Just _ -> defaultLogLevel
@@ -256,7 +256,7 @@ createSolver config lg =
   let defaultConfig = ("z3", ["-in"])
       (solverName, solverParams) = case config of
                                       Nothing -> defaultConfig
-                                      Just vkvm -> case selectAssocOfValue "solver" vkvm of
+                                      Just vkvm -> case getAssocOfPathValue ["solver"] vkvm of
                                                       Just (IdVM "cvc4") -> ("cvc4", ["--lang=smt2"])
                                                       Just (IdVM "mathsat") -> ("mathsat", [])
                                                       _ -> defaultConfig
@@ -274,7 +274,7 @@ selectLogic s config =
   let defaultConfig = "LIA"
       logicName = case config of
                      Nothing -> defaultConfig
-                     Just vkvm -> case selectAssocOfValue "logic" vkvm of
+                     Just vkvm -> case getAssocOfPathValue ["logic"] vkvm of
                                       Just (IdVM l) -> l
                                       _ -> defaultConfig
   in SMT.setLogic s logicName
@@ -344,27 +344,26 @@ composeApplicableRuleSet p mbadd mbdel mbonly =
 
 selectApplicableRules :: Program t -> ValueKVM -> [Rule t]
 selectApplicableRules p instr =
-  case selectAssocOfValue "rules" instr of
+  case getAssocOfPathValue ["rules"] instr of
     Nothing -> defaultRuleSet p
     Just rulespec -> composeApplicableRuleSet p
-                      (selectAssocOfValue "add" rulespec)
-                      (selectAssocOfValue "del" rulespec)
-                      (selectAssocOfValue "only" rulespec)
+                      (getAssocOfPathValue ["add"] rulespec)
+                      (getAssocOfPathValue ["del"] rulespec)
+                      (getAssocOfPathValue ["only"] rulespec)
 
 proveAssertionSMT :: Program (Tp ()) -> ValueKVM -> Assertion (Tp ()) -> IO ()
 proveAssertionSMT prg instr asrt = do
   putStrLn ("Launching SMT solver on " ++ printARName (nameOfAssertion asrt))
   let proveConsistency = selectOneOfInstr ["consistent", "valid"] instr == "consistent"
   let applicableRules = selectApplicableRules prg instr
-  let proofTarget = constrProofTarget proveConsistency asrt applicableRules
-  let config = selectAssocOfValue "config" instr
+  let proofTarget = constrProofTarget proveConsistency (exprOfAssertion asrt) applicableRules
+  let config = getAssocOfPathValue ["config"] instr
   proveExpr config proveConsistency (classDeclsOfProgram prg) (globalsOfProgram prg) [] proofTarget
 
 
-constrProofTarget :: Bool -> Assertion (Tp ()) -> [Rule (Tp ())] -> Expr (Tp ())
-constrProofTarget sat asrt rls =
-  let concl = exprOfAssertion asrt
-      forms = map ruleToFormula rls
+constrProofTarget :: Bool -> Expr (Tp ()) -> [Rule (Tp ())] -> Expr (Tp ())
+constrProofTarget sat concl rls =
+  let forms = map ruleToFormula rls
   in if sat
      then conjsExpr (concl : forms)
      else conjsExpr (notExpr concl : forms)
