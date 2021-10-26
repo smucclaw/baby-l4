@@ -97,11 +97,12 @@ library
                   ToASP
                   ToSCASP
                   ToDA2
+                  -- ToRuleEngine
                   SimpleRules
+                  ToRules.Types
                   ToRules.FromL4
                   ToRules.ToDecls
-                  ToRules.Types
-
+                  ToRules.ToRules
                   --ExampleInput
                   Exec
                   --InterfaceNunchaku
