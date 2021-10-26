@@ -16,6 +16,7 @@ import Data.Graph.Inductive.Graph
     ( nodes, Graph(labEdges, mkGraph), LNode, Node )
 import Data.Graph.Inductive.PatriciaTree ( Gr )
 import Data.Graph.Inductive.Query.DFS ( scc, topsort' )
+import PrintProg (printARName)
 
 
 ----------------------------------------------------------------------
@@ -225,11 +226,29 @@ rulesInversion rls =
   in Rule BooleanT rn [] (varDeclsOfRule r1) (postcondOfRule r1) (disjsExpr (map precondOfRule rls))
 
 
+compatibleRuleSignature :: Eq t => Rule t -> Rule t -> Bool
+compatibleRuleSignature r1 r2 =
+  let tps1 = map tpOfVarDecl (varDeclsOfRule r1)
+      tps2 = map tpOfVarDecl (varDeclsOfRule r2)
+  in tps1 == tps2
+
 -- Adds negated precondition of r1 to r2. Corresponds to:
 -- - "r1 subject to r2" (as annotation of r1: r2 has precedence over r1)
 -- - "r2 despite r1" synonymous to  "r1 subject to r2"
+-- Both rules have to abstract over the same variables. 
+-- If they are not right from the start, try to quasi-normalize them.
+-- Full normalization is too much (e.g. for rules with postcond P(const1) and P(const2))
 restrictWithNegPrecondOfStep :: Rule (Tp ()) -> Rule (Tp ()) -> Rule (Tp ())
-restrictWithNegPrecondOfStep r1 r2 = r1{precondOfRule = conjExpr (precondOfRule r1) (notExpr (precondOfRule r2))}
+restrictWithNegPrecondOfStep r1 r2 =
+  if compatibleRuleSignature r1 r2
+  then r1{precondOfRule = conjExpr (precondOfRule r1) (notExpr (precondOfRule r2))}
+  else 
+    let r1Norm = ruleExLInv r1
+        r2Norm = ruleExLInv r2
+    in if compatibleRuleSignature r1Norm r2Norm
+       then r1Norm{precondOfRule = conjExpr (precondOfRule r1Norm) (notExpr (precondOfRule r2Norm))}
+       else error ("trying to merge rules " ++ printARName (nameOfRule r1) ++ " and "
+                ++ printARName (nameOfRule r2) ++ " with incompatible signatures")
 
 restrictWithNegPrecondOf :: Rule (Tp ()) ->  [Rule (Tp())] -> Rule (Tp())
 restrictWithNegPrecondOf = foldl restrictWithNegPrecondOfStep

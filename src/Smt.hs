@@ -1,6 +1,6 @@
 -- L4 to SMT interface using the SimpleSMT library
 
-module Smt(proveProgram, proveExpr) where
+module Smt(proveAssertionSMT, proveExpr) where
 
 import Annotation (LocTypeAnnot (typeAnnot))
 import KeyValueMap
@@ -22,7 +22,7 @@ import RuleTransfo
 
 import qualified SimpleSMT as SMT
 import Control.Monad ( when, foldM )
-import PrintProg (renameAndPrintRule, namesUsedInProgram, renameExpr )
+import PrintProg (renameAndPrintRule, namesUsedInProgram, renameExpr, printARName )
 import Data.Maybe (fromMaybe)
 import Model (displayableModel, printDisplayableModel)
 import qualified AutoAnnotations as SMT
@@ -108,9 +108,9 @@ predefinedToFun :: SMTFunEnv
 predefinedToFun = [("distinct", SMT.Atom "distinct")]
 
 varDeclsToFunEnv :: Show t => SMT.Solver -> SMTSortEnv -> [VarDecl t] -> IO SMTFunEnv
-varDeclsToFunEnv s se vds = 
+varDeclsToFunEnv s se vds =
   let predefEnv  = predefinedToFun
-  in do 
+  in do
      funDeclEnv <- mapM (varDeclToFun s se) vds
      return (predefEnv ++ funDeclEnv)
 
@@ -308,6 +308,7 @@ proveExpr config checkSat cdecls vardecls vardefns e = do
     else putStrLn "Formula valid."
   when (checkRes == SMT.Unknown) $ do
     putStrLn "Solver produced unknown output."
+  putStrLn ""
 
 
 -- TODO: to be defined in detail
@@ -351,13 +352,13 @@ selectApplicableRules p instr =
                       (selectAssocOfValue "only" rulespec)
 
 proveAssertionSMT :: Program (Tp ()) -> ValueKVM -> Assertion (Tp ()) -> IO ()
-proveAssertionSMT p instr asrt = do
-  putStrLn "Launching SMT solver"
+proveAssertionSMT prg instr asrt = do
+  putStrLn ("Launching SMT solver on " ++ printARName (nameOfAssertion asrt))
   let proveConsistency = selectOneOfInstr ["consistent", "valid"] instr == "consistent"
-  let applicableRules = selectApplicableRules p instr
+  let applicableRules = selectApplicableRules prg instr
   let proofTarget = constrProofTarget proveConsistency asrt applicableRules
   let config = selectAssocOfValue "config" instr
-  proveExpr config proveConsistency (classDeclsOfProgram p) (globalsOfProgram p) [] proofTarget
+  proveExpr config proveConsistency (classDeclsOfProgram prg) (globalsOfProgram prg) [] proofTarget
 
 
 constrProofTarget :: Bool -> Assertion (Tp ()) -> [Rule (Tp ())] -> Expr (Tp ())
@@ -367,27 +368,6 @@ constrProofTarget sat asrt rls =
   in if sat
      then conjsExpr (concl : forms)
      else conjsExpr (notExpr concl : forms)
-
--- TODO: details to be filled in
-proveAssertionsCASP :: Show t => Program t -> ValueKVM  -> Assertion t -> IO ()
-proveAssertionsCASP p v asrt = putStrLn "No sCASP solver implemented"
-
-proveAssertion :: Program (Tp ()) -> Assertion (Tp ()) -> IO ()
-proveAssertion p asrt = foldM (\r (k,instr) ->
-            case k of
-              "SMT" -> proveAssertionSMT p instr asrt
-              "sCASP"-> proveAssertionsCASP p instr asrt
-              _ -> return ())
-          () (instrOfAssertion asrt)
-
-proveProgram :: Program (Tp ()) -> IO ()
-proveProgram p = do
-  let transfRules = rewriteRuleSetDerived (rewriteRuleSetSubjectTo (rewriteRuleSetDespite (rulesOfProgram p)))
-  let updRules = [e | e <- elementsOfProgram p, not (typeOfTLE getRule e)] ++ map RuleTLE transfRules
-  let transfProg = p{elementsOfProgram = updRules}
-  putStrLn "Generated rules:"
-  putStrLn (concatMap (renameAndPrintRule (namesUsedInProgram transfProg)) transfRules)
-  foldM (\r a -> proveAssertion transfProg a) () (assertionsOfProgram transfProg)
 
 {-
 proveProgramTest :: Program (LocTypeAnnot (Tp ())) -> IO ()

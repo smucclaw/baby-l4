@@ -1,0 +1,41 @@
+class Person
+
+class Corporation
+
+decl mustPayCorpTax: Person -> Corporation -> Boolean
+decl owner: Person -> Corporation -> Boolean
+decl profitable: Corporation -> Boolean
+decl majorityShareholder: Person -> Corporation -> Boolean
+decl highMarketShare: Corporation -> Boolean
+decl madeLoss: Corporation -> Boolean
+
+
+rule <a_1>
+   for p: Person, c: Corporation
+   if owner p c && profitable c
+   then mustPayCorpTax p c
+
+
+
+
+rule <a_2>
+   for p: Person, c: Corporation
+   if majorityShareholder p c
+   then owner p c
+
+
+
+
+rule <b_1>
+   for c: Corporation
+   if highMarketShare c
+   then profitable c
+
+
+
+rule <b_2>
+   for c: Corporation
+   if madeLoss c
+   then not profitable c
+
+#profitable c and notprofitable c are negatives of each other
