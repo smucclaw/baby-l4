@@ -5,6 +5,13 @@ import Prettyprinter
 import Syntax
 import Util (capitalise)
 
+data RuleFormat = Clara | Drools deriving Eq
+
+showForm :: (ShowDrools x, ShowClara x) => RuleFormat -> (x -> Doc ann)
+showForm rf = case rf of 
+            Drools -> showDrools
+            Clara -> showClara
+
 class ShowClara x where
     showClara :: x -> Doc ann
 
@@ -35,10 +42,17 @@ data ProductionSystem = ProductionSystem { package :: String
 data ProductionClassDecl = ProductionClassDecl { nameOfProductionClassDecl :: Typename
                                                , fieldsOfProductionClassDecl :: [ProductionClassField]
                                                } deriving Show
+
+instance ShowClara ProductionClassDecl where
+    showClara ProductionClassDecl {nameOfProductionClassDecl, fieldsOfProductionClassDecl} = do
+        parens (pretty "defrecord" <+> pretty (capitalise nameOfProductionClassDecl) <+> brackets (hsep $ map genField numFields))
+        where numFields = [1..length fieldsOfProductionClassDecl]
+              genField x = pretty (concat (replicate x "*"))
+
 instance ShowDrools ProductionClassDecl where
     showDrools ProductionClassDecl {nameOfProductionClassDecl, fieldsOfProductionClassDecl} = do
         vsep [ pretty "declare" <+> pretty (capitalise nameOfProductionClassDecl)
-             , indent 2 $ vsep (map showDrools fieldsOfProductionClassDecl)    
+             , indent 2 $ vsep (map showDrools fieldsOfProductionClassDecl)
              , pretty "end"
              ]
 
@@ -53,7 +67,7 @@ data ProductionRule =
     ProductionRule { nameOfProductionRule :: String
                    , varDeclsOfProductionRule :: [ProdVarName]
                    , leftHandSide :: RCList -- RuleCondition
-                   , rightHandSide :: RAList 
+                   , rightHandSide :: RAList
                    } deriving Show
 
 instance ShowClara ProductionRule where
@@ -124,7 +138,7 @@ instance ShowClara BArithOp where
     showClara BAdiv = pretty "/"
     showClara BAmod = pretty "%"
 
-instance ShowDrools BArithOp where 
+instance ShowDrools BArithOp where
     showDrools = showClara
 
 
@@ -132,19 +146,19 @@ data CEArg = CEBinding ProdVarName ProdFieldName
            | CEEquality ProdFieldName ProdVarName
            | CEArithmetic BArithOp CEArg CEArg
            | CEFuncApp ProdFuncName [ProdVarName]
-           | CEVarExpr ProdVarName 
-           | CELiteral Val 
+           | CEVarExpr ProdVarName
+           | CELiteral Val
            | CEArgFail String
            deriving (Eq, Show)
 
 instance ShowClara CEArg where
-    showClara (CEEquality fn fv) = pretty "=" <+> pretty fn <+> pretty fv
+    showClara (CEEquality fn fv) = pretty "=" <+> pretty fn <+> (colon <> pretty fv)
     showClara (CEBinding vn fn) = pretty "=" <+> pretty "?" <> pretty vn <+> pretty fn
     showClara (CEArithmetic aOp v1 v2) = lparen <> showClara aOp <+> showClara v1 <+> showClara v2 <> rparen
     showClara (CEFuncApp func vns) = parens (pretty func <+> hsep (punctuate comma (map ((<>) (pretty "?") . pretty) vns)))
     showClara (CELiteral x) = showClara x
     showClara (CEVarExpr vn) = pretty "?" <> pretty vn
-    showClara (CEArgFail err) = error $ "Transpilation failure: " ++ show err 
+    showClara (CEArgFail err) = error $ "Transpilation failure: " ++ show err
 
 instance ShowDrools CEArg where
     showDrools (CEEquality fn fv) = pretty fn <+> pretty "==" <+> squotes (pretty fv)
@@ -153,10 +167,10 @@ instance ShowDrools CEArg where
     showDrools (CEFuncApp func vns) = pretty func <> parens (hsep (punctuate comma (map ((<>) (pretty "$") . pretty) vns)))
     showDrools (CELiteral x) = showDrools x
     showDrools (CEVarExpr vn) = pretty "$" <> pretty vn
-    showDrools (CEArgFail err) = error $ "Transpilation failure: " ++ show err 
+    showDrools (CEArgFail err) = error $ "Transpilation failure: " ++ show err
 
 instance ShowClara Val where
-    showClara (StringV x) = squotes $ pretty x
+    showClara (StringV x) = colon <> pretty x
     showClara (BoolV x) = pretty x
     showClara (IntV x) = pretty x
     showClara (FloatV x) = pretty x
@@ -171,12 +185,12 @@ instance ShowDrools Val where
     showDrools e = error $ "No Drools output defined for value: " ++ show e
 
 -- We restrict the format of the rules to a singular post condition (to support prolog-style syntax within l4)
-data RuleAction = ActionFuncApp Typename [CEArg] 
+data RuleAction = ActionFuncApp Typename [CEArg]
                 | ActionExprErr String
                 deriving (Eq, Show)
 
 instance ShowClara RuleAction where
-    showClara (ActionFuncApp fname args) = pretty "(c/insert! (->" <> pretty fname <+> hsep (map ((<>) (pretty ":") . showClara) args)
+    showClara (ActionFuncApp fname args) = pretty "(c/insert! (->" <> pretty fname <+> hsep (map (showClara) args)
     showClara (ActionExprErr x) = pretty x
 
 instance ShowDrools RuleAction where

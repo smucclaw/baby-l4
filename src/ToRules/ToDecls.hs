@@ -24,9 +24,9 @@ tpToProductionClassField :: (Int, Tp t) -> ProductionClassField
 tpToProductionClassField (pos, c) = ProductionClassField ("arg" ++ show pos) (yieldNativeTp . stringOfClassName . classNameOfTp $ c)
     where yieldNativeTp x = if x `elem` ["Integer", "Boolean", "Float"] then x else "String"
 
-astToDecls :: Program (Tp ()) -> IO ()
-astToDecls x = do
+astToDecls :: RuleFormat -> Program (Tp ()) -> IO ()
+astToDecls rf x = do
     let decls = map filterDecls $ globalsOfProgram x
         gd = rights decls
         trans = map (uncurry varDeclToProductionClassDecl) gd
-    mapM_ (print . (<>) line . showDrools) trans
+    mapM_ (print . (<>) line . showForm rf) trans

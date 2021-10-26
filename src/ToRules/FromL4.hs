@@ -11,10 +11,11 @@ import SimpleRules (isRule)
 import Data.Either (rights)
 import qualified Data.Set as S
 
-data RuleFormat = Clara | Drools deriving Eq
 
 -- TODO 22/10/2021
 --  1) account for bindings within post conditions
+--      25/10 : binding outputs for post conditions are done.
+--      26/10 : add checks?
 --  2) generate justification objects on a per-rule basis
 --  3) integrate justification objects into rule transpilations
 --      a) positive literals should have bindings to their justification objects
@@ -53,7 +54,7 @@ ruleToProductionRule Rule {nameOfRule, varDeclsOfRule, precondOfRule, postcondOf
                      , leftHandSide =  condElems -- exprlistToRCList S.empty $ precondToExprList precondOfRule 
                      , rightHandSide = [exprToRuleAction boundLocals postcondOfRule]
                      }
-    where (boundLocals, condElems) = exprlistToRCList' S.empty [] $ precondToExprList precondOfRule
+    where (boundLocals, condElems) = exprlistToRCList S.empty [] $ precondToExprList precondOfRule
 
 
 varDeclToProdVarName :: VarDecl t -> ProdVarName
@@ -66,9 +67,9 @@ precondToExprList bcomp@(BinOpE _ (BCompar _) _ _) = [bcomp]
 precondToExprList unot@(UnaOpE _ (UBool UBnot) _) = [unot]
 precondToExprList _ = error "non and operation"
 
-exprlistToRCList' :: (Ord t, Show t) => S.Set (Var t) -> RCList -> [Expr t] -> (S.Set (Var t), RCList)
-exprlistToRCList' vs acc (x:xs) = exprlistToRCList' nvs (acc <> [ce]) xs where (nvs, ce) = exprToRC (vs, x) 
-exprlistToRCList' vs acc [] = (vs, acc)
+exprlistToRCList :: (Ord t, Show t) => S.Set (Var t) -> RCList -> [Expr t] -> (S.Set (Var t), RCList)
+exprlistToRCList vs acc (x:xs) = exprlistToRCList nvs (acc <> [ce]) xs where (nvs, ce) = exprToRC (vs, x) 
+exprlistToRCList vs acc [] = (vs, acc)
 
 exprToRC :: (Ord t, Show t) => (S.Set (Var t), Expr t) -> (S.Set (Var t), ConditionalElement)
 exprToRC (vs, x) = 
@@ -79,18 +80,6 @@ exprToRC (vs, x) =
         _                           -> (vs, ConditionalElementFail "exprToRCList can only be used with function application, comparison operation or negation")
     where xlocVars = localVariables x
           newVars = S.union xlocVars vs
-
-
-exprlistToRCList :: (Ord t, Show t) => S.Set (Var t) -> [Expr t] -> RCList
-exprlistToRCList vs (x:xs) =
-    case x of
-        AppE {}                   -> exprToConditionalFuncApp x : exprlistToRCList newVars xs
-        (BinOpE _ (BCompar _) _ _)  -> if S.isSubsetOf xlocVars vs then exprToConditionalEval x : exprlistToRCList newVars xs else [ConditionalElementFail "Reorder ur predicates"]
-        (UnaOpE _ (UBool UBnot) _)  -> if S.isSubsetOf xlocVars vs then exprToConditionalExist x : exprlistToRCList newVars xs else [ConditionalElementFail "`Not` statements require a prior variable binding"]
-        _                           -> [ConditionalElementFail "exprToRCList can only be used with function application, comparison operation or negation"]
-    where xlocVars = localVariables x
-          newVars = S.union xlocVars vs
-exprlistToRCList _ [] = []
 
 localVariables :: (Ord t) => Expr t -> S.Set (Var t)
 localVariables (AppE _ f a) = S.union (localVariables f) (localVariables a)
@@ -147,24 +136,24 @@ exprToCEArg ve@(VarE _ (GlobalVar {})) = CELiteral $ StringV $ getName ve
 exprToCEArg ve@(VarE _ (LocalVar {})) = CEVarExpr $ getName ve
 exprToCEArg _ = CEArgFail "you shouldn't have gotten this"
 
--- TODO: Account for local variable bindings within post condition fApps
+-- TODO: Add checks for bindings in pre-conditions within post conditions
 exprToRuleAction :: (Show t) => S.Set (Var t) -> Expr t -> RuleAction
 exprToRuleAction lvs fApp@(AppE {}) =
     let (fexpr, args) = appToFunArgs [] fApp
     in ActionFuncApp (getName fexpr) (map exprToCEArg args)
 exprToRuleAction _ x = ActionExprErr $ "error: cannot convert expression into rule-action: " ++ show x
 
+astToRules :: RuleFormat -> Program (Tp ()) -> IO ()
+astToRules rf x = do
+    let lrRules = map filterRule $ rulesOfProgram x
+        gdRules = rights lrRules
+    mapM_ (print . (<>) line . showForm rf) gdRules
+
 obtRule :: Program (Tp ()) -> String -> [Rule (Tp ())]
 obtRule prog rname = [r | r <- rulesOfProgram prog, nameOfRule r == Just rname ]
 
-astToRules :: Program (Tp ()) -> IO ()
-astToRules x = do
-    let lrRules = map filterRule $ rulesOfProgram x
-        gdRules = rights lrRules
-    mapM_ (print . (<>) line . showDrools) gdRules
-
-
 genREP :: Program (Tp ()) -> IO ()
 genREP x = do
-    astToDecls x 
-    astToRules x
+    let rf' = Drools
+    astToDecls rf' x 
+    astToRules rf' x
