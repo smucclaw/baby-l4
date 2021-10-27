@@ -356,17 +356,16 @@ proveAssertionSMT prg instr asrt = do
   putStrLn ("Launching SMT solver on " ++ printARName (nameOfAssertion asrt))
   let proveConsistency = selectOneOfInstr ["consistent", "valid"] instr == "consistent"
   let applicableRules = selectApplicableRules prg instr
-  let proofTarget = constrProofTarget proveConsistency (exprOfAssertion asrt) applicableRules
+  let proofTarget = constrProofTarget proveConsistency (map ruleToFormula applicableRules) (exprOfAssertion asrt) 
   let config = getAssocOfPathValue ["config"] instr
   proveExpr config proveConsistency (classDeclsOfProgram prg) (globalsOfProgram prg) [] proofTarget
 
 
-constrProofTarget :: Bool -> Expr (Tp ()) -> [Rule (Tp ())] -> Expr (Tp ())
-constrProofTarget sat concl rls =
-  let forms = map ruleToFormula rls
-  in if sat
-     then conjsExpr (concl : forms)
-     else conjsExpr (notExpr concl : forms)
+constrProofTarget :: Bool -> [Expr (Tp())] -> Expr (Tp ()) -> Expr (Tp ())
+constrProofTarget sat preconds concl =
+  if sat
+  then conjsExpr (concl : preconds)
+  else conjsExpr (notExpr concl : preconds)
 
 {-
 proveProgramTest :: Program (LocTypeAnnot (Tp ())) -> IO ()

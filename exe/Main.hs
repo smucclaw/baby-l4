@@ -28,8 +28,6 @@ import Text.Pretty.Simple ( pPrint, pPrintString, pPrint )
 import Error (printError)
 import Data.Either (rights)
 
-import TimedMC (runAut)
-
 import MainHelpers (readPrelude, getTpAst, HelperErr(..) )
 import Control.Monad.Except (runExceptT)
 
@@ -57,7 +55,6 @@ process args input = do
       case format args of
         Fasp                     ->  astToASP tpAstNoSrc
         Fast                     ->  pPrint tpAst
-        Faut                     ->  runAut (fmap typeAnnot tpAst)
         (Fgf GFOpts { gflang = gfl, showast = True } ) -> GF.nlgAST gfl fpath normalAst
         (Fgf GFOpts { gflang = gfl, showast = False} ) -> GF.nlg    gfl fpath normalAst
         Fsmt -> proveProgram tpAstNoSrc
