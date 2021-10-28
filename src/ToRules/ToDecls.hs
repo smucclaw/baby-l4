@@ -16,11 +16,10 @@ filterDecls dl@(VarDecl _ nm x) = case spine [] x of
 
 varDeclToProductionClassDecl :: VarDecl t -> [Tp t] -> ProductionClassDecl
 varDeclToProductionClassDecl (VarDecl _ nm _) tp = ProductionClassDecl nm fs
-    where fs = map tpToProductionClassField $ zip [0..(length tp- 1)] tp
+    where fs = zipWith (curry tpToProductionClassField) [0..(length tp- 1)] tp
 
 tpToProductionClassField :: (Int, Tp t) -> ProductionClassField
-tpToProductionClassField (pos, c) = ProductionClassField ("arg" ++ show pos) (yieldNativeTp . stringOfClassName . classNameOfTp $ c)
-    where yieldNativeTp x = if x `elem` ["Integer", "Boolean", "Float"] then x else "String"
+tpToProductionClassField (pos, c) = ProductionClassField ("arg" ++ show pos) (stringOfClassName . classNameOfTp $ c) (show pos)
 
 astToDecls :: RuleFormat -> Program (Tp ()) -> IO ()
 astToDecls rf x = do

@@ -9,12 +9,16 @@ import L4LSP (arNameToString)
 import SimpleRules (isRule)
 import Data.Either (rights)
 import qualified Data.Set as S
+import Util (capitalise)
+import Data.Maybe (mapMaybe)
 
 -- TODO 22/10/2021
 --  1) account for bindings within post conditions
 --      25/10 : binding outputs for post conditions are done.
---      26/10 : add checks?
+--      Next : add checks?
 --  2) generate justification objects on a per-rule basis
+--      27/10 : justification objects are a go go go
+--      Next: tests?
 --  3) integrate justification objects into rule transpilations
 --      a) positive literals should have bindings to their justification objects
 --      b) `not` expressions (negative literals) should not have bindings to their justifications (since bindings don't make sense within a `not` statement for drools)
@@ -47,16 +51,29 @@ filterRule x
 
 ruleToProductionRule :: (Ord t, Show t) => Rule t -> ProductionRule
 ruleToProductionRule Rule {nameOfRule, varDeclsOfRule, precondOfRule, postcondOfRule}
-    = ProductionRule { nameOfProductionRule = arNameToString nameOfRule
+    = ProductionRule { nameOfProductionRule = prodRuleName
                      , varDeclsOfProductionRule = [""]
                      , leftHandSide =  condElems -- exprlistToRCList S.empty $ precondToExprList precondOfRule 
                      , rightHandSide = [exprToRuleAction boundLocals postcondOfRule]
+                     , traceObj = mkTrace prodRuleName condElems varDeclsOfRule
                      }
-    where (boundLocals, condElems) = exprlistToRCList S.empty [] $ precondToExprList precondOfRule
+    where prodRuleName = arNameToString nameOfRule
+          (boundLocals, condElems) = exprlistToRCList S.empty [] $  precondToExprList precondOfRule
 
+mkTrace :: String -> [ConditionalElement] -> [VarDecl t] -> ProductionRuleTrace
+mkTrace rnm priors args = ProductionRuleTrace {
+      nameOfTraceObj = "justification" ++ capitalise rnm
+    , priors = mapMaybe condElemToTraceTup priors
+    , args = mapMaybe varDeclToTraceTup args
+}
 
-varDeclToProdVarName :: VarDecl t -> ProdVarName
-varDeclToProdVarName = undefined
+condElemToTraceTup :: ConditionalElement -> Maybe TraceTuple
+condElemToTraceTup (ConditionalFuncApp s _) = Just $ TraceTup (s, "Justification")
+condElemToTraceTup _ = Nothing
+
+varDeclToTraceTup :: VarDecl t -> Maybe TraceTuple
+varDeclToTraceTup (VarDecl _ nm (ClassT _ (ClsNm cn))) = Just $ TraceTup (nm, cn)
+varDeclToTraceTup _ = Nothing
 
 precondToExprList :: Expr t -> [Expr t] -- todo : rename to reflect new typesig
 precondToExprList (BinOpE _ (BBool BBand) arg1 arg2) = precondToExprList arg1 ++ precondToExprList arg2
@@ -66,11 +83,11 @@ precondToExprList unot@(UnaOpE _ (UBool UBnot) _) = [unot]
 precondToExprList _ = error "non and operation"
 
 exprlistToRCList :: (Ord t, Show t) => S.Set (Var t) -> RCList -> [Expr t] -> (S.Set (Var t), RCList)
-exprlistToRCList vs acc (x:xs) = exprlistToRCList nvs (acc <> [ce]) xs where (nvs, ce) = exprToRC (vs, x) 
+exprlistToRCList vs acc (x:xs) = exprlistToRCList nvs (acc <> [ce]) xs where (nvs, ce) = exprToRC (vs, x)
 exprlistToRCList vs acc [] = (vs, acc)
 
 exprToRC :: (Ord t, Show t) => (S.Set (Var t), Expr t) -> (S.Set (Var t), ConditionalElement)
-exprToRC (vs, x) = 
+exprToRC (vs, x) =
     case x of
         AppE {}                   -> (newVars, exprToConditionalFuncApp x)
         (BinOpE _ (BCompar _) _ _)  -> if S.isSubsetOf xlocVars vs then (newVars, exprToConditionalEval x)  else (vs, ConditionalElementFail "Reorder ur predicates")

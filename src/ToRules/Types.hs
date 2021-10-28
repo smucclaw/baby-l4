@@ -5,10 +5,12 @@ import Prettyprinter
 import Syntax
 import Util (capitalise)
 
+
+
 data RuleFormat = Clara | Drools deriving Eq
 
 showForm :: (ShowDrools x, ShowClara x) => RuleFormat -> (x -> Doc ann)
-showForm rf = case rf of 
+showForm rf = case rf of
             Drools -> showDrools
             Clara -> showClara
 
@@ -56,10 +58,10 @@ instance ShowDrools ProductionClassDecl where
              , pretty "end"
              ]
 
-data ProductionClassField = ProductionClassField ProdFieldName Typename deriving Show
-
+data ProductionClassField = ProductionClassField ProdFieldName Typename PosAnnot deriving Show
+type PosAnnot = String -- positional annotation
 instance ShowDrools ProductionClassField where
-    showDrools (ProductionClassField pfname tpname) = pretty pfname <> colon <+> pretty tpname <+> pretty "@position" <> parens (pretty $ last pfname)
+    showDrools (ProductionClassField pfname tpname pos) = pretty pfname <> colon <+> pretty (yieldTp tpname) <+> pretty "@position" <> parens (pretty pos)
 
 
 
@@ -68,10 +70,11 @@ data ProductionRule =
                    , varDeclsOfProductionRule :: [ProdVarName]
                    , leftHandSide :: RCList -- RuleCondition
                    , rightHandSide :: RAList
+                   , traceObj :: ProductionRuleTrace
                    } deriving Show
 
 instance ShowClara ProductionRule where
-    showClara ProductionRule {nameOfProductionRule, varDeclsOfProductionRule, leftHandSide, rightHandSide} = do
+    showClara ProductionRule {nameOfProductionRule, leftHandSide, rightHandSide} = do
         hang 2 $ vsep [ lparen <> pretty "defrule" <+> pretty nameOfProductionRule
                       , vsep (map showClara leftHandSide)
                     --   , showClara leftHandSide
@@ -80,7 +83,7 @@ instance ShowClara ProductionRule where
                       ]
 
 instance ShowDrools ProductionRule where
-    showDrools ProductionRule {nameOfProductionRule, varDeclsOfProductionRule, leftHandSide, rightHandSide} = do
+    showDrools ProductionRule {nameOfProductionRule, leftHandSide, rightHandSide, traceObj} = do
         vsep [ nest 2 $ vsep [pretty "rule" <+> dquotes (pretty nameOfProductionRule)
                              , pretty "when"
                             --  , indent 2 $ showDrools leftHandSide
@@ -89,14 +92,42 @@ instance ShowDrools ProductionRule where
                              , indent 2 $ vsep (map showDrools rightHandSide)
                              ]
              , pretty "end" <> line
+             , showDrools traceObj <> line
              ]
+
+data ProductionRuleTrace = ProductionRuleTrace {
+      nameOfTraceObj :: String
+    , priors :: [TraceTuple]
+    , args :: [TraceTuple]
+} deriving Show
+
+newtype TraceTuple = TraceTup (ProdFieldName, Typename) deriving Show
+
+instance ShowDrools ProductionRuleTrace where
+    showDrools ProductionRuleTrace {nameOfTraceObj, priors, args} = 
+        showDrools ProductionClassDecl { nameOfProductionClassDecl = nameOfTraceObj ++ " extends Justification"
+                                       , fieldsOfProductionClassDecl = traceTupsToProdClassFields 0 (priorsAndArgs 0 0 $ priors <> args)}
+        where priorsAndArgs :: Integer -> Integer -> [TraceTuple] -> [(String, Typename)]
+              priorsAndArgs pAcc aAcc (TraceTup x:xs) = case x of 
+                (_, "Justification") -> ("prior" ++ show pAcc, "Justification") : priorsAndArgs (pAcc + 1) aAcc xs
+                (_, y) -> ("arg" ++ show aAcc, y) : priorsAndArgs pAcc (aAcc + 1) xs
+              priorsAndArgs _ _ [] = []
+              traceTupsToProdClassFields :: Integer -> [(String, Typename)] -> [ProductionClassField]
+              traceTupsToProdClassFields cnt ((x,y):tps)  = ProductionClassField x y (show cnt) : traceTupsToProdClassFields (cnt+1) tps
+              traceTupsToProdClassFields _ [] = []
+
+
+
+
+
+
 
 
 
 -- We are restricting ourselves to non-fact bindings 
 -- (see https://docs.jboss.org/drools/release/7.58.0.Final/drools-docs/html_single/index.html#drl-rules-WHEN-con_drl-rules)
 data ConditionalElement
-    = ConditionalFuncApp Typename [CEArg]
+    = ConditionalFuncApp ProdFuncName [CEArg]
     | ConditionalEval BComparOp CEArg CEArg
     | ConditionalExist UBoolOp ConditionalElement -- TODO: rename to Negated Literal
     | ConditionalElementFail String
@@ -190,7 +221,7 @@ data RuleAction = ActionFuncApp Typename [CEArg]
                 deriving (Eq, Show)
 
 instance ShowClara RuleAction where
-    showClara (ActionFuncApp fname args) = pretty "(c/insert! (->" <> pretty fname <+> hsep (map (showClara) args)
+    showClara (ActionFuncApp fname args) = pretty "(c/insert! (->" <> pretty fname <+> hsep (map showClara args)
     showClara (ActionExprErr x) = pretty x
 
 instance ShowDrools RuleAction where
@@ -198,12 +229,16 @@ instance ShowDrools RuleAction where
     showDrools (ActionExprErr x) = pretty x
 
 
-data Argument = Variable ProdVarName | Value String deriving (Eq, Show)
+-- data Argument = Variable ProdVarName | Value String deriving (Eq, Show)
 
-instance ShowClara Argument where
-    showClara (Variable x) = pretty x
-    showClara (Value y)    = pretty y
+-- instance ShowClara Argument where
+--     showClara (Variable x) = pretty x
+--     showClara (Value y)    = pretty y
 
-instance ShowDrools Argument where
-    showDrools (Variable x) = pretty x
-    showDrools (Value y)    = pretty y
+-- instance ShowDrools Argument where
+--     showDrools (Variable x) = pretty x
+--     showDrools (Value y)    = pretty y
+
+
+yieldTp :: [Char] -> [Char]
+yieldTp x = if x `elem` ["Justification", "Integer", "Boolean", "Float"] then x else "String"
