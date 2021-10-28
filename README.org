@@ -281,7 +281,14 @@ If you get an error involving =Syntax.gf=, then you need to get your =RGL= and =
 
 Where is gf? From inside the =baby-l4= directory (which is where you should already be, if you are reading this):
 
-Inside baby-l4, run
+Inside baby-l4, first run
+#+begin_example
+stack build --dependencies-only
+#+end_example
+
+to install all the dependencies, including gf, but not including RGL (more on that later)
+
+Then run
 
 #+begin_example
 stack exec which gf

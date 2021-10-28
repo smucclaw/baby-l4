@@ -14,8 +14,8 @@ import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
 --import Annotation
 --import KeyValueMap
-import Syntax
---import Typing (eraseAnn, getTypeOfExpr)
+import L4.Syntax
+--import L4.Typing (eraseAnn, getTypeOfExpr)
 --import PrintProg (printExpr, renameAndPrintExpr)
 import Syntax (UnaOp(UTemporal))
 

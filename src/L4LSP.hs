@@ -8,7 +8,7 @@ import Language.LSP.Server
 import Language.LSP.Types
 import Control.Monad.IO.Class
 import qualified Data.Text as T
-import Lexer
+import L4.Lexer
 import Data.Text.IO (hPutStrLn)
 import qualified Data.Text.IO as TIO
 import qualified Data.Map as Map
@@ -21,10 +21,10 @@ import           Language.LSP.Diagnostics
 import           System.Log.Logger
 -- import Control.Monad.Identity (Identity(runIdentity))
 -- import Control.Monad.Identity (Identity(runIdentity))
-import Parser (parseProgram)
+import L4.Parser (parseProgram)
 import Data.Foldable (for_)
 import qualified Data.List as List
-import Syntax
+import L4.Syntax
 import Control.Lens.Extras (template)
 import Data.Data (Data)
 import Data.Either.Combinators (maybeToRight, mapLeft, mapRight)
@@ -32,13 +32,13 @@ import Control.Monad.Trans.Except (except)
 import Control.Monad.Except
 -- import Syntax (Pos(..),SRng(..))
 
-import Annotation
+import L4.Annotation
 import Language.LSP.VFS
 import qualified Data.Rope.UTF16 as Rope
 import Data.Bifunctor (first)
 import Paths_baby_l4 (getDataFileName)
-import Typing (checkError)
-import Error
+import L4.Typing (checkError)
+import L4.Error
 import Data.List (intercalate)
 import Control.Monad.Trans.Maybe (MaybeT(..))
 

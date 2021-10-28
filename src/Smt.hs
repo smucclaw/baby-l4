@@ -2,18 +2,18 @@
 
 module Smt(proveAssertionSMT, proveExpr, constrProofTarget) where
 
-import Annotation (LocTypeAnnot (typeAnnot))
-import KeyValueMap
+import L4.Annotation (LocTypeAnnot (typeAnnot))
+import L4.KeyValueMap
     ( ValueKVM(MapVM, IntVM, IdVM),
       selectOneOfInstr,
       getAssocOfPathValue )
-import Syntax
+import L4.Syntax
 import SyntaxManipulation (
       spine,
       ruleToFormula,
       conjsExpr,
       notExpr, etaExpand, decomposeFun)
-import Typing (isBooleanTp, isIntegerTp, isFloatTp, superClassesOfClassDecl)
+import L4.Typing (isBooleanTp, isIntegerTp, isFloatTp, superClassesOfClassDecl)
 import RuleTransfo
     ( isNamedRule,
       rewriteRuleSetDespite,

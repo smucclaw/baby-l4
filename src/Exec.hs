@@ -3,8 +3,8 @@
 module Exec where
 
 import Data.List
-import Syntax
-import Typing
+import L4.Syntax
+import L4.Typing
 import SyntaxManipulation (mkFunTp, abstractF, abstractFvd, liftExpr, dropVar, liftType)
 import PrintProg (renameAndPrintExpr, printExpr)
 import Data.Maybe (fromMaybe)

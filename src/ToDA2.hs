@@ -7,8 +7,8 @@ module ToDA2 where
 
 import Prettyprinter as PP
 import Prettyprinter.Render.Text (putDoc)
-import Syntax
-import Typing (isBooleanTp, isIntegerTp)
+import L4.Syntax
+import L4.Typing (isBooleanTp, isIntegerTp)
 import Data.List (find, intersperse)
 import Data.Char (toLower)
 import Data.Maybe (fromMaybe, listToMaybe, catMaybes, Maybe (Nothing))

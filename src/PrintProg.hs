@@ -3,9 +3,9 @@
 
 module PrintProg where
 
-import Syntax
-import KeyValueMap ( KVMap )
-import Prettyprinter
+import L4.Syntax
+import L4.KeyValueMap ( KVMap )
+import L4.Prettyprinter
 --import Prettyprinter.Render.Text (putDoc)
 --import qualified Data.Maybe
 import Data.List (find)

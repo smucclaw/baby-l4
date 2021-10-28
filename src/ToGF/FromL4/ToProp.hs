@@ -9,8 +9,8 @@ import Control.Monad.Reader (MonadReader (local), Reader, asks, runReader)
 import qualified Data.Set as S
 import PGF ( PGF, showExpr, linearizeAll )
 import Prop
-import Annotation ( HasDefault(defaultVal) )
-import Syntax
+import L4.Annotation ( HasDefault(defaultVal) )
+import L4.Syntax as Syntax
 import System.IO (stderr, hPutStrLn)
 import Text.Printf (printf)
 import ToGF.FromL4.TransProp ( transfer, Mode(MOptimize) )

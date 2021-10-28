@@ -3,13 +3,15 @@ module ToRules where
 
 import Prettyprinter
 import Prettyprinter.Render.Text (putDoc)
-import Syntax
+import L4.Syntax
 import SyntaxManipulation (appToFunArgs)
 import L4LSP (arNameToString)
 import SimpleRules (isRule)
 import Data.Either (rights)
+import Data.Char (toUpper)
 import qualified Data.Set as S
 import Util (capitalise)
+import SyntaxManipulation (appToFunArgs)
 
 data RuleFormat = Clara | Drools deriving Eq
 
@@ -211,6 +213,9 @@ ruleToProductionRule Rule {nameOfRule, varDeclsOfRule, precondOfRule, postcondOf
 
 varDeclToProdVarName :: VarDecl t -> ProdVarName
 varDeclToProdVarName = undefined
+
+capitalize :: String -> String
+capitalize xs = toUpper (head xs) : tail xs
 
 precondToExprList :: Expr t -> [Expr t] -- todo : rename to reflect new typesig
 precondToExprList (BinOpE _ (BBool BBand) arg1 arg2) = precondToExprList arg1 ++ precondToExprList arg2

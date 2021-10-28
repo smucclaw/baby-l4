@@ -2,11 +2,11 @@
 {-# LANGUAGE PatternSynonyms #-}
 module ToGF.NormalizeSyntax where
 
-import Annotation (HasDefault (defaultVal))
+import L4.Annotation (HasDefault (defaultVal))
 import Data.Char (toLower)
 import Data.List (intercalate)
 import Data.Maybe (fromMaybe)
-import Syntax
+import L4.Syntax
 
 -- This is for ToSCASP, where we want to put existential quantification into VarDecls.
 normalizeQuantif :: HasDefault t => Rule t -> [Rule t]
@@ -122,7 +122,7 @@ checkNFlip (Mapping _t lexName e@(Descr _ args)) vd@(Fun2 funName arg1 arg2)
 checkNFlip _ vd = vd
 
 pattern Fun2 :: VarName -> String -> String -> VarDecl ()
-pattern Fun2 name arg1 arg2 = Syntax.VarDecl () name (Arg2 arg1 arg2)
+pattern Fun2 name arg1 arg2 = L4.Syntax.VarDecl () name (Arg2 arg1 arg2)
 
 pattern Arg0 :: String -> Tp ()
 pattern Arg0 x = ClassT () (ClsNm x)

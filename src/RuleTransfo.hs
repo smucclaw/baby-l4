@@ -2,12 +2,12 @@
 {-# LANGUAGE LambdaCase #-}
 module RuleTransfo where
 
-import Annotation ( HasDefault(defaultVal))
-import KeyValueMap
+import L4.Annotation ( HasDefault(defaultVal))
+import L4.KeyValueMap
     ( ValueKVM(..), KVMap, KeyKVM, hasPathMap, getAssocOfPathMap, stringListAsKVMap, putAssocOfPathMap )
-import Syntax
+import L4.Syntax
 import SyntaxManipulation (appToFunArgs, funArgsToApp, conjExpr, conjsExpr, liftType, notExpr, disjsExpr, remapExpr, eqExpr, liftExpr, isLocalVar, fv, dnf, nnf )
-import Typing (distinct, eraseAnn)
+import L4.Typing (distinct, eraseAnn)
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
 import Data.List (sortBy)

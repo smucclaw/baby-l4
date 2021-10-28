@@ -1,10 +1,10 @@
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 
-module Error where
+module L4.Error where
 import Data.Data (Data, Typeable)
-import Syntax
-import Annotation (RealSRng(..), SRng(..), Pos(Pos) )
+import L4.Syntax
+import L4.Annotation (RealSRng(..), SRng(..), Pos(Pos) )
 import PrintProg (printTp)
 
 data ExpectedType
@@ -124,7 +124,7 @@ printErrorCause (UndeclaredVariable r vn) = "Variable " ++ printVarName vn ++ " 
 printErrorCause (IllTypedSubExpr rngs givents expts) =
   "Expression at " ++ (printSRng (head rngs)) ++ " is ill-typed:\n" ++
   unlines
-  (map (\(r, gv, exp) -> "the subexpression at " ++ (printSRng r) ++ " has type " ++ (printTp gv) ++ " but " ++ (printExpectedTp exp) ++  " was expected")
+  (map (\(r, gv, expr) -> "the subexpression at " ++ (printSRng r) ++ " has type " ++ (printTp gv) ++ " but " ++ (printExpectedTp expr) ++  " was expected")
   (zip3 (tail rngs) givents expts))
 printErrorCause (IncompatibleTp rngs givents) =
   "Expression at " ++ (printSRng (head rngs)) ++ " is ill-typed:\n" ++
@@ -192,7 +192,7 @@ printVarDeclsError (UndefinedTypeVDE vdloc) =
 
 printAssertionErr :: AssertionError -> String
 printAssertionErr (AssertionErrAE illTyped) =
-  unlines (map (\(r, ec) -> "In assertion:\n" ++ printErrorCause ec) illTyped)
+  unlines (map (\(_, ec) -> "In assertion:\n" ++ printErrorCause ec) illTyped)
 
 printRuleErr :: RuleError -> String
 printRuleErr (RuleErrorRE illTyped) =

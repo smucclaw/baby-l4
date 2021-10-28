@@ -1,7 +1,7 @@
 module ExpSysTest where
 
-import Syntax
-import Annotation
+import L4.Syntax
+import L4.Annotation
 import MainHelpers ( getTpAst )
 
 import Control.Monad.Except (runExceptT)
