@@ -8,7 +8,7 @@ import L4.KeyValueMap
       selectOneOfInstr,
       getAssocOfPathValue )
 import L4.Syntax
-import SyntaxManipulation (
+import L4.SyntaxManipulation (
       spine,
       ruleToFormula,
       conjsExpr,
@@ -22,7 +22,7 @@ import RuleTransfo
 
 import qualified SimpleSMT as SMT
 import Control.Monad ( when, foldM )
-import PrintProg (renameAndPrintRule, namesUsedInProgram, renameExpr, printARName )
+import L4.PrintProg (renameAndPrintRule, namesUsedInProgram, renameExpr, printARName )
 import Data.Maybe (fromMaybe)
 import Model (displayableModel, printDisplayableModel)
 import qualified AutoAnnotations as SMT

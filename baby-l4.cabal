@@ -68,7 +68,6 @@ library l4-generated
 library
   exposed-modules:
                   Model
-                  SyntaxManipulation
                   MainHelpers
 
                   -- lsp
@@ -98,7 +97,6 @@ library
                   --RuleToTa
                   --TaToUppaal
                   Proof
-                  PrintProg
                   RuleTransfo
                   Smt
                   TimedMC

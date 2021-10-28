@@ -1,6 +1,6 @@
 
 module Proof(proveProgram) where
-import Syntax
+import L4.Syntax
     ( assertionsOfProgram,
       Assertion(instrOfAssertion),
       Program(elementsOfProgram),
@@ -14,7 +14,7 @@ import TimedMC (proveAssertionTA)
 import Smt(proveAssertionSMT)
 import Control.Monad (foldM)
 import RuleTransfo (rewriteRuleSetDerived, rewriteRuleSetSubjectTo, rewriteRuleSetDespite)
-import PrintProg (renameAndPrintRule, namesUsedInProgram)
+import L4.PrintProg (renameAndPrintRule, namesUsedInProgram)
 
 
 

@@ -2,13 +2,13 @@ module ToASP where
 
 import Prettyprinter
 import Prettyprinter.Render.Text (putDoc)
-import Syntax
-import KeyValueMap
+import L4.Syntax
+import L4.KeyValueMap
     ( ValueKVM(IdVM) )
-import PrintProg (showL4, PrintCurried (MultiArg), PrintConfig (PrintVarCase, PrintCurried), PrintVarCase (CapitalizeLocalVar))
+import L4.PrintProg (showL4, PrintCurried (MultiArg), PrintConfig (PrintVarCase, PrintCurried), PrintVarCase (CapitalizeLocalVar))
 import RuleTransfo (ruleDisjL, clarify)
 import Data.Maybe (fromJust, mapMaybe)
-import SyntaxManipulation (decomposeBinop, appToFunArgs, funArgsToApp, applyVars)
+import L4.SyntaxManipulation (decomposeBinop, appToFunArgs, funArgsToApp, applyVars)
 import Data.List (nub)
 
 data ASPRule t = ASPRule {

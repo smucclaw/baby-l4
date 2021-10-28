@@ -4,14 +4,13 @@ module ToRules where
 import Prettyprinter
 import Prettyprinter.Render.Text (putDoc)
 import L4.Syntax
-import SyntaxManipulation (appToFunArgs)
+import L4.SyntaxManipulation (appToFunArgs)
 import L4LSP (arNameToString)
 import SimpleRules (isRule)
 import Data.Either (rights)
 import Data.Char (toUpper)
 import qualified Data.Set as S
 import Util (capitalise)
-import SyntaxManipulation (appToFunArgs)
 
 data RuleFormat = Clara | Drools deriving Eq
 

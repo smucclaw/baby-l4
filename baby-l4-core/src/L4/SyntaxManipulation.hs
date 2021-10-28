@@ -6,7 +6,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
 -- Common syntax manipulations / expression transformations
-module SyntaxManipulation where
+module L4.SyntaxManipulation where
 
 --import Data.Data (Data, Typeable)
 
@@ -17,7 +17,7 @@ import qualified Data.Set as Set
 import L4.Syntax
 --import L4.Typing (eraseAnn, getTypeOfExpr)
 --import PrintProg (printExpr, renameAndPrintExpr)
-import Syntax (UnaOp(UTemporal))
+--import Syntax (UnaOp(UTemporal))
 
 
 ----------------------------------------------------------------------

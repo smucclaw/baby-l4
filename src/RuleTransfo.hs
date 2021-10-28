@@ -6,7 +6,7 @@ import L4.Annotation ( HasDefault(defaultVal))
 import L4.KeyValueMap
     ( ValueKVM(..), KVMap, KeyKVM, hasPathMap, getAssocOfPathMap, stringListAsKVMap, putAssocOfPathMap )
 import L4.Syntax
-import SyntaxManipulation (appToFunArgs, funArgsToApp, conjExpr, conjsExpr, liftType, notExpr, disjsExpr, remapExpr, eqExpr, liftExpr, isLocalVar, fv, dnf, nnf )
+import L4.SyntaxManipulation (appToFunArgs, funArgsToApp, conjExpr, conjsExpr, liftType, notExpr, disjsExpr, remapExpr, eqExpr, liftExpr, isLocalVar, fv, dnf, nnf )
 import L4.Typing (distinct, eraseAnn)
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
@@ -16,7 +16,7 @@ import Data.Graph.Inductive.Graph
     ( nodes, Graph(labEdges, mkGraph), LNode, Node )
 import Data.Graph.Inductive.PatriciaTree ( Gr )
 import Data.Graph.Inductive.Query.DFS ( scc, topsort' )
-import PrintProg (printARName)
+import L4.PrintProg (printARName)
 
 
 ----------------------------------------------------------------------

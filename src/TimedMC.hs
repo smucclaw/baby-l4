@@ -4,9 +4,9 @@
 module TimedMC where
 
 import L4.Syntax
-import SyntaxManipulation (conjExpr, disjExpr, implExpr, abstractQ, abstractF, liftVarBy, conjsExpr, disjsExpr, applyVars, mkVarE, mkEq, mkFloatConst, mkFunTp, index, indexListFromTo, gteExpr, eqExpr, mkIntConst, liftVar, funArgsToApp, notExpr, liftType)
+import L4.SyntaxManipulation (conjExpr, disjExpr, implExpr, abstractQ, abstractF, liftVarBy, conjsExpr, disjsExpr, applyVars, mkVarE, mkEq, mkFloatConst, mkFunTp, index, indexListFromTo, gteExpr, eqExpr, mkIntConst, liftVar, funArgsToApp, notExpr, liftType)
 
-import PrintProg (renameAndPrintExpr, renameExpr, printExpr)
+import L4.PrintProg (renameAndPrintExpr, renameExpr, printExpr)
 import Data.List (find)
 import Data.Maybe (fromMaybe)
 import Text.Pretty.Simple (pPrint)

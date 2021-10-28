@@ -5,7 +5,7 @@ module L4.Error where
 import Data.Data (Data, Typeable)
 import L4.Syntax
 import L4.Annotation (RealSRng(..), SRng(..), Pos(Pos) )
-import PrintProg (printTp)
+import L4.PrintProg (printTp)
 
 data ExpectedType
   = ExpectedString  String
