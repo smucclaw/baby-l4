@@ -3,8 +3,8 @@ module ToRules.ToRules where
 
 import ToRules.Types
 import Prettyprinter (line)
-import Syntax
-import SyntaxManipulation (appToFunArgs)
+import L4.Syntax
+import L4.SyntaxManipulation (appToFunArgs)
 import L4LSP (arNameToString)
 import SimpleRules (isRule)
 import Data.Either (rights)

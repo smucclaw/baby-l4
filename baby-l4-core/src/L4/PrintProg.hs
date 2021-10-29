@@ -1,24 +1,29 @@
 {-# LANGUAGE LambdaCase #-}
 
 
-module PrintProg where
+module L4.PrintProg where
 
-import Syntax
-import KeyValueMap ( KVMap )
+import L4.Syntax
+import L4.KeyValueMap ( KVMap )
 import Prettyprinter
 --import Prettyprinter.Render.Text (putDoc)
 --import qualified Data.Maybe
 import Data.List (find)
 --import Data.Maybe (fromMaybe)
-import Util (capitalise)
-import SyntaxManipulation (appToFunArgs)
+--import Util (capitalise)
+import L4.SyntaxManipulation (appToFunArgs)
 
+import Data.Char        ( toUpper )
 -------------------------------------------------------------
 -- Rename variables in rules and expressions
 -------------------------------------------------------------
 
 -- Rename variables to make them unique in declarations in rules and in expressions.
 -- Assumption: Global variables are already unique, correct use of deBruijn indices
+capitalise :: String -> String
+capitalise [] = []
+capitalise (c:cs) = toUpper c : cs
+
 
 mkUniqueName :: [String] -> String -> Int -> String
 mkUniqueName nms nm ext =

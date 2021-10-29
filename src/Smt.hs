@@ -2,18 +2,18 @@
 
 module Smt(proveAssertionSMT, proveExpr, constrProofTarget) where
 
-import Annotation (LocTypeAnnot (typeAnnot))
-import KeyValueMap
+import L4.Annotation (LocTypeAnnot (typeAnnot))
+import L4.KeyValueMap
     ( ValueKVM(MapVM, IntVM, IdVM),
       selectOneOfInstr,
       getAssocOfPathValue )
-import Syntax
-import SyntaxManipulation (
+import L4.Syntax
+import L4.SyntaxManipulation (
       spine,
       ruleToFormula,
       conjsExpr,
       notExpr, etaExpand, decomposeFun)
-import Typing (isBooleanTp, isIntegerTp, isFloatTp, superClassesOfClassDecl)
+import L4.Typing (isBooleanTp, isIntegerTp, isFloatTp, superClassesOfClassDecl)
 import RuleTransfo
     ( isNamedRule,
       rewriteRuleSetDespite,
@@ -22,7 +22,7 @@ import RuleTransfo
 
 import qualified SimpleSMT as SMT
 import Control.Monad ( when, foldM )
-import PrintProg (renameAndPrintRule, namesUsedInProgram, renameExpr, printARName )
+import L4.PrintProg (renameAndPrintRule, namesUsedInProgram, renameExpr, printARName )
 import Data.Maybe (fromMaybe)
 import Model (displayableModel, printDisplayableModel)
 import qualified AutoAnnotations as SMT
@@ -356,17 +356,16 @@ proveAssertionSMT prg instr asrt = do
   putStrLn ("Launching SMT solver on " ++ printARName (nameOfAssertion asrt))
   let proveConsistency = selectOneOfInstr ["consistent", "valid"] instr == "consistent"
   let applicableRules = selectApplicableRules prg instr
-  let proofTarget = constrProofTarget proveConsistency (exprOfAssertion asrt) applicableRules
+  let proofTarget = constrProofTarget proveConsistency (map ruleToFormula applicableRules) (exprOfAssertion asrt) 
   let config = getAssocOfPathValue ["config"] instr
   proveExpr config proveConsistency (classDeclsOfProgram prg) (globalsOfProgram prg) [] proofTarget
 
 
-constrProofTarget :: Bool -> Expr (Tp ()) -> [Rule (Tp ())] -> Expr (Tp ())
-constrProofTarget sat concl rls =
-  let forms = map ruleToFormula rls
-  in if sat
-     then conjsExpr (concl : forms)
-     else conjsExpr (notExpr concl : forms)
+constrProofTarget :: Bool -> [Expr (Tp())] -> Expr (Tp ()) -> Expr (Tp ())
+constrProofTarget sat preconds concl =
+  if sat
+  then conjsExpr (concl : preconds)
+  else conjsExpr (notExpr concl : preconds)
 
 {-
 proveProgramTest :: Program (LocTypeAnnot (Tp ())) -> IO ()

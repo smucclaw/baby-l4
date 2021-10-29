@@ -4,9 +4,9 @@
 module Main where
 
 
-import Parser (parseProgram)
-import Syntax (Program, ClassName)
-import Typing ( checkError )
+import L4.Parser (parseProgram)
+import L4.Syntax (Program, ClassName)
+import L4.Typing ( checkError )
 --import SmtSBV (proveProgram)
 import Proof (proveProgram)
 import System.Environment ( getEnv )
@@ -22,13 +22,11 @@ import ToGF.FromSCasp.ToAnswer ( nlgModels )
 import ToGF.FromL4.ToQuestions ( createQuestions )
 import ToGF.FromL4.ToAnswers ( createPGFforAnswers )
 import ToGF.NormalizeSyntax
-import Annotation ( SRng, LocTypeAnnot (typeAnnot) )
+import L4.Annotation ( SRng, LocTypeAnnot (typeAnnot) )
 import Paths_baby_l4 (getDataFileName)
 import Text.Pretty.Simple ( pPrint, pPrintString, pPrint )
-import Error (printError)
+import L4.Error (printError)
 import Data.Either (rights)
-
-import TimedMC (runAut)
 
 import MainHelpers (readPrelude, getTpAst, HelperErr(..) )
 import Control.Monad.Except (runExceptT)
@@ -57,7 +55,6 @@ process args input = do
       case format args of
         Fasp                     ->  astToASP tpAstNoSrc
         Fast                     ->  pPrint tpAst
-        Faut                     ->  runAut (fmap typeAnnot tpAst)
         (Fgf GFOpts { gflang = gfl, showast = True } ) -> GF.nlgAST gfl fpath normalAst
         (Fgf GFOpts { gflang = gfl, showast = False} ) -> GF.nlg    gfl fpath normalAst
         Fsmt -> proveProgram tpAstNoSrc

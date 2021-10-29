@@ -4,7 +4,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module KeyValueMap where
+module L4.KeyValueMap where
 import Data.Data (Data, Typeable)
 import Data.Maybe (fromMaybe, isJust)
 
@@ -40,7 +40,7 @@ selectOneOfInstr chs _ = error ("incorrect instruction for choice among " ++ sho
 -- --> eventually define by getAssocOfPathValue
 -- selectAssocOfValue :: KeyKVM -> ValueKVM -> Maybe ValueKVM
 -- selectAssocOfValue k (MapVM kvm) = selectAssocOfMap k kvm
--- selectAssocOfValue k _ = Nothing
+-- selectAssocOfValue _ _ = Nothing
 
 hasKeyKVMap :: KeyKVM -> KVMap -> Bool
 hasKeyKVMap k m = k `elem` (map fst m)

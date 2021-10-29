@@ -1,0 +1,28 @@
+# Helen and Ivan had the same number of coins. Helen had a number of 50-cent coins, and 64 20-cent coins. 
+# These coins had a mass of 1.134kg. Ivan had a number of 50-cent coins and 104 20-cent coins.
+
+# (a) Who has more money in coins and by how much? (2)
+
+# (b) given that each 50-cent coin is 2.7g more heavier than a 20-cent coin, 
+# what is the mass of Ivan's coins in kilograms? (2)
+
+decl number50CoinsHelen : Integer
+decl number50CoinsIvan : Integer
+decl weight50Coin : Integer
+decl weight20Coin : Integer
+decl amountHelen : Integer
+decl amountIvan : Integer
+decl diffAmount : Integer
+decl weightCoinsIvan : Integer
+
+# weights are in milligram to get an integer problem
+assert {SMT: {consistent, config: {loglevel: 1, logic: AUFNIRA}}}
+number50CoinsHelen + 64 == number50CoinsIvan + 104 && 
+amountHelen == 50 * number50CoinsHelen + 20 * 64 &&
+amountIvan  == 50 * number50CoinsIvan + 20 * 104 &&
+diffAmount == amountHelen - amountIvan &&
+number50CoinsHelen * weight50Coin + 64 * weight20Coin == 11340 &&
+weight50Coin == weight20Coin + 27 &&
+weightCoinsIvan == number50CoinsIvan * weight50Coin + 104 * weight20Coin &&
+number50CoinsHelen >= 0 && number50CoinsIvan >= 0 &&
+weight50Coin > 0 && weight20Coin > 0

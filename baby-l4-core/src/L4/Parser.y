@@ -5,7 +5,7 @@
 {-
 
     Checklist what to do when modifying the language:
-    * In Lexer.x (when introducing new lexical items):
+    * In L4.Lexer.x (when introducing new lexical items):
     - Below "tokens :-", add the textual representations and tokens
     - Below "data TokenKind", add the tokens
     - Extend the "unlex" function definition
@@ -15,28 +15,27 @@
     - Modify the grammar
 -}
 
-module Parser (
+module L4.Parser (
   parseProgram,
 --  parseProgram
 --  , parseTokens,
 ) where
 
-import Lexer
-import Annotation
-import KeyValueMap
-import Syntax
+import L4.Lexer
+import L4.Annotation
+import L4.KeyValueMap
+import L4.Syntax
 
 import Prelude
 import Control.Monad.Except
 import Data.Maybe (fromMaybe)
-import Data.Either.Combinators (mapRight)
 
 }
 
 -- Entry point
 %name program Program
 
--- Lexer structure
+-- L4.Lexer structure
 %tokentype { Token }
 
 

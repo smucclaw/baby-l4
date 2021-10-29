@@ -2,7 +2,7 @@
 module ToRules.Types where
 
 import Prettyprinter
-import Syntax
+import L4.Syntax
 import Util (capitalise)
 
 

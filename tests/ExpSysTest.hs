@@ -1,7 +1,7 @@
 module ExpSysTest where
 
-import Syntax
-import Annotation
+import L4.Syntax
+import L4.Annotation
 import MainHelpers ( getTpAst )
 
 import Control.Monad.Except (runExceptT)
@@ -14,7 +14,7 @@ import Test.Tasty.HUnit
 import Data.Either ( rights )
 import Data.Set as S
 import Data.Tuple (snd)
-import SyntaxManipulation (appToFunArgs)
+import L4.SyntaxManipulation (appToFunArgs)
 
 
 

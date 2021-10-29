@@ -1,8 +1,8 @@
 module ToRules.ToDecls where
 
 import Prettyprinter ( line )
-import Syntax
-import SyntaxManipulation
+import L4.Syntax
+import L4.SyntaxManipulation
 import Data.Either (rights)
 import ToRules.Types
 

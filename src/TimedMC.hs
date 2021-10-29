@@ -3,18 +3,17 @@
 
 module TimedMC where
 
-import Syntax
-import SyntaxManipulation (conjExpr, disjExpr, implExpr, abstractQ, abstractF, liftVarBy, conjsExpr, disjsExpr, applyVars, mkVarE, mkEq, mkFloatConst, mkFunTp, index, indexListFromTo, gteExpr, eqExpr, mkIntConst, liftVar, funArgsToApp, notExpr, liftType)
+import L4.Syntax
+import L4.SyntaxManipulation (conjExpr, disjExpr, implExpr, abstractQ, abstractF, liftVarBy, conjsExpr, disjsExpr, applyVars, mkVarE, mkEq, mkFloatConst, mkFunTp, index, indexListFromTo, gteExpr, eqExpr, mkIntConst, liftVar, funArgsToApp, notExpr, liftType)
 
-import PrintProg (renameAndPrintExpr, renameExpr, printExpr)
+import L4.PrintProg (renameAndPrintExpr, renameExpr, printExpr)
 import Data.List (find)
 import Data.Maybe (fromMaybe)
 import Text.Pretty.Simple (pPrint)
 import Exec (reduceExpr)
 import Smt (proveExpr, constrProofTarget)
-import KeyValueMap
-    (ValueKVM(MapVM), selectOneOfInstr, getAssocOfPathValue, getAssocOfPathMap, hasPathValue )
-import Data.SBV (prove)
+import L4.KeyValueMap
+    (ValueKVM(..), selectOneOfInstr, getAssocOfPathValue, hasPathValue)
 
 {- Assumptions about TCTL formulas:
 TCTL formulas are composed of:
@@ -353,8 +352,8 @@ kFoldExpansion k ta genTrace pQuantif sQuantif e =
   else constrExpansionStep k ta genTrace pQuantif sQuantif (kFoldExpansion (k-1) ta genTrace pQuantif sQuantif e)
 
 -- create formula to model check automaton by k-fold expansion of a formula
-goalSpecificForms :: Integer -> TA (Tp()) -> Bool -> Expr (Tp()) -> Expr (Tp())
-goalSpecificForms k ta genTrace e =
+goalSpecificForm :: Integer -> TA (Tp()) -> Bool -> Expr (Tp()) -> Expr (Tp())
+goalSpecificForm k ta genTrace e =
   case e of
     UnaOpE _ (UTemporal tempOp) eBody ->
       let (pQuantif, sQuantif) = case tempOp of
@@ -391,23 +390,24 @@ traceImplTrans ta transName transTraceName =
                       (applyVars (GlobalVar (QVarName transTp transName))
                                  ((st:cls) ++ (st':cls')))))
 
-genericForms :: TA (Tp()) -> Bool -> Expr (Tp())
-genericForms ta genTrace =
+backgroundForms :: TA (Tp()) -> Bool -> [Expr (Tp())]
+backgroundForms ta genTrace =
   let distincts = [ distinctLocs ta ]
       traceImpls =
         if genTrace
         then [ traceImplTrans ta actionTransitionName actionTransitionTraceName
              , traceImplTrans ta delayTransitionName delayTransitionTraceName]
         else []
-  in conjsExpr (distincts ++ traceImpls)
+  in distincts ++ traceImpls
 
-checkAutomaton :: Integer -> TA (Tp()) -> Bool -> Expr (Tp()) -> Expr (Tp())
-checkAutomaton k ta genTrace e = conjExpr (genericForms ta genTrace) (goalSpecificForms k ta genTrace e)
+--checkAutomaton :: Integer -> TA (Tp()) -> Bool -> Expr (Tp()) -> Expr (Tp())
+--checkAutomaton k ta genTrace e = conjExpr (genericForms ta genTrace) (goalSpecificForm k ta genTrace e)
 
 ----------------------------------------------------------------------
 -- Wiring with rest
 ----------------------------------------------------------------------
 
+{-
 -- Function called from the shell with:
 -- stack run aut l4/aut.l4
 runAut :: Program (Tp ()) -> IO ()
@@ -428,7 +428,7 @@ runAut prg =
       proofTarget = checkAutomaton 1 ta genTrace (exprOfAssertion asrt)
   in proveExpr config proveConsistency cdecls globals defs proofTarget -- launching the real checker
   -- in putStrLn $ renameAndPrintExpr [] (constrTransitionsNamed ta )  -- printout of the generated formula
-
+-}
 {-
   -- TESTS:
   --in putStrLn $ renameAndPrintExpr [] proofTarget  -- printout of the generated formula
@@ -438,6 +438,12 @@ runAut prg =
   --runAut prg = putStrLn $ unlines (map constrAutTransitionTest (automataOfProgram prg))
 -}
 
+numberOfExpansions :: ValueKVM -> Integer
+numberOfExpansions instr = case getAssocOfPathValue ["expansions"] instr of 
+  Nothing -> 0
+  Just vk -> case vk of
+    IntVM n -> n
+    _ -> 0
 
 proveAssertionTA :: Program (Tp ()) -> ValueKVM -> Assertion (Tp ()) -> IO ()
 proveAssertionTA prg instr asrt =
@@ -452,8 +458,10 @@ proveAssertionTA prg instr asrt =
       defs = [actTransDef, delayTransDef, actTraceDef, delayTraceDef]
       config = getAssocOfPathValue ["config"] instr
       proveConsistency = selectOneOfInstr ["consistent", "valid"] instr == "consistent"
-      automExpr = checkAutomaton 1 ta genTrace (exprOfAssertion asrt)
-      proofTarget = constrProofTarget proveConsistency automExpr []
+      nExpans = numberOfExpansions instr
+      preconds = backgroundForms ta genTrace 
+      concl = goalSpecificForm nExpans ta genTrace (exprOfAssertion asrt)
+      proofTarget = constrProofTarget proveConsistency preconds concl
   in do
     print proveConsistency
     print (getAssocOfPathValue ["procs"] instr)
@@ -470,5 +478,5 @@ constrAutTransitionTest ta = renameAndPrintExpr [] (constrTransitionsForm ta)
 constrAutGoalTest :: TA (Tp ()) -> Expr (Tp ()) -> String
 constrAutGoalTest ta e = renameAndPrintExpr [] (initialForm ta e)
 
-constrAutExpTest :: Integer -> TA (Tp ()) -> Expr (Tp ()) -> String
-constrAutExpTest k ta e = renameAndPrintExpr [] (checkAutomaton k ta True e)
+-- constrAutExpTest :: Integer -> TA (Tp ()) -> Expr (Tp ()) -> String
+-- constrAutExpTest k ta e = renameAndPrintExpr [] (checkAutomaton k ta True e)

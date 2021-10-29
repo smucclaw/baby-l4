@@ -9,7 +9,7 @@ module ToGF.FromL4.ToAnswers where
 
 import qualified Data.Set as S
 
-import Syntax
+import L4.Syntax as Syntax
 import PGF
 import ToGF.GenerateLexicon (createGF', AtomWithArity(..), GrName)
 import ToGF.NormalizeSyntax (pattern IntT, pattern BoolT)
