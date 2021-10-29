@@ -6,7 +6,7 @@
 
 module L4.KeyValueMap where
 import Data.Data (Data, Typeable)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isJust)
 
 type KeyKVM = String
 data ValueKVM
@@ -31,29 +31,31 @@ selectOneOfInstr chs _ = error ("incorrect instruction for choice among " ++ sho
 -- TODO: instead of making these checks here, some elementary properties of KVM should
 -- be verified during type checking, such as uniqueness of keys
 -- --> eventually define by getAssocOfPathMap
-selectAssocOfMap :: KeyKVM -> KVMap -> Maybe ValueKVM
-selectAssocOfMap s kvm = case filter (\(k,_) -> k == s) kvm of
-  [kvp] -> Just (snd kvp)
-  [] -> Nothing
-  _ -> error ("several possible choices for " ++ show s)
+-- selectAssocOfMap :: KeyKVM -> KVMap -> Maybe ValueKVM
+-- selectAssocOfMap s kvm = case filter (\(k,_) -> k == s) kvm of
+--   [kvp] -> Just (snd kvp)
+--   [] -> Nothing
+--   _ -> error ("several possible choices for " ++ show s)
 
 -- --> eventually define by getAssocOfPathValue
-selectAssocOfValue :: KeyKVM -> ValueKVM -> Maybe ValueKVM
-selectAssocOfValue k (MapVM kvm) = selectAssocOfMap k kvm
-selectAssocOfValue _ _ = Nothing
+-- selectAssocOfValue :: KeyKVM -> ValueKVM -> Maybe ValueKVM
+-- selectAssocOfValue k (MapVM kvm) = selectAssocOfMap k kvm
+-- selectAssocOfValue _ _ = Nothing
 
 hasKeyKVMap :: KeyKVM -> KVMap -> Bool
 hasKeyKVMap k m = k `elem` (map fst m)
 
 -- hasPathMap ks kvm: there is a value associated with the path ks in map kvm
 hasPathMap :: [KeyKVM] -> KVMap -> Bool
-hasPathMap [] _ = True
-hasPathMap (k : ks) m = maybe False (hasPathValue ks) (selectAssocOfMap k m)
+--hasPathMap [] _ = True
+--hasPathMap (k : ks) m = maybe False (hasPathValue ks) (selectAssocOfMap k m)
+hasPathMap ks m = isJust (getAssocOfPathMap ks m)
 
 hasPathValue :: [KeyKVM] -> ValueKVM -> Bool
-hasPathValue [] _ = True
-hasPathValue ks (MapVM kvm) = hasPathMap ks kvm
-hasPathValue _ _ = False
+--hasPathValue [] _ = True
+--hasPathValue ks (MapVM kvm) = hasPathMap ks kvm
+--hasPathValue _ _ = False
+hasPathValue ks v = isJust (getAssocOfPathValue ks v)
 
 removeKeyFromMap :: KeyKVM -> KVMap -> KVMap
 removeKeyFromMap s = filter (\(k,_) -> k /= s)
@@ -82,4 +84,11 @@ putAssocOfPathValue ks v _ = MapVM (putAssocOfPathMap ks v [])
 putAssocOfPathMap :: [KeyKVM] -> ValueKVM -> KVMap -> KVMap
 putAssocOfPathMap [] _ _ = error "path should not be empty"
 putAssocOfPathMap (k : ks) v m =
-  (k, putAssocOfPathValue ks v (fromMaybe (MapVM []) (selectAssocOfMap k m))) : removeKeyFromMap k m
+  (k, putAssocOfPathValue ks v (fromMaybe (MapVM []) (getAssocOfPathMap [k] m))) : removeKeyFromMap k m
+
+
+mymap :: ValueKVM
+mymap = MapVM [("valid",MapVM []),("procs",MapVM [("AutA",MapVM []),("AutC",MapVM [])]),("config",MapVM [("loglevel",IntVM 0),("logic",IdVM "AUFLIRA")])]
+
+-- >>> hasPathValue ["config", "logic"] mymap
+-- True

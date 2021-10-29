@@ -8,7 +8,7 @@ import L4.Parser (parseProgram)
 import L4.Syntax (Program, ClassName)
 import L4.Typing ( checkError )
 --import SmtSBV (proveProgram)
-import Smt (proveProgram)
+import Proof (proveProgram)
 import System.Environment ( getEnv )
 import Options.Applicative
 import qualified ToGF.FromL4.ToProp as GF
@@ -28,15 +28,13 @@ import Text.Pretty.Simple ( pPrint, pPrintString, pPrint )
 import L4.Error (printError)
 import Data.Either (rights)
 
-import TimedMC (runAut)
-
 import MainHelpers (readPrelude, getTpAst, HelperErr(..) )
 import Control.Monad.Except (runExceptT)
 
 import ToDA2 (createDSyaml)
 import SimpleRules ( expSys )
 import ToRules (astToRules)
-import Text.Pretty.Simple (pPrint)
+import ToASP (astToASP)
 
 
 
@@ -55,8 +53,8 @@ process args input = do
           normalAst = normalizeProg tpAstNoSrc -- Creates predicates of class fields
 
       case format args of
+        Fasp                     ->  astToASP tpAstNoSrc
         Fast                     ->  pPrint tpAst
-        Faut                     ->  runAut (fmap typeAnnot tpAst)
         (Fgf GFOpts { gflang = gfl, showast = True } ) -> GF.nlgAST gfl fpath normalAst
         (Fgf GFOpts { gflang = gfl, showast = False} ) -> GF.nlg    gfl fpath normalAst
         Fsmt -> proveProgram tpAstNoSrc
@@ -71,7 +69,7 @@ process args input = do
         (Fexpsys Rules) -> astToRules tpAstNoSrc
 
 
-data Format   = Fast | Faut | Fgf GFOpts | Fscasp | Fsmt | Fyaml | Fexpsys ESOpts
+data Format   = Fasp | Fast | Faut | Fgf GFOpts | Fscasp  | Fsmt | Fyaml | Fexpsys ESOpts
   deriving Show
 
 --  l4 gf en          output english only
@@ -98,6 +96,7 @@ optsParse :: Parser InputOpts
 optsParse = InputOpts <$>
               subparser
                 ( command "gf"   (info gfSubparser gfHelper)
+               <> command "asp"  (info (pure Fasp) (progDesc "output to ASP / Clingo"))
                <> command "ast"  (info (pure Fast) (progDesc "Show the AST in Haskell"))
                <> command "aut"  (info (pure Faut) (progDesc "Automata-based operations"))
                <> command "scasp" (info (pure Fscasp) (progDesc "output to sCASP for DocAssemble purposes"))

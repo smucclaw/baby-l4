@@ -6,7 +6,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
 -- Common syntax manipulations / expression transformations
-module SyntaxManipulation where
+module L4.SyntaxManipulation where
 
 --import Data.Data (Data, Typeable)
 
@@ -15,8 +15,9 @@ import qualified Data.Set as Set
 --import Annotation
 --import KeyValueMap
 import L4.Syntax
-import L4.Typing (eraseAnn, getTypeOfExpr)
-import PrintProg (printExpr, renameAndPrintExpr)
+--import L4.Typing (eraseAnn, getTypeOfExpr)
+--import PrintProg (printExpr, renameAndPrintExpr)
+--import Syntax (UnaOp(UTemporal))
 
 
 ----------------------------------------------------------------------
@@ -56,7 +57,8 @@ spine :: [Tp t] -> Tp t -> ([Tp t], Tp t)
 spine acc (FunT _ t1 t2) = spine (t1:acc) t2
 spine acc t = (reverse acc, t)
 
--- decompose application (f a1 .. an) into (f, [a1 .. an])
+-- Decompose application (f a1 .. an) into (f, [a1 .. an])
+-- Typically called with [] as first argument
 appToFunArgs :: [Expr t] -> Expr t -> (Expr t, [Expr t])
 appToFunArgs acc (AppE _ f a) = appToFunArgs (a:acc) f
 appToFunArgs acc t = (t, acc)
@@ -98,6 +100,95 @@ gteExpr = BinOpE BooleanT (BCompar BCgte)
 
 mkEq :: Var (Tp()) -> Var (Tp()) -> Expr (Tp())
 mkEq v1 v2 = eqExpr (mkVarE v1) (mkVarE v2)
+
+-- Decompose list of successive applications of the same binary operator
+-- for example, decomposeBinop (&&) (A && (B||C) & (D || (E&&F))) = [A, B||C, D || (E&&F)]
+decomposeBinop :: BinOp -> Expr t -> [Expr t]
+decomposeBinop bop e@(BinOpE _ bop' e1 e2) =
+    if bop == bop'
+    then decomposeBinop bop e1 ++ decomposeBinop bop e2
+    else [e]
+decomposeBinop _ e = [e]
+
+-- lps and lpconcats are two different forms of list products used for computing cnf / dnf
+
+lp :: Applicative f => f a -> f [a] -> f [a]
+lp xs yss = fmap (:) xs <*> yss
+
+-- Multiply out a list of lists by forming all possible combinations of the elements of the lists.
+-- Example: lps [[0, 1], [10, 11, 12], [20, 21]]
+-- [[0,10,20],[0,10,21],[0,11,20],[0,11,21],[0,12,20],[0,12,21],[1,10,20],[1,10,21],[1,11,20],[1,11,21],[1,12,20],[1,12,21]]
+lps :: Foldable t => t [a] -> [[a]]
+lps = foldr lp [[]]
+
+lpconcat :: Applicative f => f [a] -> f [a] -> f [a]
+lpconcat xs yss = fmap (++) xs <*> yss
+
+-- Multiply out a list of lists of lists by concatenating combinations of sublists
+-- Example: lpconcats [[[0, 1], [10, 11, 12]], [[20, 21]]]
+-- [[0,1,20,21],[10,11,12,20,21]]
+lpconcats :: Foldable t => t [[a]] -> [[a]]
+lpconcats = foldr lpconcat [[]]
+
+
+-- conjunctive normal form: conjunction of disjunctions
+-- The commented line alone (together with the non-recursive terminal case) would be a correct implementation
+-- but produces a complex and redundant cnf
+cnf :: Expr (Tp()) -> [[Expr (Tp())]]
+cnf e@BinOpE {binOpOfExprBinOpE = (BBool BBimpl)} = cnf (nnf True e)
+--cnf e@BinOpE {binOpOfExprBinOpE = (BBool _)} = concatMap (lps . dnf) (decomposeBinop (BBool BBand) e)
+cnf e@BinOpE {binOpOfExprBinOpE = (BBool BBand)} = concatMap cnf (decomposeBinop (BBool BBand) e)
+cnf e@BinOpE {binOpOfExprBinOpE = (BBool BBor)} = lpconcats (map cnf (decomposeBinop (BBool BBor) e))
+cnf e = [[e]]
+
+-- disjunctive normal form: disjunction of conjunctions
+dnf :: Expr (Tp()) -> [[Expr (Tp())]]
+dnf e@BinOpE {binOpOfExprBinOpE = (BBool BBimpl)} = dnf (nnf True e)
+--dnf e@BinOpE {binOpOfExprBinOpE = (BBool _)} =  concatMap (lps . cnf) (decomposeBinop (BBool BBor) e)
+dnf e@BinOpE {binOpOfExprBinOpE = (BBool BBor)} =  concatMap dnf (decomposeBinop (BBool BBor) e)
+dnf e@BinOpE {binOpOfExprBinOpE = (BBool BBand)} =  lpconcats (map dnf (decomposeBinop (BBool BBand) e))
+dnf e = [[e]]
+
+
+negateTemporal :: Bool -> UTemporalOp -> UTemporalOp
+negateTemporal sign UTAF = if sign then UTAF else UTEG
+negateTemporal sign UTEG = if sign then UTEG else UTAF
+
+negateTemporal sign UTAG = if sign then UTAG else UTEF
+negateTemporal sign UTEF = if sign then UTEF else UTAG
+
+negateBinOp :: Bool -> BinOp -> BinOp
+negateBinOp sign (BCompar BCeq) = if sign then BCompar BCeq else BCompar BCne
+negateBinOp sign (BCompar BCne) = if sign then BCompar BCne else BCompar BCeq
+
+negateBinOp sign (BCompar BClt) = if sign then BCompar BClt else BCompar BCgte
+negateBinOp sign (BCompar BCgte) = if sign then BCompar BCgte else BCompar BClt
+
+negateBinOp sign (BCompar BClte) = if sign then BCompar BClte else BCompar BCgt
+negateBinOp sign (BCompar BCgt) = if sign then BCompar BCgt else BCompar BClte
+
+negateBinOp sign (BBool BBor) = if sign then BBool BBor else BBool BBand
+negateBinOp sign (BBool BBand) = if sign then BBool BBand else BBool BBor
+
+negateBinOp _ b = b   -- this would in fact be a type error
+
+negateQuantif :: Bool -> Quantif -> Quantif
+negateQuantif sign All = if sign then All else Ex
+negateQuantif sign Ex  = if sign then Ex else All
+
+-- compute negation normal form of a boolean expression.
+-- nnf True e computes the nnf of e;  nnf False e computes the nnf of (not e)
+-- Implication a --> b is dissolved into not a || b
+nnf :: Bool -> Expr (Tp()) -> Expr (Tp())
+nnf sign e = case e of
+  ValE t (BoolV bv) -> if sign then e else ValE t (BoolV (not bv))
+  UnaOpE _ (UBool UBnot) ex -> nnf (not sign) ex
+  UnaOpE t (UTemporal ut) ex -> UnaOpE t (UTemporal (negateTemporal sign ut)) (nnf sign ex)
+  BinOpE t (BBool BBimpl) ex ex' -> BinOpE t (negateBinOp sign (BBool BBor)) (nnf (not sign) ex) (nnf sign ex')
+  BinOpE t bo ex ex' -> BinOpE t (negateBinOp sign bo) (nnf sign ex) (nnf sign ex')
+  IfThenElseE t cond exthen exelse -> IfThenElseE t (nnf True cond) (nnf (not sign) exthen) (nnf (not sign) exelse)
+  QuantifE t q vd ex -> QuantifE t (negateQuantif sign q) vd (nnf sign ex)
+  _ -> if sign then e else notExpr e
 
 
 ----------------------------------------------------------------------
@@ -260,7 +351,7 @@ etaExpand (FunE t vd f) = FunE t vd (etaExpand f)
 etaExpand e =
   case annotOfExpr e of
     FunT _ pt rt ->
-      abstractFvd [VarDecl pt "etaVar" (liftType pt)] 
+      abstractFvd [VarDecl pt "etaVar" (liftType pt)]
         (etaExpand (AppE rt (liftExpr 0 e) (VarE pt (LocalVar (QVarName pt "etaVar") 0))))
     _ -> e
 

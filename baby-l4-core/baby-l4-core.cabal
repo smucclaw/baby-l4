@@ -22,7 +22,9 @@ library
                   L4.Annotation
                   L4.Error
                   L4.KeyValueMap
+                  L4.PrintProg
                   L4.Syntax
+                  L4.SyntaxManipulation
                   L4.Typing
   other-modules: Paths_baby_l4_core
   hs-source-dirs:
@@ -32,6 +34,7 @@ library
                      , array
                      , containers
                      , pretty-simple
+                     , prettyprinter
                      , split
                      , text
                      , extra

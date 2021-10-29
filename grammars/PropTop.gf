@@ -1,0 +1,1 @@
+abstract PropTop = Prop, PropLexicon ;

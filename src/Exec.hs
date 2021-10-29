@@ -5,8 +5,8 @@ module Exec where
 import Data.List
 import L4.Syntax
 import L4.Typing
-import SyntaxManipulation (mkFunTp, abstractF, abstractFvd, liftExpr, dropVar, liftType)
-import PrintProg (renameAndPrintExpr, printExpr)
+import L4.SyntaxManipulation (mkFunTp, abstractF, abstractFvd, liftExpr, dropVar, liftType)
+import L4.PrintProg (renameAndPrintExpr, printExpr)
 import Data.Maybe (fromMaybe)
 import Text.Pretty.Simple (pPrint)
 

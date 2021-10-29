@@ -1,0 +1,361 @@
+# L4 encoding of PDPA 
+# Part VIA - Notification of Data Breaches &
+# Personal Data Protection (Notification of Data Breaches) Act 2021
+# https://drive.google.com/drive/u/1/folders/1zP9IGW88XQ_4qoPbsQXIn4I3IcSElIuZ
+
+
+
+# ---------------------------- General remarks ----------------------
+
+# To be discussed with legal experts:
+# Some provisions are so vague or general that they seem to be meaningless. 
+# How to translate them, if at all? They are:
+# s26b_2b/3b: in other prescribed circumstances
+# s26c_4: in accordance with an prescribed requirements: which ones?
+# s26d_1: as soon as is practicable: tautologously true
+# s26d_3: ... all the information that is prescribed ...: which one?
+# s26d_4: ... in the manner required by the Commission: specified where?
+
+#############################################################################
+############################# Class definitions ##############################
+##############################################################################
+
+# ---------------------------- Party definitions ----------------------
+
+class Actor
+
+class Individual extends Actor  {
+    NaturalPersonLivingOrDeceased: Boolean
+}
+
+class PublicAgency
+
+class Commission
+
+class Organisation extends Actor
+
+class DataIntermediary extends Organisation  {
+    ProcessesDataOnBehalfOfAnotherOrganisation: Boolean
+    DoesNotIncludeEmployeeOfTheOtherOrganisation: Boolean
+}
+
+class DataIntermediaryOnBehalfOfPublicAgency extends DataIntermediary
+
+
+
+#------------------------ What information constitutes data -------------------------------
+
+class PersonalData  {
+    IndividualIdentifiedFromData: Boolean
+    IndividualIdentifiedFromDataAndInformationOrgHas: Boolean
+}
+
+class Event
+
+class DataBreach  extends Event {
+    UnauthorisedAccess: Boolean
+    UnauthorisedCollection: Boolean
+    UnauthorisedUse: Boolean
+    UnauthorisedDisclosure: Boolean
+    UnauthorisedCopying: Boolean
+    UnauthorisedModification: Boolean
+    UnauthorisedDisposal: Boolean
+    LossofStorageMedium: Boolean
+}
+
+class UnauthorizedAccessBreach extends DataBreach
+
+
+class DataBreachOnlyWithinOrg extends DataBreach
+
+
+#----------------------------"Reasonability" concepts--------------------------
+
+class LikelytoOccur
+
+class DataBreachRelatesTo
+
+class Reasonable
+
+class ReasonToBelieve extends Reasonable
+
+class BestofKnowledgeAndBelief extends Reasonable
+
+# NOTE: Other precribed circumstances under the schedule to be encoded later with more detail 
+decl otherPrescribedCircumstances : Boolean
+
+
+class SignificantScale  {
+    AffectedIndividuals: Integer
+}
+
+# MS: isn't that rather the individual and not the harm to the individual?
+# You're right, the key linking statement is that it is significant harm to individual if "data breach relates to" etc...
+# But conceptually, the attributes don't belong to the individual, but relate to the individual's data
+
+class Data 
+class IndividualData extends Data {
+    FullName: Boolean
+    IDNumber: Boolean
+    PersonalDataInPart1ofScheduleSubjectToPart2ofSchedule: Boolean
+    AccountIdentifier: Boolean
+    PasswordtoAccount: Boolean
+}
+
+
+#------------------------------- Actions taken by parties involved-----------------------
+
+class AssessmentOfDataBreach  {
+    DataInPossession: Boolean
+    DataUnderControl: Boolean
+    ReasonableAndExpeditious: Boolean
+    PrescribedRequirements: Boolean
+}
+
+class ActionTaken
+
+class ApplicationByOrg
+
+class DirectionBy
+
+class CommissionSoDirects extends DirectionBy
+
+class PrescribedLawEnforcementInstructs extends DirectionBy
+
+
+#------------------------------- Notification requirements ----------------------------
+
+class Notification
+
+class NotificationofOtherOrg extends Notification
+
+class UponNotification extends Notification
+
+
+###########################################################################
+############################### Declarations ##############################
+###########################################################################
+
+#------------------------------ s26B: Notifiable Data Breach ------------------------------ 
+
+# data breach causes significant harm to an affected individual
+decl significantHarm: DataBreach -> Individual -> Boolean
+
+decl significantscale: SignificantScale -> Boolean
+decl isOfSignificantScale: DataBreach -> Boolean
+decl databreach: DataBreach -> Boolean
+decl dataBreachOnlyWithinOrg: DataBreach -> Boolean 
+
+
+
+#------------------------------ s26C: Duty to conduct assessment of data breach ----------------------
+decl reasontobelieve: ReasonToBelieve -> Boolean
+decl dataintermediary: DataIntermediary -> Boolean
+decl notification: Notification -> Boolean
+decl notificationootherorg: NotificationofOtherOrg -> Boolean
+
+
+#------------------------------ s26D: Duty to notify occurrence of data breach ---------------------- 
+# NOTE: Maybe these functions that convert the classes to booleans can be part of the local scope of the general rule? (ie. defined within an object called s26D)
+
+decl actiontaken: ActionTaken -> Boolean
+decl prescribedlawenforcement: PrescribedLawEnforcementInstructs -> Boolean
+decl commissionsodirects: CommissionSoDirects -> Boolean
+decl applicationbyorg: ApplicationByOrg -> Boolean
+
+
+decl dataintermediaryonbehalfofpublicagency: DataIntermediaryOnBehalfOfPublicAgency -> Boolean
+
+#=======================================================================================
+#== Rules
+#=======================================================================================
+
+#------------------------------ s26B: Notifiable Data Breach ------------------------------ 
+
+decl isNotifiableDataBreach : DataBreach -> Boolean
+decl exemptFromNotification : DataBreach -> Boolean
+
+# TODO: this should become an assertion 
+fact <notifiableExemptMutuallyExclusive>
+for db: DataBreach
+not (isNotifiableDataBreach db && exemptFromNotification db)
+
+rule <s26b_1>
+for db: DataBreach, indiv: Individual
+if significantHarm db indiv || isOfSignificantScale db
+then isNotifiableDataBreach db 
+
+# isNotifiableDataBreach is the characteristic predicate of NotifiableDataBreach
+# The question is whether in the end, we will keep the class NotifiableDataBreach at all
+
+# MS: not clear what "without limiting subsection (1)(a)" means here
+# Rule (1)(a) has the form: significantHarm --> isNotifiableDataBreach
+
+# My interpretation is that "without limiting" means that there could be other conditions (not currently specified in the legislation)
+# that could also constitute significant harm under ss(1)(a). Perhaps we need another class OtherConditions?
+
+decl dataOfBreach: Data -> DataBreach -> Boolean 
+decl dataRelatedToIndividual: Data -> Individual -> Boolean
+
+# s26B(2) - Significant Harm
+rule <s26b_2>
+for dt: Data, db: DataBreach, indiv: Individual
+if dataOfBreach dt db && dataRelatedToIndividual dt indiv 
+|| otherPrescribedCircumstances
+then significantHarm db indiv
+
+decl exceedsPrescrNumberOfIndividuals: DataBreach -> Boolean
+
+# s26B(3) - Significant Scale
+rule <s26b_3>
+for db: DataBreach
+if exceedsPrescrNumberOfIndividuals db
+|| otherPrescribedCircumstances
+then isOfSignificantScale db
+
+
+# s26B(4) - Exception, breach within organisation
+# Contrary to the Act, the despite clause only affects s26b_1
+# because s26b_2 and s26b_3 refer to preconditions of isNotifiableDataBreach
+rule <s26b_4>
+    {restrict: {despite: s26b_1}}
+for db: DataBreach
+if dataBreachOnlyWithinOrg db
+then exemptFromNotification db
+
+
+#------------------------------ s26C: Duty to Conduct Assessment of Breach ------------------------------ 
+
+# TODO: it would be ideal to have a notion of "context"
+# Proposed syntax:
+# begin context <s26c>
+# for db : DataBreach
+# assuming date(db) >= date(commencement(PersonalDataProtectionAct2020))
+# ... (set of rules and facts)
+# end context <s26c>
+
+decl requiresAssessmentIfNotifiable : Organisation -> DataBreach -> Boolean
+decl controls : Organisation -> Data -> Boolean
+
+rule <s26c_2>
+for dt: Data, db: DataBreach, org: Organisation
+if dataOfBreach dt db 
+&& controls org dt
+then requiresAssessmentIfNotifiable org db
+
+decl processesInBehalfOf : DataIntermediary -> Data -> Organisation -> Boolean
+
+# obligationToNotify act1 act2 ev: act1 has the obligation to notify act2 about event ev
+decl obligationToNotify : Actor -> Actor -> Event -> Boolean
+# exemptFromObligationToNotify act1 act2 ev: act1 is not obliged to notify act2 about event ev
+decl exemptFromObligationToNotify: Actor -> Actor -> Event -> Boolean
+# prohibitionToNotify act1 act2 ev: act1 is not allowed to notify act2 about event ev
+decl prohibitionToNotify: Actor -> Actor -> Event -> Boolean
+
+decl workingForPublicAgency : Organisation -> Boolean
+
+# The requirement "not working for public agency" is imprecise (also in the Act)
+# It is probably meant that the organisation is related to the public agency concerning the breached data
+# and not concerning a non-critical project
+
+rule <s26c_3a>
+for dt: Data, db: DataBreach, interm: DataIntermediary, org: Organisation
+if processesInBehalfOf interm dt org
+&& not (isPublicAgency org)
+&& dataOfBreach dt db
+then obligationToNotify interm org db 
+
+# TODO: s26c_3b: to be encoded in an automaton
+
+
+# ------------------------------ s26D: Duty to Notify Occurrence of Notifiable Data Breach ------------------------------ 
+
+# s26D(1) - Notification to commission
+# TODO: code in automaton
+
+# decl bestofknowledgeandbelief: BestofKnowledgeAndBelief -> Boolean
+# decl days: Days -> Integer -> Boolean
+
+decl pdpCommission: Organisation
+decl responsibleFor: Organisation -> DataBreach -> Boolean
+
+rule <s26d_1>
+for db: DataBreach, org: Organisation
+if isNotifiableDataBreach db 
+&& responsibleFor org db
+then obligationToNotify org pdpCommission db
+
+# this might be defined with dataOfBreach and dataRelatedToIndividual,
+# see rule s26b_2
+decl affectedIndividual: Individual -> DataBreach -> Boolean
+
+# s26D(2) - Notification to Individuals
+# The "subject to" conditions are dealt with explicitly instead of with a 
+# subjectTo clause (the exception conditions are not negations of the postconditions)
+
+rule <s26d_2>
+for db: DataBreach, org: Organisation, indiv: Individual
+if isNotifiableDataBreach db 
+&& not exemptFromObligationToNotify org indiv db
+&& not prohibitionToNotify org indiv db
+&& responsibleFor org db
+&& affectedIndividual indiv db
+then obligationToNotify org indiv db
+
+# s26d_3: not applicable
+# s26d_4: not applicable
+
+# TODO: joined (a) and (b) into one rule
+# Has to be coded in an automaton
+rule <s26d_5>
+for db: DataBreach, org: Organisation, indiv: Individual
+if isNotifiableDataBreach db 
+&& responsibleFor org db
+&& affectedIndividual indiv db
+&& not (significantHarm db indiv)
+then exemptFromObligationToNotify org indiv db
+
+decl prohibitionByLawEnforcementAgency: Actor -> Actor -> Event -> Boolean
+decl prohibitionByCommission: Actor -> Actor -> Event -> Boolean
+
+rule <s26d_6>
+for db: DataBreach, org: Organisation, indiv: Individual
+if prohibitionByLawEnforcementAgency org indiv db
+|| prohibitionByCommission org indiv db
+then prohibitionToNotify org indiv db
+
+decl waiveNotificationOfAffectedIndividual: Actor -> Actor -> Boolean
+
+# TODO: not clear what "under subsection (2)" means. 
+# Note: the two subsections are mutually dependent.
+rule <s26d_7>
+for db: DataBreach, org: Organisation, indiv: Individual
+if waiveNotificationOfAffectedIndividual org indiv
+&& not (significantHarm db indiv)
+then exemptFromObligationToNotify org indiv db
+
+
+# s26D(8) - Organisation not in breach of law
+# TO BE DONE. 
+# This is a typical interface specification with other laws:
+# A notification action resulting from this Act, when interfaced with
+# other laws, cannot lead to a data breach state 
+
+# s26D(9) - Concurrent applicability
+# TODO: similarly to the above: application of law-induced actions
+# may neither lead to a deadlock nor to a breached state
+
+#------------------------------ s26E: Notification of public agency ------------------------------ 
+
+decl isPublicAgency : Organisation -> Boolean
+
+# Rules s26c_3a and s26e could be merged into one rule because both rules stipulate the requirement
+# that the intermediary notifies the organisation (whether a public agency or not)
+# Only difference: the public agency is apparently exempted from the obligation to conduct an assessment
+# whether the breach is notifiable to the Commission.
+rule <s26e>
+for dt: Data, db: DataBreach, interm: DataIntermediary, org: Organisation
+if processesInBehalfOf interm dt org
+&& isPublicAgency org
+&& workingForPublicAgency interm && dataOfBreach dt db
+then obligationToNotify interm org db 

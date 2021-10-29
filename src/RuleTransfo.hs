@@ -6,7 +6,7 @@ import L4.Annotation ( HasDefault(defaultVal))
 import L4.KeyValueMap
     ( ValueKVM(..), KVMap, KeyKVM, hasPathMap, getAssocOfPathMap, stringListAsKVMap, putAssocOfPathMap )
 import L4.Syntax
-import SyntaxManipulation (appToFunArgs, funArgsToApp, conjExpr, conjsExpr, liftType, notExpr, disjsExpr, remapExpr, eqExpr, liftExpr, isLocalVar, fv )
+import L4.SyntaxManipulation (appToFunArgs, funArgsToApp, conjExpr, conjsExpr, liftType, notExpr, disjsExpr, remapExpr, eqExpr, liftExpr, isLocalVar, fv, dnf, nnf )
 import L4.Typing (distinct, eraseAnn)
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as Set
@@ -16,6 +16,7 @@ import Data.Graph.Inductive.Graph
     ( nodes, Graph(labEdges, mkGraph), LNode, Node )
 import Data.Graph.Inductive.PatriciaTree ( Gr )
 import Data.Graph.Inductive.Query.DFS ( scc, topsort' )
+import L4.PrintProg (printARName)
 
 
 ----------------------------------------------------------------------
@@ -46,6 +47,8 @@ type DecompRule t = Rule t -> [Rule t]
 type DecompWorklist t = [Rule t] -> [Rule t]
 type RuleTransformer t = Rule t -> Rule t
 
+-- Transforms: for x: Tx if A then all y: Ty. F into: for x: Tx, y: Ty if A then F
+-- (one step, rule unchanged if transfo not applicable)
 ruleAllR :: RuleTransformer (Tp ())
 ruleAllR r =
   case postcondOfRule r of
@@ -53,13 +56,15 @@ ruleAllR r =
       r{postcondOfRule = e}{precondOfRule = liftExpr 0 (precondOfRule r)}{varDeclsOfRule = varDeclsOfRule r ++ [v]}
     _ -> r
 
+-- Transforms: if A then B --> C into: if A, B then C
+-- (one step, rule unchanged if transfo not applicable)
 ruleImplR :: RuleTransformer (Tp ())
 ruleImplR r =
   case postcondOfRule r of
     BinOpE _ (BBool BBimpl) e1 e2 -> r{postcondOfRule = e2}{precondOfRule = conjExpr (precondOfRule r) e1}
     _ -> r
 
-
+-- Transforms rule: if A then B && C into two rules: if A then B and: if A then C
 ruleConjR :: DecompRule t
 ruleConjR r =
   case postcondOfRule r of
@@ -67,6 +72,18 @@ ruleConjR r =
       [ r{postcondOfRule = e1}{nameOfRule = modifyARName (nameOfRule r) "Conj1"}
       , r{postcondOfRule = e2}{nameOfRule = modifyARName (nameOfRule r) "Conj2"}]
     _ -> [r]
+
+-- Transforms rule: if A1 || ... An then C into n rules: if A1 then C ... and if An then C
+-- If the precondition is not explicitly a disjunction, it is converted into disjunctive normal form first
+ruleDisjL :: DecompRule (Tp())
+ruleDisjL r =
+  let dnfDecomp = dnf (nnf True (precondOfRule r))
+  in case dnfDecomp of
+    [_] -> [r]     -- decomposition yields one disjunct --> return rule unchanged
+    _ -> zipWith (\ cnjs i -> r {precondOfRule = conjsExpr cnjs}
+                                {nameOfRule = modifyARName (nameOfRule r) ("Disj" ++ show i)})
+                 dnfDecomp [0 .. length dnfDecomp - 1]
+
 
 -- suggestion for new variable name, without guarantees that this name is unique
 -- takes into account the variable's type and its rank
@@ -209,11 +226,29 @@ rulesInversion rls =
   in Rule BooleanT rn [] (varDeclsOfRule r1) (postcondOfRule r1) (disjsExpr (map precondOfRule rls))
 
 
+compatibleRuleSignature :: Eq t => Rule t -> Rule t -> Bool
+compatibleRuleSignature r1 r2 =
+  let tps1 = map tpOfVarDecl (varDeclsOfRule r1)
+      tps2 = map tpOfVarDecl (varDeclsOfRule r2)
+  in tps1 == tps2
+
 -- Adds negated precondition of r1 to r2. Corresponds to:
 -- - "r1 subject to r2" (as annotation of r1: r2 has precedence over r1)
 -- - "r2 despite r1" synonymous to  "r1 subject to r2"
+-- Both rules have to abstract over the same variables. 
+-- If they are not right from the start, try to quasi-normalize them.
+-- Full normalization is too much (e.g. for rules with postcond P(const1) and P(const2))
 restrictWithNegPrecondOfStep :: Rule (Tp ()) -> Rule (Tp ()) -> Rule (Tp ())
-restrictWithNegPrecondOfStep r1 r2 = r1{precondOfRule = conjExpr (precondOfRule r1) (notExpr (precondOfRule r2))}
+restrictWithNegPrecondOfStep r1 r2 =
+  if compatibleRuleSignature r1 r2
+  then r1{precondOfRule = conjExpr (precondOfRule r1) (notExpr (precondOfRule r2))}
+  else 
+    let r1Norm = ruleExLInv r1
+        r2Norm = ruleExLInv r2
+    in if compatibleRuleSignature r1Norm r2Norm
+       then r1Norm{precondOfRule = conjExpr (precondOfRule r1Norm) (notExpr (precondOfRule r2Norm))}
+       else error ("trying to merge rules " ++ printARName (nameOfRule r1) ++ " and "
+                ++ printARName (nameOfRule r2) ++ " with incompatible signatures")
 
 restrictWithNegPrecondOf :: Rule (Tp ()) ->  [Rule (Tp())] -> Rule (Tp())
 restrictWithNegPrecondOf = foldl restrictWithNegPrecondOfStep

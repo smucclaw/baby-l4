@@ -1,17 +1,29 @@
-{-# LANGUAGE EmptyCase #-}
-module PrintProg where
+{-# LANGUAGE LambdaCase #-}
+
+
+module L4.PrintProg where
 
 import L4.Syntax
 import L4.KeyValueMap ( KVMap )
-import L4.Error (printTp)
+import Prettyprinter
+--import Prettyprinter.Render.Text (putDoc)
+--import qualified Data.Maybe
+import Data.List (find)
+--import Data.Maybe (fromMaybe)
+--import Util (capitalise)
+import L4.SyntaxManipulation (appToFunArgs)
 
-
+import Data.Char        ( toUpper )
 -------------------------------------------------------------
 -- Rename variables in rules and expressions
 -------------------------------------------------------------
 
 -- Rename variables to make them unique in declarations in rules and in expressions.
 -- Assumption: Global variables are already unique, correct use of deBruijn indices
+capitalise :: String -> String
+capitalise [] = []
+capitalise (c:cs) = toUpper c : cs
+
 
 mkUniqueName :: [String] -> String -> Int -> String
 mkUniqueName nms nm ext =
@@ -46,7 +58,7 @@ renameQVarNames nms accqvns (qvn:qvns) =
     in renameQVarNames (nnm:nms) (nqvn:accqvns) qvns
 
 renameVar :: [String] -> Var t -> Var t
-renameVar nms v@(GlobalVar _) = v
+renameVar _nms v@(GlobalVar _) = v
 renameVar nms v@(LocalVar vn i) =
     let nnm = nms!!i
         nqvn = vn{nameOfQVarName = nnm}
@@ -57,7 +69,7 @@ renamePattern nms (VarP qvn) = let (nnm, nqvn) = renameQVarName nms qvn in (nnm:
 renamePattern nms (VarListP qvns) = let (nnms, nqvns) = renameQVarNames nms [] qvns in (nnms, VarListP nqvns)
 
 renameExpr :: [String] -> Expr t -> Expr t
-renameExpr nms e@ValE {} = e
+renameExpr _nms e@ValE {} = e
 renameExpr nms e@VarE {varOfExprVarE = v} = e{varOfExprVarE = renameVar nms v}
 renameExpr nms e@UnaOpE {subEOfExprUnaOpE = se} = e{subEOfExprUnaOpE = renameExpr nms se}
 renameExpr nms e@BinOpE {subE1OfExprBinOpE = se1, subE2OfExprBinOpE = se2} =
@@ -90,6 +102,15 @@ renameRule nms rl =
 -- Print expressions and parts of programs
 -------------------------------------------------------------
 
+printTp :: Tp t -> String
+printTp tp = case tp of
+  ClassT _ cn -> stringOfClassName cn
+  FunT _ t1 t2 -> "(" ++ printTp t1 ++ " -> " ++ printTp t2 ++")"
+  TupleT _ [] -> "()"
+  TupleT _ [t] -> "(" ++ printTp t ++ ")"
+  TupleT _ (t:ts) -> "(" ++ printTp t ++ ", " ++ foldr (\s r -> (printTp s ++ ", " ++ r)) "" ts ++ ")"
+  _ -> error "internal error in printTp: ErrT or OkT not printable"
+
 printARName :: ARName -> String
 printARName Nothing = ""
 printARName (Just s) = "<" ++ s ++ ">"
@@ -121,7 +142,7 @@ printVar = nameOfQVarName . nameOfVar
 --printVar (GlobalVar qvn) = nameOfQVarName qvn
 --printVar (LocalVar qvn i) = nameOfQVarName qvn ++ "@" ++ show i
 
-printUTemporalOp :: UTemporalOp -> String 
+printUTemporalOp :: UTemporalOp -> String
 printUTemporalOp UTAF = "A<>"
 printUTemporalOp UTAG = "A[]"
 printUTemporalOp UTEF = "E<>"
@@ -190,3 +211,105 @@ renameAndPrintExpr nms  = printExpr . renameExpr nms
 
 renameAndPrintRule :: Show t => [String] -> Rule t -> String
 renameAndPrintRule nms  = printRule . renameRule nms
+
+
+-------------------------------------------------------------
+-- Print expressions etc. using Prettyprinter library
+-------------------------------------------------------------
+
+-- Configuration of printing functions. 
+-- The first constructor of the following types should be the default
+data PrintVarIndex
+    = PrintName                             -- print local variable name without additional info
+    | PrintIndexedName                      -- print local variable name with de Bruijn index (for debugging)
+data PrintVarCase
+    = AsGiven                               -- print names as given
+    | CapitalizeLocalVar                    -- capitalize (first letter of) local variables
+    | CapitalizeVar                         -- capitalize all variables
+
+data PrintCurried
+    = Curried                               -- print function application curried: f a1 a2 .. an
+    | MultiArg                              -- print application as function + list of args: f(a1, .., an)
+
+data PrintConfig =
+      PrintVarIndex PrintVarIndex
+    | PrintVarCase PrintVarCase
+    | PrintCurried PrintCurried
+
+printVarIndex :: [PrintConfig] -> PrintVarIndex
+printVarIndex cfs = case find (\ case PrintVarIndex {} -> True; _ -> False) cfs of
+    Just (PrintVarIndex x) -> x
+    _ -> PrintName
+
+printVarCase :: [PrintConfig] -> PrintVarCase
+printVarCase cfs = case find (\ case PrintVarCase {} -> True; _ -> False) cfs of
+    Just (PrintVarCase x) -> x
+    _ -> AsGiven
+
+printCurried :: [PrintConfig] -> PrintCurried
+printCurried cfs = case find (\ case PrintCurried {} -> True; _ -> False) cfs of
+    Just (PrintCurried x) -> x
+    _ -> Curried
+class ShowL4 x where
+    showL4 :: [PrintConfig] -> x -> Doc ann
+
+instance ShowL4 (Tp t) where
+  showL4 cfs (ClassT _ cn) = pretty (stringOfClassName cn)
+  showL4 cfs (FunT _ t1 t2) = parens (showL4 cfs t1 <+> pretty "->" <+> showL4 cfs t2)
+  showL4 cfs (TupleT _ []) = parens (pretty "")
+  showL4 cfs (TupleT _ [t]) = parens ( showL4 cfs t )
+  -- TODO: see how the following is done
+  -- showL4 cfs (TupleT _ (t:ts)) = parens ( showL4 cfs t <+> pretty "," <+> (foldr (\s r -> ((printTp s) ++ ", " ++ r)) "" ts))
+  showL4 cfs _ = error "internal error in printTp: ErrT or OkT not printable"
+
+instance ShowL4 Val where
+    showL4 _ (BoolV b) = pretty (show b)
+    showL4 _ (IntV i) = pretty (show i)
+    showL4 _ (FloatV i) = pretty (show i)
+    showL4 _ (StringV s) = pretty (show s)
+    showL4 _ v = pretty (show v)    -- TODO - rest still to be done
+
+instance ShowL4 (Var t) where
+    showL4 cfs (GlobalVar qvn) = pretty name
+        where
+            name = case printVarCase cfs of
+                    CapitalizeVar -> capitalise (nameOfQVarName qvn)
+                    _ -> nameOfQVarName qvn
+    showL4 cfs (LocalVar qvn i) = pretty name <> pretty index
+        where
+            name = case printVarCase cfs of
+                    AsGiven -> nameOfQVarName qvn
+                    _ -> capitalise (nameOfQVarName qvn)
+            index = case printVarIndex cfs of
+                    PrintName -> ""
+                    PrintIndexedName -> "@" ++ show i
+
+
+instance ShowL4 (VarDecl t) where
+    showL4 cfs vd = pretty (nameOfVarDecl vd) <+> pretty ":" <+> showL4 cfs (tpOfVarDecl vd)
+
+instance Show t => ShowL4 (Expr t) where
+    showL4 cfs (ValE t v) = showL4 cfs v
+    showL4 cfs (VarE t v) = showL4 cfs v
+    showL4 cfs (UnaOpE t u et) = parens (pretty (printUnaOpE u) <+> showL4 cfs et )
+    showL4 cfs (BinOpE t b et1 et2) = parens (showL4 cfs et1 <+> pretty (printBinOpE b) <+> showL4 cfs et2)
+    showL4 cfs (IfThenElseE t c et1 et2) = pretty "if " <+> showL4 cfs c <+> pretty "then" <+> showL4 cfs et1 <+> pretty "else" <+> showL4 cfs et2
+    showL4 cfs appe@(AppE t f a) =
+        case printCurried cfs of
+            Curried -> parens (showL4 cfs f <+> showL4 cfs a)
+            MultiArg ->
+                let (fct, args) = appToFunArgs [] appe
+                in showL4 cfs fct <> parens (hsep (punctuate comma (map (showL4 cfs) args)))
+    showL4 cfs (FunE t v et) = parens ( pretty "\\ " <+> showL4 cfs v <+> pretty "->" <+> showL4 cfs et)
+    showL4 cfs (QuantifE t q v et) = parens (pretty (printQuantif q) <+> showL4 cfs v <+> pretty "." <+> showL4 cfs et)
+    showL4 cfs (FldAccE t et f) = showL4 cfs et <+> pretty "." <+> pretty (stringOfFieldName f)
+    showL4 cfs e = pretty (show e)  -- TODO - incomplete
+
+instance Show t => ShowL4 (Rule t) where
+    showL4 cfs r =
+        vsep [ pretty "rule" <+> pretty (printARName (nameOfRule r))
+             -- , printInstr (instrOfRule r) ++ "\n" ++
+            -- (let vds = printVarDeclsCommaSep (varDeclsOfRule r) in if vds == "" then "" else vds ++ "\n") ++
+             , pretty "if" <+> showL4 cfs (precondOfRule r)
+             , pretty "then" <+> showL4 cfs (postcondOfRule r)
+             ]
