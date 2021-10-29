@@ -152,10 +152,13 @@ exprToCEArg ve@(VarE _ (LocalVar {})) = CEVarExpr $ getName ve
 exprToCEArg _ = CEArgFail "you shouldn't have gotten this"
 
 -- TODO: Add checks for bindings in pre-conditions within post conditions
-exprToRuleAction :: (Show t) => S.Set (Var t) -> Expr t -> RuleAction
-exprToRuleAction lvs fApp@(AppE {}) =
-    let (fexpr, args) = appToFunArgs [] fApp
-    in ActionFuncApp (getName fexpr) (map exprToCEArg args)
+exprToRuleAction :: (Ord t, Show t) => S.Set (Var t) -> Expr t -> RuleAction
+exprToRuleAction lvs fApp@(AppE {}) = ActionFuncApp (getName fexpr) (map (checkBoundLocal lvs) args)
+    where (fexpr, args) = appToFunArgs [] fApp
+
+          checkBoundLocal bls x@(VarE _ c@(LocalVar{})) = if S.member c bls then exprToCEArg x else error $ "Local variable defined in rule action not previously bound: " ++ show x
+          checkBoundLocal _ x = exprToCEArg x
+
 exprToRuleAction _ x = ActionExprErr $ "error: cannot convert expression into rule-action: " ++ show x
 
 astToRules :: RuleFormat -> Program (Tp ()) -> IO ()
