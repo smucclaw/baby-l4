@@ -297,43 +297,6 @@ instance HasAnnot ClassDecl where
   updateAnnot f p = p { annotOfClassDecl = f (annotOfClassDecl p)}
 
 
--- Custom Classes and Preable Module
--- some custom classes - should eventually go into a prelude and not be hard-wired
--- TODO: now special treatment in Prelude.l4
--- objectC = ClassDecl (ClsNm "Object") (ClassDef Nothing [])
-
-{-
-TODO: the following should be defined in concrete syntax in a preamble.
-
--- QualifiedNumeric class with val field
--- TODO: should its type be IntT or a FloatT?
-qualifNumC = ClassDecl (ClsNm "QualifiedNumeric")
-                    (ClassDef (Just (ClsNm "Object"))
-                            [FieldDecl (FldNm "val") IntT])
-
--- Currency as QualifiedNumeric, with specific currencies (SGD, USD) as subclasses
-currencyC = ClassDecl (ClsNm "Currency")
-                    (ClassDef (Just (ClsNm "QualifiedNumeric")) [])
-currencyCs = [ClassDecl (ClsNm "SGD") (ClassDef (Just (ClsNm "Currency")) []),
-              ClassDecl (ClsNm "USD") (ClassDef (Just (ClsNm "Currency")) [])]
-
--- Time as QualifiedNumeric, with Year, Month, Day etc. as subclasses
--- TODO: treatment of time needs a second thought
---       (so far no distinction between time point and duration)
-timeC = ClassDecl (ClsNm "Time")
-                    (ClassDef (Just (ClsNm "QualifiedNumeric")) [])
-timeCs = [ClassDecl (ClsNm "Year") (ClassDef (Just (ClsNm "Time")) []),
-          ClassDecl (ClsNm "Day") (ClassDef (Just (ClsNm "Time")) [])]
-
-eventC  = ClassDecl (ClsNm "Event")
-                  (ClassDef (Just (ClsNm "Object"))
-                   [FieldDecl (FldNm "time") (ClassT (ClsNm "Time"))])
-customCs = [objectC, qualifNumC, currencyC] ++ currencyCs ++ [timeC] ++ timeCs ++ [eventC]
--}
-
--- TODO: now special treatment in Prelude.l4
---customCs = [objectC]
-
 ----- Expressions
 data Val
     = BoolV Bool
