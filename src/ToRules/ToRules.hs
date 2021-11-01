@@ -15,9 +15,10 @@ import Data.Maybe (mapMaybe)
 -- TODO 22/10/2021
 --  1) account for bindings within post conditions
 --      25/10 : binding outputs for post conditions are done.
---      Next : add checks?
+--      29/10: added checks for existence of bindings for local variables used in rule actions
 --  2) generate justification objects on a per-rule basis
 --      27/10 : justification objects are a go go go
+--      29/10 : justification fields added to type declarations
 --      Next: tests?
 --  3) integrate justification objects into rule transpilations
 --      a) positive literals should have bindings to their justification objects

@@ -103,6 +103,8 @@ data ProductionRuleTrace = ProductionRuleTrace {
 
 newtype TraceTuple = TraceTup (ProdFieldName, Typename) deriving Show
 
+instance ShowClara ProductionRuleTrace where
+    showClara x = viaShow x
 instance ShowDrools ProductionRuleTrace where
     showDrools ProductionRuleTrace {nameOfTraceObj, priors, args} = 
         showDrools ProductionClassDecl { nameOfProductionClassDecl = nameOfTraceObj ++ " extends Justification"

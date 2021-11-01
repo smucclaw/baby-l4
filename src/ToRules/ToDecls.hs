@@ -15,8 +15,9 @@ filterDecls dl@(VarDecl _ nm x) = case spine [] x of
     (_, _) -> Left $ DeclError $ "Not transpiled to class: " ++ show nm
 
 varDeclToProductionClassDecl :: VarDecl t -> [Tp t] -> ProductionClassDecl
-varDeclToProductionClassDecl (VarDecl _ nm _) tp = ProductionClassDecl nm fs
-    where fs = zipWith (curry tpToProductionClassField) [0..(length tp- 1)] tp
+varDeclToProductionClassDecl (VarDecl _ nm _) tp = ProductionClassDecl nm (jusObj : fs)
+    where jusObj = ProductionClassField "arg0" "Justification" "0"
+          fs = zipWith (curry tpToProductionClassField) [1..(length tp)] tp
 
 tpToProductionClassField :: (Int, Tp t) -> ProductionClassField
 tpToProductionClassField (pos, c) = ProductionClassField ("arg" ++ show pos) (stringOfClassName . classNameOfTp $ c) (show pos)
