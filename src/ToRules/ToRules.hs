@@ -55,11 +55,12 @@ ruleToProductionRule Rule {nameOfRule, varDeclsOfRule, precondOfRule, postcondOf
     = ProductionRule { nameOfProductionRule = prodRuleName
                      , varDeclsOfProductionRule = [""]
                      , leftHandSide =  condElems -- exprlistToRCList S.empty $ precondToExprList precondOfRule 
-                     , rightHandSide = [exprToRuleAction boundLocals postcondOfRule]
-                     , traceObj = mkTrace prodRuleName condElems varDeclsOfRule
+                     , rightHandSide = [exprToRuleAction boundLocals traceObj postcondOfRule]
+                     , traceObj = traceObj
                      }
     where prodRuleName = arNameToString nameOfRule
-          (boundLocals, condElems) = exprlistToRCList S.empty [] $  precondToExprList precondOfRule
+          (boundLocals, condElems) = exprlistToRCList 0 S.empty [] $  precondToExprList precondOfRule
+          traceObj = mkTrace prodRuleName condElems varDeclsOfRule
 
 mkTrace :: String -> [ConditionalElement] -> [VarDecl t] -> ProductionRuleTrace
 mkTrace rnm priors args = ProductionRuleTrace {
@@ -83,14 +84,14 @@ precondToExprList bcomp@(BinOpE _ (BCompar _) _ _) = [bcomp]
 precondToExprList unot@(UnaOpE _ (UBool UBnot) _) = [unot]
 precondToExprList _ = error "non and operation"
 
-exprlistToRCList :: (Ord t, Show t) => S.Set (Var t) -> RCList -> [Expr t] -> (S.Set (Var t), RCList)
-exprlistToRCList vs acc (x:xs) = exprlistToRCList nvs (acc <> [ce]) xs where (nvs, ce) = exprToRC (vs, x)
-exprlistToRCList vs acc [] = (vs, acc)
+exprlistToRCList :: (Ord t, Show t) => Int -> S.Set (Var t) -> RCList -> [Expr t] -> (S.Set (Var t), RCList)
+exprlistToRCList num vs acc (x:xs) = exprlistToRCList (num + 1) nvs (acc <> [ce]) xs where (nvs, ce) = exprToRC num (vs, x)
+exprlistToRCList _ vs acc [] = (vs, acc)
 
-exprToRC :: (Ord t, Show t) => (S.Set (Var t), Expr t) -> (S.Set (Var t), ConditionalElement)
-exprToRC (vs, x) =
+exprToRC :: (Ord t, Show t) => Int -> (S.Set (Var t), Expr t) -> (S.Set (Var t), ConditionalElement)
+exprToRC num (vs, x) =
     case x of
-        AppE {}                   -> (newVars, exprToConditionalFuncApp x)
+        AppE {}                   -> (newVars, exprToConditionalFuncApp num x)
         (BinOpE _ (BCompar _) _ _)  -> if S.isSubsetOf xlocVars vs then (newVars, exprToConditionalEval x)  else (vs, ConditionalElementFail "Reorder ur predicates")
         (UnaOpE _ (UBool UBnot) _)  -> if S.isSubsetOf xlocVars vs then (newVars, exprToConditionalExist x)  else (vs, ConditionalElementFail "`Not` statements require a prior variable binding")
         _                           -> (vs, ConditionalElementFail "exprToRCList can only be used with function application, comparison operation or negation")
@@ -110,11 +111,14 @@ localVariables _ = error "localVariables used with non-function application or c
 getName :: Expr t -> VarName
 getName = nameOfQVarName . nameOfVar . varOfExprVarE
 
-exprToConditionalFuncApp :: (Show t) => Expr t -> ConditionalElement
-exprToConditionalFuncApp fApp@AppE {} =
-    let (fexpr, args) = appToFunArgs [] fApp
-    in ConditionalFuncApp (getName fexpr) (map (exprToCEBindEq) $ zip [0.. ((length args)-1)] args)
-exprToConditionalFuncApp _ = error "exprToConditionalFuncApp used for non-AppE"
+-- Perhaps we should define a Justification type instead?
+exprToConditionalFuncApp :: (Show t) => Int -> Expr t -> ConditionalElement
+exprToConditionalFuncApp num fApp@AppE {} = ConditionalFuncApp (getName fexpr) faArgs
+    where (fexpr, args) = appToFunArgs [] fApp
+          justBind = CEBinding ("j" ++ show num) "arg0"
+          remArgs = map (exprToCEBindEq) (zip [1.. (length args)] args)
+          faArgs = if num < 0 then remArgs else justBind : remArgs
+exprToConditionalFuncApp _ _ = error "exprToConditionalFuncApp used for non-AppE"
 
 exprToConditionalEval :: (Show t) => Expr t -> ConditionalElement
 exprToConditionalEval (BinOpE _ (BCompar bop) x@AppE {} y@AppE {}  ) = ConditionalEval bop (exprToCEFuncApp x) (exprToCEFuncApp y)
@@ -123,8 +127,8 @@ exprToConditionalEval (BinOpE _ (BCompar bop) x           y@AppE {}) = Condition
 exprToConditionalEval (BinOpE _ (BCompar bop) x           y        ) = ConditionalEval bop (exprToCEArg x) (exprToCEArg y)
 exprToConditionalEval _ = error "exprToConditionalEval used for non-BComparOp"
 
-exprToConditionalExist :: (Show t) => Expr t -> ConditionalElement -- we restrict not to function applications with variable bindings
-exprToConditionalExist (UnaOpE _ (UBool UBnot) a@AppE {}) = ConditionalExist UBnot $ exprToConditionalFuncApp a
+exprToConditionalExist :: (Show t) => Expr t -> ConditionalElement -- we restrict `not` to function applications with variable bindings
+exprToConditionalExist (UnaOpE _ (UBool UBnot) a@AppE {}) = ConditionalExist UBnot $ exprToConditionalFuncApp (-1) a
 exprToConditionalExist _ = error "exprToConditionalExist used for non-UnaOpE"
 
 defArg :: Int -> ProdFieldName
@@ -152,15 +156,13 @@ exprToCEArg ve@(VarE _ (GlobalVar {})) = CELiteral $ StringV $ getName ve
 exprToCEArg ve@(VarE _ (LocalVar {})) = CEVarExpr $ getName ve
 exprToCEArg _ = CEArgFail "you shouldn't have gotten this"
 
--- TODO: Add checks for bindings in pre-conditions within post conditions
-exprToRuleAction :: (Ord t, Show t) => S.Set (Var t) -> Expr t -> RuleAction
-exprToRuleAction lvs fApp@(AppE {}) = ActionFuncApp (getName fexpr) (map (checkBoundLocal lvs) args)
+exprToRuleAction :: (Ord t, Show t) => S.Set (Var t) -> ProductionRuleTrace -> Expr t -> RuleAction
+exprToRuleAction lvs tObj fApp@(AppE {}) = ActionFuncApp (getName fexpr) tObj (map (checkBoundLocal lvs) args)
     where (fexpr, args) = appToFunArgs [] fApp
-
           checkBoundLocal bls x@(VarE _ c@(LocalVar{})) = if S.member c bls then exprToCEArg x else error $ "Local variable defined in rule action not previously bound: " ++ show x
           checkBoundLocal _ x = exprToCEArg x
 
-exprToRuleAction _ x = ActionExprErr $ "error: cannot convert expression into rule-action: " ++ show x
+exprToRuleAction _ _ x = ActionExprErr $ "error: cannot convert expression into rule-action: " ++ show x
 
 astToRules :: RuleFormat -> Program (Tp ()) -> IO ()
 astToRules rf x = do

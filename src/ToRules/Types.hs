@@ -99,9 +99,9 @@ data ProductionRuleTrace = ProductionRuleTrace {
       nameOfTraceObj :: String
     , priors :: [TraceTuple]
     , args :: [TraceTuple]
-} deriving Show
+} deriving (Eq, Show)
 
-newtype TraceTuple = TraceTup (ProdFieldName, Typename) deriving Show
+newtype TraceTuple = TraceTup (ProdFieldName, Typename) deriving (Eq, Show)
 
 instance ShowClara ProductionRuleTrace where
     showClara x = viaShow x
@@ -218,17 +218,28 @@ instance ShowDrools Val where
     showDrools e = error $ "No Drools output defined for value: " ++ show e
 
 -- We restrict the format of the rules to a singular post condition (to support prolog-style syntax within l4)
-data RuleAction = ActionFuncApp Typename [CEArg]
+data RuleAction = ActionFuncApp Typename ProductionRuleTrace [CEArg]
                 | ActionExprErr String
                 deriving (Eq, Show)
 
 instance ShowClara RuleAction where
-    showClara (ActionFuncApp fname args) = pretty "(c/insert! (->" <> pretty fname <+> hsep (map showClara args)
+    showClara (ActionFuncApp fname _ args) = pretty "(c/insert! (->" <> pretty fname <+> hsep (map showClara args)
     showClara (ActionExprErr x) = pretty x
 
 instance ShowDrools RuleAction where
-    showDrools (ActionFuncApp fname args) = pretty "insertLogical(new" <+> pretty (capitalise fname) <> parens ( hsep (punctuate comma $ map showDrools args)) <> pretty ");"
+    showDrools (ActionFuncApp fname tObj appArgs) =
+          pretty "insertLogical(new"
+      <+> pretty (capitalise fname)
+      <>  parens (hsep (punctuate comma $ newJustif : fields ))
+      <>  pretty ");"
+      where fields =  map showDrools appArgs
+            newJustif = pretty "new" <+> pretty (capitalise $ nameOfTraceObj tObj) <> parens (hsep $ punctuate comma (showPriors 0 (priors tObj) <> showArgs (args tObj)))
+            showPriors acc (_:ps) = (pretty "$j" <> viaShow acc) : showPriors (acc+1) ps
+            showPriors _ [] = []
+            showArgs (TraceTup a:as) = pretty "$" <> pretty (fst a) : showArgs as
+            showArgs [] = []
     showDrools (ActionExprErr x) = pretty x
+
 
 
 -- data Argument = Variable ProdVarName | Value String deriving (Eq, Show)
