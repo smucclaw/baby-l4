@@ -102,7 +102,7 @@ esRuleUTs = withResource acquire release $ \progIO->
             [ testGroup "exprToConditionalFuncApp"
                 [ testCase "returns ConditionalFuncApp for an AppE" $ do
                     rule <- progToRule progIO "singleGlobalVar"
-                    TRTR.exprToConditionalFuncApp (precondOfRule rule) @?= TRTp.ConditionalFuncApp "savings_account" [TRTp.CEEquality "arg0" "inadequate"]
+                    TRTR.exprToConditionalFuncApp 0 (precondOfRule rule) @?= TRTp.ConditionalFuncApp "savings_account" [TRTp.CEEquality "arg0" "inadequate"]
                 ]
             , testGroup "exprToConditionalEval"
                 [ testCase "returns ConditionalEval for BinOpE with BClt" $ do
@@ -166,4 +166,4 @@ test_ExprListToRCList :: IO (Program (Tp ())) -> String -> TRTp.RCList -> IO()
 test_ExprListToRCList pIO rName expected = do
     rule <- progToRule pIO rName
     let pc = TRTR.precondToExprList $ precondOfRule rule
-    snd (TRTR.exprlistToRCList S.empty [] pc) @?= expected
+    snd (TRTR.exprlistToRCList 0 S.empty [] pc) @?= expected
