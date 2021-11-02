@@ -52,8 +52,3 @@ cradle:
             
             - path: "./baby-l4-core"
               component: "baby-l4-core:lib"
-    
-    - path: "./baby-l4-core/"
-      config:
-        cradle:
-          stack: {}
