@@ -102,7 +102,7 @@ esRuleUTs = withResource acquire release $ \progIO->
             [ testGroup "exprToConditionalFuncApp"
                 [ testCase "returns ConditionalFuncApp for an AppE" $ do
                     rule <- progToRule progIO "singleGlobalVar"
-                    TRTR.exprToConditionalFuncApp 0 (precondOfRule rule) @?= TRTp.ConditionalFuncApp "savings_account" [TRTp.CEEquality "arg0" "inadequate"]
+                    TRTR.exprToConditionalFuncApp 0 (precondOfRule rule) @?= TRTp.ConditionalFuncApp "savings_account" [TRTp.CEBinding "j0" "arg0",TRTp.CEEquality "arg1" "inadequate"]
                 ]
             , testGroup "exprToConditionalEval"
                 [ testCase "returns ConditionalEval for BinOpE with BClt" $ do
@@ -114,33 +114,33 @@ esRuleUTs = withResource acquire release $ \progIO->
                 [ testCase "returns ConditionalExist for UnaOpE with UBnot" $ do
                     rule <- progToRule progIO "preCond_singleNot_withBinding"
                     let notExpr = last . TRTR.precondToExprList . precondOfRule $ rule
-                    TRTR.exprToConditionalExist notExpr @?= TRTp.ConditionalExist UBnot (TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "x" "arg0"])
+                    TRTR.exprToConditionalExist notExpr @?= TRTp.ConditionalExist UBnot (TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "x" "arg1"])
                 ]
             ]
         , testGroup "Function: exprlistToRCList" 
             [ testCase "returns ConditionalFuncApp for an AppE" $ 
-                test_ExprListToRCList progIO "singleGlobalVar"                  [TRTp.ConditionalFuncApp "savings_account" [TRTp.CEEquality "arg0" "inadequate"]]
+                test_ExprListToRCList progIO "singleGlobalVar"                  [TRTp.ConditionalFuncApp "savings_account" [TRTp.CEBinding "j0" "arg0",TRTp.CEEquality "arg1" "inadequate"]]
 
-            , testCase "returns [ConditionalFuncApp, ConditionalFuncApp, ConditionalEval] for preCond_singleEval_BClt" $ 
-                test_ExprListToRCList progIO "preCond_singleEval_BClt"          [TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "x" "arg0"], TRTp.ConditionalFuncApp "dependents" [TRTp.CEBinding "y" "arg0"], TRTp.ConditionalEval BClt (TRTp.CEVarExpr "x") (TRTp.CEVarExpr "y")]
+            , testCase "returns [TRTp.TRTp.ConditionalFuncApp, TRTp.ConditionalFuncApp, TRTp.ConditionalEval] for preCond_singleEval_BClt" $ 
+                test_ExprListToRCList progIO "preCond_singleEval_BClt"          [TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "j0" "arg0",TRTp.CEBinding "x" "arg1"],TRTp.ConditionalFuncApp "dependents" [TRTp.CEBinding "j1" "arg0",TRTp.CEBinding "y" "arg1"],TRTp.ConditionalEval BClt (TRTp.CEVarExpr "x") (TRTp.CEVarExpr "y")]
 
-            , testCase "returns [ConditionalFuncApp, ConditionalExist] for preCond_singleNot_withBinding" $ 
-                test_ExprListToRCList progIO "preCond_singleNot_withBinding"    [TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "x" "arg0"], TRTp.ConditionalExist UBnot (TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "x" "arg0"])]
+            , testCase "returns [TRTp.TRTp.ConditionalFuncApp, TRTp.ConditionalExist] for preCond_singleNot_withBinding" $ 
+                test_ExprListToRCList progIO "preCond_singleNot_withBinding"    [TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "j0" "arg0",TRTp.CEBinding "x" "arg1"],TRTp.ConditionalExist UBnot (TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "x" "arg1"])]
 
-            , testCase "fails for preCond_singleNot_noBinding" $ do
+            , testCase "fails for preCond_singleNot_noBinding" $ 
                 test_ExprListToRCList progIO "preCond_singleNot_noBinding"      [TRTp.ConditionalElementFail "`Not` statements require a prior variable binding"]
 
-            , testCase "fails for preCond_singleEval_noBinding" $ do
-                test_ExprListToRCList progIO "preCond_singleEval_noBinding"     [TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "x" "arg0"], TRTp.ConditionalElementFail "Reorder ur predicates"]
+            , testCase "fails for preCond_singleEval_noBinding" $
+                test_ExprListToRCList progIO "preCond_singleEval_noBinding"     [TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "j0" "arg0",TRTp.CEBinding "x" "arg1"],TRTp.ConditionalElementFail "Reorder ur predicates"]
 
-            , testCase "returns [ConditionalFuncApp, ConditionalFuncApp, ConditionEval (CEArithmetic) (CELiteral)] for preCond_arith_2args" $ do
-                test_ExprListToRCList progIO "preCond_arith_2args"              [TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "x" "arg0"],TRTp.ConditionalFuncApp "dependents" [TRTp.CEBinding "y" "arg0"],TRTp.ConditionalEval BCgt (TRTp.CEArithmetic BAadd (TRTp.CEVarExpr "x") (TRTp.CEVarExpr "y")) (TRTp.CELiteral (IntV 10))]
+            , testCase "returns [TRTp.TRTp.ConditionalFuncApp, TRTp.ConditionalFuncApp, ConditionEval (TRTp.CEArithmetic) (TRTp.CELiteral)] for preCond_arith_2args" $ do
+                test_ExprListToRCList progIO "preCond_arith_2args"              [TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "j0" "arg0",TRTp.CEBinding "x" "arg1"],TRTp.ConditionalFuncApp "dependents" [TRTp.CEBinding "j1" "arg0",TRTp.CEBinding "y" "arg1"],TRTp.ConditionalEval BCgt (TRTp.CEArithmetic BAadd (TRTp.CEVarExpr "x") (TRTp.CEVarExpr "y")) (TRTp.CELiteral (IntV 10))]
 
-            , testCase "returns [ConditionalFuncApp, ConditionalFuncApp, ConditionEval (CEArithmetic (CEArithmetic)) (CELiteral)] for preCond_arith_3args" $ do
-                test_ExprListToRCList progIO "preCond_arith_3args"              [TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "x" "arg0"],TRTp.ConditionalFuncApp "dependents" [TRTp.CEBinding "y" "arg0"],TRTp.ConditionalFuncApp "earnings" [TRTp.CEBinding "z" "arg0",TRTp.CEEquality "arg1" "steady"],TRTp.ConditionalEval BCgt (TRTp.CEArithmetic BAsub (TRTp.CEArithmetic BAadd (TRTp.CEVarExpr "x") (TRTp.CEVarExpr "y")) (TRTp.CEVarExpr "z")) (TRTp.CELiteral (IntV 10))] 
+            , testCase "returns [TRTp.TRTp.ConditionalFuncApp, TRTp.ConditionalFuncApp, ConditionEval (TRTp.CEArithmetic (TRTp.CEArithmetic)) (TRTp.CELiteral)] for preCond_arith_3args" $ do
+                test_ExprListToRCList progIO "preCond_arith_3args"              [TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "j0" "arg0",TRTp.CEBinding "x" "arg1"],TRTp.ConditionalFuncApp "dependents" [TRTp.CEBinding "j1" "arg0",TRTp.CEBinding "y" "arg1"],TRTp.ConditionalFuncApp "earnings" [TRTp.CEBinding "j2" "arg0",TRTp.CEBinding "z" "arg1",TRTp.CEEquality "arg2" "steady"],TRTp.ConditionalEval BCgt (TRTp.CEArithmetic BAsub (TRTp.CEArithmetic BAadd (TRTp.CEVarExpr "x") (TRTp.CEVarExpr "y")) (TRTp.CEVarExpr "z")) (TRTp.CELiteral (IntV 10))]
 
-            , testCase "fails for preCond_arith_noBinding" $ do
-                test_ExprListToRCList progIO "preCond_arith_noBinding"          [TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "x" "arg0"],TRTp.ConditionalElementFail "Reorder ur predicates"]
+            , testCase "fails for preCond_arith_noBinding" $ 
+                test_ExprListToRCList progIO "preCond_arith_noBinding"          [TRTp.ConditionalFuncApp "amount_saved" [TRTp.CEBinding "j0" "arg0",TRTp.CEBinding "x" "arg1"],TRTp.ConditionalElementFail "Reorder ur predicates"]
             ]
         , testGroup "Type: RuleAction" 
             [ testGroup "exprToRuleAction" 
