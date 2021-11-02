@@ -81,6 +81,7 @@ data TopLevelElement t
   | RuleTLE (Rule t)
   | AssertionTLE (Assertion t)
   | AutomatonTLE (TA t)
+  | SystemTLE (TASys t)
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 getAnnotOfTLE :: TopLevelElement t -> t
@@ -91,6 +92,7 @@ getAnnotOfTLE e = case e of
      RuleTLE ru -> annotOfRule ru
      AssertionTLE as -> annotOfAssertion as
      AutomatonTLE ta -> annotOfTA ta
+     SystemTLE s -> annotOfSys s
 
 updateAnnotOfTLE :: (t -> t) -> TopLevelElement t -> TopLevelElement t
 updateAnnotOfTLE f e = case e of
@@ -100,6 +102,7 @@ updateAnnotOfTLE f e = case e of
      RuleTLE ru -> RuleTLE $ ru { annotOfRule = f (annotOfRule ru) }
      AssertionTLE as -> AssertionTLE $ as { annotOfAssertion = f (annotOfAssertion as) }
      AutomatonTLE ta -> AutomatonTLE $ ta { annotOfTA = f (annotOfTA ta) }
+     SystemTLE s -> SystemTLE $ s { annotOfSys = f (annotOfSys s) }
 
 instance HasLoc t => HasLoc (TopLevelElement t) where
   getLoc = getLoc . getAnnotOfTLE
@@ -141,6 +144,10 @@ getAutomaton :: TopLevelElement t -> Maybe (TA t)
 getAutomaton (AutomatonTLE e) = Just e
 getAutomaton _ = Nothing
 
+getSystem :: TopLevelElement t -> Maybe (TASys t)
+getSystem (SystemTLE e) = Just e
+getSystem _ = Nothing
+
 typeOfTLE :: (t -> Maybe a) -> t -> Bool
 typeOfTLE g = isJust . g
 
@@ -161,6 +168,9 @@ assertionsOfProgram = mapMaybe getAssertion . elementsOfProgram
 
 automataOfProgram :: Program t -> [TA t]
 automataOfProgram = mapMaybe getAutomaton . elementsOfProgram
+
+systemOfProgram :: Program t -> [TASys t]
+systemOfProgram = mapMaybe getSystem . elementsOfProgram
 
 mapClassDecl :: (ClassDecl t -> ClassDecl t)-> TopLevelElement t -> TopLevelElement t
 mapClassDecl f e = case e of
@@ -515,7 +525,6 @@ data Transition t = Transition {
 -- Timed Automaton having:
 -- a name
 -- a set of locations,
--- a set of channel types (subclasses of Event),
 -- a set of clocks,
 -- a transition relation,
 -- a set of initial locations,
@@ -530,7 +539,6 @@ data TA t =
     annotOfTA :: t,
     nameOfTA :: String,
     locsOfTA :: [Loc],
-    channelsOfTA :: [ClassName],
     clocksOfTA :: [Clock],
     transitionsOfTA :: [Transition t],
     initialLocOfTA :: Loc,
@@ -539,23 +547,23 @@ data TA t =
   }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
-
 instance HasAnnot TA where
   getAnnot = annotOfTA
   updateAnnot f p = p { annotOfTA = f (annotOfTA p)}
 
 -- Timed Automata System: a set of TAs running in parallel
 -- Type parameter ext: Environment-specific extension
-data TASys t ext = TASys [TA t] ext
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+data TASys t = TASys {
+  annotOfSys :: t,
+  declsOfSys :: [VarDecl t],
+  channelsOfSys :: [ClassName],
+  automataOfSys :: [TA t]
+  }
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
-{- Obsolete with record names
-nameOfTA :: TA t -> String
-nameOfTA (TA nm ta_locs ta_act_clss ta_clks trans init_locs invs lbls) = nm
-
-channelsOfTA :: TA t -> [ClassName]
-channelsOfTA (TA nm ta_locs ta_act_clss ta_clks trans init_locs invs lbls) = ta_act_clss
--}
+instance HasAnnot TASys where
+  getAnnot = annotOfSys
+  updateAnnot f p = p { annotOfSys = f (annotOfSys p)}
 
 ----------------------------------------------------------------------
 -- L4 Event Rules

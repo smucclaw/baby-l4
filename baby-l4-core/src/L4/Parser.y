@@ -296,7 +296,7 @@ Fact : fact ARName  KVMap RuleVarDecls Expr { Rule (tokenRange $1 $5) $2 $3 $4 (
 -- TODO: annotation is a rough approximation, to be synthesized from annotations of subexpressions
 Automaton : process VAR '(' ')' '{' Clocks States Initial Transitions '}'
   { TA {annotOfTA = (tokenRange $1 $10),
-        nameOfTA = (tokenSym $2), locsOfTA = (map fst (reverse $7)), channelsOfTA = [], clocksOfTA = reverse $6,
+        nameOfTA = (tokenSym $2), locsOfTA = (map fst (reverse $7)), clocksOfTA = reverse $6,
         transitionsOfTA = reverse $9, initialLocOfTA = $8, invarsOfTA = (reverse $7), labellingOfTA = []}}
 
 
