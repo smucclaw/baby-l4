@@ -65,13 +65,21 @@ tokens :-
   fact                          { lex' TokenFact }
   rule                          { lex' TokenRule }
 
+  -- Automata
+  system                        { lex' TokenSystem }
   process                       { lex' TokenProcess }
+  chan                          { lex' TokenChannel }
   clock                         { lex' TokenClock }
   state                         { lex' TokenState }
   init                          { lex' TokenInit }
   trans                         { lex' TokenTrans }
   guard                         { lex' TokenGuard }
+  sync                          { lex' TokenSync }
   assign                        { lex' TokenAssign }
+
+  -- Uppaal types (may occur in Timed Automata)
+  bool                          { lex' TokenUppaalBool }  
+  int                           { lex' TokenUppaalInt }
 
   -- Expressions
   not                           { lex' TokenNot }
@@ -411,13 +419,18 @@ data TokenKind
   | TokenRule
 
   -- Automata
+  | TokenSystem
   | TokenProcess
+  | TokenChannel
   | TokenClock
   | TokenState
   | TokenInit
   | TokenTrans
   | TokenGuard
+  | TokenSync
   | TokenAssign
+  | TokenUppaalBool
+  | TokenUppaalInt
 
   | TokenNot
   | TokenForall
@@ -475,13 +488,18 @@ unLex TokenExtends   = "extends"
 unLex TokenLexicon   = "lexicon"
 unLex TokenFact      = "fact"
 unLex TokenRule      = "rule"
+unLex TokenSystem    = "system"
 unLex TokenProcess   = "process"
+unLex TokenChannel   = "chan"
 unLex TokenClock     = "clock"
 unLex TokenState     = "state"
 unLex TokenInit      = "init"
 unLex TokenTrans     = "trans"
 unLex TokenGuard     = "guard"
+unLex TokenSync      = "sync"
 unLex TokenAssign    = "assign"
+unLex TokenUppaalBool = "bool"
+unLex TokenUppaalInt = "int"
 unLex TokenNot       = "not"
 unLex TokenForall    = "forall"
 unLex TokenExists    = "exists"

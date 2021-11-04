@@ -501,6 +501,7 @@ actionName :: Action -> [ClassName]
 actionName Internal = []
 actionName (Act cn _) = [cn]
 
+
 -- Transition condition: clock constraints and Boolean expression
 data TransitionGuard t = TransitionGuard [ClConstr] (Expr t)
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
@@ -517,6 +518,7 @@ transitionActionName (TransitionAction act _ _) = actionName act
 data Transition t = Transition {
     sourceOfTransition :: Loc
   , guardOfTransition :: TransitionGuard t
+  , syncOfTransition :: Maybe String
   , actionOfTransition :: TransitionAction t
   , targetOfTransition :: Loc
   }
