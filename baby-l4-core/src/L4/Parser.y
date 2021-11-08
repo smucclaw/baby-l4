@@ -49,6 +49,7 @@ import Data.Maybe (fromMaybe)
     assert  { L _ TokenAssert }
     class   { L _ TokenClass }
     decl    { L _ TokenDecl }
+    defn    { L _ TokenDefn }
     extends { L _ TokenExtends }
     lexicon { L _ TokenLexicon }
     fact    { L _ TokenFact }
@@ -100,6 +101,8 @@ import Data.Maybe (fromMaybe)
     '/'   { L _ TokenDiv }
     '%'   { L _ TokenMod }
     '.'   { L _ TokenDot }
+    '?'   { L _ TokenQuestMark }
+    '!'   { L _ TokenExclMark }
     ','   { L _ TokenComma }
     ':'   { L _ TokenColon }
     ';'   { L _ TokenSemicolon }
@@ -145,6 +148,7 @@ TopLevelElementGroup : Mappings { map MappingTLE $1 }
 
 TopLevelElement : ClassDecl     { ClassDeclTLE $1 } 
                 | GlobalVarDecl { VarDeclTLE $1 } 
+                | GlobalVarDefn { VarDefnTLE $1 } 
                 | RuleOrFact    { RuleTLE $1 }
                 | Assertion     { AssertionTLE $1 }
                 | Automaton     { AutomatonTLE $1 }
@@ -187,10 +191,10 @@ FieldDecls :                       { [] }
 
 FieldDecl : VAR ':' Tp             { FieldDecl (tokenRange $1 $3) (FldNm $ tokenSym $1) $3 }
 
-GlobalVarDecls :                         { [] }
-         | GlobalVarDecls GlobalVarDecl  { $2 : $1 }
-
 GlobalVarDecl : decl VAR ':' Tp          { VarDecl (tokenRange $1 $4) (tokenSym $2) $4 }
+
+GlobalVarDefn : defn VAR ':' Tp '=' Expr     
+   { VarDefn (tokenRange $1 $6) (tokenSym $2) $4 $6 }
 
 VarDeclsCommaSep :  VarDecl              { [$1] }
          | VarDeclsCommaSep  ',' VarDecl { $3 : $1 }
@@ -404,12 +408,14 @@ TransitionWithInfo : VAR '->' VAR '{' TrGuard TrSync TrAssign '}'
 TrGuard :                                   { TransitionGuard [] (ValE (nullSRng) (BoolV True)) }
 | guard InvarsAndSep ';' { TransitionGuard (reverse $2) (ValE (nullSRng) (BoolV True)) }
 
-TrSync :           { Nothing }
-	 | sync VAR ';'  { Just (tokenSym $2) }
+-- The sync mode (nothing / receive / send) is currently ignored
+SyncMode :  {} | '?' {} | '!' {}
+TrSync :                    { Nothing }
+	 | sync VAR SyncMode ';'  { Just (tokenSym $2) }
 
 -- TODO: only clock resets taken into account
-TrAssign :                             { TransitionAction Internal [] (Skip (nullSRng)) }
-	 | assign TrAssignmentsCommaSep ';'  { TransitionAction Internal (reverse $2) (Skip (nullSRng)) }
+TrAssign :                             { TransitionAction [] (Skip (nullSRng)) }
+	 | assign TrAssignmentsCommaSep ';'  { TransitionAction (reverse $2) (Skip (nullSRng)) }
 
 -- transition assignment list in reverse order
 TrAssignmentsCommaSep :                             { [] }

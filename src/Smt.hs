@@ -358,7 +358,7 @@ proveAssertionSMT prg instr asrt = do
   let applicableRules = selectApplicableRules prg instr
   let proofTarget = constrProofTarget proveConsistency (map ruleToFormula applicableRules) (exprOfAssertion asrt) 
   let config = getAssocOfPathValue ["config"] instr
-  proveExpr config proveConsistency (classDeclsOfProgram prg) (globalsOfProgram prg) [] proofTarget
+  proveExpr config proveConsistency (classDeclsOfProgram prg) (varDeclsOfProgram prg) [] proofTarget
 
 
 constrProofTarget :: Bool -> [Expr (Tp())] -> Expr (Tp ()) -> Expr (Tp ())

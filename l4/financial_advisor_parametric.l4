@@ -29,8 +29,9 @@ decl earnings: Person -> Integer -> EarningsStatus -> Boolean
 
 decl investment: Person -> InvestmentStrategy -> Boolean
 
-decl minsavings: Integer -> Integer
-decl minincome: Integer -> Integer
+# Now as function definitions, see below
+# decl minsavings: Integer -> Integer
+# decl minincome: Integer -> Integer
 
 decl amount_saved: Person -> Integer -> Boolean
 decl dependents: Person -> Integer -> Boolean
@@ -70,15 +71,20 @@ steady /= unsteady
 fact <investmentStrategyDisj>
 (savings /= combination) && (savings /= combination) && (combination /= stocks)
 
-## Definitions of functions
+## Definitions of functions --> obsolete
+# fact <minsavingsDef>
+# for x: Integer
+# minsavings x == 5000 * x
 
-fact <minsavingsDef>
-for x: Integer
-minsavings x == 5000 * x
+# fact <minincomeDef>
+# for x: Integer
+# minincome x == 15000 + 4000 * x
 
-fact <minincomeDef>
-for x: Integer
-minincome x == 15000 + 4000 * x
+# Syntactic sugar to be considered later
+# defn minincome (x : Integer) : Integer = 15000 + 4000 * x
+
+defn minsavings : Integer -> Integer = \x : Integer -> 5000 * x
+defn minincome : Integer -> Integer = \x : Integer -> 15000 + 4000 * x
 
 ## General rules
 

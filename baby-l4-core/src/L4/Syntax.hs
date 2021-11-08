@@ -78,6 +78,7 @@ data TopLevelElement t
   = MappingTLE (Mapping t)
   | ClassDeclTLE (ClassDecl t)
   | VarDeclTLE (VarDecl t)
+  | VarDefnTLE (VarDefn t)
   | RuleTLE (Rule t)
   | AssertionTLE (Assertion t)
   | AutomatonTLE (TA t)
@@ -89,6 +90,7 @@ getAnnotOfTLE e = case e of
      MappingTLE mp -> annotOfMapping mp
      ClassDeclTLE cd -> annotOfClassDecl cd
      VarDeclTLE vd -> annotOfVarDecl vd
+     VarDefnTLE vd -> annotOfVarDefn vd
      RuleTLE ru -> annotOfRule ru
      AssertionTLE as -> annotOfAssertion as
      AutomatonTLE ta -> annotOfTA ta
@@ -99,6 +101,7 @@ updateAnnotOfTLE f e = case e of
      MappingTLE mp -> MappingTLE $ mp { annotOfMapping = f (annotOfMapping mp) }
      ClassDeclTLE cd -> ClassDeclTLE $ cd { annotOfClassDecl = f (annotOfClassDecl cd) }
      VarDeclTLE vd -> VarDeclTLE $ vd { annotOfVarDecl = f (annotOfVarDecl vd) }
+     VarDefnTLE vd -> VarDefnTLE $ vd { annotOfVarDefn = f (annotOfVarDefn vd) }
      RuleTLE ru -> RuleTLE $ ru { annotOfRule = f (annotOfRule ru) }
      AssertionTLE as -> AssertionTLE $ as { annotOfAssertion = f (annotOfAssertion as) }
      AutomatonTLE ta -> AutomatonTLE $ ta { annotOfTA = f (annotOfTA ta) }
@@ -132,6 +135,10 @@ getVarDecl :: TopLevelElement t -> Maybe (VarDecl t)
 getVarDecl (VarDeclTLE e) = Just e
 getVarDecl _ = Nothing
 
+getVarDefn :: TopLevelElement t -> Maybe (VarDefn t)
+getVarDefn (VarDefnTLE e) = Just e
+getVarDefn _ = Nothing
+
 getRule :: TopLevelElement t -> Maybe (Rule t)
 getRule (RuleTLE e) = Just e
 getRule _ = Nothing
@@ -157,8 +164,11 @@ lexiconOfProgram = mapMaybe getMapping . elementsOfProgram
 classDeclsOfProgram :: Program t -> [ClassDecl t]
 classDeclsOfProgram = mapMaybe getClassDecl . elementsOfProgram
 
-globalsOfProgram :: Program t -> [VarDecl t]
-globalsOfProgram = mapMaybe getVarDecl . elementsOfProgram
+varDeclsOfProgram :: Program t -> [VarDecl t]
+varDeclsOfProgram = mapMaybe getVarDecl . elementsOfProgram
+
+varDefnsOfProgram :: Program t -> [VarDefn t]
+varDefnsOfProgram = mapMaybe getVarDefn . elementsOfProgram
 
 rulesOfProgram :: Program t -> [Rule t]
 rulesOfProgram = mapMaybe getRule . elementsOfProgram
@@ -487,6 +497,10 @@ data ClConstr = ClConstr Clock BComparOp Integer
 newtype Loc = Loc String
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
+{-
+-- Action and Sync have become obsolete after removal of 
+-- the Action component from  TransitionAction
+
 -- Synchronization type: send or receive
 data Sync = Snd | Rec
   deriving (Eq, Ord, Show, Read, Data, Typeable)
@@ -500,18 +514,20 @@ data Action
 actionName :: Action -> [ClassName]
 actionName Internal = []
 actionName (Act cn _) = [cn]
-
+-}
 
 -- Transition condition: clock constraints and Boolean expression
 data TransitionGuard t = TransitionGuard [ClConstr] (Expr t)
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 -- Transition action: synchronization action; clock resets; and execution of command (typically assignments)
-data TransitionAction t = TransitionAction Action [Clock] (Cmd t)
+data TransitionAction t = TransitionAction [Clock] (Cmd t)
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
+{- TODO: obsolete
 transitionActionName :: TransitionAction t -> [ClassName]
 transitionActionName (TransitionAction act _ _) = actionName act
+-}
 
 -- Transition relation from location to location via Action,
 -- provided [ClConstr] are satisfied; and resetting [Clock]
@@ -570,7 +586,7 @@ instance HasAnnot TASys where
 ----------------------------------------------------------------------
 -- L4 Event Rules
 ----------------------------------------------------------------------
-
+{-
 -- CURRENTLY NOT USED, rather see the translations in RuleToTa.hs
 
 -- NB: Event rules as opposed to rules defining terminology etc.
@@ -597,3 +613,4 @@ data Modality = Must | May
 
 data EventRule t = EvRule ARName [Event t] Modality [PartyName] Action [ClConstr] ARName ARName
   deriving (Eq, Ord, Show, Read, Data, Typeable)
+-}

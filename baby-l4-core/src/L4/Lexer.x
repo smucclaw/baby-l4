@@ -60,6 +60,7 @@ tokens :-
   assert                        { lex' TokenAssert }
   class                         { lex' TokenClass }
   decl                          { lex' TokenDecl }
+  defn                          { lex' TokenDefn }
   extends                       { lex' TokenExtends }
   lexicon                       { lex' TokenLexicon }
   fact                          { lex' TokenFact }
@@ -115,6 +116,8 @@ tokens :-
   "/"                           { lex' TokenDiv }
   "%"                           { lex' TokenMod }
   \.                            { lex' TokenDot }
+  "?"                           { lex' TokenQuestMark }
+  "!"                           { lex' TokenExclMark }
   \,                            { lex' TokenComma }
   \:                            { lex' TokenColon }
   \;                            { lex' TokenSemicolon }
@@ -413,6 +416,7 @@ data TokenKind
   = TokenAssert
   | TokenClass
   | TokenDecl
+  | TokenDefn
   | TokenExtends
   | TokenLexicon
   | TokenFact
@@ -463,6 +467,8 @@ data TokenKind
   | TokenDiv
   | TokenMod
   | TokenDot
+  | TokenQuestMark
+  | TokenExclMark
   | TokenComma
   | TokenColon
   | TokenSemicolon
@@ -484,6 +490,7 @@ unLex :: TokenKind -> String
 unLex TokenAssert    = "assert"
 unLex TokenClass     = "class"
 unLex TokenDecl      = "decl"
+unLex TokenDefn      = "defn"
 unLex TokenExtends   = "extends"
 unLex TokenLexicon   = "lexicon"
 unLex TokenFact      = "fact"
@@ -531,6 +538,8 @@ unLex TokenMul       = "*"
 unLex TokenDiv       = "/"
 unLex TokenMod       = "%"
 unLex TokenDot       = "."
+unLex TokenQuestMark = "?"
+unLex TokenExclMark  = "!"
 unLex TokenComma     = ","
 unLex TokenColon     = ":"
 unLex TokenSemicolon = ";"

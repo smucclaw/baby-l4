@@ -40,6 +40,16 @@ mkFunTp :: [Tp ()] -> Tp () -> Tp ()
 mkFunTp ts t = foldr (FunT ()) t ts
 
 ----------------------------------------------------------------------
+-- Conversions
+----------------------------------------------------------------------
+
+varDefnToVarDecl :: VarDefn t -> VarDecl t
+varDefnToVarDecl vd = VarDecl {annotOfVarDecl = annotOfVarDefn vd, nameOfVarDecl = nameOfVarDefn vd, tpOfVarDecl = tpOfVarDefn vd}
+
+globalVarsOfProgram :: Program t -> [VarDecl t]
+globalVarsOfProgram prg = varDeclsOfProgram prg ++ map varDefnToVarDecl (varDefnsOfProgram prg)
+
+----------------------------------------------------------------------
 -- Logical infrastructure: macros for simplifying formula construction
 ----------------------------------------------------------------------
 mkIntConst :: Integer -> Expr (Tp())

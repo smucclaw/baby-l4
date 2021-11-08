@@ -24,7 +24,7 @@ createGF fname prog = createGF' fname grName (lexiconOfProgram prog) allPreds
   where
     allPreds = S.toList $ S.fromList $ concat
       [ getAtoms $ toPred vardecl
-      | vardecl <- globalsOfProgram prog
+      | vardecl <- varDeclsOfProgram prog
       , isPred vardecl ]
 
 printGF :: Gf a => PGF -> a -> IO ()
@@ -53,7 +53,7 @@ instance Show t => Questionable (VarDecl t) where
   toQuestions v = [GAreThereAny, GAreThereMore,  GProperties] <*>  [toPred v]
 
 instance Show a => Questionable (Program a) where
-  toQuestions = concatMap toQuestions . filter isPred.globalsOfProgram
+  toQuestions = concatMap toQuestions . filter isPred.varDeclsOfProgram
 
 toPred :: Show t => VarDecl t -> GPred
 toPred d = case d of

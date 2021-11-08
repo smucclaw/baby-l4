@@ -15,7 +15,7 @@ import Syntax
       BComparOp(..),
       BinOp(..),
       Expr(..),
-      Program(assertionsOfProgram, globalsOfProgram),
+      Program(assertionsOfProgram, varDeclsOfProgram),
       Tp,
       UArithOp(..),
       UBoolOp(..),
@@ -295,7 +295,7 @@ proveProgram p =
         [] -> error "in proveProgram: at least one assertion required"
         a:_ -> do
             putStrLn "Launching SMT solver"
-            proveExpr (globalsOfProgram p) (exprOfAssertion a)
+            proveExpr (varDeclsOfProgram p) (exprOfAssertion a)
 
 
 
