@@ -76,11 +76,11 @@ class SCasp x where
 
 -- Blacklist version: only remove those of form Foo -> Bar -> Bool
 -- removePred :: Program t -> [VarDecl t]
--- removePred = filter (not . isPred) . globalsOfProgram
+-- removePred = filter (not . isPred) . varDeclsOfProgram
 
 -- Whitelist version: only accept facts of the form Foo : Bar
 onlyFacts :: Program t -> [VarDecl t]
-onlyFacts = filter isFact . globalsOfProgram
+onlyFacts = filter isFact . varDeclsOfProgram
   where
     isFact :: VarDecl t -> Bool
     isFact = isFact' . tpOfVarDecl

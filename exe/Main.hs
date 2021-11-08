@@ -70,7 +70,7 @@ process args input = do
         (Fexpsys Rules) -> genREP tpAstNoSrc
 
 
-data Format   = Fasp | Fast | Faut | Fgf GFOpts | Fscasp  | Fsmt | Fyaml | Fexpsys ESOpts
+data Format   = Fasp | Fast | Fgf GFOpts | Fscasp  | Fsmt | Fyaml | Fexpsys ESOpts
   deriving Show
 
 --  l4 gf en          output english only
@@ -99,7 +99,6 @@ optsParse = InputOpts <$>
                 ( command "gf"   (info gfSubparser gfHelper)
                <> command "asp"  (info (pure Fasp) (progDesc "output to ASP / Clingo"))
                <> command "ast"  (info (pure Fast) (progDesc "Show the AST in Haskell"))
-               <> command "aut"  (info (pure Faut) (progDesc "Automata-based operations"))
                <> command "scasp" (info (pure Fscasp) (progDesc "output to sCASP for DocAssemble purposes"))
                <> command "smt"   (info (pure Fsmt) (progDesc "Check assertion with SMT solver"))
                <> command "yaml" (info (pure Fyaml) (progDesc "output to YAML for DocAssemble purposes"))

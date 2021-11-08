@@ -204,7 +204,7 @@ printRule r =
     "then " ++ printExpr (postcondOfRule r) ++ "\n\n"
 
 namesUsedInProgram :: Program t -> [VarName]
-namesUsedInProgram = map nameOfVarDecl . globalsOfProgram
+namesUsedInProgram = map nameOfVarDecl . varDeclsOfProgram
 
 renameAndPrintExpr :: Show t => [String] -> Expr t -> String
 renameAndPrintExpr nms  = printExpr . renameExpr nms

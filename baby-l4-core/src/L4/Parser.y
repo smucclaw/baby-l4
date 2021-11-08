@@ -10,7 +10,7 @@
     - Below "data TokenKind", add the tokens
     - Extend the "unlex" function definition
     * in Parser.y:
-    - Below "%tokens", add the tokens
+    - Below "%token", add the tokens
     - Below "Operators", possibly specify associativity / priorities of operators
     - Modify the grammar
 -}
@@ -49,18 +49,24 @@ import Data.Maybe (fromMaybe)
     assert  { L _ TokenAssert }
     class   { L _ TokenClass }
     decl    { L _ TokenDecl }
+    defn    { L _ TokenDefn }
     extends { L _ TokenExtends }
     lexicon { L _ TokenLexicon }
     fact    { L _ TokenFact }
     rule    { L _ TokenRule }
 
+    system      { L _ TokenSystem }
     process     { L _ TokenProcess }
+    chan        { L _ TokenChannel }
     clock       { L _ TokenClock }
     state       { L _ TokenState }
     init        { L _ TokenInit }
     trans       { L _ TokenTrans }
     guard       { L _ TokenGuard }
+    sync        { L _ TokenSync }
     assign      { L _ TokenAssign }
+    uppaalBool  { L _ TokenUppaalBool }
+    uppaalInt   { L _ TokenUppaalInt }
 
     not    { L _ TokenNot }
     forall { L _ TokenForall }
@@ -95,6 +101,8 @@ import Data.Maybe (fromMaybe)
     '/'   { L _ TokenDiv }
     '%'   { L _ TokenMod }
     '.'   { L _ TokenDot }
+    '?'   { L _ TokenQuestMark }
+    '!'   { L _ TokenExclMark }
     ','   { L _ TokenComma }
     ':'   { L _ TokenColon }
     ';'   { L _ TokenSemicolon }
@@ -124,10 +132,10 @@ import Data.Maybe (fromMaybe)
 %left AMINUS
 %%
 
-QualifVar : VAR { QVarName (getLoc $1) (tokenSym $1) }
 
---Program : Lexicon ClassDecls GlobalVarDecls Rules Assertions
---                                   { Program (tokenRangeList [getLoc $1, getLoc $2, getLoc $3, getLoc $4, getLoc $5]) (reverse $ unLoc $1) (reverse $2)  (reverse $3) (reverse $4) (reverse $5) }
+----------------------------------------------------------------------
+-- Programs and top level elements
+----------------------------------------------------------------------
 
 Program : TopLevelElements { Program (tokenRangeList (map getLoc $1)) (reverse $1) }
 
@@ -140,9 +148,11 @@ TopLevelElementGroup : Mappings { map MappingTLE $1 }
 
 TopLevelElement : ClassDecl     { ClassDeclTLE $1 } 
                 | GlobalVarDecl { VarDeclTLE $1 } 
+                | GlobalVarDefn { VarDefnTLE $1 } 
                 | RuleOrFact    { RuleTLE $1 }
                 | Assertion     { AssertionTLE $1 }
                 | Automaton     { AutomatonTLE $1 }
+                | System        { SystemTLE $1 }
 
 -- { L (DummySRng "No lexicon") [] }
 --Lexicon :  lexicon Mapping  { L (tokenRange $1 $2) [$2] }
@@ -156,9 +166,6 @@ Mappings :  LexiconMapping  { [$1] }
 
 LexiconMapping : lexicon VAR '->' STRLIT { Mapping (tokenRange $1 $4) (tokenSym $2) (parseDescription $ tokenStringLit $4) }
 Mapping        : VAR '->' STRLIT { Mapping (tokenRange $1 $3) (tokenSym $1) (parseDescription $ tokenStringLit $3) }
-
-ClassDecls :                       { [] }
-           | ClassDecls ClassDecl  { $2 : $1 }
 
 ClassDecl : class VAR ClassDef     { case snd $3 of
                                        -- ClassDef is empty, so take token range of 'class VAR'
@@ -184,10 +191,10 @@ FieldDecls :                       { [] }
 
 FieldDecl : VAR ':' Tp             { FieldDecl (tokenRange $1 $3) (FldNm $ tokenSym $1) $3 }
 
-GlobalVarDecls :                         { [] }
-         | GlobalVarDecls GlobalVarDecl  { $2 : $1 }
-
 GlobalVarDecl : decl VAR ':' Tp          { VarDecl (tokenRange $1 $4) (tokenSym $2) $4 }
+
+GlobalVarDefn : defn VAR ':' Tp '=' Expr     
+   { VarDefn (tokenRange $1 $6) (tokenSym $2) $4 $6 }
 
 VarDeclsCommaSep :  VarDecl              { [$1] }
          | VarDeclsCommaSep  ',' VarDecl { $3 : $1 }
@@ -208,17 +215,26 @@ TpsCommaSep :                      { [] }
 Tp   : ATp                        { $1 }
      | Tp '->' Tp                 { FunT (tokenRange $1 $3) $1 $3 }
 
+QualifVar : VAR { QVarName (getLoc $1) (tokenSym $1) }
 
+-- Patterns currently not used because predicates are typically written in a curried style
 Pattern : QualifVar                { VarP $1 }
     | '(' QVarsCommaSep ')'        { let vcs = $2 in if length vcs == 1 then VarP (head vcs) else VarListP (reverse vcs) }
 
+-- qualified variable list in reverse order
 QVarsCommaSep :                            { [] }
             | QualifVar                    { [$1] }
             | QVarsCommaSep ',' QualifVar  { $3 : $1 }
 
+-- variable list in reverse order
 VarsCommaSep :                       { [] }
             | VAR                    { [tokenSym $1] }
             | VarsCommaSep ',' VAR   { (tokenSym $3) : $1 }
+
+
+----------------------------------------------------------------------
+-- Expressions
+----------------------------------------------------------------------
 
 Expr : '\\' VarDeclATp '->' Expr    { FunE (tokenRange $1 $4) $2 $4 }
      | forall VarDecl '.' Expr      { QuantifE (tokenRange $1 $4) All $2 $4 }
@@ -290,29 +306,75 @@ Rule : rule ARName KVMap { Rule (getLoc $1) $2 $3  [] (ValE (nullSRng) (BoolV Tr
 
 Fact : fact ARName  KVMap RuleVarDecls Expr { Rule (tokenRange $1 $5) $2 $3 $4 (ValE (nullSRng) (BoolV True)) $5 }
 
+RuleVarDecls :                       { [] }
+             | for VarDeclsCommaSep  { reverse $2 }
+
+RulePrecond : if Expr      { $2 }
+RuleConcl   : then Expr    { $2 }
+
+Assertions :                       { [] }
+           | Assertions Assertion  { $2 : $1 }
+
+-- TODO: same problem with locations as for Rule above
+Assertion : assert ARName KVMap        { Assertion (getLoc $1) $2 $3 (ValE (nullSRng) (BoolV True)) }
+          | assert ARName KVMap Expr   { Assertion (tokenRange $1 $4) $2 $3 $4 }
 
 
--- TODO: labellings still to be added, channels to be added
+----------------------------------------------------------------------
+-- Automata and Systems of automata
+----------------------------------------------------------------------
+System : system '{' SystemVarDecls Channels AutomatonList '}'
+  { TASys {annotOfSys = (tokenRange $1 $6),
+           declsOfSys = reverse $3,
+           channelsOfSys = $4,
+           automataOfSys = reverse $5
+           } }
+
+-- system var decls in reverse order
+SystemVarDecls :                         { [] }
+         | SystemVarDecls GlobalVarDecl  { $2 : $1 }
+         | SystemVarDecls uppaalBoolDecls  { $2 ++ $1 }
+         | SystemVarDecls uppaalIntDecls  { $2 ++ $1 }
+
+-- Uppaal bool variable decls in reverse order
+uppaalBoolDecls : uppaalBool QVarsCommaSep ';' 
+  { map (\(QVarName ann v) -> VarDecl ann v (ClassT (getLoc $1) BooleanC)) $2 }
+
+-- Uppaal int variable decls in reverse order
+uppaalIntDecls : uppaalInt QVarsCommaSep ';' 
+  { map (\(QVarName ann v) -> VarDecl ann v (ClassT (getLoc $1) IntegerC)) $2 }
+
+-- TODO: labellings still to be added (if needed at all ...)
 -- TODO: annotation is a rough approximation, to be synthesized from annotations of subexpressions
 Automaton : process VAR '(' ')' '{' Clocks States Initial Transitions '}'
   { TA {annotOfTA = (tokenRange $1 $10),
-        nameOfTA = (tokenSym $2), locsOfTA = (map fst (reverse $7)), channelsOfTA = [], clocksOfTA = reverse $6,
-        transitionsOfTA = reverse $9, initialLocOfTA = $8, invarsOfTA = (reverse $7), labellingOfTA = []}}
+        nameOfTA = (tokenSym $2), locsOfTA = (map fst $7), clocksOfTA = $6,
+        transitionsOfTA = $9, initialLocOfTA = $8, invarsOfTA = $7, labellingOfTA = []}}
 
+-- automaton list in reverse order
+AutomatonList :                          { [] }
+              | AutomatonList Automaton  { $2 : $1 }
 
--- Channels : channels VARsCommaSep ';' { map ClsNm $2 }
+-- channel list in normal order
+Channels :                           { [] }
+         | chan VarsCommaSep ';' { map ClsNm (reverse $2) }
 
-Clocks : clock VarsCommaSep ';' { map Clock $2 }
+-- clock list in normal order
+Clocks :                        { [] }
+       | clock VarsCommaSep ';' { map Clock (reverse $2) }
 
-States : state StatesCommaSep ';' { $2 }
+-- state (with invariant) list in normal order
+States : state StatesCommaSep ';' { reverse $2 }
 
+-- state (with invariant) list in reverse order
 StatesCommaSep :                            { [] }
             | StateWithInvar                    { [$1] }
             | StatesCommaSep ',' StateWithInvar  { $3 : $1 }
 
 StateWithInvar : VAR { (Loc (tokenSym $1), []) }
-               | VAR '{' InvarsAndSep '}' { (Loc (tokenSym $1), $3) }
+               | VAR '{' InvarsAndSep '}' { (Loc (tokenSym $1), reverse $3) }
 		 
+-- invariant list in reverse order
 InvarsAndSep :                        { [] }
             | Invar                     { [$1] }
             | InvarsAndSep '&&' Invar  { $3 : $1 }
@@ -327,27 +389,35 @@ Invar : VAR '<' INT  { ClConstr (Clock (tokenSym $1)) BClt $3 }
 
 Initial : init VAR  ';' { Loc (tokenSym $2) }
 
-Transitions : trans TransitionsCommaSep ';' { $2 }
+-- transistions list in normal order
+Transitions : trans TransitionsCommaSep ';' { reverse $2 }
 
+-- transistions list in reverse order
 TransitionsCommaSep :                            { [] }
             | TransitionWithInfo                 { [$1] }
             | TransitionsCommaSep ',' TransitionWithInfo  { $3 : $1 }
 
-TransitionWithInfo : VAR '->' VAR '{' TrGuard TrAssign '}'
-                 { Transition {sourceOfTransition = (Loc (tokenSym $1)),
-		   	       guardOfTransition = $5,
-			       actionOfTransition = $6,
+TransitionWithInfo : VAR '->' VAR '{' TrGuard TrSync TrAssign '}'
+           { Transition {sourceOfTransition = (Loc (tokenSym $1)),
+		   	     guardOfTransition = $5,
+             syncOfTransition = $6,
+			       actionOfTransition = $7,
 			       targetOfTransition = (Loc (tokenSym $3))} }
 
 -- TODO: so far, guard expressions are not taken into account, only clock constraints
 TrGuard :                                   { TransitionGuard [] (ValE (nullSRng) (BoolV True)) }
-| guard InvarsAndSep ';' { TransitionGuard $2 (ValE (nullSRng) (BoolV True)) }
+| guard InvarsAndSep ';' { TransitionGuard (reverse $2) (ValE (nullSRng) (BoolV True)) }
+
+-- The sync mode (nothing / receive / send) is currently ignored
+SyncMode :  {} | '?' {} | '!' {}
+TrSync :                    { Nothing }
+	 | sync VAR SyncMode ';'  { Just (tokenSym $2) }
 
 -- TODO: only clock resets taken into account
-TrAssign :                                   { TransitionAction Internal [] (Skip (nullSRng)) }
-	 | assign TrAssignmentsCommaSep ';'  { TransitionAction Internal $2 (Skip (nullSRng)) }
+TrAssign :                             { TransitionAction [] (Skip (nullSRng)) }
+	 | assign TrAssignmentsCommaSep ';'  { TransitionAction (reverse $2) (Skip (nullSRng)) }
 
-
+-- transition assignment list in reverse order
 TrAssignmentsCommaSep :                             { [] }
             | TrAssignment                          { [$1] }
             | TrAssignmentsCommaSep ',' TrAssignment  { $3 : $1 }
@@ -357,20 +427,9 @@ TrAssignmentsCommaSep :                             { [] }
 TrAssignment : VAR '=' INT { Clock (tokenSym $1)  }
 
 
-RuleVarDecls :                       { [] }
-             | for VarDeclsCommaSep  { reverse $2 }
-
-RulePrecond : if Expr      { $2 }
-RuleConcl   : then Expr    { $2 }
-
-
-Assertions :                       { [] }
-           | Assertions Assertion  { $2 : $1 }
-
--- TODO: same problem with locations as for Rule above
-Assertion : assert ARName KVMap        { Assertion (getLoc $1) $2 $3 (ValE (nullSRng) (BoolV True)) }
-          | assert ARName KVMap Expr   { Assertion (tokenRange $1 $4) $2 $3 $4 }
-
+----------------------------------------------------------------------
+-- Key-Value-Maps (used as instructions in rules and assertions)
+----------------------------------------------------------------------
 
 KVMap :                        { [] }
 | '{' KVMapListCommaSep  '}'   { reverse $2 }

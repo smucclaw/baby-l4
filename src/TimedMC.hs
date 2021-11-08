@@ -233,7 +233,7 @@ resetToExpr clvarsMap clvarsMap' resetcls cl =
 
 -- TODO: take into account the cmd 
 actionToExpr :: [(Clock, Var (Tp ()))] -> [(Clock, Var (Tp ()))] -> [Clock] -> TransitionAction t -> Expr (Tp ())
-actionToExpr clvarsMap clvarsMap' allCls (TransitionAction _act resetcls _cmd) =
+actionToExpr clvarsMap clvarsMap' allCls (TransitionAction resetcls _cmd) =
   conjsExpr (map (resetToExpr clvarsMap clvarsMap' resetcls) allCls)
 
 -- construct an action transition formula for a single transition of the TA
@@ -415,7 +415,7 @@ runAut prg =
   let ta = head (automataOfProgram prg)
       asrt = head (assertionsOfProgram prg)
       cdecls = classDeclsOfProgram prg
-      globals = globalsOfProgram prg
+      globals = varDeclsOfProgram prg
       actTransDef = defineActionTransition ta
       delayTransDef = defineDelayTransition ta
       genTrace = True
@@ -449,7 +449,7 @@ proveAssertionTA :: Program (Tp ()) -> ValueKVM -> Assertion (Tp ()) -> IO ()
 proveAssertionTA prg instr asrt =
   let ta = head (automataOfProgram prg)
       cdecls = classDeclsOfProgram prg
-      globals = globalsOfProgram prg
+      globals = varDeclsOfProgram prg
       actTransDef = defineActionTransition ta
       delayTransDef = defineDelayTransition ta
       genTrace = hasPathValue ["trace"] instr

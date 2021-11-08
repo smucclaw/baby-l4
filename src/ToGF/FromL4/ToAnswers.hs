@@ -24,7 +24,7 @@ createGF fname prog = createGF' fname grName (lexiconOfProgram prog) allPreds
   where
     allPreds = S.toList $ S.fromList $ concat
       [ getAtoms vardecl
-      | vardecl <- globalsOfProgram prog
+      | vardecl <- varDeclsOfProgram prog
       ]
 
 

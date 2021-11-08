@@ -38,7 +38,7 @@ createGF fname prog = trace ("allPreds: " ++ show allPreds) $ createGF' fname gr
   where
     allPreds = S.toList $ S.fromList $ concat
       [ getAtoms vardecl
-      | vardecl <- globalsOfProgram prog
+      | vardecl <- varDeclsOfProgram prog
       ]
 
 getAtoms :: VarDecl t -> [AtomWithArity]
@@ -95,7 +95,7 @@ data Env t
 program2prop :: Show t => Program t -> [GProp]
 program2prop prg = 
     let lexc = lexiconOfProgram prg
-        vars = globalsOfProgram prg
+        vars = varDeclsOfProgram prg
         rules = rulesOfProgram prg
         env0 = Env {lexicon = lexc, vardecls = [vars]}
      in runReader

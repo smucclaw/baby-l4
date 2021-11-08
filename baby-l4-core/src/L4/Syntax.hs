@@ -78,9 +78,11 @@ data TopLevelElement t
   = MappingTLE (Mapping t)
   | ClassDeclTLE (ClassDecl t)
   | VarDeclTLE (VarDecl t)
+  | VarDefnTLE (VarDefn t)
   | RuleTLE (Rule t)
   | AssertionTLE (Assertion t)
   | AutomatonTLE (TA t)
+  | SystemTLE (TASys t)
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 getAnnotOfTLE :: TopLevelElement t -> t
@@ -88,18 +90,22 @@ getAnnotOfTLE e = case e of
      MappingTLE mp -> annotOfMapping mp
      ClassDeclTLE cd -> annotOfClassDecl cd
      VarDeclTLE vd -> annotOfVarDecl vd
+     VarDefnTLE vd -> annotOfVarDefn vd
      RuleTLE ru -> annotOfRule ru
      AssertionTLE as -> annotOfAssertion as
      AutomatonTLE ta -> annotOfTA ta
+     SystemTLE s -> annotOfSys s
 
 updateAnnotOfTLE :: (t -> t) -> TopLevelElement t -> TopLevelElement t
 updateAnnotOfTLE f e = case e of
      MappingTLE mp -> MappingTLE $ mp { annotOfMapping = f (annotOfMapping mp) }
      ClassDeclTLE cd -> ClassDeclTLE $ cd { annotOfClassDecl = f (annotOfClassDecl cd) }
      VarDeclTLE vd -> VarDeclTLE $ vd { annotOfVarDecl = f (annotOfVarDecl vd) }
+     VarDefnTLE vd -> VarDefnTLE $ vd { annotOfVarDefn = f (annotOfVarDefn vd) }
      RuleTLE ru -> RuleTLE $ ru { annotOfRule = f (annotOfRule ru) }
      AssertionTLE as -> AssertionTLE $ as { annotOfAssertion = f (annotOfAssertion as) }
      AutomatonTLE ta -> AutomatonTLE $ ta { annotOfTA = f (annotOfTA ta) }
+     SystemTLE s -> SystemTLE $ s { annotOfSys = f (annotOfSys s) }
 
 instance HasLoc t => HasLoc (TopLevelElement t) where
   getLoc = getLoc . getAnnotOfTLE
@@ -129,6 +135,10 @@ getVarDecl :: TopLevelElement t -> Maybe (VarDecl t)
 getVarDecl (VarDeclTLE e) = Just e
 getVarDecl _ = Nothing
 
+getVarDefn :: TopLevelElement t -> Maybe (VarDefn t)
+getVarDefn (VarDefnTLE e) = Just e
+getVarDefn _ = Nothing
+
 getRule :: TopLevelElement t -> Maybe (Rule t)
 getRule (RuleTLE e) = Just e
 getRule _ = Nothing
@@ -141,6 +151,10 @@ getAutomaton :: TopLevelElement t -> Maybe (TA t)
 getAutomaton (AutomatonTLE e) = Just e
 getAutomaton _ = Nothing
 
+getSystem :: TopLevelElement t -> Maybe (TASys t)
+getSystem (SystemTLE e) = Just e
+getSystem _ = Nothing
+
 typeOfTLE :: (t -> Maybe a) -> t -> Bool
 typeOfTLE g = isJust . g
 
@@ -150,8 +164,11 @@ lexiconOfProgram = mapMaybe getMapping . elementsOfProgram
 classDeclsOfProgram :: Program t -> [ClassDecl t]
 classDeclsOfProgram = mapMaybe getClassDecl . elementsOfProgram
 
-globalsOfProgram :: Program t -> [VarDecl t]
-globalsOfProgram = mapMaybe getVarDecl . elementsOfProgram
+varDeclsOfProgram :: Program t -> [VarDecl t]
+varDeclsOfProgram = mapMaybe getVarDecl . elementsOfProgram
+
+varDefnsOfProgram :: Program t -> [VarDefn t]
+varDefnsOfProgram = mapMaybe getVarDefn . elementsOfProgram
 
 rulesOfProgram :: Program t -> [Rule t]
 rulesOfProgram = mapMaybe getRule . elementsOfProgram
@@ -161,6 +178,9 @@ assertionsOfProgram = mapMaybe getAssertion . elementsOfProgram
 
 automataOfProgram :: Program t -> [TA t]
 automataOfProgram = mapMaybe getAutomaton . elementsOfProgram
+
+systemOfProgram :: Program t -> [TASys t]
+systemOfProgram = mapMaybe getSystem . elementsOfProgram
 
 mapClassDecl :: (ClassDecl t -> ClassDecl t)-> TopLevelElement t -> TopLevelElement t
 mapClassDecl f e = case e of
@@ -296,43 +316,6 @@ instance HasAnnot ClassDecl where
   getAnnot = annotOfClassDecl
   updateAnnot f p = p { annotOfClassDecl = f (annotOfClassDecl p)}
 
-
--- Custom Classes and Preable Module
--- some custom classes - should eventually go into a prelude and not be hard-wired
--- TODO: now special treatment in Prelude.l4
--- objectC = ClassDecl (ClsNm "Object") (ClassDef Nothing [])
-
-{-
-TODO: the following should be defined in concrete syntax in a preamble.
-
--- QualifiedNumeric class with val field
--- TODO: should its type be IntT or a FloatT?
-qualifNumC = ClassDecl (ClsNm "QualifiedNumeric")
-                    (ClassDef (Just (ClsNm "Object"))
-                            [FieldDecl (FldNm "val") IntT])
-
--- Currency as QualifiedNumeric, with specific currencies (SGD, USD) as subclasses
-currencyC = ClassDecl (ClsNm "Currency")
-                    (ClassDef (Just (ClsNm "QualifiedNumeric")) [])
-currencyCs = [ClassDecl (ClsNm "SGD") (ClassDef (Just (ClsNm "Currency")) []),
-              ClassDecl (ClsNm "USD") (ClassDef (Just (ClsNm "Currency")) [])]
-
--- Time as QualifiedNumeric, with Year, Month, Day etc. as subclasses
--- TODO: treatment of time needs a second thought
---       (so far no distinction between time point and duration)
-timeC = ClassDecl (ClsNm "Time")
-                    (ClassDef (Just (ClsNm "QualifiedNumeric")) [])
-timeCs = [ClassDecl (ClsNm "Year") (ClassDef (Just (ClsNm "Time")) []),
-          ClassDecl (ClsNm "Day") (ClassDef (Just (ClsNm "Time")) [])]
-
-eventC  = ClassDecl (ClsNm "Event")
-                  (ClassDef (Just (ClsNm "Object"))
-                   [FieldDecl (FldNm "time") (ClassT (ClsNm "Time"))])
-customCs = [objectC, qualifNumC, currencyC] ++ currencyCs ++ [timeC] ++ timeCs ++ [eventC]
--}
-
--- TODO: now special treatment in Prelude.l4
---customCs = [objectC]
 
 ----- Expressions
 data Val
@@ -514,6 +497,10 @@ data ClConstr = ClConstr Clock BComparOp Integer
 newtype Loc = Loc String
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
+{-
+-- Action and Sync have become obsolete after removal of 
+-- the Action component from  TransitionAction
+
 -- Synchronization type: send or receive
 data Sync = Snd | Rec
   deriving (Eq, Ord, Show, Read, Data, Typeable)
@@ -527,23 +514,27 @@ data Action
 actionName :: Action -> [ClassName]
 actionName Internal = []
 actionName (Act cn _) = [cn]
+-}
 
 -- Transition condition: clock constraints and Boolean expression
 data TransitionGuard t = TransitionGuard [ClConstr] (Expr t)
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 -- Transition action: synchronization action; clock resets; and execution of command (typically assignments)
-data TransitionAction t = TransitionAction Action [Clock] (Cmd t)
+data TransitionAction t = TransitionAction [Clock] (Cmd t)
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
+{- TODO: obsolete
 transitionActionName :: TransitionAction t -> [ClassName]
 transitionActionName (TransitionAction act _ _) = actionName act
+-}
 
 -- Transition relation from location to location via Action,
 -- provided [ClConstr] are satisfied; and resetting [Clock]
 data Transition t = Transition {
     sourceOfTransition :: Loc
   , guardOfTransition :: TransitionGuard t
+  , syncOfTransition :: Maybe String
   , actionOfTransition :: TransitionAction t
   , targetOfTransition :: Loc
   }
@@ -552,7 +543,6 @@ data Transition t = Transition {
 -- Timed Automaton having:
 -- a name
 -- a set of locations,
--- a set of channel types (subclasses of Event),
 -- a set of clocks,
 -- a transition relation,
 -- a set of initial locations,
@@ -567,7 +557,6 @@ data TA t =
     annotOfTA :: t,
     nameOfTA :: String,
     locsOfTA :: [Loc],
-    channelsOfTA :: [ClassName],
     clocksOfTA :: [Clock],
     transitionsOfTA :: [Transition t],
     initialLocOfTA :: Loc,
@@ -576,28 +565,28 @@ data TA t =
   }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
-
 instance HasAnnot TA where
   getAnnot = annotOfTA
   updateAnnot f p = p { annotOfTA = f (annotOfTA p)}
 
 -- Timed Automata System: a set of TAs running in parallel
 -- Type parameter ext: Environment-specific extension
-data TASys t ext = TASys [TA t] ext
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+data TASys t = TASys {
+  annotOfSys :: t,
+  declsOfSys :: [VarDecl t],
+  channelsOfSys :: [ClassName],
+  automataOfSys :: [TA t]
+  }
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
-{- Obsolete with record names
-nameOfTA :: TA t -> String
-nameOfTA (TA nm ta_locs ta_act_clss ta_clks trans init_locs invs lbls) = nm
-
-channelsOfTA :: TA t -> [ClassName]
-channelsOfTA (TA nm ta_locs ta_act_clss ta_clks trans init_locs invs lbls) = ta_act_clss
--}
+instance HasAnnot TASys where
+  getAnnot = annotOfSys
+  updateAnnot f p = p { annotOfSys = f (annotOfSys p)}
 
 ----------------------------------------------------------------------
 -- L4 Event Rules
 ----------------------------------------------------------------------
-
+{-
 -- CURRENTLY NOT USED, rather see the translations in RuleToTa.hs
 
 -- NB: Event rules as opposed to rules defining terminology etc.
@@ -624,3 +613,4 @@ data Modality = Must | May
 
 data EventRule t = EvRule ARName [Event t] Modality [PartyName] Action [ClConstr] ARName ARName
   deriving (Eq, Ord, Show, Read, Data, Typeable)
+-}

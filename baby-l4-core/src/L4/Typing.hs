@@ -21,6 +21,7 @@ import L4.Annotation
 import L4.Error
 import L4.Syntax
 import Control.Applicative (Alternative ((<|>), empty))
+import L4.SyntaxManipulation ( globalVarsOfProgram )
 
 -- * Main API
 
@@ -320,17 +321,20 @@ expectEmptyOrThrow list err = expectEmpty err list
 -- checkExpectSubtypeOf :: (HasAnnot f, TypeCheck f) => Tp () -> Environment te -> SRng -> f Untyped -> TCM (f Typed, Tp ()) -- Hmm?
 -- checkExpectExactType :: (HasAnnot f, TypeCheck f) => Tp () -> Environment te -> SRng -> f Untyped -> TCM (f Typed)
 -- checkExpectBooleanType :: (HasAnnot f, TypeCheck f) => Environment te -> SRng -> f Untyped -> TCM (f Typed)
-expectBooleanType :: SRng -> LocTypeAnnot (Tp ()) -> TCM (Tp ())
+expectBooleanType :: Untyped -> Typed -> TCM (Tp ())
 expectBooleanType = expectExactType BooleanT
-
--- | Returns the type if it's what was expected and throws a type error otherwise
-expectExactType :: Tp () -> SRng -> LocTypeAnnot (Tp ()) -> TCM (Tp ())
-expectExactType expected loc (LocTypeAnnot loc1 t) = t <$ guardMsg notBoolMsg (t == expected)
-  where
-    notBoolMsg = IllTypedSubExpr [loc, loc1] [t] [ExpectedExactTp expected]
 
 checkBoolTp :: HasAnnot f => SRng -> f Typed -> TCM (Tp ())
 checkBoolTp loc te = expectBooleanType loc (getAnnot te)
+
+-- | Returns the type if it's what was expected and throws a type error otherwise
+expectExactType :: Tp () -> Untyped -> Typed -> TCM (Tp ())
+expectExactType expected loc (LocTypeAnnot loc1 t) = t <$ guardMsg notExpectedMsg (t == expected)
+  where
+    notExpectedMsg = IllTypedSubExpr [loc, loc1] [t] [ExpectedExactTp expected]
+
+checkExactType :: HasAnnot f => Tp () -> SRng -> f Typed -> TCM (Tp ())
+checkExactType expt loc te = expectExactType expt loc (getAnnot te)
 
 expectNumericTp :: Environment te -> SRng -> LocTypeAnnot (Tp ()) -> TCM ()
 expectNumericTp env loc (LocTypeAnnot locT t) = guardMsg msg (isNumberTp env t)
@@ -612,6 +616,13 @@ tpVarDecl env (VarDecl ann vn tp) = do
   annotTp <- kndType kenv tp
   return $ (\t -> VarDecl (setType ann (eraseAnn t)) vn t) annotTp
 
+tpVarDefn :: Environment t -> VarDefn Untyped -> TCM (VarDefn Typed)
+tpVarDefn env (VarDefn ann vn tp e) = do
+  let kenv = map nameOfClassDecl (classDeclsOfEnv env)
+  annotTp <- kndType kenv tp
+  te <- tpExpr env e
+  _ <- checkExactType (eraseAnn tp) ann te
+  return $ (\t -> VarDefn (setType ann (eraseAnn t)) vn t te) annotTp
 
 ----------------------------------------------------------------------
 -- * Class declaration errors
@@ -692,14 +703,16 @@ checkFieldDeclsError prg =
 -- * Global variable declaration errors
 ----------------------------------------------------------------------
 
+-- checks for duplicate names among all global variable declarations and definitions 
 checkDuplicateVarNamesVDE :: HasLoc t => Program t -> TCM (Program t)
 checkDuplicateVarNamesVDE prg =
-  prg <$ expectEmptyOrThrow (duplicatesWrtFun nameOfVarDecl (globalsOfProgram  prg)) (DuplicateVarNamesVDEErr . map (\vd -> (getLoc vd, nameOfVarDecl vd)))
+  prg <$ expectEmptyOrThrow (duplicatesWrtFun nameOfVarDecl (globalVarsOfProgram  prg)) (DuplicateVarNamesVDEErr . map (\vd -> (getLoc vd, nameOfVarDecl vd)))
 
+-- checks for undefined types among all global variable declarations and definitions 
 checkUndefinedTypeVDE :: Program Untyped -> TCM (Program Untyped)
 checkUndefinedTypeVDE prg = do
   let kenv = map nameOfClassDecl (classDeclsOfProgram prg)
-  _undefTps <- traverse (kndType kenv . tpOfVarDecl) (globalsOfProgram prg)
+  _undefTps <- traverse (kndType kenv . tpOfVarDecl) (globalVarsOfProgram prg)
   return prg
 
 checkVarDeclsError :: Program Untyped -> TCM (Program Untyped)
@@ -715,13 +728,14 @@ checkVarDeclsError prg =
 
 tpComponent :: Environment t-> TopLevelElement Untyped -> TCM (TopLevelElement Typed)
 tpComponent env e = case e of
+  VarDefnTLE vd -> fmap VarDefnTLE (tpVarDefn env vd)
   AssertionTLE c -> fmap AssertionTLE (tpAssertion env c)
   RuleTLE c -> fmap RuleTLE (tpRule env c)
   x -> pure $ addDummyTypes x
 
 checkComponentsError :: Program Untyped -> TCM (Program Typed)
 checkComponentsError  prg = do
-  let env = initialEnvOfProgram (classDeclsOfProgram prg) (globalsOfProgram prg)
+  let env = initialEnvOfProgram (classDeclsOfProgram prg) (globalVarsOfProgram prg)
   tpdComponents <- traverse (tpComponent env) (elementsOfProgram prg)
   return $ (addDummyTypes prg) {elementsOfProgram = tpdComponents}
 
