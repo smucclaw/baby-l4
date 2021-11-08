@@ -449,13 +449,14 @@ proveAssertionTA :: Program (Tp ()) -> ValueKVM -> Assertion (Tp ()) -> IO ()
 proveAssertionTA prg instr asrt =
   let ta = head (automataOfProgram prg)
       cdecls = classDeclsOfProgram prg
-      globals = varDeclsOfProgram prg
+      globalVarDecls = varDeclsOfProgram prg
+      globalVarDefns = varDefnsOfProgram prg
       actTransDef = defineActionTransition ta
       delayTransDef = defineDelayTransition ta
       genTrace = hasPathValue ["trace"] instr
       actTraceDef = defineTransition ta genTrace actionTransitionName actionTransitionTraceName actionTransitionWithTraceName
       delayTraceDef = defineTransition ta genTrace delayTransitionName delayTransitionTraceName delayTransitionWithTraceName
-      defs = [actTransDef, delayTransDef, actTraceDef, delayTraceDef]
+      defs = globalVarDefns ++ [actTransDef, delayTransDef, actTraceDef, delayTraceDef]
       config = getAssocOfPathValue ["config"] instr
       proveConsistency = selectOneOfInstr ["consistent", "valid"] instr == "consistent"
       nExpans = numberOfExpansions instr
@@ -465,7 +466,7 @@ proveAssertionTA prg instr asrt =
   in do
     print proveConsistency
     print (getAssocOfPathValue ["procs"] instr)
-    proveExpr config proveConsistency cdecls globals defs proofTarget -- launching the real checker
+    proveExpr config proveConsistency cdecls globalVarDecls defs proofTarget -- launching the real checker
 
 
 ----------------------------------------------------------------------

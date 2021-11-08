@@ -2,7 +2,6 @@
 
 module Smt(proveAssertionSMT, proveExpr, constrProofTarget) where
 
-import L4.Annotation (LocTypeAnnot (typeAnnot))
 import L4.KeyValueMap
     ( ValueKVM(MapVM, IntVM, IdVM),
       selectOneOfInstr,
@@ -15,17 +14,13 @@ import L4.SyntaxManipulation (
       notExpr, etaExpand, decomposeFun)
 import L4.Typing (isBooleanTp, isIntegerTp, isFloatTp, superClassesOfClassDecl)
 import RuleTransfo
-    ( isNamedRule,
-      rewriteRuleSetDespite,
-      rewriteRuleSetSubjectTo,
-      rewriteRuleSetDerived )
+    ( isNamedRule )
 
 import qualified SimpleSMT as SMT
 import Control.Monad ( when, foldM )
-import L4.PrintProg (renameAndPrintRule, namesUsedInProgram, renameExpr, printARName )
+import L4.PrintProg (renameExpr, printARName )
 import Data.Maybe (fromMaybe)
 import Model (displayableModel, printDisplayableModel)
-import qualified AutoAnnotations as SMT
 
 
 -------------------------------------------------------------
@@ -84,7 +79,7 @@ tpToSort se t
                   _ -> error $ "in tpToSort: " ++ show t ++ " not supported"
 
 tpToRank :: Show t => SMTSortEnv -> Tp t -> ([SMT.SExpr], SMT.SExpr)
-tpToRank se f@(FunT _ t1 t2) =
+tpToRank se f@FunT{} =
   let (args, res) = spine [] f
   in (map (tpToSort se) args, tpToSort se res)
 tpToRank se t = ([], tpToSort se t)
@@ -180,7 +175,7 @@ varToSExpr env (GlobalVar qvn) =
   in Data.Maybe.fromMaybe
         (error $ "internal error in varToSExpr: Var not found: " ++ show vn)
         (lookup vn env)
-varToSExpr env (LocalVar qvn i) = let vn = nameOfQVarName qvn in localVarRef vn
+varToSExpr _env (LocalVar qvn _) = let vn = nameOfQVarName qvn in localVarRef vn
 
 transUArithOp :: UArithOp ->  SMT.SExpr -> SMT.SExpr
 transUArithOp UAminus = SMT.neg
@@ -191,6 +186,7 @@ transUBoolOp UBnot = SMT.not
 transUnaOp :: UnaOp -> SMT.SExpr -> SMT.SExpr
 transUnaOp (UArith ua) = transUArithOp ua
 transUnaOp (UBool ub) = transUBoolOp ub
+transUnaOp (UTemporal _) = error "transUnaOp: temporal operators should be resolved elsewhere"
 
 transBArithOp :: BArithOp -> SMT.SExpr -> SMT.SExpr -> SMT.SExpr
 transBArithOp BAadd = SMT.add
@@ -320,8 +316,8 @@ defaultRuleSet = rulesOfProgram
 rulesOfRuleSpec :: Program t -> ValueKVM -> [Rule t]
 rulesOfRuleSpec p (MapVM kvm) =
   let nameRuleAssoc = map (\r -> (fromMaybe "" (nameOfRule r), r)) (filter isNamedRule (rulesOfProgram p))
-  in map (\(k, v) -> fromMaybe (error ("rule name " ++ k ++ " unknown in rule set")) (lookup k nameRuleAssoc)) kvm
-rulesOfRuleSpec p instr =
+  in map (\(k, _v) -> fromMaybe (error ("rule name " ++ k ++ " unknown in rule set")) (lookup k nameRuleAssoc)) kvm
+rulesOfRuleSpec _p instr =
   error ("rule specification " ++ show instr ++ " should be a list (in { .. }) of rule names and transformations")
 
 -- add rules of rs2 to rs1, not adding rules already existing in rs1 as determined by name
@@ -356,9 +352,9 @@ proveAssertionSMT prg instr asrt = do
   putStrLn ("Launching SMT solver on " ++ printARName (nameOfAssertion asrt))
   let proveConsistency = selectOneOfInstr ["consistent", "valid"] instr == "consistent"
   let applicableRules = selectApplicableRules prg instr
-  let proofTarget = constrProofTarget proveConsistency (map ruleToFormula applicableRules) (exprOfAssertion asrt) 
+  let proofTarget = constrProofTarget proveConsistency (map ruleToFormula applicableRules) (exprOfAssertion asrt)
   let config = getAssocOfPathValue ["config"] instr
-  proveExpr config proveConsistency (classDeclsOfProgram prg) (varDeclsOfProgram prg) [] proofTarget
+  proveExpr config proveConsistency (classDeclsOfProgram prg) (varDeclsOfProgram prg) (varDefnsOfProgram prg) proofTarget
 
 
 constrProofTarget :: Bool -> [Expr (Tp())] -> Expr (Tp ()) -> Expr (Tp ())
@@ -366,14 +362,3 @@ constrProofTarget sat preconds concl =
   if sat
   then conjsExpr (concl : preconds)
   else conjsExpr (notExpr concl : preconds)
-
-{-
-proveProgramTest :: Program (LocTypeAnnot (Tp ())) -> IO ()
-proveProgramTest p =
-  do
-    putStrLn "First transfo: rewrite Despite and SubjectTo"
-    putStrLn (concatMap (renameAndPrintRule (namesUsedInProgram p)) (rewriteRuleSetSubjectTo (rewriteRuleSetDespite (rulesOfProgram (fmap typeAnnot p)))))
-    putStrLn "Second transfo: rewrite Derived"
-    putStrLn (concatMap (renameAndPrintRule (namesUsedInProgram p)) (rewriteRuleSetDerived (rewriteRuleSetSubjectTo (rewriteRuleSetDespite (rulesOfProgram (fmap typeAnnot p))))))
- -- putStrLn (printDerivs (rewriteRuleSetSubjectTo (rewriteRuleSetDespite (rulesOfProgram p))))
- -}
