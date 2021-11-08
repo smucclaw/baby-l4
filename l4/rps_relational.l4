@@ -1,0 +1,112 @@
+# The Rock - Paper - Scissors example in relational style,
+# contrary to the formalization in rps.l4 that is "class-based".
+
+class Sign
+class Player
+
+# One could introduce the following class Game and add an argument of class Game to win / lose.
+# But this is redundant as long as one does not reason about several games.
+# class Game
+
+decl beat : Sign -> Sign -> Boolean
+decl throw : Player -> Sign -> Boolean
+decl win: Player -> Boolean
+decl lose: Player -> Boolean
+
+# The following should be modeled as an enumeration type
+decl Rock : Sign
+decl Paper : Sign
+decl Scissors : Sign
+
+# ... the following is a typical axiom for an enumeration type
+fact <signExhaustive>
+for x: Sign
+(x == Rock) || (x == Paper) || (x == Scissors) 
+
+fact <signDisj>
+(Rock /= Paper) && (Rock /= Scissors) && (Paper /= Scissors)
+
+fact <beats_rock_scissors> 
+beat Rock Scissors
+
+fact <beats_scissors_paper>
+beat Scissors Paper
+
+# Was wrong in the original definition (see rps.l4).
+# Error detected when trying to prove <winOrLoseForDifferentSign>
+# fact <beats_paper_rock>
+# beat Rock Paper
+
+fact <beats_paper_rock>
+beat Paper Rock
+
+# Some (implicit) rules:
+
+# Every player throws at least one sign
+fact <throwAtLeastOne>
+for p: Player
+exists s: Sign. throw p s
+
+# Every player throws at most one sign
+rule <throwAtMostOne>
+for p: Player, s1 : Sign, s2: Sign
+if throw p s1 && throw p s2
+then s1 == s2
+
+# Conditions for winning / losing
+rule <winner>
+for p1 : Player, p2: Player, s1 : Sign, s2: Sign
+if throw p1 s1 && throw p2 s2 && beat s1 s2
+then win p1
+
+rule <loser>
+for p1 : Player, p2: Player, s1 : Sign, s2: Sign
+if throw p1 s1 && throw p2 s2 && beat s1 s2
+then lose p2
+
+# The win / lose rules have in fact to be read as "if and only if" rules
+rule <winInversion> 
+     {derived: {apply: {inversion,
+						apply: {normalize, winner}}}}
+
+rule <loseInversion> 
+     {derived: {apply: {inversion,
+						apply: {normalize, loser}}}}
+
+decl player1: Player
+decl player2: Player
+
+fact <playersDisj>
+player1 /= player2
+
+# A player either wins or loses
+# not valid
+assert <winOrLose> {SMT: valid}
+forall p: Player. win p || lose p
+
+# Prover gets into an infinite loop on this one:
+assert <winNotLose> {SMT_excluded: valid}
+not (win player1 && lose player1)
+
+# player1 either wins or loses
+# not valid (proof for instance gives less cryptic model)
+assert <winOrLosePlayer1> {SMT: valid}
+win player1 || lose player1
+
+# player1 either wins or loses if no other player throws the same sign
+# valid
+assert <winOrLoseForDifferentSign> {SMT: valid}
+forall s1: Sign. throw player1 s1 --> 
+    forall p: Player. forall s: Sign. p /= player1 && s /= s1 && throw p s --> 
+    win player1 || lose player1
+
+# player1 must win when throwing Rock
+# not valid
+assert <playerMustWinRock> {SMT: valid}
+throw player1 Rock --> win player1
+
+# player1 can win when throwing Rock
+# consistent
+assert <playerCanWinRock> {SMT: consistent}
+(forall p: Player. p == player1 || p == player2) &&
+throw player1 Rock && win player1

@@ -1,3 +1,5 @@
+# Small example to illustrate the difference between check for constistency / validity in SMT solver
+
 decl lawnWet : Boolean
 decl streetWet : Boolean
 decl rain : Boolean
