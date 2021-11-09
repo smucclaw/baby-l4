@@ -6,6 +6,9 @@ import L4.Syntax
 import Util (capitalise)
 
 
+-- Some notes:
+-- Given that CE & FE expressions share such similar structure, it might be good for us to 
+-- define some lower-level types that can generalize the similariites, and use CE and FE as wrappers
 
 data RuleFormat = Clara | Drools deriving Eq
 
@@ -35,12 +38,45 @@ type RAList = [RuleAction]
 -- anythin marked string is non-fleshed
 data ProductionSystem = ProductionSystem { package :: String
                                          , imports :: String
-                                         , functions :: String
+                                         , functions :: [ProductionDefn] 
                                          , queries :: String
                                          , classDecls :: [ProductionClassDecl]
                                          , globals :: String
                                          , rules :: [ProductionRule]
                                          }
+
+data ProductionDefn = ProductionDefn { nameOfProductionDefn :: ProdFuncName 
+                                     , returnTpOfProductionDefn :: Typename
+                                     , argsOfProductionDefn :: [(ProdVarName, Typename)]
+                                     , bodyOfProductionDefn :: ProdFuncExpr }
+                                     deriving (Eq, Show)
+
+instance ShowDrools ProductionDefn where
+    showDrools ProductionDefn {nameOfProductionDefn, argsOfProductionDefn, returnTpOfProductionDefn, bodyOfProductionDefn} = do
+        vsep [ defnHeader <+> lbrace 
+             , indent 2 $ pretty "return" <+> (showDrools bodyOfProductionDefn) <> semi
+             , rbrace]
+        where defnHeader = pretty "function" <+> pretty (capitalise returnTpOfProductionDefn) <+> pretty nameOfProductionDefn <> parens (hsep $ punctuate comma $ map prettyTup argsOfProductionDefn)
+              prettyTup (x,y) = pretty x <+> pretty y
+
+instance ShowClara ProductionDefn where
+    showClara x = viaShow x
+
+
+data ProdFuncExpr = FEFuncApp ProdFuncName [ProdFuncExpr]
+                  | FEArithmetic BArithOp ProdFuncExpr ProdFuncExpr
+                  | FEVarExpr Argument
+                  | FELiteral Val
+                  | ProdFuncExprFail String
+                  deriving (Eq, Show)
+
+instance ShowDrools ProdFuncExpr where
+    showDrools (FEFuncApp nm args) = parens (pretty nm <> parens (hsep $ punctuate comma $ map showDrools args))
+    showDrools (FEArithmetic aOp a1 a2) = parens (showDrools a1 <+> showDrools aOp <+> showDrools a2)
+    showDrools (FEVarExpr arg) = showDrools arg
+    showDrools (FELiteral val) = showDrools val
+    showDrools (ProdFuncExprFail msg) = pretty $ "Error: " ++ msg
+
 data ProductionClassDecl = ProductionClassDecl { nameOfProductionClassDecl :: Typename
                                                , fieldsOfProductionClassDecl :: [ProductionClassField]
                                                } deriving Show
@@ -148,6 +184,7 @@ instance ShowDrools ConditionalElement where
     showDrools (ConditionalEval cOp arg1 arg2 ) = pretty "eval" <> parens (showDrools arg1 <+> showDrools cOp <+> showDrools arg2)
     showDrools (ConditionalExist UBnot arg) = pretty "not" <+> parens (showDrools arg)
     showDrools (ConditionalElementFail err) = pretty $ "ConditionalElementFailure: " ++ show err
+
 instance ShowClara BComparOp where
     showClara BClt  = pretty "<"
     showClara BClte = pretty "<="
@@ -179,7 +216,7 @@ data CEArg = CEBinding ProdVarName ProdFieldName
            | CEEquality ProdFieldName ProdVarName
            | CEArithmetic BArithOp CEArg CEArg
            | CEFuncApp ProdFuncName [ProdVarName]
-           | CEVarExpr ProdVarName
+           | CEVarExpr Argument
            | CELiteral Val
            | CEArgFail String
            deriving (Eq, Show)
@@ -190,7 +227,7 @@ instance ShowClara CEArg where
     showClara (CEArithmetic aOp v1 v2) = lparen <> showClara aOp <+> showClara v1 <+> showClara v2 <> rparen
     showClara (CEFuncApp func vns) = parens (pretty func <+> hsep (punctuate comma (map ((<>) (pretty "?") . pretty) vns)))
     showClara (CELiteral x) = showClara x
-    showClara (CEVarExpr vn) = pretty "?" <> pretty vn
+    showClara (CEVarExpr vn) = pretty "?" <> showDrools vn
     showClara (CEArgFail err) = error $ "Transpilation failure: " ++ show err
 
 instance ShowDrools CEArg where
@@ -199,7 +236,7 @@ instance ShowDrools CEArg where
     showDrools (CEArithmetic aOp v1 v2) = lparen <> showDrools v1 <+> showDrools aOp <+> showDrools v2 <> rparen
     showDrools (CEFuncApp func vns) = pretty func <> parens (hsep (punctuate comma (map ((<>) (pretty "$") . pretty) vns)))
     showDrools (CELiteral x) = showDrools x
-    showDrools (CEVarExpr vn) = pretty "$" <> pretty vn
+    showDrools (CEVarExpr vn) = pretty "$" <> showDrools vn
     showDrools (CEArgFail err) = error $ "Transpilation failure: " ++ show err
 
 instance ShowClara Val where
@@ -242,15 +279,17 @@ instance ShowDrools RuleAction where
 
 
 
--- data Argument = Variable ProdVarName | Value String deriving (Eq, Show)
+data Argument = GlobVar ProdVarName | LocVar ProdVarName | Value String deriving (Eq, Show)
 
--- instance ShowClara Argument where
---     showClara (Variable x) = pretty x
---     showClara (Value y)    = pretty y
+instance ShowClara Argument where
+    showClara (GlobVar x)  = pretty x
+    showClara (LocVar x)   = pretty x
+    showClara (Value y)    = pretty y
 
--- instance ShowDrools Argument where
---     showDrools (Variable x) = pretty x
---     showDrools (Value y)    = pretty y
+instance ShowDrools Argument where
+    showDrools (GlobVar x) = pretty x
+    showDrools (LocVar x)  = pretty x
+    showDrools (Value y)   = pretty y
 
 
 yieldTp :: [Char] -> [Char]

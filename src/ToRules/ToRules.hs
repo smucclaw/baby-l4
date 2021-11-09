@@ -153,7 +153,7 @@ exprToCEArg (BinOpE _ (BArith aOp) x y) = CEArithmetic aOp (exprToCEArg x) (expr
 exprToCEArg (ValE _ ErrV) = error "The compiler should have failed before transpilation occurs here."
 exprToCEArg (ValE _ x) = CELiteral x
 exprToCEArg ve@(VarE _ (GlobalVar {})) = CELiteral $ StringV $ getName ve
-exprToCEArg ve@(VarE _ (LocalVar {})) = CEVarExpr $ getName ve
+exprToCEArg ve@(VarE _ (LocalVar {})) = CEVarExpr $ LocVar $ getName ve
 exprToCEArg _ = CEArgFail "you shouldn't have gotten this"
 
 exprToRuleAction :: (Ord t, Show t) => S.Set (Var t) -> ProductionRuleTrace -> Expr t -> RuleAction
