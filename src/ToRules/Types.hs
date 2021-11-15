@@ -52,8 +52,7 @@ data ProductionDefn = ProductionDefn { nameOfProductionDefn :: ProdFuncName
                                      deriving (Eq, Show)
 
 instance ShowDrools ProductionDefn where
-    -- showDrools x = viaShow x
-    showDrools ProductionDefn {nameOfProductionDefn, argsOfProductionDefn, returnTpOfProductionDefn, bodyOfProductionDefn} = do
+    showDrools ProductionDefn {nameOfProductionDefn, argsOfProductionDefn, returnTpOfProductionDefn, bodyOfProductionDefn} = 
         vsep [ defnHeader <+> lbrace 
              , indent 2 $ pretty "return" <+> (showDrools bodyOfProductionDefn) <> semi
              , rbrace]
@@ -61,7 +60,9 @@ instance ShowDrools ProductionDefn where
               prettyTup (x,y) = pretty x <+> pretty y
 
 instance ShowClara ProductionDefn where
-    showClara x = viaShow x
+    showClara ProductionDefn {nameOfProductionDefn, argsOfProductionDefn, bodyOfProductionDefn} = 
+        parens (vsep [ pretty "defn" <+> pretty nameOfProductionDefn <+> brackets (hsep $ map (pretty . snd) argsOfProductionDefn)
+                     , indent 2 $ showClara bodyOfProductionDefn ]) 
 
 
 data ProdFuncExpr = FEFuncApp ProdFuncName [ProdFuncExpr]
@@ -79,6 +80,14 @@ instance ShowDrools ProdFuncExpr where
     showDrools (FEVarExpr arg) = showDrools arg
     showDrools (FELiteral val) = showDrools val
     showDrools (ProdFuncExprFail msg) = pretty $ "Error: " ++ msg
+
+instance ShowClara ProdFuncExpr where
+    showClara (FEFuncApp nm args) = parens (pretty nm <> parens (hsep $ map showClara args))
+    showClara (FEComparison cOp a1 a2) = parens (showClara cOp <+> showClara a1 <+> showClara a2)
+    showClara (FEArithmetic aOp a1 a2) = parens (showClara aOp <+> showClara a1 <+> showClara a2)
+    showClara (FEVarExpr arg) = showClara arg
+    showClara (FELiteral val) = showClara val
+    showClara (ProdFuncExprFail msg) = pretty $ "Error: " ++ msg
 
 data ProductionClassDecl = ProductionClassDecl { nameOfProductionClassDecl :: Typename
                                                , fieldsOfProductionClassDecl :: [ProductionClassField]

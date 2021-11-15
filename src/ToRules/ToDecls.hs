@@ -37,7 +37,7 @@ exprToProdFuncExpr (ValE _ ErrV) = error "The compiler should have failed before
 exprToProdFuncExpr (ValE _ x) = FELiteral x
 exprToProdFuncExpr ve@(VarE _ (GlobalVar {})) = FELiteral $ StringV $ nameOfQVarName . nameOfVar . varOfExprVarE $ ve
 exprToProdFuncExpr ve@(VarE _ (LocalVar {}))  = FEVarExpr $ LocVar $ nameOfQVarName . nameOfVar . varOfExprVarE $ ve
-exprToProdFuncExpr x = ProdFuncExprFail $ "Error: cannot transform expression " ++ show x
+exprToProdFuncExpr x = ProdFuncExprFail $ "cannot transform expression " ++ show x
 
 astToDecls :: RuleFormat -> Program (Tp ()) -> IO ()
 astToDecls rf x = do

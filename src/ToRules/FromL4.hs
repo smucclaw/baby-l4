@@ -10,6 +10,6 @@ obtRule prog rname = [r | r <- rulesOfProgram prog, nameOfRule r == Just rname ]
 
 genREP :: Program (Tp ()) -> IO ()
 genREP x = do
-    let rf' = Drools
+    let rf' = Clara
     astToDecls rf' x 
     astToRules rf' x
