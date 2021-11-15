@@ -52,6 +52,7 @@ data ProductionDefn = ProductionDefn { nameOfProductionDefn :: ProdFuncName
                                      deriving (Eq, Show)
 
 instance ShowDrools ProductionDefn where
+    -- showDrools x = viaShow x
     showDrools ProductionDefn {nameOfProductionDefn, argsOfProductionDefn, returnTpOfProductionDefn, bodyOfProductionDefn} = do
         vsep [ defnHeader <+> lbrace 
              , indent 2 $ pretty "return" <+> (showDrools bodyOfProductionDefn) <> semi
@@ -64,6 +65,7 @@ instance ShowClara ProductionDefn where
 
 
 data ProdFuncExpr = FEFuncApp ProdFuncName [ProdFuncExpr]
+                  | FEComparison BComparOp ProdFuncExpr ProdFuncExpr
                   | FEArithmetic BArithOp ProdFuncExpr ProdFuncExpr
                   | FEVarExpr Argument
                   | FELiteral Val
@@ -72,6 +74,7 @@ data ProdFuncExpr = FEFuncApp ProdFuncName [ProdFuncExpr]
 
 instance ShowDrools ProdFuncExpr where
     showDrools (FEFuncApp nm args) = parens (pretty nm <> parens (hsep $ punctuate comma $ map showDrools args))
+    showDrools (FEComparison cOp a1 a2) = parens (showDrools a1 <+> showDrools cOp <+> showDrools a2)
     showDrools (FEArithmetic aOp a1 a2) = parens (showDrools a1 <+> showDrools aOp <+> showDrools a2)
     showDrools (FEVarExpr arg) = showDrools arg
     showDrools (FELiteral val) = showDrools val
@@ -199,7 +202,7 @@ instance ShowDrools BComparOp where
     showDrools BCgt  = pretty ">"
     showDrools BCgte = pretty ">="
     showDrools BCne = pretty "!="
-    showDrools BCeq = pretty ":=" -- NOTE: Bindings in drools vs Equality in drools
+    showDrools BCeq = pretty "==" -- NOTE: Bindings in drools vs Equality in drools
 
 instance ShowClara BArithOp where
     showClara BAadd = pretty "+"
