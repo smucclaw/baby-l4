@@ -95,9 +95,7 @@ data ProductionClassDecl = ProductionClassDecl { nameOfProductionClassDecl :: Ty
 
 instance ShowClara ProductionClassDecl where
     showClara ProductionClassDecl {nameOfProductionClassDecl, fieldsOfProductionClassDecl} = do
-        parens (pretty "defrecord" <+> pretty (capitalise nameOfProductionClassDecl) <+> brackets (hsep $ map genField numFields))
-        where numFields = [1..length fieldsOfProductionClassDecl]
-              genField x = pretty (concat (replicate x "*"))
+        parens (pretty "defrecord" <+> pretty (capitalise nameOfProductionClassDecl) <+> brackets (hsep $ map showClara fieldsOfProductionClassDecl))
 
 instance ShowDrools ProductionClassDecl where
     showDrools ProductionClassDecl {nameOfProductionClassDecl, fieldsOfProductionClassDecl} = do
@@ -108,8 +106,12 @@ instance ShowDrools ProductionClassDecl where
 
 data ProductionClassField = ProductionClassField ProdFieldName Typename PosAnnot deriving Show
 type PosAnnot = String -- positional annotation
+
 instance ShowDrools ProductionClassField where
     showDrools (ProductionClassField pfname tpname pos) = pretty pfname <> colon <+> pretty (yieldTp tpname) <+> pretty "@position" <> parens (pretty pos)
+
+instance ShowClara ProductionClassField where
+    showClara (ProductionClassField pfname _ _) = pretty pfname 
 
 
 
@@ -234,8 +236,8 @@ data CEArg = CEBinding ProdVarName ProdFieldName
            deriving (Eq, Show)
 
 instance ShowClara CEArg where
-    showClara (CEEquality fn fv) = pretty "=" <+> pretty fn <+> (colon <> pretty fv)
-    showClara (CEBinding vn fn) = pretty "=" <+> pretty "?" <> pretty vn <+> pretty fn
+    showClara (CEEquality fn fv) = pretty "=" <+> pretty fn <+> dquotes (pretty fv)
+    showClara (CEBinding vn fn) = pretty "=" <+> pretty fn <+> pretty "?" <> pretty vn
     showClara (CEArithmetic aOp v1 v2) = lparen <> showClara aOp <+> showClara v1 <+> showClara v2 <> rparen
     showClara (CEFuncApp func vns) = parens (pretty func <+> hsep (punctuate comma (map ((<>) (pretty "?") . pretty) vns)))
     showClara (CELiteral x) = showClara x
@@ -252,7 +254,7 @@ instance ShowDrools CEArg where
     showDrools (CEArgFail err) = error $ "Transpilation failure: " ++ show err
 
 instance ShowClara Val where
-    showClara (StringV x) = colon <> pretty x
+    showClara (StringV x) = dquotes $ pretty x
     showClara (BoolV x) = pretty x
     showClara (IntV x) = pretty x
     showClara (FloatV x) = pretty x

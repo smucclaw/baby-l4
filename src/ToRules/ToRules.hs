@@ -41,6 +41,12 @@ import Data.Maybe (mapMaybe)
 -- incorporating ExceptT (& other necessary monad transformers) for error-handling. 
 
 
+astToRules :: RuleFormat -> Program (Tp ()) -> IO ()
+astToRules rf x = do
+    let lrRules = map filterRule $ rulesOfProgram x
+        gdRules = rights lrRules
+    mapM_ (print . (<>) line . showForm rf) gdRules
+
 ----------------------------------------------------------------------------------------------------------------
 -- Logic & Functions
 ----------------------------------------------------------------------------------------------------------------
@@ -62,20 +68,6 @@ ruleToProductionRule Rule {nameOfRule, varDeclsOfRule, precondOfRule, postcondOf
           (boundLocals, condElems) = exprlistToRCList 0 S.empty [] $  precondToExprList precondOfRule
           traceObj = mkTrace prodRuleName condElems varDeclsOfRule
 
-mkTrace :: String -> [ConditionalElement] -> [VarDecl t] -> ProductionRuleTrace
-mkTrace rnm priors args = ProductionRuleTrace {
-      nameOfTraceObj = "justification" ++ capitalise rnm
-    , priors = mapMaybe condElemToTraceTup priors
-    , args = mapMaybe varDeclToTraceTup args
-}
-
-condElemToTraceTup :: ConditionalElement -> Maybe TraceTuple
-condElemToTraceTup (ConditionalFuncApp s _) = Just $ TraceTup (s, "Justification")
-condElemToTraceTup _ = Nothing
-
-varDeclToTraceTup :: VarDecl t -> Maybe TraceTuple
-varDeclToTraceTup (VarDecl _ nm (ClassT _ (ClsNm cn))) = Just $ TraceTup (nm, cn)
-varDeclToTraceTup _ = Nothing
 
 precondToExprList :: Expr t -> [Expr t] -- todo : rename to reflect new typesig
 precondToExprList (BinOpE _ (BBool BBand) arg1 arg2) = precondToExprList arg1 ++ precondToExprList arg2
@@ -164,8 +156,18 @@ exprToRuleAction lvs tObj fApp@(AppE {}) = ActionFuncApp (getName fexpr) tObj (m
 
 exprToRuleAction _ _ x = ActionExprErr $ "error: cannot convert expression into rule-action: " ++ show x
 
-astToRules :: RuleFormat -> Program (Tp ()) -> IO ()
-astToRules rf x = do
-    let lrRules = map filterRule $ rulesOfProgram x
-        gdRules = rights lrRules
-    mapM_ (print . (<>) line . showForm rf) gdRules
+-- Trace/Justification Objects 
+mkTrace :: String -> [ConditionalElement] -> [VarDecl t] -> ProductionRuleTrace
+mkTrace rnm priors args = ProductionRuleTrace {
+      nameOfTraceObj = "justification" ++ capitalise rnm
+    , priors = mapMaybe condElemToTraceTup priors
+    , args = mapMaybe varDeclToTraceTup args
+}
+
+condElemToTraceTup :: ConditionalElement -> Maybe TraceTuple
+condElemToTraceTup (ConditionalFuncApp s _) = Just $ TraceTup (s, "Justification")
+condElemToTraceTup _ = Nothing
+
+varDeclToTraceTup :: VarDecl t -> Maybe TraceTuple
+varDeclToTraceTup (VarDecl _ nm (ClassT _ (ClsNm cn))) = Just $ TraceTup (nm, cn)
+varDeclToTraceTup _ = Nothing
