@@ -14,7 +14,8 @@ import TimedMC (proveAssertionTA)
 import Smt(proveAssertionSMT)
 import Control.Monad (foldM)
 import RuleTransfo (rewriteRuleSetDerived, rewriteRuleSetSubjectTo, rewriteRuleSetDespite)
-import L4.PrintProg (renameAndPrintRule, namesUsedInProgram)
+import L4.PrintProg
+    ( renameAndPrintRule, namesUsedInProgram, printTest )
 
 
 
@@ -24,6 +25,7 @@ proveAssertion p asrt = foldM (\r (k,instr) ->
               "SMT" -> proveAssertionSMT p instr asrt
               "sCASP"-> proveAssertionASP p instr asrt
               "TA" -> proveAssertionTA p instr asrt
+              "print" -> printTest p
               _ -> return ())
           () (instrOfAssertion asrt)
 

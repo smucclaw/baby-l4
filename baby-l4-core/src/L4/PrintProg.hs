@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 {-# LANGUAGE LambdaCase #-}
 
 
@@ -14,6 +15,12 @@ import Data.List (find)
 import L4.SyntaxManipulation (appToFunArgs)
 
 import Data.Char        ( toUpper )
+import System.Posix.Types (CDev(CDev))
+import L4.Syntax (Program(Program), ClConstr (ClConstr), Transition (Transition), FieldDecl (FieldDecl))
+import Data.Text.Prettyprint.Doc.Util (putDocW)
+import Prettyprinter.Internal.Type (Doc(Empty))
+
+
 -------------------------------------------------------------
 -- Rename variables in rules and expressions
 -------------------------------------------------------------
@@ -153,27 +160,33 @@ printUnaOpE (UArith UAminus) = "-"
 printUnaOpE (UBool UBnot) = "not "
 printUnaOpE (UTemporal ut) = printUTemporalOp ut
 
-printBinOpE :: BinOp -> String
-printBinOpE (BArith b1) =
-    case b1 of
+printBArith :: BArithOp -> String
+printBArith b = case b of
         BAadd -> "+"
         BAsub -> "-"
         BAmul -> "*"
         BAdiv -> "/"
         BAmod -> "%"
-printBinOpE (BCompar b1) =
-    case b1 of
+
+printBCompar :: BComparOp -> String
+printBCompar b = case b of
         BCeq -> "=="
         BClt -> "<"
         BClte -> "<="
         BCgt -> ">"
         BCgte -> ">="
         BCne -> "/="
-printBinOpE (BBool b1) =
-    case b1 of
+
+printBBool :: BBoolOp -> String
+printBBool b = case b of
         BBimpl -> "-->"
         BBor -> "||"
         BBand -> "&&"
+
+printBinOpE :: BinOp -> String
+printBinOpE (BArith b) = printBArith b
+printBinOpE (BCompar b) = printBCompar b
+printBinOpE (BBool b) = printBBool b
 
 printPattern :: Pattern t -> String
 printPattern (VarP s) = printQVarName s
@@ -184,15 +197,15 @@ printQuantif All = " all "
 printQuantif Ex = " exists "
 
 printExpr :: Show t => Expr t -> String
-printExpr (ValE t v) = printVal v
-printExpr (VarE t v) = printVar v
-printExpr (UnaOpE t u et) = "(" ++ printUnaOpE u ++ printExpr et ++ ")"
-printExpr (BinOpE t b et1 et2) = "(" ++ printExpr et1 ++ printBinOpE b ++ printExpr et2 ++ ")"
-printExpr (IfThenElseE t c et1 et2) = " if " ++ printExpr c ++ " then " ++ printExpr et1 ++ " else " ++ printExpr et2
-printExpr (AppE t f a) = "(" ++ printExpr f ++ " " ++ printExpr a ++ ")"
-printExpr (FunE t v et) = "( \\ " ++ printVarDecl v ++ " -> " ++ printExpr et ++ ")"
-printExpr (QuantifE t q v et) = "(" ++ printQuantif q ++ printVarDecl v ++ ". " ++ printExpr et ++ ")"
-printExpr (FldAccE t et f) = printExpr et ++ "." ++ stringOfFieldName f
+printExpr (ValE _t v) = printVal v
+printExpr (VarE _t v) = printVar v
+printExpr (UnaOpE _t u et) = "(" ++ printUnaOpE u ++ printExpr et ++ ")"
+printExpr (BinOpE _t b et1 et2) = "(" ++ printExpr et1 ++ printBinOpE b ++ printExpr et2 ++ ")"
+printExpr (IfThenElseE _t c et1 et2) = " if " ++ printExpr c ++ " then " ++ printExpr et1 ++ " else " ++ printExpr et2
+printExpr (AppE _t f a) = "(" ++ printExpr f ++ " " ++ printExpr a ++ ")"
+printExpr (FunE _t v et) = "( \\ " ++ printVarDecl v ++ " -> " ++ printExpr et ++ ")"
+printExpr (QuantifE _t q v et) = "(" ++ printQuantif q ++ printVarDecl v ++ ". " ++ printExpr et ++ ")"
+printExpr (FldAccE _t et f) = printExpr et ++ "." ++ stringOfFieldName f
 printExpr e = show e  -- TODO - incomplete
 
 printRule :: Show t => Rule t -> String
@@ -217,7 +230,36 @@ renameAndPrintRule nms  = printRule . renameRule nms
 -- Print expressions etc. using Prettyprinter library
 -------------------------------------------------------------
 
--- Configuration of printing functions. 
+
+-- ...........................................................
+-- Settings and convenience functions
+-- indentation depth for substructures
+nestingDepth :: Int
+nestingDepth = 4
+
+isEmpty :: Doc ann -> Bool
+isEmpty Empty = True
+isEmpty _ = False
+
+vsepnonempty :: [Doc ann] -> Doc ann
+vsepnonempty ds = vsep [d | d <- ds, not (isEmpty d)]
+
+-- depending on whether lst is empty or not, display as
+-- prefix   (without anything else)  or
+-- prefix { showlst lst }  (with the part in braces indented)
+optionalBraces :: Doc ann -> [a] -> ([a] -> [Doc ann]) -> Doc ann
+optionalBraces prefix lst showlst =
+    case lst of
+        [] -> prefix
+        _ -> nest nestingDepth
+                (vsep ( [prefix <+> pretty "{"] ++
+                        showlst lst ++
+                        [pretty "}"]))
+
+-- ...........................................................
+-- Configuration 
+-- The first argument of the printing functions (cfs) configures the printing behaviour,
+-- according to the following settings.
 -- The first constructor of the following types should be the default
 data PrintVarIndex
     = PrintName                             -- print local variable name without additional info
@@ -231,10 +273,15 @@ data PrintCurried
     = Curried                               -- print function application curried: f a1 a2 .. an
     | MultiArg                              -- print application as function + list of args: f(a1, .., an)
 
+data PrintSystem
+    = L4Style              -- print TASys in L4 style, enclosed in system {...} and composed of the processes it contains
+    | UppaalStyle          -- print TASys in a style that can directly be read in by Uppaal (*.xta format)
+
 data PrintConfig =
       PrintVarIndex PrintVarIndex
     | PrintVarCase PrintVarCase
     | PrintCurried PrintCurried
+    | PrintSystem PrintSystem
 
 printVarIndex :: [PrintConfig] -> PrintVarIndex
 printVarIndex cfs = case find (\ case PrintVarIndex {} -> True; _ -> False) cfs of
@@ -250,17 +297,24 @@ printCurried :: [PrintConfig] -> PrintCurried
 printCurried cfs = case find (\ case PrintCurried {} -> True; _ -> False) cfs of
     Just (PrintCurried x) -> x
     _ -> Curried
+
+printSystem :: [PrintConfig] -> PrintSystem
+printSystem cfs = case find (\ case PrintSystem {} -> True; _ -> False) cfs of
+    Just (PrintSystem x) -> x
+    _ -> L4Style
+
+
 class ShowL4 x where
     showL4 :: [PrintConfig] -> x -> Doc ann
 
 instance ShowL4 (Tp t) where
-  showL4 cfs (ClassT _ cn) = pretty (stringOfClassName cn)
+  showL4 _cfs (ClassT _ cn) = pretty (stringOfClassName cn)
   showL4 cfs (FunT _ t1 t2) = parens (showL4 cfs t1 <+> pretty "->" <+> showL4 cfs t2)
-  showL4 cfs (TupleT _ []) = parens (pretty "")
+  showL4 _cfs (TupleT _ []) = parens (pretty "")
   showL4 cfs (TupleT _ [t]) = parens ( showL4 cfs t )
   -- TODO: see how the following is done
   -- showL4 cfs (TupleT _ (t:ts)) = parens ( showL4 cfs t <+> pretty "," <+> (foldr (\s r -> ((printTp s) ++ ", " ++ r)) "" ts))
-  showL4 cfs _ = error "internal error in printTp: ErrT or OkT not printable"
+  showL4 _cfs _ = error "internal error in printTp: ErrT or OkT not printable"
 
 instance ShowL4 Val where
     showL4 _ (BoolV b) = pretty (show b)
@@ -284,10 +338,11 @@ instance ShowL4 (Var t) where
                     PrintName -> ""
                     PrintIndexedName -> "@" ++ show i
 
-
 instance ShowL4 (VarDecl t) where
     showL4 cfs vd = pretty (nameOfVarDecl vd) <+> pretty ":" <+> showL4 cfs (tpOfVarDecl vd)
-
+instance Show t => ShowL4 (VarDefn t) where
+    showL4 cfs vd = pretty (nameOfVarDefn vd) <+> pretty ":" <+> showL4 cfs (tpOfVarDefn vd)
+                    <+> pretty "=" <+> showL4 cfs (bodyOfVarDefn vd)
 instance Show t => ShowL4 (Expr t) where
     showL4 cfs (ValE t v) = showL4 cfs v
     showL4 cfs (VarE t v) = showL4 cfs v
@@ -305,11 +360,175 @@ instance Show t => ShowL4 (Expr t) where
     showL4 cfs (FldAccE t et f) = showL4 cfs et <+> pretty "." <+> pretty (stringOfFieldName f)
     showL4 cfs e = pretty (show e)  -- TODO - incomplete
 
+instance ShowL4 ClassName where
+    showL4 cfs (ClsNm nm) = pretty nm
+
+instance ShowL4 FieldName where
+    showL4 cfs (FldNm nm) = pretty nm
+
+-- note: assumption: only strict subclasses of Class are displayed
+-- otherwise, head (tail cls) will fail
+showExtends :: [PrintConfig] -> [ClassName] -> Doc ann
+showExtends cfs cls =
+    if ClassC /= head (tail cls)
+    then pretty "extends" <+> showL4 cfs (head (tail cls))
+    else emptyDoc
+
+showFieldDecls :: Show t => [PrintConfig] -> [FieldDecl t] -> Doc ann
+showFieldDecls cfs fds =
+    case fds of
+        [] -> emptyDoc
+        _ -> nest nestingDepth
+                (vsep ([pretty "{"] ++
+                       map (\fd -> showL4 cfs (nameOfFieldDecl fd) <+> pretty ":" <+> showL4 cfs (tpOfFieldDecl fd) ) fds ++
+                       [pretty "}"]))
+
+
+-- note: only strict subclasses of Class are displayed
+instance Show t => ShowL4 (ClassDecl t) where
+    showL4 cfs cd =
+        if ClassC `elem` tail (supersOfClassDef (defOfClassDecl cd))
+        then optionalBraces (hsep [pretty "class"
+                                  , showL4 cfs (nameOfClassDecl cd)
+                                  , showExtends cfs (supersOfClassDef (defOfClassDecl cd ))])
+                            (fieldsOfClassDef (defOfClassDecl cd ))
+                            (map (\fd -> showL4 cfs (nameOfFieldDecl fd) <+> pretty ":" <+> showL4 cfs (tpOfFieldDecl fd) ))
+        else emptyDoc
+
+
+instance ShowL4 Clock where
+    showL4 _cfs (Clock nm) = pretty nm
+
+instance ShowL4 ClConstr where
+    showL4 cfs (ClConstr cl cop i) =
+        showL4 cfs cl <+> pretty (printBCompar cop) <+> pretty i
+instance ShowL4 Loc where
+    showL4 _cfs (Loc nm) = pretty nm
+
+instance ShowL4 SyncMode where
+    showL4 _cfs Broadcast = emptyDoc
+    showL4 _cfs Send = pretty "!"
+    showL4 _cfs Receive = pretty "?"
+
+instance Show t => ShowL4 (TransitionGuard t) where
+    showL4 cfs (TransitionGuard [] Nothing) = emptyDoc
+    showL4 cfs (TransitionGuard constrts Nothing) =
+        hsep ([pretty "guard"] ++ showInvars cfs constrts ++ [pretty ";"])
+    showL4 cfs (TransitionGuard constrts (Just e)) =
+        hsep ([pretty "guard"] ++ showInvars cfs constrts ++ [pretty " && ", showL4 cfs e, pretty ";"])
+
+instance Show t => ShowL4 (TransitionAction t) where
+    showL4 cfs (TransitionAction [] _act) = emptyDoc
+    showL4 cfs (TransitionAction clocks _act) =
+        hsep (pretty "assign" : punctuate comma (map (\c -> showL4 cfs c <+> pretty "= 0") clocks)) <> pretty ";"
+instance Show t => ShowL4 (Transition t) where
+    showL4 cfs t =
+        hsep [ showL4 cfs (sourceOfTransition t)
+             , pretty "->"
+             , showL4 cfs (targetOfTransition t)
+             , pretty "{"
+             , showL4 cfs (guardOfTransition t)
+             , showSync cfs (syncOfTransition t)
+             , showL4 cfs (actionOfTransition t)
+             , pretty "}"
+        ]
+
+showSync :: [PrintConfig] -> Maybe Sync -> Doc ann
+showSync _cfs Nothing = emptyDoc
+showSync cfs (Just (Sync nm md)) = pretty "sync" <+> pretty nm <> showL4 cfs md <> pretty ";"
+
+
+showInvars :: [PrintConfig] -> [ClConstr] -> [Doc ann]
+showInvars cfs constrts = punctuate (pretty " &&") (map (showL4 cfs) constrts)
+
+showConstraints :: [PrintConfig] -> Maybe [ClConstr] -> Doc ann
+showConstraints _cfs Nothing = emptyDoc
+showConstraints _cfs (Just []) = emptyDoc
+showConstraints cfs (Just constrts) =
+    hsep ( [ pretty " {" ] ++
+           showInvars cfs constrts ++
+           [ pretty "}" ]
+    )
+
+
+showState :: [PrintConfig] -> [Loc] -> [(Loc, [ClConstr])] -> Doc ann
+showState cfs locs constrts =
+    nest nestingDepth
+        (vsep ([ pretty "state" ] ++
+                punctuate comma (map (\l -> pretty (nameOfLoc l) <> showConstraints cfs (lookup l constrts)) locs) ++
+                [ pretty ";"])
+        )
+
+showTrans :: Show t => [PrintConfig] -> [Transition t] -> Doc ann
+showTrans cfs trans =
+    nest nestingDepth
+        (vsep ([ pretty "trans" ] ++
+               punctuate comma (map (showL4 cfs) trans) ++
+               [ pretty ";"])
+        )
+
+showClockDecls :: [PrintConfig] -> [Clock] -> Doc ann
+showClockDecls _cfs [] = emptyDoc 
+showClockDecls cfs clocks =  pretty "clock" <+> hsep (punctuate comma (map (showL4 cfs) clocks)) <> pretty ";"
+instance Show t => ShowL4 (TA t) where
+    showL4 cfs aut =
+        vsep [ pretty "process" <+> pretty (nameOfTA aut) <+> pretty "() {"
+             , showClockDecls cfs (clocksOfTA aut)
+             , showState cfs (locsOfTA aut) (invarsOfTA aut)
+             , pretty "init" <+> showL4 cfs (initialLocOfTA aut) <> pretty ";"
+             , showTrans cfs (transitionsOfTA aut)
+             , pretty "}"
+        ]
+
+printL4System :: Show t => [PrintConfig] -> TASys t -> Doc ann
+printL4System cfs sys =
+    nest nestingDepth
+        (vsep ([ pretty "system {"
+          , pretty "chan" <+> hsep (punctuate comma (map pretty (channelsOfSys sys))) <> pretty ";"
+          ] ++
+          map (showL4 cfs) (automataOfSys sys) ++
+          [ pretty "}" ])
+        )
+
+printUppaalSystem :: Show t => [PrintConfig] -> TASys t -> Doc ann
+printUppaalSystem cfs sys =
+    vsep ([ pretty "chan" <+> hsep (punctuate comma (map pretty (channelsOfSys sys))) <> pretty ";" ] ++
+          map (showL4 cfs) (automataOfSys sys) ++
+          [ pretty "system" <+> hsep (punctuate comma (map (pretty . nameOfTA) (automataOfSys sys))) <> pretty ";" ])
+instance Show t => ShowL4 (TASys t) where
+    showL4 cfs sys =
+        case printSystem cfs of
+            L4Style -> printL4System cfs sys
+            UppaalStyle -> printUppaalSystem cfs sys
+
 instance Show t => ShowL4 (Rule t) where
     showL4 cfs r =
-        vsep [ pretty "rule" <+> pretty (printARName (nameOfRule r))
+        vsep ([ pretty "rule" <+> pretty (printARName (nameOfRule r)) ] ++
              -- , printInstr (instrOfRule r) ++ "\n" ++
-            -- (let vds = printVarDeclsCommaSep (varDeclsOfRule r) in if vds == "" then "" else vds ++ "\n") ++
-             , pretty "if" <+> showL4 cfs (precondOfRule r)
+             [hsep (punctuate comma (map (showL4 cfs) (varDeclsOfRule r)))] ++
+             [ pretty "if" <+> showL4 cfs (precondOfRule r)
              , pretty "then" <+> showL4 cfs (postcondOfRule r)
+             ])
+
+instance Show t => ShowL4 (Assertion t) where
+    showL4 cfs a =
+        vsep [ pretty "assert" <+> pretty (printARName (nameOfAssertion a))
+             -- , printInstr (instrOfAssertion a) ++ "\n" ++
+             , showL4 cfs (exprOfAssertion a)
              ]
+
+instance Show t => ShowL4 (TopLevelElement t) where
+    showL4 _cfs (MappingTLE m) = pretty "Mapping: ShowL4 not implemented"
+    showL4 cfs (ClassDeclTLE cd) = showL4 cfs cd
+    showL4 cfs (VarDeclTLE vd) = pretty "decl" <+> showL4 cfs vd
+    showL4 cfs (VarDefnTLE vd) = pretty "defn" <+> showL4 cfs vd
+    showL4 cfs (RuleTLE r) = showL4 cfs r
+    showL4 cfs (AssertionTLE a) = showL4 cfs a
+    showL4 cfs (AutomatonTLE a) = showL4 cfs a
+    showL4 cfs (SystemTLE s) = showL4 cfs s
+
+instance Show t => ShowL4 (Program t) where
+    showL4 cfs prg = vsepnonempty (map (showL4 cfs) (elementsOfProgram prg))
+
+printTest :: Show t => Program t -> IO()
+printTest p = print (showL4 [PrintSystem UppaalStyle] p)

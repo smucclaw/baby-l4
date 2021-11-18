@@ -357,7 +357,7 @@ AutomatonList :                          { [] }
 
 -- channel list in normal order
 Channels :                           { [] }
-         | chan VarsCommaSep ';' { map ClsNm (reverse $2) }
+         | chan VarsCommaSep ';' { reverse $2 }
 
 -- clock list in normal order
 Clocks :                        { [] }
@@ -405,13 +405,13 @@ TransitionWithInfo : VAR '->' VAR '{' TrGuard TrSync TrAssign '}'
 			       targetOfTransition = (Loc (tokenSym $3))} }
 
 -- TODO: so far, guard expressions are not taken into account, only clock constraints
-TrGuard :                                   { TransitionGuard [] (ValE (nullSRng) (BoolV True)) }
-| guard InvarsAndSep ';' { TransitionGuard (reverse $2) (ValE (nullSRng) (BoolV True)) }
+TrGuard :                                   { TransitionGuard [] Nothing }
+| guard InvarsAndSep ';' { TransitionGuard (reverse $2) Nothing }
 
--- The sync mode (nothing / receive / send) is currently ignored
-SyncMode :  {} | '?' {} | '!' {}
+-- Note: the Broadcast mode is not a valid mode in Upppaal
+SyncMode :  {Broadcast} | '!' {Send} | '?' {Receive}
 TrSync :                    { Nothing }
-	 | sync VAR SyncMode ';'  { Just (tokenSym $2) }
+	 | sync VAR SyncMode ';'  { Just (Sync (tokenSym $2) $3) }
 
 -- TODO: only clock resets taken into account
 TrAssign :                             { TransitionAction [] (Skip (nullSRng)) }

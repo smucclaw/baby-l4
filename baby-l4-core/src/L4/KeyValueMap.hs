@@ -86,9 +86,10 @@ putAssocOfPathMap [] _ _ = error "path should not be empty"
 putAssocOfPathMap (k : ks) v m =
   (k, putAssocOfPathValue ks v (fromMaybe (MapVM []) (getAssocOfPathMap [k] m))) : removeKeyFromMap k m
 
-
+{- For testing purposes
 mymap :: ValueKVM
 mymap = MapVM [("valid",MapVM []),("procs",MapVM [("AutA",MapVM []),("AutC",MapVM [])]),("config",MapVM [("loglevel",IntVM 0),("logic",IdVM "AUFLIRA")])]
 
 -- >>> hasPathValue ["config", "logic"] mymap
 -- True
+-}
