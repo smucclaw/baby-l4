@@ -244,17 +244,17 @@ isEmpty _ = False
 vsepnonempty :: [Doc ann] -> Doc ann
 vsepnonempty ds = vsep [d | d <- ds, not (isEmpty d)]
 
--- depending on whether lst is empty or not, display as
+-- depending on whether nobraces is true or not, display as
 -- prefix   (without anything else)  or
--- prefix { showlst lst }  (with the part in braces indented)
-optionalBraces :: Doc ann -> [a] -> ([a] -> [Doc ann]) -> Doc ann
-optionalBraces prefix lst showlst =
-    case lst of
-        [] -> prefix
-        _ -> nest nestingDepth
-                (vsep ( [prefix <+> pretty "{"] ++
-                        showlst lst ++
-                        [pretty "}"]))
+-- prefix { lst }  (with the part in braces indented)
+optionalBraces :: Doc ann -> Bool -> [Doc ann] -> Doc ann
+optionalBraces prefix nobraces lst  =
+    if nobraces
+    then prefix
+    else nest nestingDepth
+            (vsep ( [prefix <+> pretty "{"] ++
+                    lst ++
+                    [pretty "}"]))
 
 -- ...........................................................
 -- Configuration 
@@ -391,8 +391,8 @@ instance Show t => ShowL4 (ClassDecl t) where
         then optionalBraces (hsep [pretty "class"
                                   , showL4 cfs (nameOfClassDecl cd)
                                   , showExtends cfs (supersOfClassDef (defOfClassDecl cd ))])
-                            (fieldsOfClassDef (defOfClassDecl cd ))
-                            (map (\fd -> showL4 cfs (nameOfFieldDecl fd) <+> pretty ":" <+> showL4 cfs (tpOfFieldDecl fd) ))
+                            (null (fieldsOfClassDef (defOfClassDecl cd )))
+                            (map (\fd -> showL4 cfs (nameOfFieldDecl fd) <+> pretty ":" <+> showL4 cfs (tpOfFieldDecl fd) ) (fieldsOfClassDef (defOfClassDecl cd )))
         else emptyDoc
 
 
@@ -472,23 +472,18 @@ showClockDecls _cfs [] = emptyDoc
 showClockDecls cfs clocks =  pretty "clock" <+> hsep (punctuate comma (map (showL4 cfs) clocks)) <> pretty ";"
 instance Show t => ShowL4 (TA t) where
     showL4 cfs aut =
-        vsep [ pretty "process" <+> pretty (nameOfTA aut) <+> pretty "() {"
-             , showClockDecls cfs (clocksOfTA aut)
+        optionalBraces (pretty "process" <+> pretty (nameOfTA aut) <+> pretty "()") False 
+             [ showClockDecls cfs (clocksOfTA aut)
              , showState cfs (locsOfTA aut) (invarsOfTA aut)
              , pretty "init" <+> showL4 cfs (initialLocOfTA aut) <> pretty ";"
-             , showTrans cfs (transitionsOfTA aut)
-             , pretty "}"
-        ]
+             , showTrans cfs (transitionsOfTA aut)]
+
 
 printL4System :: Show t => [PrintConfig] -> TASys t -> Doc ann
 printL4System cfs sys =
-    nest nestingDepth
-        (vsep ([ pretty "system {"
-          , pretty "chan" <+> hsep (punctuate comma (map pretty (channelsOfSys sys))) <> pretty ";"
-          ] ++
-          map (showL4 cfs) (automataOfSys sys) ++
-          [ pretty "}" ])
-        )
+    optionalBraces (pretty "system" <+> pretty (nameOfTASys sys)) False 
+          ((pretty "chan" <+> hsep (punctuate comma (map pretty (channelsOfSys sys))) <> pretty ";") :
+           map (showL4 cfs) (automataOfSys sys))
 
 printUppaalSystem :: Show t => [PrintConfig] -> TASys t -> Doc ann
 printUppaalSystem cfs sys =
@@ -530,5 +525,5 @@ instance Show t => ShowL4 (TopLevelElement t) where
 instance Show t => ShowL4 (Program t) where
     showL4 cfs prg = vsepnonempty (map (showL4 cfs) (elementsOfProgram prg))
 
-printTest :: Show t => Program t -> IO()
-printTest p = print (showL4 [PrintSystem UppaalStyle] p)
+printTest :: Show t => Program t -> PrintSystem -> IO()
+printTest p style = print (showL4 [PrintSystem style] p)

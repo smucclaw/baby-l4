@@ -561,6 +561,7 @@ instance HasAnnot TA where
 -- Type parameter ext: Environment-specific extension
 data TASys t = TASys {
   annotOfSys :: t,
+  nameOfTASys :: String,
   declsOfSys :: [VarDecl t],
   channelsOfSys :: [ChannelName],
   automataOfSys :: [TA t]

@@ -323,11 +323,12 @@ Assertion : assert ARName KVMap        { Assertion (getLoc $1) $2 $3 (ValE (null
 ----------------------------------------------------------------------
 -- Automata and Systems of automata
 ----------------------------------------------------------------------
-System : system '{' SystemVarDecls Channels AutomatonList '}'
-  { TASys {annotOfSys = (tokenRange $1 $6),
-           declsOfSys = reverse $3,
-           channelsOfSys = $4,
-           automataOfSys = reverse $5
+System : system VAR '{' SystemVarDecls Channels AutomatonList '}'
+  { TASys {annotOfSys = (tokenRange $1 $7),
+           nameOfTASys = (tokenSym $2),
+           declsOfSys = reverse $4,
+           channelsOfSys = $5,
+           automataOfSys = reverse $6
            } }
 
 -- system var decls in reverse order
