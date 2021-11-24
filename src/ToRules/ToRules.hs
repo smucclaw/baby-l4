@@ -12,29 +12,10 @@ import qualified Data.Set as S
 import Util (capitalise)
 import Data.Maybe (mapMaybe)
 
--- TODO 22/10/2021
---  1) account for bindings within post conditions
---      25/10 : binding outputs for post conditions are done.
---      29/10: added checks for existence of bindings for local variables used in rule actions
---  2) generate justification objects on a per-rule basis
---      27/10 : justification objects are a go go go
---      29/10 : justification fields added to type declarations
---      Next: tests?
---  3) integrate justification objects into rule transpilations
---      a) positive literals should have bindings to their justification objects
---      b) `not` expressions (negative literals) should not have bindings to their justifications (since bindings don't make sense within a `not` statement for drools)
---      c) evaluative expressions should not have bindings to their justifications 
---  
--- Thoughts 22/10/2021
---  1) how is a single rule containing a `not` expression with equality test currently transcribed?
---       >  with the `:=` syntax in drools being a binding in first occurrence and equality after,
---          it is likely that the `not` expression would not have the expected interpretation in drools.
-
-
-
 
 -- Some notes:
-
+--
+-- 26/10/2021
 -- Currently we have failure types for ConditionalElement & CEArg to allow for tests
 -- of expected failure (especially so for testing if vars are bound in rules). It's
 -- probably not wise to extend this treatment to the other types, and we should begin 
@@ -74,6 +55,7 @@ precondToExprList (BinOpE _ (BBool BBand) arg1 arg2) = precondToExprList arg1 ++
 precondToExprList fApp@AppE {} = [fApp]
 precondToExprList bcomp@(BinOpE _ (BCompar _) _ _) = [bcomp]
 precondToExprList unot@(UnaOpE _ (UBool UBnot) _) = [unot]
+precondToExprList (ValE _ (BoolV True)) = []
 precondToExprList _ = error "non and operation"
 
 exprlistToRCList :: (Ord t, Show t) => Int -> S.Set (Var t) -> RCList -> [Expr t] -> (S.Set (Var t), RCList)

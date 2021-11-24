@@ -26,7 +26,7 @@ varDefnToProductionDefn :: (Show t) => VarDefn t -> ProductionDefn
 varDefnToProductionDefn (VarDefn _ nm tp f@FunE {}) = ProductionDefn nm (stringOfClassName . classNameOfTp $ retTp) (map tupelize vars) defnExp
     where (_, retTp) = spine [] tp
           (vars, bd) = decomposeFun f
-          tupelize (VarDecl _ nm tp) = (stringOfClassName . classNameOfTp $ tp, nm)
+          tupelize (VarDecl _ n t) = (stringOfClassName . classNameOfTp $ t, n)
           defnExp = exprToProdFuncExpr bd
 varDefnToProductionDefn _ = error "FunE bodies allowed only"
 

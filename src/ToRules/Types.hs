@@ -7,8 +7,11 @@ import Util (capitalise)
 
 
 -- Some notes:
+-- 
+-- 09/11/2021
 -- Given that CE & FE expressions share such similar structure, it might be good for us to 
 -- define some lower-level types that can generalize the similariites, and use CE and FE as wrappers
+--
 
 data RuleFormat = Clara | Drools deriving Eq
 
@@ -124,13 +127,13 @@ data ProductionRule =
                    } deriving Show
 
 instance ShowClara ProductionRule where
-    showClara ProductionRule {nameOfProductionRule, leftHandSide, rightHandSide} = do
-        hang 2 $ vsep [ lparen <> pretty "defrule" <+> pretty nameOfProductionRule
-                      , vsep (map showClara leftHandSide)
-                    --   , showClara leftHandSide
-                      , pretty "=>"
-                      , vsep (map showClara rightHandSide) <> rparen <> line -- stylisticly, lisps have no dangling brackets
-                      ]
+    showClara ProductionRule {nameOfProductionRule, leftHandSide, rightHandSide, traceObj} = do
+        vsep [ showClara traceObj
+             , hang 2 $ vsep [ lparen <> pretty "defrule" <+> pretty nameOfProductionRule
+                             , vsep (map showClara leftHandSide)
+                             , pretty "=>"
+                             , vsep (map showClara rightHandSide) <> rparen <> line -- stylisticly, lisps have no dangling brackets
+                             ]]
 
 instance ShowDrools ProductionRule where
     showDrools ProductionRule {nameOfProductionRule, leftHandSide, rightHandSide, traceObj} = do
@@ -153,20 +156,24 @@ data ProductionRuleTrace = ProductionRuleTrace {
 
 newtype TraceTuple = TraceTup (ProdFieldName, Typename) deriving (Eq, Show)
 
+priorsAndArgs :: Integer -> Integer -> [TraceTuple] -> [(String, Typename)]
+priorsAndArgs pAcc aAcc (TraceTup x:xs) = case x of 
+    (_, "Justification") -> ("prior" ++ show pAcc, "Justification") : priorsAndArgs (pAcc + 1) aAcc xs
+    (_, y) -> ("arg" ++ show aAcc, y) : priorsAndArgs pAcc (aAcc + 1) xs
+priorsAndArgs _ _ [] = []
+
+traceTupsToProdClassFields :: Integer -> [(String, Typename)] -> [ProductionClassField]
+traceTupsToProdClassFields cnt ((x,y):tps)  = ProductionClassField x y (show cnt) : traceTupsToProdClassFields (cnt+1) tps
+traceTupsToProdClassFields _ [] = []
+
 instance ShowClara ProductionRuleTrace where
-    showClara x = viaShow x
+    showClara ProductionRuleTrace { nameOfTraceObj, priors, args} = 
+        showClara ProductionClassDecl { nameOfProductionClassDecl = nameOfTraceObj
+                                      , fieldsOfProductionClassDecl = traceTupsToProdClassFields 0 (priorsAndArgs 0 0 $ priors <> args)}
 instance ShowDrools ProductionRuleTrace where
     showDrools ProductionRuleTrace {nameOfTraceObj, priors, args} = 
         showDrools ProductionClassDecl { nameOfProductionClassDecl = nameOfTraceObj ++ " extends Justification"
                                        , fieldsOfProductionClassDecl = traceTupsToProdClassFields 0 (priorsAndArgs 0 0 $ priors <> args)}
-        where priorsAndArgs :: Integer -> Integer -> [TraceTuple] -> [(String, Typename)]
-              priorsAndArgs pAcc aAcc (TraceTup x:xs) = case x of 
-                (_, "Justification") -> ("prior" ++ show pAcc, "Justification") : priorsAndArgs (pAcc + 1) aAcc xs
-                (_, y) -> ("arg" ++ show aAcc, y) : priorsAndArgs pAcc (aAcc + 1) xs
-              priorsAndArgs _ _ [] = []
-              traceTupsToProdClassFields :: Integer -> [(String, Typename)] -> [ProductionClassField]
-              traceTupsToProdClassFields cnt ((x,y):tps)  = ProductionClassField x y (show cnt) : traceTupsToProdClassFields (cnt+1) tps
-              traceTupsToProdClassFields _ [] = []
 
 
 
@@ -273,8 +280,20 @@ data RuleAction = ActionFuncApp Typename ProductionRuleTrace [CEArg]
                 | ActionExprErr String
                 deriving (Eq, Show)
 
+showArgs :: Char -> [TraceTuple] -> [Doc ann]
+showArgs chr (TraceTup a:as) = (pretty chr <> pretty (fst a)) : showArgs chr as
+showArgs _ [] = []
+
+showPriors :: Char -> Integer -> [TraceTuple] -> [Doc ann]
+showPriors chr acc(_:ps) = (pretty chr <> pretty "j" <> viaShow acc) : showPriors chr (acc+1) ps
+showPriors _ _ [] = []
+
 instance ShowClara RuleAction where
-    showClara (ActionFuncApp fname _ args) = pretty "(c/insert! (->" <> pretty fname <+> hsep (map showClara args)
+    showClara (ActionFuncApp fname tObj appArgs) = 
+        pretty "(c/insert! (->" 
+     <> pretty fname 
+     <+> pretty "(->" <> pretty (nameOfTraceObj tObj) <+> hsep (showPriors '?' 0 (priors tObj)) <+> hsep (showArgs '?' (args tObj)) <> rparen
+     <+> hsep (map showClara appArgs)
     showClara (ActionExprErr x) = pretty x
 
 instance ShowDrools RuleAction where
@@ -284,11 +303,7 @@ instance ShowDrools RuleAction where
       <>  parens (hsep (punctuate comma $ newJustif : fields ))
       <>  pretty ");"
       where fields =  map showDrools appArgs
-            newJustif = pretty "new" <+> pretty (capitalise $ nameOfTraceObj tObj) <> parens (hsep $ punctuate comma (showPriors 0 (priors tObj) <> showArgs (args tObj)))
-            showPriors acc (_:ps) = (pretty "$j" <> viaShow acc) : showPriors (acc+1) ps
-            showPriors _ [] = []
-            showArgs (TraceTup a:as) = pretty "$" <> pretty (fst a) : showArgs as
-            showArgs [] = []
+            newJustif = pretty "new" <+> pretty (capitalise $ nameOfTraceObj tObj) <> parens (hsep $ punctuate comma (showPriors '$' 0 (priors tObj) <> showArgs '$' (args tObj)))
     showDrools (ActionExprErr x) = pretty x
 
 

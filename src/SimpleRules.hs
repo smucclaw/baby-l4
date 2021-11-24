@@ -29,7 +29,7 @@ data SimpleRule t = SimpleRule {
 -- Helper function that determines if a rule structure is a predicate
 isRule :: Rule t -> Bool
 isRule x
-  | condValid (precondOfRule x) && condValid (postcondOfRule x) = True -- do i need to check if the rule has a name?
+  | condValid (precondOfRule x) && isAtomic (postcondOfRule x) = True -- do i need to check if the rule has a name?
   | otherwise = False
 
 -- Helper function for checking valid pre/post-condition
@@ -37,7 +37,13 @@ condValid :: Expr t -> Bool
 condValid x = case x of
   BinOpE _ (BBool BBand) e1 e2-> condValid e1 || condValid e2
   AppE {} -> True
+  ValE _ (BoolV True) -> True 
   _ -> False
+
+isAtomic :: Expr t -> Bool
+isAtomic (AppE {}) = True
+isAtomic _ = False
+
 
 -- Helper function to extract useful expressions within conjunctions
 flattenConjs :: Expr t -> [Expr t]
