@@ -63,7 +63,7 @@ then exceedsPrescrNumberOfIndividuals db
 # Automata
 #---------------------------------------------------------------------
 
-system {
+system PDPASys {
 
 bool isNotifiable;
 
@@ -119,4 +119,4 @@ trans
 } # end system
 
 
-assert {print} True
+assert {printUp} True
