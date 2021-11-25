@@ -439,6 +439,7 @@ showSync cfs (Just (Sync nm md)) = pretty "sync" <+> pretty nm <> showL4 cfs md 
 
 
 showInvars :: [PrintConfig] -> [ClConstr] -> [Doc ann]
+showInvars cfs [] = [showL4 cfs trueV]
 showInvars cfs constrts = punctuate (pretty " &&") (map (showL4 cfs) constrts)
 
 showConstraints :: [PrintConfig] -> Maybe [ClConstr] -> Doc ann
