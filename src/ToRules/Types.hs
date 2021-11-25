@@ -293,7 +293,8 @@ instance ShowClara RuleAction where
         pretty "(c/insert! (->" 
      <> pretty fname 
      <+> pretty "(->" <> pretty (nameOfTraceObj tObj) <+> hsep (showPriors '?' 0 (priors tObj)) <+> hsep (showArgs '?' (args tObj)) <> rparen
-     <+> hsep (map showClara appArgs)
+     <+> hsep (map showClara appArgs) 
+     <> rparen <> rparen
     showClara (ActionExprErr x) = pretty x
 
 instance ShowDrools RuleAction where
