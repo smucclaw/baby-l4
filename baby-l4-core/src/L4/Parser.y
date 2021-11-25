@@ -60,6 +60,7 @@ import Data.Maybe (fromMaybe)
     chan        { L _ TokenChannel }
     clock       { L _ TokenClock }
     state       { L _ TokenState }
+    urgent      { L _ TokenUrgent }
     init        { L _ TokenInit }
     trans       { L _ TokenTrans }
     guard       { L _ TokenGuard }
@@ -347,10 +348,11 @@ uppaalIntDecls : uppaalInt QVarsCommaSep ';'
 
 -- TODO: labellings still to be added (if needed at all ...)
 -- TODO: annotation is a rough approximation, to be synthesized from annotations of subexpressions
-Automaton : process VAR '(' ')' '{' Clocks States Initial Transitions '}'
-  { TA {annotOfTA = (tokenRange $1 $10),
+Automaton : process VAR '(' ')' '{' Clocks States Urgents Initial Transitions '}'
+  { TA {annotOfTA = (tokenRange $1 $11),
         nameOfTA = (tokenSym $2), locsOfTA = (map fst $7), clocksOfTA = $6,
-        transitionsOfTA = $9, initialLocOfTA = $8, invarsOfTA = $7, labellingOfTA = []}}
+        transitionsOfTA = $10, urgentLocsOfTA = $8,
+        initialLocOfTA = $9, invarsOfTA = $7, labellingOfTA = []}}
 
 -- automaton list in reverse order
 AutomatonList :                          { [] }
@@ -366,6 +368,10 @@ Clocks :                        { [] }
 
 -- state (with invariant) list in normal order
 States : state StatesCommaSep ';' { reverse $2 }
+
+-- urgent states (without invariant) in normal order
+Urgents :                         { [] }
+        | urgent VarsCommaSep ';' { map Loc (reverse $2) } 
 
 -- state (with invariant) list in reverse order
 StatesCommaSep :                            { [] }

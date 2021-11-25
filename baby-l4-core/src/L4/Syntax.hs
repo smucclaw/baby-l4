@@ -547,6 +547,7 @@ data TA t =
     locsOfTA :: [Loc],
     clocksOfTA :: [Clock],
     transitionsOfTA :: [Transition t],
+    urgentLocsOfTA :: [Loc],
     initialLocOfTA :: Loc,
     invarsOfTA ::  [(Loc, [ClConstr])],
     labellingOfTA :: [(Loc, Expr t)]

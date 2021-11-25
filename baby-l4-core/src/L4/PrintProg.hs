@@ -471,11 +471,16 @@ showTrans cfs trans =
 showClockDecls :: [PrintConfig] -> [Clock] -> Doc ann
 showClockDecls _cfs [] = emptyDoc 
 showClockDecls cfs clocks =  pretty "clock" <+> hsep (punctuate comma (map (showL4 cfs) clocks)) <> pretty ";"
+
+showUrgent :: [PrintConfig] -> [Loc] -> Doc ann
+showUrgent _cfs [] = emptyDoc 
+showUrgent cfs locs =  pretty "urgent" <+> hsep (punctuate comma (map (showL4 cfs) locs)) <> pretty ";"
 instance Show t => ShowL4 (TA t) where
     showL4 cfs aut =
         optionalBraces (pretty "process" <+> pretty (nameOfTA aut) <+> pretty "()") False 
              [ showClockDecls cfs (clocksOfTA aut)
              , showState cfs (locsOfTA aut) (invarsOfTA aut)
+             , showUrgent cfs (urgentLocsOfTA aut)
              , pretty "init" <+> showL4 cfs (initialLocOfTA aut) <> pretty ";"
              , showTrans cfs (transitionsOfTA aut)]
 
