@@ -14,11 +14,12 @@ import Data.List (find)
 --import Util (capitalise)
 import L4.SyntaxManipulation (appToFunArgs)
 
-import Data.Char        ( toUpper )
+import Data.Char        ( toUpper, toLower )
 import System.Posix.Types (CDev(CDev))
 import L4.Syntax (Program(Program), ClConstr (ClConstr), Transition (Transition), FieldDecl (FieldDecl))
 import Data.Text.Prettyprint.Doc.Util (putDocW)
 import Prettyprinter.Internal.Type (Doc(Empty))
+
 
 
 -------------------------------------------------------------
@@ -31,6 +32,9 @@ capitalise :: String -> String
 capitalise [] = []
 capitalise (c:cs) = toUpper c : cs
 
+lowercase :: String -> String
+lowercase [] = []
+lowercase (c:cs) = toLower c : cs
 
 mkUniqueName :: [String] -> String -> Int -> String
 mkUniqueName nms nm ext =
@@ -317,7 +321,10 @@ instance ShowL4 (Tp t) where
   showL4 _cfs _ = error "internal error in printTp: ErrT or OkT not printable"
 
 instance ShowL4 Val where
-    showL4 _ (BoolV b) = pretty (show b)
+    showL4 cfs (BoolV b) =
+        case printSystem cfs of
+            UppaalStyle -> pretty (lowercase (show b))
+            _ -> pretty (show b)
     showL4 _ (IntV i) = pretty (show i)
     showL4 _ (FloatV i) = pretty (show i)
     showL4 _ (StringV s) = pretty (show s)
@@ -415,7 +422,7 @@ instance Show t => ShowL4 (TransitionGuard t) where
     showL4 cfs (TransitionGuard constrts Nothing) =
         hsep ([pretty "guard"] ++ showInvars cfs constrts ++ [pretty ";"])
     showL4 cfs (TransitionGuard constrts (Just e)) =
-        hsep ([pretty "guard"] ++ showInvars cfs constrts ++ [pretty " && ", showL4 cfs e, pretty ";"])
+        hsep ([pretty "guard"] ++ punctuate (pretty " &&") (map (showL4 cfs) constrts ++ [showL4 cfs e]) ++ [pretty ";"])
 
 instance Show t => ShowL4 (TransitionAction t) where
     showL4 cfs (TransitionAction [] _act) = emptyDoc
@@ -469,15 +476,15 @@ showTrans cfs trans =
         )
 
 showClockDecls :: [PrintConfig] -> [Clock] -> Doc ann
-showClockDecls _cfs [] = emptyDoc 
+showClockDecls _cfs [] = emptyDoc
 showClockDecls cfs clocks =  pretty "clock" <+> hsep (punctuate comma (map (showL4 cfs) clocks)) <> pretty ";"
 
 showUrgent :: [PrintConfig] -> [Loc] -> Doc ann
-showUrgent _cfs [] = emptyDoc 
+showUrgent _cfs [] = emptyDoc
 showUrgent cfs locs =  pretty "urgent" <+> hsep (punctuate comma (map (showL4 cfs) locs)) <> pretty ";"
 instance Show t => ShowL4 (TA t) where
     showL4 cfs aut =
-        optionalBraces (pretty "process" <+> pretty (nameOfTA aut) <+> pretty "()") False 
+        optionalBraces (pretty "process" <+> pretty (nameOfTA aut) <+> pretty "()") False
              [ showClockDecls cfs (clocksOfTA aut)
              , showState cfs (locsOfTA aut) (invarsOfTA aut)
              , showUrgent cfs (urgentLocsOfTA aut)
@@ -487,7 +494,7 @@ instance Show t => ShowL4 (TA t) where
 
 printL4System :: Show t => [PrintConfig] -> TASys t -> Doc ann
 printL4System cfs sys =
-    optionalBraces (pretty "system" <+> pretty (nameOfTASys sys)) False 
+    optionalBraces (pretty "system" <+> pretty (nameOfTASys sys)) False
           ((pretty "chan" <+> hsep (punctuate comma (map pretty (channelsOfSys sys))) <> pretty ";") :
            map (showL4 cfs) (automataOfSys sys))
 
