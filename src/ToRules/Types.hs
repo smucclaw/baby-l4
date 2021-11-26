@@ -291,8 +291,8 @@ showPriors _ _ [] = []
 instance ShowClara RuleAction where
     showClara (ActionFuncApp fname tObj appArgs) = 
         pretty "(c/insert! (->" 
-     <> pretty fname 
-     <+> pretty "(->" <> pretty (nameOfTraceObj tObj) <+> hsep (showPriors '?' 0 (priors tObj)) <+> hsep (showArgs '?' (args tObj)) <> rparen
+     <> pretty (capitalise fname)
+     <+> pretty "(->" <> pretty (capitalise $ nameOfTraceObj tObj) <+> hsep (showPriors '?' 0 (priors tObj)) <+> hsep (showArgs '?' (args tObj)) <> rparen
      <+> hsep (map showClara appArgs) 
      <> rparen <> rparen
     showClara (ActionExprErr x) = pretty x
