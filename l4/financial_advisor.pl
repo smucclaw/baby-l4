@@ -2,6 +2,8 @@
 % http://www.uoitc.edu.iq/images/documents/informatics-institute/Competitive_exam/Artificial_Intelligence.pdf
 % section 2.4 on page 73--
 
+:- use_module(library(clpfd)).
+
 investment(savings)     :- savings_account(inadequate).
 investment(stocks)      :- savings_account(  adequate), income(  adequate).
 investment(combination) :- savings_account(  adequate), income(inadequate).
