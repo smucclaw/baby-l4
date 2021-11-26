@@ -1,6 +1,7 @@
 % a raw implementation from Luger
 % http://www.uoitc.edu.iq/images/documents/informatics-institute/Competitive_exam/Artificial_Intelligence.pdf
 % section 2.4 on page 73--
+% runnable online at https://swish.swi-prolog.org/p/financial%20advisor%20cclaw.pl
 
 :- use_module(library(clpfd)).
 
