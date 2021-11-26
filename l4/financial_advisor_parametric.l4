@@ -224,5 +224,11 @@ income adam adequate
 assert <incomeEve> {SMT: {valid, config: {loglevel: 0}}}
 income eve inadequate
 
+
 assert <investmentEve> {SMT: valid}
 investment eve combination
+
+# decl recommendation: InvestmentStrategy
+assert <investmentEveQuery> {SMT: consistent}
+exists x: InvestmentStrategy. investment eve x
+

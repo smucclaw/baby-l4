@@ -72,6 +72,7 @@ tokens :-
   chan                          { lex' TokenChannel }
   clock                         { lex' TokenClock }
   state                         { lex' TokenState }
+  urgent                        { lex' TokenUrgent }
   init                          { lex' TokenInit }
   trans                         { lex' TokenTrans }
   guard                         { lex' TokenGuard }
@@ -428,6 +429,7 @@ data TokenKind
   | TokenChannel
   | TokenClock
   | TokenState
+  | TokenUrgent
   | TokenInit
   | TokenTrans
   | TokenGuard
@@ -500,6 +502,7 @@ unLex TokenProcess   = "process"
 unLex TokenChannel   = "chan"
 unLex TokenClock     = "clock"
 unLex TokenState     = "state"
+unLex TokenUrgent    = "urgent"
 unLex TokenInit      = "init"
 unLex TokenTrans     = "trans"
 unLex TokenGuard     = "guard"

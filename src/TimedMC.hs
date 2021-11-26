@@ -223,7 +223,8 @@ clockConstrToExpr :: [(Clock, Var (Tp()))] -> ClConstr -> Expr (Tp())
 clockConstrToExpr clvarsMap (ClConstr cl compop i) = BinOpE BooleanT (BCompar compop) (mkVarE (varOfClockMap clvarsMap cl)) (mkIntConst i)
 
 guardToExpr :: [(Clock, Var (Tp()))] -> TransitionGuard (Tp ()) -> Expr (Tp ())
-guardToExpr clvarsMap (TransitionGuard constr expr) = conjExpr (conjsExpr (map (clockConstrToExpr clvarsMap) constr)) expr
+guardToExpr clvarsMap (TransitionGuard constr Nothing) = conjsExpr (map (clockConstrToExpr clvarsMap) constr)
+guardToExpr clvarsMap (TransitionGuard constr (Just expr)) = conjExpr (conjsExpr (map (clockConstrToExpr clvarsMap) constr)) expr
 
 resetToExpr :: [(Clock, Var (Tp ()))] -> [(Clock, Var (Tp ()))] -> [Clock] -> Clock -> Expr (Tp ())
 resetToExpr clvarsMap clvarsMap' resetcls cl =

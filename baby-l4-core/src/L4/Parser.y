@@ -60,6 +60,7 @@ import Data.Maybe (fromMaybe)
     chan        { L _ TokenChannel }
     clock       { L _ TokenClock }
     state       { L _ TokenState }
+    urgent      { L _ TokenUrgent }
     init        { L _ TokenInit }
     trans       { L _ TokenTrans }
     guard       { L _ TokenGuard }
@@ -323,11 +324,12 @@ Assertion : assert ARName KVMap        { Assertion (getLoc $1) $2 $3 (ValE (null
 ----------------------------------------------------------------------
 -- Automata and Systems of automata
 ----------------------------------------------------------------------
-System : system '{' SystemVarDecls Channels AutomatonList '}'
-  { TASys {annotOfSys = (tokenRange $1 $6),
-           declsOfSys = reverse $3,
-           channelsOfSys = $4,
-           automataOfSys = reverse $5
+System : system VAR '{' SystemVarDecls Channels AutomatonList '}'
+  { TASys {annotOfSys = (tokenRange $1 $7),
+           nameOfTASys = (tokenSym $2),
+           declsOfSys = reverse $4,
+           channelsOfSys = $5,
+           automataOfSys = reverse $6
            } }
 
 -- system var decls in reverse order
@@ -346,10 +348,11 @@ uppaalIntDecls : uppaalInt QVarsCommaSep ';'
 
 -- TODO: labellings still to be added (if needed at all ...)
 -- TODO: annotation is a rough approximation, to be synthesized from annotations of subexpressions
-Automaton : process VAR '(' ')' '{' Clocks States Initial Transitions '}'
-  { TA {annotOfTA = (tokenRange $1 $10),
+Automaton : process VAR '(' ')' '{' Clocks States Urgents Initial Transitions '}'
+  { TA {annotOfTA = (tokenRange $1 $11),
         nameOfTA = (tokenSym $2), locsOfTA = (map fst $7), clocksOfTA = $6,
-        transitionsOfTA = $9, initialLocOfTA = $8, invarsOfTA = $7, labellingOfTA = []}}
+        transitionsOfTA = $10, urgentLocsOfTA = $8,
+        initialLocOfTA = $9, invarsOfTA = $7, labellingOfTA = []}}
 
 -- automaton list in reverse order
 AutomatonList :                          { [] }
@@ -357,7 +360,7 @@ AutomatonList :                          { [] }
 
 -- channel list in normal order
 Channels :                           { [] }
-         | chan VarsCommaSep ';' { map ClsNm (reverse $2) }
+         | chan VarsCommaSep ';' { reverse $2 }
 
 -- clock list in normal order
 Clocks :                        { [] }
@@ -365,6 +368,10 @@ Clocks :                        { [] }
 
 -- state (with invariant) list in normal order
 States : state StatesCommaSep ';' { reverse $2 }
+
+-- urgent states (without invariant) in normal order
+Urgents :                         { [] }
+        | urgent VarsCommaSep ';' { map Loc (reverse $2) } 
 
 -- state (with invariant) list in reverse order
 StatesCommaSep :                            { [] }
@@ -405,13 +412,13 @@ TransitionWithInfo : VAR '->' VAR '{' TrGuard TrSync TrAssign '}'
 			       targetOfTransition = (Loc (tokenSym $3))} }
 
 -- TODO: so far, guard expressions are not taken into account, only clock constraints
-TrGuard :                                   { TransitionGuard [] (ValE (nullSRng) (BoolV True)) }
-| guard InvarsAndSep ';' { TransitionGuard (reverse $2) (ValE (nullSRng) (BoolV True)) }
+TrGuard :                                   { TransitionGuard [] Nothing }
+| guard InvarsAndSep ';' { TransitionGuard (reverse $2) Nothing }
 
--- The sync mode (nothing / receive / send) is currently ignored
-SyncMode :  {} | '?' {} | '!' {}
+-- Note: the Broadcast mode is not a valid mode in Upppaal
+SyncMode :  {Broadcast} | '!' {Send} | '?' {Receive}
 TrSync :                    { Nothing }
-	 | sync VAR SyncMode ';'  { Just (tokenSym $2) }
+	 | sync VAR SyncMode ';'  { Just (Sync (tokenSym $2) $3) }
 
 -- TODO: only clock resets taken into account
 TrAssign :                             { TransitionAction [] (Skip (nullSRng)) }

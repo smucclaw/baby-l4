@@ -1,0 +1,122 @@
+# L4 encoding of PDPA 
+# Part VIA - Notification of Data Breaches &
+# Personal Data Protection (Notification of Data Breaches) Regulations 2021
+# https://drive.google.com/drive/u/1/folders/1zP9IGW88XQ_4qoPbsQXIn4I3IcSElIuZ
+
+
+#---------------------------------------------------------------------
+# TODO: The following repeats some of the declarations of pdpa_act.l4,
+# but it should rather be possible to import them from the context of the act.
+
+# class definitions of pdpa_act.l4, without extends clauses
+class Data 
+class DataBreach 
+class Individual
+class Organisation
+
+decl dataOfBreach: Data -> DataBreach -> Boolean 
+decl significantHarm: DataBreach -> Individual -> Boolean
+
+decl exceedsPrescrNumberOfIndividuals: DataBreach -> Boolean
+
+# End (copy of pdpa_act.l4)
+#---------------------------------------------------------------------
+
+decl isNameOf: Individual -> Data -> Boolean
+decl isAliasOf: Individual -> Data -> Boolean
+decl isIdentificationNumberOf: Individual -> Data -> Boolean
+decl dataSchedulePart1: Individual -> Data -> Boolean
+decl dataSchedulePart2: Individual -> Data -> Boolean
+decl isAccountIdentifier: Individual -> Data -> Boolean
+decl isAccessCode: Individual -> Data -> Boolean
+
+rule <s64_3_1a>
+for dt: Data, db: DataBreach, indiv: Individual
+if dataOfBreach dt db 
+&& (  isNameOf indiv dt
+   || isAliasOf indiv dt
+   || isIdentificationNumberOf indiv dt
+   || dataSchedulePart1 indiv dt && not dataSchedulePart2 indiv dt
+    )
+then significantHarm db indiv
+
+# TODO: the question is whether it makes sense to separately model that an individual
+# has an account which is related to particular information (such as account id etc.)
+rule <s64_3_1b>
+for dt: Data, db: DataBreach, indiv: Individual, n: Integer
+if dataOfBreach dt db 
+&& (  isAccountIdentifier indiv dt
+   || isAccessCode indiv dt
+    )
+then significantHarm db indiv 
+
+decl numberOfAffectedIndividuals: DataBreach -> Integer
+
+rule <s64_4>
+for db: DataBreach
+if numberOfAffectedIndividuals db >= 500
+then exceedsPrescrNumberOfIndividuals db
+
+
+
+#---------------------------------------------------------------------
+# Automata
+#---------------------------------------------------------------------
+
+system PDPASys {
+
+bool isNotifiable;
+
+chan notifyPDPC, notifyIndiv;
+
+process Commission() {
+
+state
+    notifIndivRequested,
+    acceptingNotification,
+    evaluatingNotification,
+    notifIndivProhibited;
+init
+    acceptingNotification;
+trans
+    evaluatingNotification -> notifIndivRequested { },
+    evaluatingNotification -> notifIndivProhibited { },
+    acceptingNotification -> evaluatingNotification  { sync notifyPDPC?; };
+}
+
+process Individual() {
+
+state
+    ignorant,
+    informed;
+init
+    ignorant;
+trans
+    ignorant -> informed { sync notifyIndiv?; };
+}
+
+process Organisation() {
+
+clock cl;
+
+state
+    breachDetected,
+    pdpcNotified,
+    breachDeterminedNotifiable,
+    individualNotified,
+    notificationNotRequired;
+init
+    breachDetected;
+trans
+    pdpcNotified -> individualNotified { sync notifyIndiv!; },
+
+    breachDetected -> notificationNotRequired { }, # TODO: guard notIsNotifiable; },
+    breachDeterminedNotifiable -> pdpcNotified { guard cl <= 3; sync notifyPDPC!; },
+    # TODO: the guard should be: guard isNotifiable and cl <= 30;
+    breachDetected -> breachDeterminedNotifiable { guard cl <= 30; sync notifyPDPC!; assign cl = 0; };
+}
+
+} # end system
+
+
+assert {printUp} True

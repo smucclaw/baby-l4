@@ -486,6 +486,7 @@ instance HasAnnot Assertion where
 -- Definition of Timed Automata
 ----------------------------------------------------------------------
 
+type ChannelName = String
 newtype Clock = Clock {nameOfClock :: String}
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
@@ -494,30 +495,17 @@ newtype Clock = Clock {nameOfClock :: String}
 data ClConstr = ClConstr Clock BComparOp Integer
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-newtype Loc = Loc String
+newtype Loc = Loc {nameOfLoc :: String}
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-{-
--- Action and Sync have become obsolete after removal of 
--- the Action component from  TransitionAction
-
--- Synchronization type: send or receive
-data Sync = Snd | Rec
+data SyncMode = Broadcast | Send | Receive
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
--- Action in a transition: the string is the ClassName of a subclass of Event
-data Action
-  = Internal
-  | Act ClassName Sync
+data Sync = Sync {eventNameOfSync :: ChannelName, modeOfSync :: SyncMode }
   deriving (Eq, Ord, Show, Read, Data, Typeable)
-
-actionName :: Action -> [ClassName]
-actionName Internal = []
-actionName (Act cn _) = [cn]
--}
 
 -- Transition condition: clock constraints and Boolean expression
-data TransitionGuard t = TransitionGuard [ClConstr] (Expr t)
+data TransitionGuard t = TransitionGuard [ClConstr] (Maybe (Expr t))
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
 -- Transition action: synchronization action; clock resets; and execution of command (typically assignments)
@@ -534,7 +522,7 @@ transitionActionName (TransitionAction act _ _) = actionName act
 data Transition t = Transition {
     sourceOfTransition :: Loc
   , guardOfTransition :: TransitionGuard t
-  , syncOfTransition :: Maybe String
+  , syncOfTransition :: Maybe Sync
   , actionOfTransition :: TransitionAction t
   , targetOfTransition :: Loc
   }
@@ -559,6 +547,7 @@ data TA t =
     locsOfTA :: [Loc],
     clocksOfTA :: [Clock],
     transitionsOfTA :: [Transition t],
+    urgentLocsOfTA :: [Loc],
     initialLocOfTA :: Loc,
     invarsOfTA ::  [(Loc, [ClConstr])],
     labellingOfTA :: [(Loc, Expr t)]
@@ -573,8 +562,9 @@ instance HasAnnot TA where
 -- Type parameter ext: Environment-specific extension
 data TASys t = TASys {
   annotOfSys :: t,
+  nameOfTASys :: String,
   declsOfSys :: [VarDecl t],
-  channelsOfSys :: [ClassName],
+  channelsOfSys :: [ChannelName],
   automataOfSys :: [TA t]
   }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
