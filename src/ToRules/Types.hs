@@ -25,6 +25,15 @@ class ShowClara x where
 
 class ShowDrools x where
     showDrools :: x -> Doc ann
+
+instance (ShowClara t) => ShowClara (Maybe t) where
+    showClara (Just x) = showClara x
+    showClara Nothing = pretty ""
+
+instance (ShowDrools t) => ShowDrools (Maybe t) where
+    showDrools (Just x) = showDrools x
+    showDrools Nothing = pretty ""
+
 ----------------------------------------------------------------------------------------------------------------
 -- Types & Instances
 ----------------------------------------------------------------------------------------------------------------
@@ -150,6 +159,7 @@ instance ShowDrools ProductionRule where
 
 data ProductionRuleTrace = ProductionRuleTrace {
       nameOfTraceObj :: String
+    , rulename :: String
     , priors :: [TraceTuple]
     , args :: [TraceTuple]
 } deriving (Eq, Show)
@@ -169,7 +179,11 @@ traceTupsToProdClassFields _ [] = []
 instance ShowClara ProductionRuleTrace where
     showClara ProductionRuleTrace { nameOfTraceObj, priors, args} = 
         showClara ProductionClassDecl { nameOfProductionClassDecl = nameOfTraceObj
-                                      , fieldsOfProductionClassDecl = traceTupsToProdClassFields 0 (priorsAndArgs 0 0 $ priors <> args)}
+                                      , fieldsOfProductionClassDecl = traceTupsToProdClassFields 0 claraPriArgs}
+        where claraPriArgs = case priorsAndArgs 0 0 (priors <> args) of
+                                [] -> ("fact", "") : []
+                                x  -> ("rule", "") : x
+                 
 instance ShowDrools ProductionRuleTrace where
     showDrools ProductionRuleTrace {nameOfTraceObj, priors, args} = 
         showDrools ProductionClassDecl { nameOfProductionClassDecl = nameOfTraceObj ++ " extends Justification"
@@ -186,22 +200,29 @@ instance ShowDrools ProductionRuleTrace where
 -- We are restricting ourselves to non-fact bindings 
 -- (see https://docs.jboss.org/drools/release/7.58.0.Final/drools-docs/html_single/index.html#drl-rules-WHEN-con_drl-rules)
 data ConditionalElement
-    = ConditionalFuncApp ProdFuncName [CEArg]
+    = ConditionalFuncApp (Maybe RCBind) ProdFuncName [CEArg]
     | ConditionalEval BComparOp CEArg CEArg
     | ConditionalExist UBoolOp ConditionalElement -- TODO: rename to Negated Literal
     | ConditionalElementFail String
     deriving (Eq, Show)
 
+newtype RCBind = RCBind String deriving (Eq, Show)
+
+instance ShowClara RCBind where
+    showClara (RCBind s) = pretty "?" <> pretty s <+> pretty "<- "
+instance ShowDrools RCBind where
+    showDrools (RCBind s) = pretty "$" <> pretty s <+> pretty ": "
+
 instance ShowClara ConditionalElement where
-    showClara (ConditionalFuncApp tn args) =
-        brackets (pretty (capitalise tn) <+> hsep (map (parens . showClara) args))
+    showClara (ConditionalFuncApp bn tn args) =
+        brackets (showClara bn <> pretty (capitalise tn) <+> hsep (map (parens . showClara) args))
     showClara (ConditionalEval cOp arg1 arg2) = brackets (pretty ":test" <+> parens (showClara cOp <+> showClara arg1 <+> showClara arg2))
     showClara (ConditionalExist UBnot arg) = brackets (pretty ":not" <+> showClara arg)
     showClara (ConditionalElementFail err) = pretty $ "ConditionalElementFailure: " ++ show err
 
 instance ShowDrools ConditionalElement where
-    showDrools (ConditionalFuncApp tn args) =
-        pretty (capitalise tn) <> parens (hsep $ punctuate comma $ map showDrools args)
+    showDrools (ConditionalFuncApp bn tn args) =
+        showDrools bn <> pretty (capitalise tn) <> parens (hsep $ punctuate comma $ map showDrools args)
     showDrools (ConditionalEval cOp arg1 arg2 ) = pretty "eval" <> parens (showDrools arg1 <+> showDrools cOp <+> showDrools arg2)
     showDrools (ConditionalExist UBnot arg) = pretty "not" <+> parens (showDrools arg)
     showDrools (ConditionalElementFail err) = pretty $ "ConditionalElementFailure: " ++ show err
@@ -211,7 +232,7 @@ instance ShowClara BComparOp where
     showClara BClte = pretty "<="
     showClara BCgt  = pretty ">"
     showClara BCgte = pretty ">="
-    showClara BCne = pretty "!=" -- check with johsi
+    showClara BCne = pretty "!=" 
     showClara BCeq = pretty "="
 
 instance ShowDrools BComparOp where
@@ -290,11 +311,18 @@ showPriors _ _ [] = []
 
 instance ShowClara RuleAction where
     showClara (ActionFuncApp fname tObj appArgs) = 
-        pretty "(c/insert! (->" 
-     <> pretty (capitalise fname)
-     <+> pretty "(->" <> pretty (capitalise $ nameOfTraceObj tObj) <+> hsep (showPriors '?' 0 (priors tObj)) <+> hsep (showArgs '?' (args tObj)) <> rparen
-     <+> hsep (map showClara appArgs) 
-     <> rparen <> rparen
+            pretty "(c/insert! (->" 
+        <>  pretty (capitalise fname)
+        <+> showTrace tObj
+        <+> hsep (map showClara appArgs) 
+        <>  rparen <> rparen
+        where showTrace trc = 
+                pretty "(->" 
+                <> pretty (capitalise $ nameOfTraceObj trc) 
+                <+> dquotes (pretty $ rulename trc)
+                <+> hsep (showPriors '?' 0 (priors trc)) 
+                <+> hsep (showArgs '?' (args trc)) 
+                <> rparen
     showClara (ActionExprErr x) = pretty x
 
 instance ShowDrools RuleAction where

@@ -42,11 +42,12 @@ ruleToProductionRule Rule {nameOfRule, varDeclsOfRule, precondOfRule, postcondOf
     = ProductionRule { nameOfProductionRule = prodRuleName
                      , varDeclsOfProductionRule = [""]
                      , leftHandSide =  condElems -- exprlistToRCList S.empty $ precondToExprList precondOfRule 
-                     , rightHandSide = [exprToRuleAction boundLocals traceObj postcondOfRule]
+                     , rightHandSide = [postCond]
                      , traceObj = traceObj
                      }
     where prodRuleName = arNameToString nameOfRule
           (boundLocals, condElems) = exprlistToRCList 0 S.empty [] $  precondToExprList precondOfRule
+          postCond = exprToRuleAction boundLocals traceObj postcondOfRule
           traceObj = mkTrace prodRuleName condElems varDeclsOfRule
 
 
@@ -85,13 +86,12 @@ localVariables _ = error "localVariables used with non-function application or c
 getName :: Expr t -> VarName
 getName = nameOfQVarName . nameOfVar . varOfExprVarE
 
--- Perhaps we should define a Justification type instead?
 exprToConditionalFuncApp :: (Show t) => Int -> Expr t -> ConditionalElement
-exprToConditionalFuncApp num fApp@AppE {} = ConditionalFuncApp (getName fexpr) faArgs
+exprToConditionalFuncApp num fApp@AppE {} = ConditionalFuncApp (Just . RCBind $ "j" ++ show num) (getName fexpr) remArgs -- faArgs
     where (fexpr, args) = appToFunArgs [] fApp
-          justBind = CEBinding ("j" ++ show num) "arg0"
+        --   justBind = CEBinding ("j" ++ show num) "arg0"
           remArgs = map (exprToCEBindEq) (zip [1.. (length args)] args)
-          faArgs = if num < 0 then remArgs else justBind : remArgs
+        --   faArgs = if num < 0 then remArgs else justBind : remArgs
 exprToConditionalFuncApp _ _ = error "exprToConditionalFuncApp used for non-AppE"
 
 exprToConditionalEval :: (Show t) => Expr t -> ConditionalElement
@@ -109,7 +109,7 @@ defArg :: Int -> ProdFieldName
 defArg x = "arg" ++ show x
 
 -- a note: CEFuncApp is meant to be part of the ConditionalEval expression (e.g. the `minIncome y` of `x > minIncome y`)
---         rather than a ConditionalFuncApp expression (e.g. `amount_saved x`)
+--         rather than a ConditionalFuncApp predicate expression (e.g. `amount_saved x`)
 --         but they both act on AppE expressions, so there is no need to distinguish between testing mechanisms
 exprToCEFuncApp :: (Show t) => Expr t -> CEArg
 exprToCEFuncApp fApp@AppE {} =
@@ -142,12 +142,13 @@ exprToRuleAction _ _ x = ActionExprErr $ "error: cannot convert expression into 
 mkTrace :: String -> [ConditionalElement] -> [VarDecl t] -> ProductionRuleTrace
 mkTrace rnm priors args = ProductionRuleTrace {
       nameOfTraceObj = "justification" ++ capitalise rnm
+    , rulename = rnm
     , priors = mapMaybe condElemToTraceTup priors
     , args = mapMaybe varDeclToTraceTup args
 }
 
 condElemToTraceTup :: ConditionalElement -> Maybe TraceTuple
-condElemToTraceTup (ConditionalFuncApp s _) = Just $ TraceTup (s, "Justification")
+condElemToTraceTup (ConditionalFuncApp _ s _) = Just $ TraceTup (s, "Justification")
 condElemToTraceTup _ = Nothing
 
 varDeclToTraceTup :: VarDecl t -> Maybe TraceTuple
