@@ -13,11 +13,20 @@ class Data
 class DataBreach 
 class Individual
 class Organisation
+class NotificationMessage {
+    dateOfBecomingAware : Time
+}
+class Document
+
+class SectionOfLaw         # paragraph in law, should be built-in
 
 decl dataOfBreach: Data -> DataBreach -> Boolean 
 decl significantHarm: DataBreach -> Individual -> Boolean
 
 decl exceedsPrescrNumberOfIndividuals: DataBreach -> Boolean
+
+# Constants
+decl Commission: Organisation
 
 # End (copy of pdpa_act.l4)
 #---------------------------------------------------------------------
@@ -57,6 +66,23 @@ for db: DataBreach
 if numberOfAffectedIndividuals db >= 500
 then exceedsPrescrNumberOfIndividuals db
 
+
+decl Sect26D1 : SectionOfLaw
+decl isNotifiableAccordingTo: DataBreach -> SectionOfLaw -> Boolean
+decl notifConcerns: Notification -> DataBreach -> Boolean
+decl notifReportedTo: Notification -> Organisation -> Organisation -> Boolean
+decl contains: NotificationMessage -> Document -> Boolean
+
+rule <s64_5>
+for notif: NotificationMessage, org: Organisation, ndb: DataBreach,
+    circumstances: Document
+if isNotifiableAccordingTo ndb Sect26D1
+   && notifConcerns notif ndb
+   && notifReportedTo notif org Commission 
+then contains notif dateOfBecomingAware
+     contains notif circumstances &&
+     contains notif chronoAccount &&
+     notif.dateOfBecomingAware == 42 
 
 
 #---------------------------------------------------------------------
