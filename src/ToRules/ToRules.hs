@@ -42,7 +42,7 @@ ruleToProductionRule Rule {nameOfRule, varDeclsOfRule, precondOfRule, postcondOf
     = ProductionRule { nameOfProductionRule = prodRuleName
                      , varDeclsOfProductionRule = [""]
                      , leftHandSide =  condElems -- exprlistToRCList S.empty $ precondToExprList precondOfRule 
-                     , rightHandSide = [postCond]
+                     , rightHandSide = postCond
                      , traceObj = traceObj
                      }
     where prodRuleName = arNameToString nameOfRule
@@ -87,10 +87,11 @@ getName :: Expr t -> VarName
 getName = nameOfQVarName . nameOfVar . varOfExprVarE
 
 exprToConditionalFuncApp :: (Show t) => Int -> Expr t -> ConditionalElement
-exprToConditionalFuncApp num fApp@AppE {} = ConditionalFuncApp (Just . RCBind $ "j" ++ show num) (getName fexpr) remArgs -- faArgs
+exprToConditionalFuncApp num fApp@AppE {} = ConditionalFuncApp rcbind (getName fexpr) remArgs -- faArgs
     where (fexpr, args) = appToFunArgs [] fApp
         --   justBind = CEBinding ("j" ++ show num) "arg0"
           remArgs = map (exprToCEBindEq) (zip [1.. (length args)] args)
+          rcbind = if num >= 0 then (Just . RCBind $ "j" ++ show num) else Nothing
         --   faArgs = if num < 0 then remArgs else justBind : remArgs
 exprToConditionalFuncApp _ _ = error "exprToConditionalFuncApp used for non-AppE"
 

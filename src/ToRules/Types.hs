@@ -1,3 +1,14 @@
+{- | Intermediate AST to Rule Engine syntax conversion module.
+
+This module contains the type declarations used within the intermediate AST encoding the various syntactical structures of Rule Engine formats.
+
+
+TODOS:
+
+(1:09112021)
+Given that CE & FE expressions share such similar structure, it might be good for us to define some lower-level types that can generalize the similariites, and use CE and FE as wrappers
+
+-}
 {-# LANGUAGE NamedFieldPuns #-}
 module ToRules.Types where
 
@@ -5,21 +16,22 @@ import Prettyprinter
 import L4.Syntax
 import Util (capitalise)
 
+-- * Supported conversion formats
+-- | Nullary constructor that represents various supported rule-engine output formats 
+data RuleFormat = Clara 
+                  -- ^ [Clara-Rules](https://clara-rules.org)
+                | Drools 
+                  -- ^ [Drools v7.58.0](https://docs.drools.org/7.58.0.Final/drools-docs/html_single/)
+                deriving Eq
 
--- Some notes:
--- 
--- 09/11/2021
--- Given that CE & FE expressions share such similar structure, it might be good for us to 
--- define some lower-level types that can generalize the similariites, and use CE and FE as wrappers
---
-
-data RuleFormat = Clara | Drools deriving Eq
-
+-- | Returns the appropriate ast pretty-printing function for a given RuleFormat.
 showForm :: (ShowDrools x, ShowClara x) => RuleFormat -> (x -> Doc ann)
 showForm rf = case rf of
             Drools -> showDrools
             Clara -> showClara
 
+
+-- * Prettyprinting Typeclasses
 class ShowClara x where
     showClara :: x -> Doc ann
 
@@ -34,9 +46,8 @@ instance (ShowDrools t) => ShowDrools (Maybe t) where
     showDrools (Just x) = showDrools x
     showDrools Nothing = pretty ""
 
-----------------------------------------------------------------------------------------------------------------
--- Types & Instances
-----------------------------------------------------------------------------------------------------------------
+
+-- * Types & Instances
 
 type Typename = String
 type ProdVarName = String
@@ -47,7 +58,12 @@ type ProdAnnot = String
 type RCList = [ConditionalElement]
 type RAList = [RuleAction]
 
--- anythin marked string is non-fleshed
+{- | Represents a single program. 
+
+Currently only function & class declarations ("ToRules.ToDecls"), and rules ("ToRules.ToRules") are fleshed out.
+ 
+TODO: Refactor such that we produce the ProductionSystem ast first before pretty printing.
+-}
 data ProductionSystem = ProductionSystem { package :: String
                                          , imports :: String
                                          , functions :: [ProductionDefn] 
@@ -57,11 +73,16 @@ data ProductionSystem = ProductionSystem { package :: String
                                          , rules :: [ProductionRule]
                                          }
 
+-- | Represents a single output function. 
 data ProductionDefn = ProductionDefn { nameOfProductionDefn :: ProdFuncName 
+                                       -- ^ Name of the output function
                                      , returnTpOfProductionDefn :: Typename
+                                       -- ^ Return type of the output function
                                      , argsOfProductionDefn :: [(ProdVarName, Typename)]
-                                     , bodyOfProductionDefn :: ProdFuncExpr }
-                                     deriving (Eq, Show)
+                                       -- ^ List of parameter names and their accompanying types
+                                     , bodyOfProductionDefn :: ProdFuncExpr 
+                                       -- ^ Expression contained within the body of the output function
+                                     } deriving (Eq, Show)
 
 instance ShowDrools ProductionDefn where
     showDrools ProductionDefn {nameOfProductionDefn, argsOfProductionDefn, returnTpOfProductionDefn, bodyOfProductionDefn} = 
@@ -77,12 +98,20 @@ instance ShowClara ProductionDefn where
                      , indent 2 $ showClara bodyOfProductionDefn ]) 
 
 
+-- | Represents the various expressions that can be output within the body of ProductionDefn.
+--   TODO: See point (1:09112021) above
 data ProdFuncExpr = FEFuncApp ProdFuncName [ProdFuncExpr]
+                    -- ^ Function Application
                   | FEComparison BComparOp ProdFuncExpr ProdFuncExpr
+                    -- ^ Binary Comparisons (as supported by native L4)
                   | FEArithmetic BArithOp ProdFuncExpr ProdFuncExpr
+                    -- ^ Binary Arithmetic Expressions (as supported by native L4)
                   | FEVarExpr Argument
+                    -- ^ Local Parameter 
                   | FELiteral Val
+                    -- ^ Literal value (as supported by native L4)
                   | ProdFuncExprFail String
+                    -- ^ Failure to compile
                   deriving (Eq, Show)
 
 instance ShowDrools ProdFuncExpr where
@@ -101,8 +130,11 @@ instance ShowClara ProdFuncExpr where
     showClara (FELiteral val) = showClara val
     showClara (ProdFuncExprFail msg) = pretty $ "Error: " ++ msg
 
+-- | Represents a single output class declaration.
 data ProductionClassDecl = ProductionClassDecl { nameOfProductionClassDecl :: Typename
+                                                 -- ^ Name of class declaration
                                                , fieldsOfProductionClassDecl :: [ProductionClassField]
+                                                 -- ^ Class variables 
                                                } deriving Show
 
 instance ShowClara ProductionClassDecl where
@@ -116,23 +148,31 @@ instance ShowDrools ProductionClassDecl where
              , pretty "end"
              ]
 
+-- | Represents a single output class variable. "ProdFieldName" is the name of the variable, "Typename" is the type of the variable, and "PosAnnot" is a string annotation that encodes positional information of the variable within the class constructor.
 data ProductionClassField = ProductionClassField ProdFieldName Typename PosAnnot deriving Show
 type PosAnnot = String -- positional annotation
 
 instance ShowDrools ProductionClassField where
     showDrools (ProductionClassField pfname tpname pos) = pretty pfname <> colon <+> pretty (yieldTp tpname) <+> pretty "@position" <> parens (pretty pos)
+    -- showDrools (ProductionClassField pfname tpname pos) = pretty pfname <> colon <+> pretty tpname <+> pretty "@position" <> parens (pretty pos)
 
 instance ShowClara ProductionClassField where
     showClara (ProductionClassField pfname _ _) = pretty pfname 
 
 
 
+-- | Represents a single production rule. 
 data ProductionRule =
     ProductionRule { nameOfProductionRule :: String
+                     -- ^ Name of the rule
                    , varDeclsOfProductionRule :: [ProdVarName]
+                     -- ^ Locally defined variables, used within the rule itself
                    , leftHandSide :: RCList -- RuleCondition
-                   , rightHandSide :: RAList
+                     -- ^ Preconditions of rule
+                   , rightHandSide :: RuleAction
+                     -- ^ Singular resulting post-condition of rule
                    , traceObj :: ProductionRuleTrace
+                     -- ^ Justification object associated with an instance of the firing of this rule
                    } deriving Show
 
 instance ShowClara ProductionRule where
@@ -141,26 +181,29 @@ instance ShowClara ProductionRule where
              , hang 2 $ vsep [ lparen <> pretty "defrule" <+> pretty nameOfProductionRule
                              , vsep (map showClara leftHandSide)
                              , pretty "=>"
-                             , vsep (map showClara rightHandSide) <> rparen <> line -- stylisticly, lisps have no dangling brackets
+                             , showClara rightHandSide <> rparen <> line -- stylisticly, lisps have no dangling brackets
                              ]]
 
 instance ShowDrools ProductionRule where
     showDrools ProductionRule {nameOfProductionRule, leftHandSide, rightHandSide, traceObj} = do
         vsep [ nest 2 $ vsep [pretty "rule" <+> dquotes (pretty nameOfProductionRule)
                              , pretty "when"
-                            --  , indent 2 $ showDrools leftHandSide
                              , indent 2 $ vsep (map showDrools leftHandSide)
                              , pretty "then"
-                             , indent 2 $ vsep (map showDrools rightHandSide)
+                             , indent 2 $ showDrools rightHandSide
                              ]
              , pretty "end" <> line
              , showDrools traceObj <> line
              ]
 
+-- | Represents a single justification class declaration, used to generate a trace for rule-firing.
 data ProductionRuleTrace = ProductionRuleTrace {
       nameOfTraceObj :: String
+      -- ^ Name of the trace object
     , rulename :: String
+      -- ^ Name of the associated rule
     , priors :: [TraceTuple]
+      -- ^ 
     , args :: [TraceTuple]
 } deriving (Eq, Show)
 
@@ -168,13 +211,16 @@ newtype TraceTuple = TraceTup (ProdFieldName, Typename) deriving (Eq, Show)
 
 priorsAndArgs :: Integer -> Integer -> [TraceTuple] -> [(String, Typename)]
 priorsAndArgs pAcc aAcc (TraceTup x:xs) = case x of 
-    (_, "Justification") -> ("prior" ++ show pAcc, "Justification") : priorsAndArgs (pAcc + 1) aAcc xs
+    (fn, "Justification") -> ("prior" ++ show pAcc, "Object") : priorsAndArgs (pAcc + 1) aAcc xs
     (_, y) -> ("arg" ++ show aAcc, y) : priorsAndArgs pAcc (aAcc + 1) xs
 priorsAndArgs _ _ [] = []
 
 traceTupsToProdClassFields :: Integer -> [(String, Typename)] -> [ProductionClassField]
 traceTupsToProdClassFields cnt ((x,y):tps)  = ProductionClassField x y (show cnt) : traceTupsToProdClassFields (cnt+1) tps
 traceTupsToProdClassFields _ [] = []
+
+yieldTp :: [Char] -> [Char]
+yieldTp x = if x `elem` ["Object", "Justification", "Integer", "Boolean", "Float"] then x else "String"
 
 instance ShowClara ProductionRuleTrace where
     showClara ProductionRuleTrace { nameOfTraceObj, priors, args} = 
@@ -349,6 +395,3 @@ instance ShowDrools Argument where
     showDrools (LocVar x)  = pretty x
     showDrools (Value y)   = pretty y
 
-
-yieldTp :: [Char] -> [Char]
-yieldTp x = if x `elem` ["Justification", "Integer", "Boolean", "Float"] then x else "String"
