@@ -7,7 +7,8 @@ TODOS:
 
 (1:09112021)
 Given that CE & FE expressions share such similar structure, it might be good for us to define some lower-level types that can generalize the similariites, and use CE and FE as wrappers
-
+(1:08122021)
+Refactor the program such that we produce the ProductionSystem ast first before pretty printing. Would likely require monad transformers.
 -}
 {-# LANGUAGE NamedFieldPuns #-}
 module ToRules.Types where
@@ -31,7 +32,7 @@ showForm rf = case rf of
             Clara -> showClara
 
 
--- * Prettyprinting Typeclasses
+-- ** Prettyprinting Typeclasses
 class ShowClara x where
     showClara :: x -> Doc ann
 
@@ -49,6 +50,7 @@ instance (ShowDrools t) => ShowDrools (Maybe t) where
 
 -- * Types & Instances
 
+-- ** General AST types
 type Typename = String
 type ProdVarName = String
 type ProdFieldName = String
@@ -62,7 +64,7 @@ type RAList = [RuleAction]
 
 Currently only function & class declarations ("ToRules.ToDecls"), and rules ("ToRules.ToRules") are fleshed out.
  
-TODO: Refactor such that we produce the ProductionSystem ast first before pretty printing.
+TODO: see (1:08122021)
 -}
 data ProductionSystem = ProductionSystem { package :: String
                                          , imports :: String
@@ -154,7 +156,6 @@ type PosAnnot = String -- positional annotation
 
 instance ShowDrools ProductionClassField where
     showDrools (ProductionClassField pfname tpname pos) = pretty pfname <> colon <+> pretty (yieldTp tpname) <+> pretty "@position" <> parens (pretty pos)
-    -- showDrools (ProductionClassField pfname tpname pos) = pretty pfname <> colon <+> pretty tpname <+> pretty "@position" <> parens (pretty pos)
 
 instance ShowClara ProductionClassField where
     showClara (ProductionClassField pfname _ _) = pretty pfname 
@@ -196,59 +197,15 @@ instance ShowDrools ProductionRule where
              , showDrools traceObj <> line
              ]
 
--- | Represents a single justification class declaration, used to generate a trace for rule-firing.
-data ProductionRuleTrace = ProductionRuleTrace {
-      nameOfTraceObj :: String
-      -- ^ Name of the trace object
-    , rulename :: String
-      -- ^ Name of the associated rule
-    , priors :: [TraceTuple]
-      -- ^ 
-    , args :: [TraceTuple]
-} deriving (Eq, Show)
 
-newtype TraceTuple = TraceTup (ProdFieldName, Typename) deriving (Eq, Show)
+{- | Represents a single precondition.
 
-priorsAndArgs :: Integer -> Integer -> [TraceTuple] -> [(String, Typename)]
-priorsAndArgs pAcc aAcc (TraceTup x:xs) = case x of 
-    (fn, "Justification") -> ("prior" ++ show pAcc, "Object") : priorsAndArgs (pAcc + 1) aAcc xs
-    (_, y) -> ("arg" ++ show aAcc, y) : priorsAndArgs pAcc (aAcc + 1) xs
-priorsAndArgs _ _ [] = []
-
-traceTupsToProdClassFields :: Integer -> [(String, Typename)] -> [ProductionClassField]
-traceTupsToProdClassFields cnt ((x,y):tps)  = ProductionClassField x y (show cnt) : traceTupsToProdClassFields (cnt+1) tps
-traceTupsToProdClassFields _ [] = []
-
-yieldTp :: [Char] -> [Char]
-yieldTp x = if x `elem` ["Object", "Justification", "Integer", "Boolean", "Float"] then x else "String"
-
-instance ShowClara ProductionRuleTrace where
-    showClara ProductionRuleTrace { nameOfTraceObj, priors, args} = 
-        showClara ProductionClassDecl { nameOfProductionClassDecl = nameOfTraceObj
-                                      , fieldsOfProductionClassDecl = traceTupsToProdClassFields 0 claraPriArgs}
-        where claraPriArgs = case priorsAndArgs 0 0 (priors <> args) of
-                                [] -> ("fact", "") : []
-                                x  -> ("rule", "") : x
-                 
-instance ShowDrools ProductionRuleTrace where
-    showDrools ProductionRuleTrace {nameOfTraceObj, priors, args} = 
-        showDrools ProductionClassDecl { nameOfProductionClassDecl = nameOfTraceObj ++ " extends Justification"
-                                       , fieldsOfProductionClassDecl = traceTupsToProdClassFields 0 (priorsAndArgs 0 0 $ priors <> args)}
-
-
-
-
-
-
-
-
-
--- We are restricting ourselves to non-fact bindings 
--- (see https://docs.jboss.org/drools/release/7.58.0.Final/drools-docs/html_single/index.html#drl-rules-WHEN-con_drl-rules)
+The "Maybe RCBind" in "ConditionalFuncApp" represents a pattern binding.
+-}
 data ConditionalElement
     = ConditionalFuncApp (Maybe RCBind) ProdFuncName [CEArg]
-    | ConditionalEval BComparOp CEArg CEArg
-    | ConditionalExist UBoolOp ConditionalElement -- TODO: rename to Negated Literal
+    | ConditionalEval BComparOp CEArg CEArg 
+    | ConditionalNegation UBoolOp ConditionalElement -- ^ Only "UBnot" is supported 
     | ConditionalElementFail String
     deriving (Eq, Show)
 
@@ -263,14 +220,14 @@ instance ShowClara ConditionalElement where
     showClara (ConditionalFuncApp bn tn args) =
         brackets (showClara bn <> pretty (capitalise tn) <+> hsep (map (parens . showClara) args))
     showClara (ConditionalEval cOp arg1 arg2) = brackets (pretty ":test" <+> parens (showClara cOp <+> showClara arg1 <+> showClara arg2))
-    showClara (ConditionalExist UBnot arg) = brackets (pretty ":not" <+> showClara arg)
+    showClara (ConditionalNegation UBnot arg) = brackets (pretty ":not" <+> showClara arg)
     showClara (ConditionalElementFail err) = pretty $ "ConditionalElementFailure: " ++ show err
 
 instance ShowDrools ConditionalElement where
     showDrools (ConditionalFuncApp bn tn args) =
         showDrools bn <> pretty (capitalise tn) <> parens (hsep $ punctuate comma $ map showDrools args)
     showDrools (ConditionalEval cOp arg1 arg2 ) = pretty "eval" <> parens (showDrools arg1 <+> showDrools cOp <+> showDrools arg2)
-    showDrools (ConditionalExist UBnot arg) = pretty "not" <+> parens (showDrools arg)
+    showDrools (ConditionalNegation UBnot arg) = pretty "not" <+> parens (showDrools arg)
     showDrools (ConditionalElementFail err) = pretty $ "ConditionalElementFailure: " ++ show err
 
 instance ShowClara BComparOp where
@@ -282,12 +239,8 @@ instance ShowClara BComparOp where
     showClara BCeq = pretty "="
 
 instance ShowDrools BComparOp where
-    showDrools BClt  = pretty "<"
-    showDrools BClte = pretty "<="
-    showDrools BCgt  = pretty ">"
-    showDrools BCgte = pretty ">="
-    showDrools BCne = pretty "!="
     showDrools BCeq = pretty "==" -- NOTE: Bindings in drools vs Equality in drools
+    showDrools x = showClara x
 
 instance ShowClara BArithOp where
     showClara BAadd = pretty "+"
@@ -300,6 +253,7 @@ instance ShowDrools BArithOp where
     showDrools = showClara
 
 
+-- | Represents the various expressions that can be output within the body of "ConditionalElement". TODO: See (1:09112021) above.
 data CEArg = CEBinding ProdVarName ProdFieldName
            | CEEquality ProdFieldName ProdVarName
            | CEArithmetic BArithOp CEArg CEArg
@@ -343,16 +297,18 @@ instance ShowDrools Val where
     showDrools e = error $ "No Drools output defined for value: " ++ show e
 
 -- We restrict the format of the rules to a singular post condition (to support prolog-style syntax within l4)
-data RuleAction = ActionFuncApp Typename ProductionRuleTrace [CEArg]
-                | ActionExprErr String
+data RuleAction = ActionFuncApp Typename ProductionRuleTrace [CEArg] -- ^ Represents the positive logical literal that results from the fulfilment of a rule
+                | ActionExprErr String  -- ^ TODO: Handle errors seperately, related to (1:08122021).
                 deriving (Eq, Show)
 
+-- | Helper function for prettyprinting local variable bindings within justification object instances
 showArgs :: Char -> [TraceTuple] -> [Doc ann]
 showArgs chr (TraceTup a:as) = (pretty chr <> pretty (fst a)) : showArgs chr as
 showArgs _ [] = []
 
+-- | Helper function for prettyprinting precondition predicate bindings within justification object instances
 showPriors :: Char -> Integer -> [TraceTuple] -> [Doc ann]
-showPriors chr acc(_:ps) = (pretty chr <> pretty "j" <> viaShow acc) : showPriors chr (acc+1) ps
+showPriors chr acc (_:ps) = (pretty chr <> pretty "j" <> viaShow acc) : showPriors chr (acc+1) ps
 showPriors _ _ [] = []
 
 instance ShowClara RuleAction where
@@ -382,8 +338,11 @@ instance ShowDrools RuleAction where
     showDrools (ActionExprErr x) = pretty x
 
 
-
-data Argument = GlobVar ProdVarName | LocVar ProdVarName | Value String deriving (Eq, Show)
+-- | Represents an atomic expression within the AST
+data Argument = GlobVar ProdVarName -- ^ Variable defined in global scope of the program
+              | LocVar ProdVarName  -- ^ Variable defined in local scope of a rule expression
+              | Value String        -- ^ Literal value, as supported by L4 syntax
+              deriving (Eq, Show)
 
 instance ShowClara Argument where
     showClara (GlobVar x)  = pretty x
@@ -395,3 +354,42 @@ instance ShowDrools Argument where
     showDrools (LocVar x)  = pretty x
     showDrools (Value y)   = pretty y
 
+
+-- ** Justification types
+-- | Represents a single justification class declaration, which is used to generate a trace for rule-firing.
+data ProductionRuleTrace = ProductionRuleTrace { nameOfTraceObj :: String -- ^ Name of the trace object
+                                               , rulename :: String       -- ^ Name of the associated rule
+                                               , priors :: [TraceTuple]   -- ^ The predicates that fulfilled the preconditions of, and led to firing of the associated rule
+                                               , args :: [TraceTuple]     -- ^ The values of locally bound variables, when the associated rule fired.
+                                               } deriving (Eq, Show)
+
+newtype TraceTuple = TraceTup (ProdFieldName, Typename) deriving (Eq, Show)
+
+-- | Helper function that 
+priorsAndArgs :: Integer -> Integer -> [TraceTuple] -> [(String, Typename)]
+priorsAndArgs pAcc aAcc (TraceTup x:xs) = case x of 
+    (_, "Justification") -> ("prior" ++ show pAcc, "Object") : priorsAndArgs (pAcc + 1) aAcc xs
+    (_, y) -> ("arg" ++ show aAcc, y) : priorsAndArgs pAcc (aAcc + 1) xs
+priorsAndArgs _ _ [] = []
+
+-- | Helper function that converts tracetuples into "ProductionClassField" for use in prettyprinting
+traceTupsToProdClassFields :: Integer -> [(String, Typename)] -> [ProductionClassField]
+traceTupsToProdClassFields cnt ((x,y):tps)  = ProductionClassField x y (show cnt) : traceTupsToProdClassFields (cnt+1) tps
+traceTupsToProdClassFields _ [] = []
+
+-- | Helper function that filters for allowable types in Drools output (Clara output is not typed)
+yieldTp :: [Char] -> [Char]
+yieldTp x = if x `elem` ["Object", "Justification", "Integer", "Boolean", "Float"] then x else "String"
+
+instance ShowClara ProductionRuleTrace where
+    showClara ProductionRuleTrace { nameOfTraceObj, priors, args} = 
+        showClara ProductionClassDecl { nameOfProductionClassDecl = nameOfTraceObj
+                                      , fieldsOfProductionClassDecl = traceTupsToProdClassFields 0 claraPriArgs}
+        where claraPriArgs = case priorsAndArgs 0 0 (priors <> args) of
+                                [] -> ("fact", "") : []
+                                x  -> ("rule", "") : x
+                 
+instance ShowDrools ProductionRuleTrace where
+    showDrools ProductionRuleTrace {nameOfTraceObj, priors, args} = 
+        showDrools ProductionClassDecl { nameOfProductionClassDecl = nameOfTraceObj ++ " extends Justification"
+                                       , fieldsOfProductionClassDecl = traceTupsToProdClassFields 0 (priorsAndArgs 0 0 $ priors <> args)}

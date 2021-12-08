@@ -68,7 +68,7 @@ exprToRC num (vs, x) =
     case x of
         AppE {}                   -> (newVars, exprToConditionalFuncApp num x)
         (BinOpE _ (BCompar _) _ _)  -> if S.isSubsetOf xlocVars vs then (newVars, exprToConditionalEval x)  else (vs, ConditionalElementFail "Reorder ur predicates")
-        (UnaOpE _ (UBool UBnot) _)  -> if S.isSubsetOf xlocVars vs then (newVars, exprToConditionalExist x)  else (vs, ConditionalElementFail "`Not` statements require a prior variable binding")
+        (UnaOpE _ (UBool UBnot) _)  -> if S.isSubsetOf xlocVars vs then (newVars, exprToConditionalNegation x)  else (vs, ConditionalElementFail "`Not` statements require a prior variable binding")
         _                           -> (vs, ConditionalElementFail "exprToRCList can only be used with function application, comparison operation or negation")
     where xlocVars = localVariables x
           newVars = S.union xlocVars vs
@@ -102,9 +102,9 @@ exprToConditionalEval (BinOpE _ (BCompar bop) x           y@AppE {}) = Condition
 exprToConditionalEval (BinOpE _ (BCompar bop) x           y        ) = ConditionalEval bop (exprToCEArg x) (exprToCEArg y)
 exprToConditionalEval _ = error "exprToConditionalEval used for non-BComparOp"
 
-exprToConditionalExist :: (Show t) => Expr t -> ConditionalElement -- we restrict `not` to function applications with variable bindings
-exprToConditionalExist (UnaOpE _ (UBool UBnot) a@AppE {}) = ConditionalExist UBnot $ exprToConditionalFuncApp (-1) a
-exprToConditionalExist _ = error "exprToConditionalExist used for non-UnaOpE"
+exprToConditionalNegation :: (Show t) => Expr t -> ConditionalElement -- we restrict `not` to function applications with variable bindings
+exprToConditionalNegation (UnaOpE _ (UBool UBnot) a@AppE {}) = ConditionalNegation UBnot $ exprToConditionalFuncApp (-1) a
+exprToConditionalNegation _ = error "exprToConditionalNegation used for non-UnaOpE"
 
 defArg :: Int -> ProdFieldName
 defArg x = "arg" ++ show x
