@@ -90,6 +90,7 @@ library
                   ToDA2
                   -- ToRuleEngine
                   SimpleRules
+                  JustificationVis
                   ToRules.Types
                   ToRules.FromL4
                   ToRules.ToDecls
