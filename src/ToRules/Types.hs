@@ -16,6 +16,7 @@ module ToRules.Types where
 import Prettyprinter
 import L4.Syntax
 import Util (capitalise)
+import CoreSyn (Tickish(profNoteCC))
 
 -- * Supported conversion formats
 -- | Nullary constructor that represents various supported rule-engine output formats 
@@ -248,13 +249,12 @@ instance ShowClara ConditionalElement where
                                  , vsep (map (parens . showClara) args)
                                  ]
         where deconstruct as = lbrace <> brackets (hsep (map ((<>) (pretty bn) . tear) as)) <+> pretty ":args" <> rbrace
-              tear (CEBinding _ pvn) = pretty $ last pvn
-              tear (CEEquality pfn _) = pretty $ last pfn
-              tear _ = error $ "Cannot deconstruct conditional element in " ++ tn
+              tear = pretty . last . ceArgName 
     showClara (ConditionalFuncApp _ tn args) =
-        hang 2 $ vsep [ brackets ( pretty (capitalise tn))
+        hang 2 $ vsep [ brackets ( pretty (capitalise tn) <+> brackets (deconstruct args))
                       , vsep (map (parens . showClara) args)
                       ]
+        where deconstruct as = lbrace <> brackets (hsep (map (pretty . ceArgName) as)) <+> pretty ":args" <> rbrace
     showClara (ConditionalEval cOp arg1 arg2) = brackets (pretty ":test" <+> parens (showClara cOp <+> showClara arg1 <+> showClara arg2))
     showClara (ConditionalNegation UBnot arg) = brackets (pretty ":not" <+> showClara arg)
     showClara (ConditionalElementFail err) = pretty $ "ConditionalElementFailure: " ++ show err
@@ -298,6 +298,16 @@ data CEArg = CEBinding ProdVarName ProdFieldName
            | CELiteral Val
            | CEArgFail String
            deriving (Eq, Show)
+
+-- | Extracts the name of a CEArg 
+ceArgName :: CEArg -> String
+ceArgName (CEBinding _ pvn) = pvn
+ceArgName (CEEquality pfn _) = pfn
+ceArgName (CEFuncApp fn _) = fn
+ceArgName (CEVarExpr a) = show a 
+ceArgName (CELiteral v) = show v
+ceArgName x = error $ "Failed to extract name of " ++ show x
+
 
 instance ShowClara CEArg where
     showClara (CEEquality fn fv) = pretty "=" <+> pretty fn <+> dquotes (pretty fv)
