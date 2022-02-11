@@ -18,6 +18,74 @@ data ASPRule t = ASPRule {
                    , postcondOfASPRule :: Expr t }
   deriving (Eq, Ord, Show, Read)
 
+
+-- Skolemized ASP rules code
+
+
+
+skolemizedASPRuleName r = nameOfASPRule r
+skolemizedASPRulePostcond r = postcondOfASPRule r
+skolemizedASPRulePrecond r = [transformPrecond precon (postcondOfASPRule r) (varDeclsOfASPRule r) (nameOfASPRule r) | precon <- (precondOfASPRule r)]
+skolemizedASPRuleVardecls r = genSkolemList (varDeclsOfASPRule r) ([varExprToDecl expr (varDeclsOfASPRule r) | expr <- snd (appToFunArgs [] (postcondOfASPRule r))]) (nameOfASPRule r)
+
+-- skolemizeASPRule :: ASPRule t -> ASPRule t
+
+skolemizeASPRule r = ASPRule (skolemizedASPRuleName r) (skolemizedASPRuleVardecls r) (skolemizedASPRulePrecond r) (skolemizedASPRulePostcond r)
+
+
+
+--transformPrecond :: Expr t -> Expr t ->[VarDecl t] -> String -> Expr t
+-- Takes in precon, lifts to var decl, transforms var decl, pushes back down to var expr, doesn't typecheck
+-- because transformed predicates (ie function applications) have type Expr (Tp()) rather than Expr t
+transformPrecond precon postcon vardecls ruleid =
+                let preconvar_dec = [varExprToDecl expr vardecls | expr <- snd (appToFunArgs [] precon)]
+                    postconvar_dec = [varExprToDecl expr vardecls | expr <- snd (appToFunArgs [] postcon)]
+                    new_preconvar_dec = genSkolemList preconvar_dec postconvar_dec ruleid
+                    new_precond = funArgsToApp (fst (appToFunArgs [] precon)) (map varDeclToExpr new_preconvar_dec)
+                in new_precond
+
+
+--genSkolem ::  VarDecl t -> [VarDecl t] -> String -> VarDecl t
+-- Takes in an existing precondition var_decl, list of postcon var_decls and returns skolemized precon var_decl
+genSkolem (VarDecl t vn u) y z = if elem (VarDecl t vn u) y
+      then (VarDecl t vn u)
+      else (VarDecl t ("skolemFn" ++ "_" ++ z ++ "_" ++ vn ++ (toBrackets y)) u)
+
+-- List version of genSkolem
+genSkolemList x y z = [genSkolem xs y z | xs <- x]
+
+toBrackets :: [VarDecl t] -> String
+toBrackets [] = "()"
+toBrackets [VarDecl t vn u] = "(" ++ vn ++ ")"
+toBrackets ((VarDecl t vn u):xs) = "(" ++ vn ++ "," ++ tail (toBrackets xs)
+
+-- var to var expr
+mkVarE :: Var t -> Expr t
+mkVarE v = VarE {annotOfExpr =  annotOfQVarName (nameOfVar v), varOfExprVarE = v}
+--Takes in a var_decl and turns it into a var_expr
+varDeclToExpr (VarDecl x y z) = mkVarE (GlobalVar (QVarName x y))
+
+
+varDeclToExprTup (VarDecl x y z) = (varDeclToExpr (VarDecl x y z),(VarDecl x y z))
+
+-- Matching function
+
+match x (y:ys) = if x == fst y
+     then snd y
+     else match x ys
+
+-- var expr to var decl, takes in a var expr and returns its corresponding var decl
+varExprToDecl expr listdec = match expr (map varDeclToExprTup listdec)
+
+
+-- Expression data structure in Syntax.hs
+-- many additional functions in SyntaxManipuation.hs
+
+-- End of Skoemized ASP rules code
+
+
+
+
 data OpposesClause t = OpposesClause {
       posLit :: Expr t
     , negLit :: Expr t}
@@ -53,7 +121,7 @@ ruleToASPRule r =
         , negpreds)
 
 
-data TranslationMode = AccordingToR | CausedByR | ExplainsR | AccordingToE String| LegallyHoldsE | RawL4
+data TranslationMode = AccordingToR | CausedByR | ExplainsR | AccordingToE String| ExplainsSkolemR | LegallyHoldsE | RawL4
 class ShowASP x where
     showASP :: TranslationMode -> x -> Doc ann
 class ShowOppClause x where
@@ -66,7 +134,7 @@ instance Show t => ShowASP (Expr t) where
     showASP (AccordingToE rn) e =
         pretty "according_to" <> parens (pretty rn <> pretty "," <+> showASP RawL4 e)
 
-    -- predicates (App expressions) are written wrapped into legally_holds, 
+    -- predicates (App expressions) are written wrapped into legally_holds,
     -- whereas any other expressions are written as is.
     showASP LegallyHoldsE e@AppE{} =
         pretty "legally_holds" <> parens (showASP RawL4 e)
@@ -86,15 +154,62 @@ instance Show t => ShowOppClause (OpposesClause t) where
             parens (showASP RawL4 pos <> pretty "," <+> showASP RawL4 neg) <+>
         pretty ":-" <+>
             showASP (AccordingToE "R") neg <> pretty "." <> line <>
+
+        pretty "opposes" <>
+            parens (showASP RawL4 pos <> pretty "," <+> showASP RawL4 neg) <+>
+
+
         pretty ":-" <+>
-        showASP LegallyHoldsE pos <> pretty "," <+>
-        showASP LegallyHoldsE neg <>
-        pretty "." 
+            showASP LegallyHoldsE pos <> pretty "." <> line <>
+
+        pretty "opposes" <>
+            parens (showASP RawL4 pos <> pretty "," <+> showASP RawL4 neg) <+>
+
+        pretty ":-" <+>
+            showASP LegallyHoldsE neg <> pretty "." <> line <>
+
+        pretty "opposes" <>
+            parens (showASP RawL4 pos <> pretty "," <+> showASP RawL4 neg) <+>
+
+        pretty ":-" <+>
+        pretty "query" <>
+        parens (
+                showASP RawL4 pos <+>
+                pretty "," <>
+                pretty "_N"
+                ) <> pretty "." <> line <>
+
+
+
+
+        pretty "opposes" <>
+            parens (showASP RawL4 pos <> pretty "," <+> showASP RawL4 neg) <+>
+
+        pretty ":-" <+>
+        pretty "query" <>
+        parens (
+                showASP RawL4 neg <+>
+                pretty "," <>
+                pretty "_N"
+                ) <> pretty "."
+
+
+
+
 
 instance Show t => ShowASP (ASPRule t) where
     showASP AccordingToR (ASPRule rn _vds preconds postcond) =
         showASP (AccordingToE rn) postcond <+> pretty ":-" <+>
             hsep (punctuate comma (map (showASP LegallyHoldsE) preconds)) <>  pretty "."
+
+    showASP ExplainsSkolemR (ASPRule _rn _vds preconds postcond)=
+                             let new_rn = _rn
+                                 new_vds = skolemizedASPRuleVardecls (ASPRule _rn _vds preconds postcond)
+                                 new_preconds = skolemizedASPRulePrecond (ASPRule _rn _vds preconds postcond)
+                                 new_precond = postcond
+                             in showASP ExplainsR (ASPRule _rn new_vds new_preconds postcond)
+
+
 
     showASP ExplainsR (ASPRule _rn _vds preconds postcond) =
         vsep (map (\pc ->
@@ -109,7 +224,7 @@ instance Show t => ShowASP (ASPRule t) where
                     pretty "query" <>
                     parens (
                             showASP RawL4 postcond <+>
-                            pretty "," <> 
+                            pretty "," <>
                             pretty "_N"
                             ) <>
                     pretty "."
@@ -154,6 +269,7 @@ astToASP prg = do
     -- putStrLn "ASP rules:"
     putDoc $ vsep (map (showASP AccordingToR) aspRules) <> line <> line
     putDoc $ vsep (map (showASP ExplainsR) aspRules) <> line <> line
+    putDoc $ vsep (map (showASP ExplainsSkolemR) aspRules) <> line <> line
     putDoc $ vsep (map (showASP CausedByR) aspRules) <> line <> line
     putDoc $ vsep (map showOppClause oppClauses) <> line
 
@@ -161,4 +277,3 @@ astToASP prg = do
 -- TODO: details to be filled in
 proveAssertionASP :: Show t => Program t -> ValueKVM  -> Assertion t -> IO ()
 proveAssertionASP p v asrt = putStrLn "ASP solver implemented"
-
