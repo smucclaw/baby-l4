@@ -1,0 +1,23 @@
+class Person
+
+class Corporation
+
+class City
+
+decl mustPayCorpTax: Person -> Corporation -> Boolean
+decl owner: Person -> Corporation -> Boolean
+decl profitable: Corporation -> Boolean
+decl majorityShareholder: Person -> Corporation -> Boolean
+decl highMarketShare: Corporation -> Boolean
+decl madeLoss: Corporation -> Boolean
+decl isTaxHaven: City -> Boolean
+
+rule <a_1>
+   for c: Corporation, p: Person
+   if owner p c && profitable c 
+   then mustPayCorpTax p c
+
+rule <a_1>
+   for c: Corporation, p: Person, x: City
+   if owner p c && profitable c && isTaxHaven x
+   then mustPayCorpTax p c
