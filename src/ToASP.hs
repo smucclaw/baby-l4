@@ -142,7 +142,7 @@ ruleToASPRule r =
         , negpreds)
 
 
-data TranslationMode = AccordingToR | CausedByR | ExplainsR | AccordingToE String | LegallyHoldsE | RawL4
+data TranslationMode = AccordingToR | CausedByR | ExplainsR | VarSubs1R | VarSubs2R | VarSubs3R | AccordingToE String | LegallyHoldsE | RawL4
 class ShowASP x where
     showASP :: TranslationMode -> x -> Doc ann
 class ShowOppClause x where
@@ -251,6 +251,53 @@ instance Show t => ShowASP (ASPRule t) where
                     )
             preconds)
 
+
+
+
+
+
+
+
+
+
+    showASP VarSubs3R (ASPRule _rn _vds preconds postcond) =
+        vsep (map (\pc ->
+                    pretty ("createSub(subInst" ++ "_" ++ _rn ++ toBrackets _vds ++ "," ++ "_N+1" ++ ")") <+>
+                    pretty ":-" <+>
+                    pretty "query" <>
+                    parens (
+                            showASP RawL4 postcond <+>
+                            pretty "," <>
+                            pretty "_N"
+                            ) <>
+                    pretty "."
+                    )
+            [head preconds])
+
+    showASP VarSubs1R (ASPRule _rn _vds preconds postcond) =
+        vsep (map (\pc ->
+                    pretty "explains" <>
+                    parens (
+                        showASP RawL4 pc <> pretty "," <+>
+                        showASP RawL4 postcond <+>
+                        pretty "," <>
+                        pretty "_N"
+                        ) <+>
+                    pretty ":-" <+>
+                    pretty ("createSub(subInst" ++ "_" ++ _rn ++ toBrackets _vds ++ "," ++ "_N" ++ ").")
+                    )
+            preconds)
+
+
+    showASP VarSubs2R (ASPRule _rn _vds preconds postcond) =
+        vsep (map (\pc ->
+                    pretty ("createSub(subInst" ++ "_" ++ _rn ++ toBrackets2 (my_str_trans_list (preconToVarStrList pc _vds) (varDeclToVarStrList _vds)) ++ "," ++ "_N" ++ ").")
+                         <+>
+                    pretty ":-" <+>
+                    pretty ("createSub(subInst" ++ "_" ++ _rn ++ toBrackets2 (my_str_trans_list [] (varDeclToVarStrList _vds)) ++ "," ++ "_N" ++ ")" ++ ",") <+>
+                    showASP LegallyHoldsE pc <> pretty "."
+                    )
+            preconds)
     showASP CausedByR (ASPRule rn _vds preconds postcond) =
         vsep (map (\pc ->
                     pretty "caused_by" <>
@@ -289,6 +336,9 @@ astToASP prg = do
     let oppClauses = map genOppClause oppClausePrednames
     -- putStrLn "ASP rules:"
     putDoc $ vsep (map (showASP AccordingToR) aspRules) <> line <> line
+    putDoc $ vsep (map (showASP VarSubs1R) aspRules) <> line <> line
+    putDoc $ vsep (map (showASP VarSubs3R) skolemizedASPRules) <> line <> line
+    putDoc $ vsep (map (showASP VarSubs2R) aspRules) <> line <> line
     -- putDoc $ vsep (map (showASP ExplainsR) aspRules) <> line <> line
     putDoc $ vsep (map (showASP ExplainsR) skolemizedASPRules) <> line <> line
     putDoc $ vsep (map (showASP CausedByR) aspRules) <> line <> line
@@ -298,3 +348,27 @@ astToASP prg = do
 -- TODO: details to be filled in
 proveAssertionASP :: Show t => Program t -> ValueKVM  -> Assertion t -> IO ()
 proveAssertionASP p v asrt = putStrLn "ASP solver implemented"
+
+
+-- Additional functions to write var substitution code
+
+preconToVarStrList :: Expr t ->[VarDecl t] -> [String]
+preconToVarStrList precon vardecls = varDeclToVarStrList(map (convertVarExprToDecl vardecls) (snd (appToFunArgs [] precon)))
+
+varDeclToVarStrList :: [VarDecl t] -> [String]
+
+varDeclToVarStrList [] = []
+varDeclToVarStrList ((VarDecl t vn u) : xs) = ((capitalise vn) : varDeclToVarStrList xs)
+
+my_str_trans :: [String] -> String -> String
+my_str_trans s t = if elem t s
+      then t
+else "V" ++ "_" ++ t
+
+my_str_trans_list s ts = [my_str_trans s t | t <- ts]
+
+toBrackets2 :: [String] -> String
+
+toBrackets2 [] = "()"
+toBrackets2 [x] = "(" ++ x ++ ")"
+toBrackets2 (x:xs) = "(" ++ x ++ "," ++ tail (toBrackets2 xs)
