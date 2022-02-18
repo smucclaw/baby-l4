@@ -66,7 +66,7 @@ transformPrecond precon postcon vardecls ruleid =
 genSkolem :: Eq t => VarDecl t -> [VarDecl t] -> [Char] -> VarDecl t
 genSkolem (VarDecl t vn u) y z = if elem (VarDecl t vn u) y
       then (VarDecl t (capitalise vn) u)
-      else (VarDecl t ("skolemFn" ++ "_" ++ z ++ "_" ++ vn ++ (toBrackets y)) u)
+      else (VarDecl t ("skolemFn" ++ "_" ++ z ++ "_" ++ (capitalise vn) ++ (toBrackets y)) u)
 
 -- List version of genSkolem
 genSkolemList :: Eq t => [VarDecl t] -> [VarDecl t] -> [Char] -> [VarDecl t]
@@ -262,7 +262,7 @@ instance Show t => ShowASP (ASPRule t) where
 
     showASP VarSubs3R (ASPRule _rn _vds preconds postcond) =
         vsep (map (\pc ->
-                    pretty ("createSub(subInst" ++ "_" ++ _rn ++ toBrackets _vds ++ "," ++ "_N+1" ++ ")") <+>
+                    pretty ("createSub(subInst" ++ "_" ++ _rn ++ skolemize2 _vds postcond _rn ++ "," ++ "_N+1" ++ ")") <+>
                     pretty ":-" <+>
                     pretty "query" <>
                     parens (
@@ -291,7 +291,7 @@ instance Show t => ShowASP (ASPRule t) where
 
     showASP VarSubs2R (ASPRule _rn _vds preconds postcond) =
         vsep (map (\pc ->
-                    pretty ("createSub(subInst" ++ "_" ++ _rn ++ toBrackets2 (my_str_trans_list (preconToVarStrList pc _vds) (varDeclToVarStrList _vds)) ++ "," ++ "_N" ++ ").")
+                    pretty ("createSub(subInst" ++ "_" ++ _rn ++ toBrackets2 (my_str_trans_list (preconToVarStrList pc _vds) (varDeclToVarStrList _vds)) ++ "," ++ "_N" ++ ")")
                          <+>
                     pretty ":-" <+>
                     pretty ("createSub(subInst" ++ "_" ++ _rn ++ toBrackets2 (my_str_trans_list [] (varDeclToVarStrList _vds)) ++ "," ++ "_N" ++ ")" ++ ",") <+>
@@ -337,7 +337,7 @@ astToASP prg = do
     -- putStrLn "ASP rules:"
     putDoc $ vsep (map (showASP AccordingToR) aspRules) <> line <> line
     putDoc $ vsep (map (showASP VarSubs1R) aspRules) <> line <> line
-    putDoc $ vsep (map (showASP VarSubs3R) skolemizedASPRules) <> line <> line
+    putDoc $ vsep (map (showASP VarSubs3R) aspRules) <> line <> line
     putDoc $ vsep (map (showASP VarSubs2R) aspRules) <> line <> line
     -- putDoc $ vsep (map (showASP ExplainsR) aspRules) <> line <> line
     putDoc $ vsep (map (showASP ExplainsR) skolemizedASPRules) <> line <> line
@@ -367,8 +367,28 @@ else "V" ++ "_" ++ t
 
 my_str_trans_list s ts = [my_str_trans s t | t <- ts]
 
+
+
+my_str_trans2 :: String -> [String] -> String -> String
+my_str_trans2 v postc rulen  = if elem v postc
+      then v
+else "skolemFn" ++ "_" ++ rulen ++ "_" ++ v ++ toBrackets2 postc
+
+my_str_trans_list2 s t u = [my_str_trans2 r t u | r <- s]
+
+
+
 toBrackets2 :: [String] -> String
 
 toBrackets2 [] = "()"
 toBrackets2 [x] = "(" ++ x ++ ")"
 toBrackets2 (x:xs) = "(" ++ x ++ "," ++ tail (toBrackets2 xs)
+
+
+toBrackets3 :: [VarDecl t] -> String
+toBrackets3 [] = "()"
+toBrackets3 [VarDecl t vn u] = "(" ++ vn ++ ")"
+toBrackets3 ((VarDecl t vn u):xs) = "(" ++ vn ++ "," ++ tail (toBrackets xs)
+
+
+skolemize2 vardecs postc rulename =  toBrackets2 (my_str_trans_list2 (varDeclToVarStrList (vardecs)) (varDeclToVarStrList ((map (convertVarExprToDecl vardecs) (snd (appToFunArgs [] postc))))) rulename)
