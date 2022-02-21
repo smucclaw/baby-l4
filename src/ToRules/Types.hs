@@ -16,12 +16,13 @@ module ToRules.Types where
 import Prettyprinter
 import L4.Syntax
 import Util (capitalise)
+import CoreSyn (Tickish(profNoteCC))
 
 -- * Supported conversion formats
 -- | Nullary constructor that represents various supported rule-engine output formats 
-data RuleFormat = Clara 
+data RuleFormat = Clara
                   -- ^ [Clara-Rules](https://clara-rules.org)
-                | Drools 
+                | Drools
                   -- ^ [Drools v7.58.0](https://docs.drools.org/7.58.0.Final/drools-docs/html_single/)
                 deriving Eq
 
@@ -51,6 +52,7 @@ instance (ShowDrools t) => ShowDrools (Maybe t) where
 -- * Types & Instances
 
 -- ** General AST types
+type Declname = String
 type Typename = String
 type ProdVarName = String
 type ProdFieldName = String
@@ -66,38 +68,60 @@ Currently only function & class declarations ("ToRules.ToDecls"), and rules ("To
  
 TODO: see (1:08122021)
 -}
-data ProductionSystem = ProductionSystem { package :: String
-                                         , imports :: String
-                                         , functions :: [ProductionDefn] 
+data ProductionSystem = ProductionSystem { boilerplate :: String
+                                         , functions :: [ProductionDefn]
                                          , queries :: String
                                          , classDecls :: [ProductionClassDecl]
                                          , globals :: String
                                          , rules :: [ProductionRule]
                                          }
 
+instance ShowClara ProductionSystem where
+    showClara ProductionSystem {functions, classDecls, rules} =
+        vsep [ pretty sysHead
+             , vsep $ map showClara functions
+             , line
+             , vsep $ map showClara classDecls
+             , line
+             , vsep $ map showClara rules]
+        where
+            sysHead = "(ns transpiled\n  (:require\n   [clara.rules :as c :refer [defrule]]))\n"
+
+instance ShowDrools ProductionSystem where
+    showDrools ProductionSystem {functions, classDecls, rules} =
+        vsep [ pretty sysHead
+             , vsep $ map showDrools functions
+             , line
+             , vsep $ map showDrools classDecls
+             , line
+             , vsep $ map showDrools rules ]
+        where
+            sysHead = "package com.sample.transpiled\n\nimport java.util.Arrays\nimport java.util.ArrayList\n"
+
+
 -- | Represents a single output function. 
-data ProductionDefn = ProductionDefn { nameOfProductionDefn :: ProdFuncName 
+data ProductionDefn = ProductionDefn { nameOfProductionDefn :: ProdFuncName
                                        -- ^ Name of the output function
                                      , returnTpOfProductionDefn :: Typename
                                        -- ^ Return type of the output function
                                      , argsOfProductionDefn :: [(ProdVarName, Typename)]
                                        -- ^ List of parameter names and their accompanying types
-                                     , bodyOfProductionDefn :: ProdFuncExpr 
+                                     , bodyOfProductionDefn :: ProdFuncExpr
                                        -- ^ Expression contained within the body of the output function
                                      } deriving (Eq, Show)
 
 instance ShowDrools ProductionDefn where
-    showDrools ProductionDefn {nameOfProductionDefn, argsOfProductionDefn, returnTpOfProductionDefn, bodyOfProductionDefn} = 
-        vsep [ defnHeader <+> lbrace 
+    showDrools ProductionDefn {nameOfProductionDefn, argsOfProductionDefn, returnTpOfProductionDefn, bodyOfProductionDefn} =
+        vsep [ defnHeader <+> lbrace
              , indent 2 $ pretty "return" <+> (showDrools bodyOfProductionDefn) <> semi
              , rbrace]
         where defnHeader = pretty "function" <+> pretty (capitalise returnTpOfProductionDefn) <+> pretty nameOfProductionDefn <> parens (hsep $ punctuate comma $ map prettyTup argsOfProductionDefn)
               prettyTup (x,y) = pretty x <+> pretty y
 
 instance ShowClara ProductionDefn where
-    showClara ProductionDefn {nameOfProductionDefn, argsOfProductionDefn, bodyOfProductionDefn} = 
+    showClara ProductionDefn {nameOfProductionDefn, argsOfProductionDefn, bodyOfProductionDefn} =
         parens (vsep [ pretty "defn" <+> pretty nameOfProductionDefn <+> brackets (hsep $ map (pretty . snd) argsOfProductionDefn)
-                     , indent 2 $ showClara bodyOfProductionDefn ]) 
+                     , indent 2 $ showClara bodyOfProductionDefn ])
 
 
 -- | Represents the various expressions that can be output within the body of ProductionDefn.
@@ -133,7 +157,7 @@ instance ShowClara ProdFuncExpr where
     showClara (ProdFuncExprFail msg) = pretty $ "Error: " ++ msg
 
 -- | Represents a single output class declaration.
-data ProductionClassDecl = ProductionClassDecl { nameOfProductionClassDecl :: Typename
+data ProductionClassDecl = ProductionClassDecl { nameOfProductionClassDecl :: Declname
                                                  -- ^ Name of class declaration
                                                , fieldsOfProductionClassDecl :: [ProductionClassField]
                                                  -- ^ Class variables 
@@ -147,7 +171,7 @@ instance ShowDrools ProductionClassDecl where
     showDrools ProductionClassDecl {nameOfProductionClassDecl, fieldsOfProductionClassDecl} = do
         vsep [ pretty "declare" <+> pretty (capitalise nameOfProductionClassDecl)
              , indent 2 $ vsep (map showDrools fieldsOfProductionClassDecl)
-             , pretty "end"
+             , pretty "end" <> line
              ]
 
 -- | Represents a single output class variable. "ProdFieldName" is the name of the variable, "Typename" is the type of the variable, and "PosAnnot" is a string annotation that encodes positional information of the variable within the class constructor.
@@ -158,7 +182,7 @@ instance ShowDrools ProductionClassField where
     showDrools (ProductionClassField pfname tpname pos) = pretty pfname <> colon <+> pretty (yieldTp tpname) <+> pretty "@position" <> parens (pretty pos)
 
 instance ShowClara ProductionClassField where
-    showClara (ProductionClassField pfname _ _) = pretty pfname 
+    showClara (ProductionClassField pfname _ _) = pretty pfname
 
 
 
@@ -178,7 +202,7 @@ data ProductionRule =
 
 instance ShowClara ProductionRule where
     showClara ProductionRule {nameOfProductionRule, leftHandSide, rightHandSide, traceObj} = do
-        vsep [ showClara traceObj
+        vsep [ pretty "" -- showClara traceObj
              , hang 2 $ vsep [ lparen <> pretty "defrule" <+> pretty nameOfProductionRule
                              , vsep (map showClara leftHandSide)
                              , pretty "=>"
@@ -204,12 +228,15 @@ The "Maybe RCBind" in "ConditionalFuncApp" represents a pattern binding.
 -}
 data ConditionalElement
     = ConditionalFuncApp (Maybe RCBind) ProdFuncName [CEArg]
-    | ConditionalEval BComparOp CEArg CEArg 
+    | ConditionalEval BComparOp CEArg CEArg
     | ConditionalNegation UBoolOp ConditionalElement -- ^ Only "UBnot" is supported 
     | ConditionalElementFail String
     deriving (Eq, Show)
 
-newtype RCBind = RCBind String deriving (Eq, Show)
+newtype RCBind = RCBind String deriving (Eq)
+
+instance Show RCBind where
+    show (RCBind x) = x
 
 instance ShowClara RCBind where
     showClara (RCBind s) = pretty "?" <> pretty s <+> pretty "<- "
@@ -217,8 +244,17 @@ instance ShowDrools RCBind where
     showDrools (RCBind s) = pretty "$" <> pretty s <+> pretty ": "
 
 instance ShowClara ConditionalElement where
-    showClara (ConditionalFuncApp bn tn args) =
-        brackets (showClara bn <> pretty (capitalise tn) <+> hsep (map (parens . showClara) args))
+    showClara (ConditionalFuncApp (Just b@(RCBind bn)) tn args) =
+        brackets $ hang 2 $ vsep [ showClara b <> pretty (capitalise tn) <+> brackets (deconstruct args)
+                                 , vsep (map (parens . showClara) args)
+                                 ]
+        where deconstruct as = lbrace <> brackets (hsep (map ((<>) (pretty bn) . tear) as)) <+> pretty ":args" <> rbrace
+              tear = pretty . last . ceArgName 
+    showClara (ConditionalFuncApp _ tn args) =
+        hang 2 $ vsep [ brackets ( pretty (capitalise tn) <+> brackets (deconstruct args))
+                      , vsep (map (parens . showClara) args)
+                      ]
+        where deconstruct as = lbrace <> brackets (hsep (map (pretty . ceArgName) as)) <+> pretty ":args" <> rbrace
     showClara (ConditionalEval cOp arg1 arg2) = brackets (pretty ":test" <+> parens (showClara cOp <+> showClara arg1 <+> showClara arg2))
     showClara (ConditionalNegation UBnot arg) = brackets (pretty ":not" <+> showClara arg)
     showClara (ConditionalElementFail err) = pretty $ "ConditionalElementFailure: " ++ show err
@@ -235,7 +271,7 @@ instance ShowClara BComparOp where
     showClara BClte = pretty "<="
     showClara BCgt  = pretty ">"
     showClara BCgte = pretty ">="
-    showClara BCne = pretty "!=" 
+    showClara BCne = pretty "!="
     showClara BCeq = pretty "="
 
 instance ShowDrools BComparOp where
@@ -262,6 +298,16 @@ data CEArg = CEBinding ProdVarName ProdFieldName
            | CELiteral Val
            | CEArgFail String
            deriving (Eq, Show)
+
+-- | Extracts the name of a CEArg 
+ceArgName :: CEArg -> String
+ceArgName (CEBinding _ pvn) = pvn
+ceArgName (CEEquality pfn _) = pfn
+ceArgName (CEFuncApp fn _) = fn
+ceArgName (CEVarExpr a) = show a 
+ceArgName (CELiteral v) = show v
+ceArgName x = error $ "Failed to extract name of " ++ show x
+
 
 instance ShowClara CEArg where
     showClara (CEEquality fn fv) = pretty "=" <+> pretty fn <+> dquotes (pretty fv)
@@ -312,19 +358,22 @@ showPriors chr acc (_:ps) = (pretty chr <> pretty "j" <> viaShow acc) : showPrio
 showPriors _ _ [] = []
 
 instance ShowClara RuleAction where
-    showClara (ActionFuncApp fname tObj appArgs) = 
-            pretty "(c/insert! (->" 
+    showClara (ActionFuncApp fname tObj appArgs) =
+            pretty "(c/insert! (->"
         <>  pretty (capitalise fname)
         <+> showTrace tObj
-        <+> hsep (map showClara appArgs) 
+        <+> dquotes (pretty $ capitalise fname)
+        <+> dquotes (pretty "pred")
+        <+> brackets (hsep (map showClara appArgs))
         <>  rparen <> rparen
-        where showTrace trc = 
-                pretty "(->" 
-                <> pretty (capitalise $ nameOfTraceObj trc) 
-                <+> dquotes (pretty $ rulename trc)
-                <+> hsep (showPriors '?' 0 (priors trc)) 
-                <+> hsep (showArgs '?' (args trc)) 
-                <> rparen
+        where showTrace trc = brackets (
+                   lbrace
+                <> pretty ":name" <+> dquotes (pretty $ rulename trc)
+                <+> pretty ":type" <+> dquotes (pretty "rule")
+                <+> pretty ":args" <+> brackets (hsep (showArgs '?' (args trc)))
+                <+> pretty ":trace" <+> brackets (hsep (showPriors '?' 0 (priors trc)))
+                <> rbrace
+                )
     showClara (ActionExprErr x) = pretty x
 
 instance ShowDrools RuleAction where
@@ -367,7 +416,7 @@ newtype TraceTuple = TraceTup (ProdFieldName, Typename) deriving (Eq, Show)
 
 -- | Helper function that 
 priorsAndArgs :: Integer -> Integer -> [TraceTuple] -> [(String, Typename)]
-priorsAndArgs pAcc aAcc (TraceTup x:xs) = case x of 
+priorsAndArgs pAcc aAcc (TraceTup x:xs) = case x of
     (_, "Justification") -> ("prior" ++ show pAcc, "Object") : priorsAndArgs (pAcc + 1) aAcc xs
     (_, y) -> ("arg" ++ show aAcc, y) : priorsAndArgs pAcc (aAcc + 1) xs
 priorsAndArgs _ _ [] = []
@@ -382,14 +431,14 @@ yieldTp :: [Char] -> [Char]
 yieldTp x = if x `elem` ["Object", "Justification", "Integer", "Boolean", "Float"] then x else "String"
 
 instance ShowClara ProductionRuleTrace where
-    showClara ProductionRuleTrace { nameOfTraceObj, priors, args} = 
+    showClara ProductionRuleTrace { nameOfTraceObj, priors, args} =
         showClara ProductionClassDecl { nameOfProductionClassDecl = nameOfTraceObj
                                       , fieldsOfProductionClassDecl = traceTupsToProdClassFields 0 claraPriArgs}
         where claraPriArgs = case priorsAndArgs 0 0 (priors <> args) of
                                 [] -> ("fact", "") : []
                                 x  -> ("rule", "") : x
-                 
+
 instance ShowDrools ProductionRuleTrace where
-    showDrools ProductionRuleTrace {nameOfTraceObj, priors, args} = 
+    showDrools ProductionRuleTrace {nameOfTraceObj, priors, args} =
         showDrools ProductionClassDecl { nameOfProductionClassDecl = nameOfTraceObj ++ " extends Justification"
                                        , fieldsOfProductionClassDecl = traceTupsToProdClassFields 0 (priorsAndArgs 0 0 $ priors <> args)}

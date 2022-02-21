@@ -89,9 +89,8 @@ getName = nameOfQVarName . nameOfVar . varOfExprVarE
 exprToConditionalFuncApp :: (Show t) => Int -> Expr t -> ConditionalElement
 exprToConditionalFuncApp num fApp@AppE {} = ConditionalFuncApp rcbind (getName fexpr) remArgs -- faArgs
     where (fexpr, args) = appToFunArgs [] fApp
-        --   justBind = CEBinding ("j" ++ show num) "arg0"
-          remArgs = map (exprToCEBindEq) (zip [1.. (length args)] args)
           rcbind = if num >= 0 then (Just . RCBind $ "j" ++ show num) else Nothing
+          remArgs = map (exprToCEBindEq rcbind) $ zip [1.. (length args)] args
         --   faArgs = if num < 0 then remArgs else justBind : remArgs
 exprToConditionalFuncApp _ _ = error "exprToConditionalFuncApp used for non-AppE"
 
@@ -106,8 +105,9 @@ exprToConditionalNegation :: (Show t) => Expr t -> ConditionalElement -- we rest
 exprToConditionalNegation (UnaOpE _ (UBool UBnot) a@AppE {}) = ConditionalNegation UBnot $ exprToConditionalFuncApp (-1) a
 exprToConditionalNegation _ = error "exprToConditionalNegation used for non-UnaOpE"
 
-defArg :: Int -> ProdFieldName
-defArg x = "arg" ++ show x
+defArg :: Maybe RCBind -> Int -> ProdFieldName
+defArg (Just bn) x = show bn ++ show x
+defArg Nothing x = "arg" ++ show x
 
 -- a note: CEFuncApp is meant to be part of the ConditionalEval expression (e.g. the `minIncome y` of `x > minIncome y`)
 --         rather than a ConditionalFuncApp predicate expression (e.g. `amount_saved x`)
@@ -118,10 +118,10 @@ exprToCEFuncApp fApp@AppE {} =
     in CEFuncApp (getName fexpr) (map getName args)
 exprToCEFuncApp expr = CEArgFail $ "exprToCEFuncApp received non-AppE expr" ++ show expr
 
-exprToCEBindEq :: (Show t) => (Int, Expr t) -> CEArg -- assumption: either local or global var expr
-exprToCEBindEq (num, VarE _ (LocalVar name _)) = CEBinding (nameOfQVarName name) (defArg num)
-exprToCEBindEq (num, VarE _ (GlobalVar name)) = CEEquality (defArg num) (nameOfQVarName name)
-exprToCEBindEq (_, expr) = CEArgFail $ "exprToCEBindEq cannot transpile expression: " ++ show expr
+exprToCEBindEq :: (Show t) => Maybe RCBind -> (Int, Expr t) -> CEArg -- assumption: either local or global var expr
+exprToCEBindEq bn (num, VarE _ (LocalVar name _)) = CEBinding (nameOfQVarName name) (defArg bn num)
+exprToCEBindEq bn (num, VarE _ (GlobalVar name)) = CEEquality (defArg bn num) (nameOfQVarName name)
+exprToCEBindEq _ (_, expr) = CEArgFail $ "exprToCEBindEq cannot transpile expression: " ++ show expr
 
 exprToCEArg :: (Show t) => Expr t -> CEArg
 exprToCEArg (BinOpE _ (BArith aOp) x y) = CEArithmetic aOp (exprToCEArg x) (exprToCEArg y)
