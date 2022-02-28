@@ -251,8 +251,8 @@ instance ShowClara ConditionalElement where
         where deconstruct as = lbrace <> brackets (hsep (map ((<>) (pretty bn) . tear) as)) <+> pretty ":args" <> rbrace
               tear = pretty . last . ceArgName 
     showClara (ConditionalFuncApp _ tn args) =
-        hang 2 $ vsep [ brackets ( pretty (capitalise tn) <+> brackets (deconstruct args))
-                      , vsep (map (parens . showClara) args)
+        hang 2 $ brackets $ vsep [ pretty (capitalise tn) <+> brackets (deconstruct args)
+                                 , vsep (map (parens . showClara) args)
                       ]
         where deconstruct as = lbrace <> brackets (hsep (map (pretty . ceArgName) as)) <+> pretty ":args" <> rbrace
     showClara (ConditionalEval cOp arg1 arg2) = brackets (pretty ":test" <+> parens (showClara cOp <+> showClara arg1 <+> showClara arg2))
