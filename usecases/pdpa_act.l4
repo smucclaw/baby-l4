@@ -328,10 +328,14 @@ decl waiveNotificationOfAffectedIndividual: Actor -> Actor -> Boolean
 
 # TODO: not clear what "under subsection (2)" means. 
 # Note: the two subsections are mutually dependent.
+# There was an additional precondition: not (significantHarm db indiv),
+# and the precondition isNotifiableDataBreach db was missing. 
+# This lead to a failure to produce expert system rules.
+# The rule has been modified as below and can now generate expertystem rules.
 rule <s26d_7>
 for db: DataBreach, org: Organisation, indiv: Individual
-if waiveNotificationOfAffectedIndividual org indiv
-&& not (significantHarm db indiv)
+if isNotifiableDataBreach db 
+&& waiveNotificationOfAffectedIndividual org indiv
 then exemptFromObligationToNotify org indiv db
 
 

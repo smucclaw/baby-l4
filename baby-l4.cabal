@@ -88,9 +88,13 @@ library
                   ToASP
                   ToSCASP
                   ToDA2
+                  -- ToRuleEngine
                   SimpleRules
-                  ToRules
-
+                  JustificationVis
+                  ToRules.Types
+                  ToRules.FromL4
+                  ToRules.ToDecls
+                  ToRules.ToRules
                   --ExampleInput
                   Exec
                   --InterfaceNunchaku

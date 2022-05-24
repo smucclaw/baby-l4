@@ -97,7 +97,7 @@ then savings_account adequate
 # 5
 rule <savingsInad>
 for x: Integer, y: Integer
-if amount_saved x && dependents y && x <= minsavings y && not amount_saved x
+if amount_saved x && dependents y && x <= minsavings y 
 then savings_account inadequate
 
 # 6
