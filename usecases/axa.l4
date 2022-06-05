@@ -151,14 +151,17 @@ decl secA_Applicability: Boolean
 
 # SecA.preamble
 # TODO (L4 language): provide a context construct
+# EXPSYS: rule not translated at all?
 rule <SecA_Context>
 if premiumPaid
 then secA_Applicability
 
 # SecA.Cov.1
+# EXPSYS: commented out secA_Applicability
 rule <SecA_PayBreakdownVehicle>
 for s: Situation, loc: Location
-if secA_Applicability && currentSit s &&
+if # secA_Applicability && 
+   currentSit s &&
    isBreakdownSituation s && situationInLocation s loc && (distance home loc < 20)
 then coverProvided s payBreakdownVehicle SecA_PayBreakdownVehicle
 
@@ -166,17 +169,21 @@ then coverProvided s payBreakdownVehicle SecA_PayBreakdownVehicle
 decl notSafeToDrive: Situation -> Boolean
 
 # SecA.Cov.2
+# EXPSYS: rule cannot be translated correctly with condition secA_Applicability. No simple booleans admitted?
 rule <SecA_RecoverPassengersVehicle20MilesLim>
 for s: Situation, loc: Location
-if secA_Applicability && currentSit s &&
+if # secA_Applicability && 
+   currentSit s &&
    isBreakdownSituation s && notSafeToDrive s 
 then coverProvided s recoverPassengersVehicle20MilesLim SecA_RecoverPassengersVehicle20MilesLim
 
 # SecA.Cov.3
 # TODO: model "you will have to pay all other costs"
+# EXPSYS: something goes wrong in this rule. What? See above
 rule <SecA_RecoverPassengersVehicleAuthorizedOp>
 for s: Situation
-if secA_Applicability && currentSit s && (s == missingKeys)
+if # secA_Applicability && 
+   currentSit s && (s == missingKeys)
 then coverProvided s recoverPassengersVehicleAuthorizedOp SecA_RecoverPassengersVehicleAuthorizedOp
 
 # SecA.NoCov.1
