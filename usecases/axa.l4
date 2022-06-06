@@ -75,6 +75,7 @@ decl coverProvided: Situation -> CoverageType -> RuleApp -> Boolean
 
 decl isBreakdownSituation: Situation -> Boolean
 
+
 ## uninteresting (the is... predicates should be generated)
 decl isGeneralVehicle : GeneralVehicle -> Boolean
 decl isVehicle : GeneralVehicle -> Boolean
@@ -96,7 +97,7 @@ then isGeneralVehicle v
 
 # MW.11
 decl uk: Surface
-# decl abroad: Surface  # currently not needed
+decl abroad: Surface  # isIn loc abroad = not (isIn loc uk), but avoiding an explicit negation
 
 # MW.9
 # The contract is implicitly parameterized by the policy holder and their data, such as their home
@@ -125,6 +126,14 @@ decl noFuel: Situation
 decl misFuelling: Situation  # same as "putting the wrong fuel into it"
 decl missingKeys: Situation  # for: losing or breaking vehicle keys
 
+
+fact isBreakdownSituation mechanicalBrkd
+fact isBreakdownSituation noFuel
+fact isBreakdownSituation misFuelling
+fact isBreakdownSituation missingKeys
+
+
+
 # MW.8
 # To be understood as necessary and sufficient condition (with rule inversion)
 rule <vehicleSpec> 
@@ -151,17 +160,14 @@ decl secA_Applicability: Boolean
 
 # SecA.preamble
 # TODO (L4 language): provide a context construct
-# EXPSYS: rule not translated at all?
 rule <SecA_Context>
 if premiumPaid
 then secA_Applicability
 
 # SecA.Cov.1
-# EXPSYS: commented out secA_Applicability
 rule <SecA_PayBreakdownVehicle>
 for s: Situation, loc: Location
-if # secA_Applicability && 
-   currentSit s &&
+if secA_Applicability && currentSit s &&
    isBreakdownSituation s && situationInLocation s loc && (distance home loc < 20)
 then coverProvided s payBreakdownVehicle SecA_PayBreakdownVehicle
 
@@ -169,21 +175,17 @@ then coverProvided s payBreakdownVehicle SecA_PayBreakdownVehicle
 decl notSafeToDrive: Situation -> Boolean
 
 # SecA.Cov.2
-# EXPSYS: rule cannot be translated correctly with condition secA_Applicability. No simple booleans admitted?
 rule <SecA_RecoverPassengersVehicle20MilesLim>
 for s: Situation, loc: Location
-if # secA_Applicability && 
-   currentSit s &&
+if secA_Applicability && currentSit s &&
    isBreakdownSituation s && notSafeToDrive s 
 then coverProvided s recoverPassengersVehicle20MilesLim SecA_RecoverPassengersVehicle20MilesLim
 
 # SecA.Cov.3
 # TODO: model "you will have to pay all other costs"
-# EXPSYS: something goes wrong in this rule. What? See above
 rule <SecA_RecoverPassengersVehicleAuthorizedOp>
 for s: Situation
-if # secA_Applicability && 
-   currentSit s && (s == missingKeys)
+if secA_Applicability && currentSit s && (s == missingKeys)
 then coverProvided s recoverPassengersVehicleAuthorizedOp SecA_RecoverPassengersVehicleAuthorizedOp
 
 # SecA.NoCov.1
@@ -197,7 +199,7 @@ then coverProvided s noCoverProvided SecA_BreakdownLess1Mile
 rule <SecA_BreakdownNotInUK>
 for s: Situation, loc: Location
 if currentSit s && isBreakdownSituation s &&
-    situationInLocation s loc && not (isIn loc uk)
+    situationInLocation s loc && isIn loc abroad
 then coverProvided s noCoverProvided SecA_BreakdownNotInUK
 
 # Derived rules
@@ -218,3 +220,36 @@ decl myra2: RuleApp
 
 assert <contradictoryCover> {SMT: consistent}
 coverProvided mySit myCov myra1 && coverProvided mySit noCoverProvided myra2
+
+
+# Scenario 1
+
+decl swansea: Location
+
+fact <scen1_premiumPaid> premiumPaid
+fact <scen1_currentSit> currentSit mechanicalBrkd
+fact <scen1_location> situationInLocation mechanicalBrkd swansea
+fact <scen1_distance> distance home swansea == 10
+
+assert <scen1_assert1> {SMT: valid} 
+exists r: RuleApp. (coverProvided mechanicalBrkd payBreakdownVehicle r) # SecA_PayBreakdownVehicle
+
+assert <scen1_assert2> {SMT: valid} 
+coverProvided mechanicalBrkd payBreakdownVehicle SecA_PayBreakdownVehicle
+
+
+# Scenario 2
+decl dundalk: Location   # town in Ireland close to UK boarder
+
+fact <scen2_premiumPaid> premiumPaid
+fact <scen2_currentSit> currentSit mechanicalBrkd
+fact <scen2_location> situationInLocation mechanicalBrkd dundalk
+fact <scen2> isIn dundalk abroad
+fact <scen1_distance> distance home dundalk == 15
+
+# two apparently contradictory results can be derived (cover / no cover provided)
+assert <scen2_assert1> {SMT: valid} 
+coverProvided mechanicalBrkd noCoverProvided SecA_BreakdownNotInUK
+
+assert <scen2_assert2> {SMT: valid} 
+coverProvided mechanicalBrkd payBreakdownVehicle SecA_PayBreakdownVehicle
