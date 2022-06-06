@@ -57,8 +57,13 @@ precondToExprList fApp@AppE {} = [fApp]
 precondToExprList bcomp@(BinOpE _ (BCompar _) _ _) = [bcomp]
 precondToExprList unot@(UnaOpE _ (UBool UBnot) _) = [unot]
 precondToExprList (ValE _ (BoolV True)) = []
+precondToExprList varE@VarE {} = [varE]
 precondToExprList _ = error "non and operation"
 
+-- as condition is traversed: each time AppE is encountered, int is incremented
+-- keeps track of no. of conditions in a rule and bound local vars
+-- because all declared vars have to be bound before being used in postcond
+-- num is x in jxy; y is derived from exprToConditionalFuncApp
 exprlistToRCList :: (Ord t, Show t) => Int -> S.Set (Var t) -> RCList -> [Expr t] -> (S.Set (Var t), RCList)
 exprlistToRCList num vs acc (x:xs) = exprlistToRCList (num + 1) nvs (acc <> [ce]) xs where (nvs, ce) = exprToRC num (vs, x)
 exprlistToRCList _ vs acc [] = (vs, acc)
@@ -66,6 +71,7 @@ exprlistToRCList _ vs acc [] = (vs, acc)
 exprToRC :: (Ord t, Show t) => Int -> (S.Set (Var t), Expr t) -> (S.Set (Var t), ConditionalElement)
 exprToRC num (vs, x) =
     case x of
+        VarE {} -> (newVars, varToConditionalFuncApp num x)
         AppE {}                   -> (newVars, exprToConditionalFuncApp num x)
         (BinOpE _ (BCompar _) _ _)  -> if S.isSubsetOf xlocVars vs then (newVars, exprToConditionalEval x)  else (vs, ConditionalElementFail "Reorder ur predicates")
         (UnaOpE _ (UBool UBnot) _)  -> if S.isSubsetOf xlocVars vs then (newVars, exprToConditionalNegation x)  else (vs, ConditionalElementFail "`Not` statements require a prior variable binding")
@@ -86,10 +92,18 @@ localVariables _ = error "localVariables used with non-function application or c
 getName :: Expr t -> VarName
 getName = nameOfQVarName . nameOfVar . varOfExprVarE
 
+varToConditionalFuncApp :: (Show t) => Int -> Expr t -> ConditionalElement
+varToConditionalFuncApp num varE@VarE {} = ConditionalFuncApp rcbind (getName varE) [] -- faArgs
+    where rcbind = if num >= 0 then (Just . RCBind $ "j" ++ show num) else Nothing
+varToConditionalFuncApp _ _ = error "varToConditionalFuncApp used for non-AppE"
+
 exprToConditionalFuncApp :: (Show t) => Int -> Expr t -> ConditionalElement
 exprToConditionalFuncApp num fApp@AppE {} = ConditionalFuncApp rcbind (getName fexpr) remArgs -- faArgs
     where (fexpr, args) = appToFunArgs [] fApp
           rcbind = if num >= 0 then (Just . RCBind $ "j" ++ show num) else Nothing
+          -- zipped result: [(1, 'adam'), (2, 2200), (3, 'steady')]
+          -- exprToCEBindEq "j0" (1, 'local var adam') = CEBinding "local var adam" "j01"
+          -- exprToCEBindEq "j0" (3, "global var steady") = CEEquality "j03" " global var steady"
           remArgs = map (exprToCEBindEq rcbind) $ zip [1.. (length args)] args
         --   faArgs = if num < 0 then remArgs else justBind : remArgs
 exprToConditionalFuncApp _ _ = error "exprToConditionalFuncApp used for non-AppE"
@@ -136,7 +150,8 @@ exprToRuleAction lvs tObj fApp@(AppE {}) = ActionFuncApp (getName fexpr) tObj (m
     where (fexpr, args) = appToFunArgs [] fApp
           checkBoundLocal bls x@(VarE _ c@(LocalVar{})) = if S.member c bls then exprToCEArg x else error $ "Local variable defined in rule action not previously bound: " ++ show x
           checkBoundLocal _ x = exprToCEArg x
-
+exprToRuleAction lvs tObj varE@(VarE {}) = ActionFuncApp (getName vexpr) tObj []
+    where (vexpr, args) = (varE, [])
 exprToRuleAction _ _ x = ActionExprErr $ "error: cannot convert expression into rule-action: " ++ show x
 
 -- Trace/Justification Objects 

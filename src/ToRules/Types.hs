@@ -18,6 +18,11 @@ import L4.Syntax
 import Util (capitalise)
 import CoreSyn (Tickish(profNoteCC))
 
+-- L4 AST -> intermediate AST -> output format (clara/drools)
+
+-- intermediate AST follows structure of a DRL file
+-- ProductionRule is the drools rule data type
+
 -- * Supported conversion formats
 -- | Nullary constructor that represents various supported rule-engine output formats 
 data RuleFormat = Clara
@@ -230,7 +235,8 @@ data ConditionalElement
     = ConditionalFuncApp (Maybe RCBind) ProdFuncName [CEArg]
     | ConditionalEval BComparOp CEArg CEArg
     | ConditionalNegation UBoolOp ConditionalElement -- ^ Only "UBnot" is supported 
-    | ConditionalElementFail String
+    | ConditionalElementFail String -- when l4 rule does not contain enough info to be converted to drools/clara form
+    -- e.g. vars in not that aren't previously bound
     deriving (Eq, Show)
 
 newtype RCBind = RCBind String deriving (Eq)
