@@ -102,7 +102,7 @@ decl abroad: Surface  # isIn loc abroad = not (isIn loc uk), but avoiding an exp
 # MW.9
 # The contract is implicitly parameterized by the policy holder and their data, such as their home
 decl home: Location
-decl distance: Location -> Location -> Integer
+decl distance: Location -> Location -> Integer -> Boolean
 
 fact <homeInUK>
 isIn home uk
@@ -166,9 +166,9 @@ then secA_Applicability
 
 # SecA.Cov.1
 rule <SecA_PayBreakdownVehicle>
-for s: Situation, loc: Location
+for s: Situation, loc: Location, d: Integer
 if secA_Applicability && currentSit s &&
-   isBreakdownSituation s && situationInLocation s loc && (distance home loc < 20)
+   isBreakdownSituation s && situationInLocation s loc && distance home loc d && d < 20
 then coverProvided s payBreakdownVehicle SecA_PayBreakdownVehicle
 
 
@@ -190,9 +190,9 @@ then coverProvided s recoverPassengersVehicleAuthorizedOp SecA_RecoverPassengers
 
 # SecA.NoCov.1
 rule <SecA_BreakdownLess1Mile>
-for s: Situation, loc: Location
+for s: Situation, loc: Location, d: Integer
 if currentSit s && isBreakdownSituation s &&
-    situationInLocation s loc && (distance home loc <= 1)
+    situationInLocation s loc && distance home loc d && d <= 1 
 then coverProvided s noCoverProvided SecA_BreakdownLess1Mile
 
 # SecA.NoCov.2
@@ -229,7 +229,7 @@ decl swansea: Location
 fact <scen1_premiumPaid> premiumPaid
 fact <scen1_currentSit> currentSit mechanicalBrkd
 fact <scen1_location> situationInLocation mechanicalBrkd swansea
-fact <scen1_distance> distance home swansea == 10
+fact <scen1_distance> distance home swansea 10
 
 assert <scen1_assert1> {SMT: valid} 
 exists r: RuleApp. (coverProvided mechanicalBrkd payBreakdownVehicle r) # SecA_PayBreakdownVehicle
@@ -245,7 +245,7 @@ fact <scen2_premiumPaid> premiumPaid
 fact <scen2_currentSit> currentSit mechanicalBrkd
 fact <scen2_location> situationInLocation mechanicalBrkd dundalk
 fact <scen2> isIn dundalk abroad
-fact <scen1_distance> distance home dundalk == 15
+fact <scen1_distance> distance home dundalk 15
 
 # two apparently contradictory results can be derived (cover / no cover provided)
 assert <scen2_assert1> {SMT: valid} 
