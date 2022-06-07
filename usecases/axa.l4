@@ -127,10 +127,10 @@ decl misFuelling: Situation  # same as "putting the wrong fuel into it"
 decl missingKeys: Situation  # for: losing or breaking vehicle keys
 
 
-fact isBreakdownSituation mechanicalBrkd
-fact isBreakdownSituation noFuel
-fact isBreakdownSituation misFuelling
-fact isBreakdownSituation missingKeys
+fact <factMechBrkd> isBreakdownSituation mechanicalBrkd
+fact <factNoFuel> isBreakdownSituation noFuel
+fact <factMisfuel> isBreakdownSituation misFuelling
+fact <factMissingKeys> isBreakdownSituation missingKeys
 
 
 
@@ -176,7 +176,7 @@ decl notSafeToDrive: Situation -> Boolean
 
 # SecA.Cov.2
 rule <SecA_RecoverPassengersVehicle20MilesLim>
-for s: Situation, loc: Location
+for s: Situation
 if secA_Applicability && currentSit s &&
    isBreakdownSituation s && notSafeToDrive s 
 then coverProvided s recoverPassengersVehicle20MilesLim SecA_RecoverPassengersVehicle20MilesLim
