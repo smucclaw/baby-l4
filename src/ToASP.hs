@@ -270,6 +270,7 @@ instance Show t => ShowASP (ASPRule t) where
                             pretty "," <>
                             pretty "_N"
                             ) <>
+                    pretty ", _N < M-1, max_ab_lvl(M)" <>
                     pretty "."
                     )
             [head preconds])
@@ -291,11 +292,13 @@ instance Show t => ShowASP (ASPRule t) where
 
     showASP VarSubs2R (ASPRule _rn _vds preconds postcond) =
         vsep (map (\pc ->
-                    pretty ("createSub(subInst" ++ "_" ++ _rn ++ toBrackets2 (my_str_trans_list (preconToVarStrList pc _vds) (varDeclToVarStrList _vds)) ++ "," ++ "_N" ++ ")")
+                    pretty ("createSub(subInst" ++ "_" ++ _rn ++ toBrackets2 (my_str_trans_list (preconToVarStrList pc _vds) (varDeclToVarStrList _vds)) ++ "," ++ "M-1" ++ ")")
                          <+>
                     pretty ":-" <+>
                     pretty ("createSub(subInst" ++ "_" ++ _rn ++ toBrackets2 (my_str_trans_list [] (varDeclToVarStrList _vds)) ++ "," ++ "_N" ++ ")" ++ ",") <+>
-                    showASP LegallyHoldsE pc <> pretty "."
+                    showASP LegallyHoldsE pc <>
+                    pretty ", _N < M, max_ab_lvl(M)" <>
+                    pretty "."
                     )
             preconds)
     showASP CausedByR (ASPRule rn _vds preconds postcond) =
@@ -340,7 +343,7 @@ astToASP prg = do
     putDoc $ vsep (map (showASP VarSubs3R) aspRules) <> line <> line
     putDoc $ vsep (map (showASP VarSubs2R) aspRules) <> line <> line
     -- putDoc $ vsep (map (showASP ExplainsR) aspRules) <> line <> line
-    putDoc $ vsep (map (showASP ExplainsR) skolemizedASPRules) <> line <> line
+    -- putDoc $ vsep (map (showASP ExplainsR) skolemizedASPRules) <> line <> line
     putDoc $ vsep (map (showASP CausedByR) aspRules) <> line <> line
     putDoc $ vsep (map showOppClause oppClauses) <> line
 

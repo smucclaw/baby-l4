@@ -10,6 +10,8 @@ import RuleTransfo (ruleDisjL, clarify)
 import Data.Maybe (fromJust, mapMaybe)
 import L4.SyntaxManipulation (decomposeBinop, appToFunArgs, funArgsToApp, applyVars)
 import Data.List (nub)
+import Data.Foldable (find)
+import L4.PrintProg (capitalise)
 
 data ASPRule t = ASPRule {
                      nameOfASPRule :: String
@@ -26,39 +28,59 @@ data ASPRule t = ASPRule {
 skolemizedASPRuleName r = nameOfASPRule r
 skolemizedASPRulePostcond r = postcondOfASPRule r
 skolemizedASPRulePrecond r = [transformPrecond precon (postcondOfASPRule r) (varDeclsOfASPRule r) (nameOfASPRule r) | precon <- (precondOfASPRule r)]
-skolemizedASPRuleVardecls r = genSkolemList (varDeclsOfASPRule r) ([varExprToDecl expr (varDeclsOfASPRule r) | expr <- snd (appToFunArgs [] (postcondOfASPRule r))]) (nameOfASPRule r)
+--skolemizedASPRuleVardecls r = genSkolemList (varDeclsOfASPRule r) ([varExprToDecl expr (varDeclsOfASPRule r) | expr <- snd (appToFunArgs [] (postcondOfASPRule r))]) (nameOfASPRule r)
+
+skolemizedASPRuleVardecls :: Eq t => ASPRule t -> [VarDecl t]
+skolemizedASPRuleVardecls r =
+    genSkolemList (varDeclsOfASPRule r) (map (convertVarExprToDecl (varDeclsOfASPRule r)) (snd (appToFunArgs [] (postcondOfASPRule r)))) (nameOfASPRule r)
 
 -- skolemizeASPRule :: ASPRule t -> ASPRule t
 
+skolemizeASPRule :: ASPRule (Tp ()) -> ASPRule (Tp ())
 skolemizeASPRule r = ASPRule (skolemizedASPRuleName r) (skolemizedASPRuleVardecls r) (skolemizedASPRulePrecond r) (skolemizedASPRulePostcond r)
 
 
+findVarDecl :: VarName -> [VarDecl t2] -> VarDecl t2
+findVarDecl varname decls = fromJust (find (\d -> varname == nameOfVarDecl d) decls)
+
+convertVarExprToDecl :: [VarDecl t2] -> Expr t ->VarDecl t2
+convertVarExprToDecl decls (VarE _ v) = findVarDecl (nameOfQVarName (nameOfVar v)) decls
+convertVarExprToDecl _decls _ = error "trying to convert a non-variable expression to a declaration"
 
 --transformPrecond :: Expr t -> Expr t ->[VarDecl t] -> String -> Expr t
+-- Takes in precon, lifts to var decl, transforms var decl, pushes back down to var expr, doesn't typecheck
+-- because transformed predicates (ie function applications) have type Expr (Tp()) rather than Expr t
+transformPrecond :: Expr (Tp ()) -> Expr (Tp ()) -> [VarDecl (Tp ())] -> [Char] -> Expr (Tp ())
 transformPrecond precon postcon vardecls ruleid =
-                let preconvar_dec = [varExprToDecl expr vardecls | expr <- snd (appToFunArgs [] precon)]
-                    postconvar_dec = [varExprToDecl expr vardecls | expr <- snd (appToFunArgs [] postcon)]
+                    -- [varExprToDecl expr vardecls | expr <- snd (appToFunArgs [] precon)]
+                let preconvar_dec = map (convertVarExprToDecl vardecls) (snd (appToFunArgs [] precon))
+                    -- [varExprToDecl expr vardecls | expr <- snd (appToFunArgs [] postcon)]
+                    postconvar_dec = map (convertVarExprToDecl vardecls) (snd (appToFunArgs [] postcon))
                     new_preconvar_dec = genSkolemList preconvar_dec postconvar_dec ruleid
                     new_precond = funArgsToApp (fst (appToFunArgs [] precon)) (map varDeclToExpr new_preconvar_dec)
                 in new_precond
 
 
 --genSkolem ::  VarDecl t -> [VarDecl t] -> String -> VarDecl t
+-- Takes in an existing precondition var_decl, list of postcon var_decls and returns skolemized precon var_decl
+genSkolem :: Eq t => VarDecl t -> [VarDecl t] -> [Char] -> VarDecl t
 genSkolem (VarDecl t vn u) y z = if elem (VarDecl t vn u) y
-      then (VarDecl t vn u)
-      else (VarDecl t ("skolemFn" ++ "_" ++ z ++ "_" ++ vn ++ (toBrackets y)) u)
+      then (VarDecl t (capitalise vn) u)
+      else (VarDecl t ("extVar") u)
 
+-- List version of genSkolem
+genSkolemList :: Eq t => [VarDecl t] -> [VarDecl t] -> [Char] -> [VarDecl t]
 genSkolemList x y z = [genSkolem xs y z | xs <- x]
 
 toBrackets :: [VarDecl t] -> String
 toBrackets [] = "()"
-toBrackets [VarDecl t vn u] = "(" ++ vn ++ ")"
-toBrackets ((VarDecl t vn u):xs) = "(" ++ vn ++ "," ++ tail (toBrackets xs)
+toBrackets [VarDecl t vn u] = "(" ++ capitalise vn ++ ")"
+toBrackets ((VarDecl t vn u):xs) = "(" ++ capitalise vn ++ "," ++ tail (toBrackets xs)
 
--- var decl to var expr
+-- var to var expr
 mkVarE :: Var t -> Expr t
 mkVarE v = VarE {annotOfExpr =  annotOfQVarName (nameOfVar v), varOfExprVarE = v}
-
+--Takes in a var_decl and turns it into a var_expr
 varDeclToExpr (VarDecl x y z) = mkVarE (GlobalVar (QVarName x y))
 
 
@@ -66,11 +88,14 @@ varDeclToExprTup (VarDecl x y z) = (varDeclToExpr (VarDecl x y z),(VarDecl x y z
 
 -- Matching function
 
+match :: (Eq t, Show t) => t -> [(t, p)] -> p
 match x (y:ys) = if x == fst y
      then snd y
      else match x ys
+match x [] = error ("looking for " ++ show x)
 
--- var expr to var decl
+-- var expr to var decl, takes in a var expr and returns its corresponding var decl
+varExprToDecl :: (Eq t, Show t) => Expr t -> [VarDecl t] -> VarDecl t
 varExprToDecl expr listdec = match expr (map varDeclToExprTup listdec)
 
 
@@ -117,7 +142,7 @@ ruleToASPRule r =
         , negpreds)
 
 
-data TranslationMode = AccordingToR | CausedByR | ExplainsR | AccordingToE String| LegallyHoldsE | RawL4
+data TranslationMode = AccordingToR | CausedByR | ExplainsR | VarSubs1R | VarSubs2R | VarSubs3R | AccordingToE String | LegallyHoldsE | QueryE | VarSubs4R | RawL4
 class ShowASP x where
     showASP :: TranslationMode -> x -> Doc ann
 class ShowOppClause x where
@@ -135,6 +160,10 @@ instance Show t => ShowASP (Expr t) where
     showASP LegallyHoldsE e@AppE{} =
         pretty "legally_holds" <> parens (showASP RawL4 e)
     showASP LegallyHoldsE e =
+        showASP RawL4 e
+    showASP QueryE e@AppE{} =
+        pretty "query" <> parens (showASP RawL4 e <> pretty "," <> pretty "L")
+    showASP QueryE e =
         showASP RawL4 e
 
     showASP RawL4 e = showL4 aspPrintConfig e
@@ -198,6 +227,14 @@ instance Show t => ShowASP (ASPRule t) where
         showASP (AccordingToE rn) postcond <+> pretty ":-" <+>
             hsep (punctuate comma (map (showASP LegallyHoldsE) preconds)) <>  pretty "."
 
+{-     showASP ExplainsSkolemR (ASPRule rn vds preconds postcond)=
+                             let new_rn = rn
+                                 new_vds = skolemizedASPRuleVardecls (ASPRule rn vds preconds postcond)
+                                 new_preconds = skolemizedASPRulePrecond (ASPRule rn vds preconds postcond)
+                                 new_precond = postcond
+                             in showASP ExplainsR (ASPRule rn new_vds new_preconds postcond)
+ -}
+
     showASP ExplainsR (ASPRule _rn _vds preconds postcond) =
         vsep (map (\pc ->
                     pretty "explains" <>
@@ -214,10 +251,70 @@ instance Show t => ShowASP (ASPRule t) where
                             pretty "," <>
                             pretty "_N"
                             ) <>
+                    pretty "_N < M, max_ab_lvl(M)" <>
                     pretty "."
                     )
             preconds)
 
+
+
+
+
+
+
+
+
+
+    showASP VarSubs3R (ASPRule _rn _vds preconds postcond) =
+        vsep (map (\pc ->
+                    pretty ("createSub(subInst" ++ "_" ++ _rn ++ skolemize2 _vds postcond _rn ++ "," ++ "_N+1" ++ ")") <+>
+                    pretty ":-" <+>
+                    pretty "query" <>
+                    parens (
+                            showASP RawL4 postcond <+>
+                            pretty "," <>
+                            pretty "_N"
+                            ) <>
+                    pretty ", _N < M, max_ab_lvl(M)" <>
+                    pretty "."
+                    )
+            [head preconds])
+
+    showASP VarSubs1R (ASPRule _rn _vds preconds postcond) =
+        vsep (map (\pc ->
+                    pretty "explains" <>
+                    parens (
+                        showASP RawL4 pc <> pretty "," <+>
+                        showASP RawL4 postcond <+>
+                        pretty "," <>
+                        pretty "_N"
+                        ) <+>
+                    pretty ":-" <+>
+                    pretty ("createSub(subInst" ++ "_" ++ _rn ++ toBrackets _vds ++ "," ++ "_N" ++ ").")
+                    )
+            preconds)
+
+
+    showASP VarSubs2R (ASPRule _rn _vds preconds postcond) =
+        vsep (map (\pc ->
+                    pretty ("createSub(subInst" ++ "_" ++ _rn ++ toBrackets2 (my_str_trans_list (preconToVarStrList pc _vds) (varDeclToVarStrList _vds)) ++ "," ++ "_N" ++ ")")
+                         <+>
+                    pretty ":-" <+>
+                    pretty ("createSub(subInst" ++ "_" ++ _rn ++ toBrackets2 (my_str_trans_list [] (varDeclToVarStrList _vds)) ++ "," ++ "_N" ++ ")" ++ ",") <+>
+                    showASP LegallyHoldsE pc <> pretty "."
+                    )
+            (postcond : preconds))
+
+
+    showASP VarSubs4R (ASPRule _rn _vds preconds postcond) =
+        vsep (map (\pc ->
+                    pretty ("createSub(subInst" ++ "_" ++ _rn ++ toBrackets2 (my_str_trans_list (preconToVarStrList pc _vds) (varDeclToVarStrList _vds)) ++ "," ++ "_N" ++ ")")
+                         <+>
+                    pretty ":-" <+>
+                    pretty ("createSub(subInst" ++ "_" ++ _rn ++ toBrackets2 (my_str_trans_list [] (varDeclToVarStrList _vds)) ++ "," ++ "_N" ++ ")" ++ ",") <+>
+                    showASP QueryE pc <> pretty "."
+                    )
+            (postcond : preconds))
     showASP CausedByR (ASPRule rn _vds preconds postcond) =
         vsep (map (\pc ->
                     pretty "caused_by" <>
@@ -251,11 +348,18 @@ astToASP prg = do
     -- putDoc $ vsep (map (showL4 []) rules) <> line
     let aspRulesWithNegs = map ruleToASPRule rules
     let aspRules = map fst aspRulesWithNegs
+    let skolemizedASPRules = map skolemizeASPRule aspRules
     let oppClausePrednames = nub (concatMap snd aspRulesWithNegs)
     let oppClauses = map genOppClause oppClausePrednames
     -- putStrLn "ASP rules:"
     putDoc $ vsep (map (showASP AccordingToR) aspRules) <> line <> line
-    putDoc $ vsep (map (showASP ExplainsR) aspRules) <> line <> line
+    putDoc $ vsep (map (showASP VarSubs1R) aspRules) <> line <> line
+    putDoc $ vsep (map (showASP VarSubs3R) aspRules) <> line <> line
+    putDoc $ vsep (map (showASP VarSubs2R) aspRules) <> line <> line
+    putDoc $ vsep (map (showASP VarSubs4R) aspRules) <> line <> line
+    -- putDoc $ vsep (map (showASP VarSubs2R) aspRules) <> line <> line
+    -- putDoc $ vsep (map (showASP ExplainsR) aspRules) <> line <> line
+    -- putDoc $ vsep (map (showASP ExplainsR) skolemizedASPRules) <> line <> line
     putDoc $ vsep (map (showASP CausedByR) aspRules) <> line <> line
     putDoc $ vsep (map showOppClause oppClauses) <> line
 
@@ -263,3 +367,47 @@ astToASP prg = do
 -- TODO: details to be filled in
 proveAssertionASP :: Show t => Program t -> ValueKVM  -> Assertion t -> IO ()
 proveAssertionASP p v asrt = putStrLn "ASP solver implemented"
+
+
+-- Additional functions to write var substitution code
+
+preconToVarStrList :: Expr t ->[VarDecl t] -> [String]
+preconToVarStrList precon vardecls = varDeclToVarStrList(map (convertVarExprToDecl vardecls) (snd (appToFunArgs [] precon)))
+
+varDeclToVarStrList :: [VarDecl t] -> [String]
+
+varDeclToVarStrList [] = []
+varDeclToVarStrList ((VarDecl t vn u) : xs) = ((capitalise vn) : varDeclToVarStrList xs)
+
+my_str_trans :: [String] -> String -> String
+my_str_trans s t = if elem t s
+      then t
+else "V" ++ "_" ++ t
+
+my_str_trans_list s ts = [my_str_trans s t | t <- ts]
+
+
+
+my_str_trans2 :: String -> [String] -> String -> String
+my_str_trans2 v postc rulen  = if elem v postc
+      then v
+else "extVar"
+
+my_str_trans_list2 s t u = [my_str_trans2 r t u | r <- s]
+
+
+
+toBrackets2 :: [String] -> String
+
+toBrackets2 [] = "()"
+toBrackets2 [x] = "(" ++ x ++ ")"
+toBrackets2 (x:xs) = "(" ++ x ++ "," ++ tail (toBrackets2 xs)
+
+
+toBrackets3 :: [VarDecl t] -> String
+toBrackets3 [] = "()"
+toBrackets3 [VarDecl t vn u] = "(" ++ vn ++ ")"
+toBrackets3 ((VarDecl t vn u):xs) = "(" ++ vn ++ "," ++ tail (toBrackets xs)
+
+
+skolemize2 vardecs postc rulename =  toBrackets2 (my_str_trans_list2 (varDeclToVarStrList (vardecs)) (varDeclToVarStrList ((map (convertVarExprToDecl vardecs) (snd (appToFunArgs [] postc))))) rulename)
