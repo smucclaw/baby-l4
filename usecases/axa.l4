@@ -245,7 +245,7 @@ fact <scen2_premiumPaid> premiumPaid
 fact <scen2_currentSit> currentSit mechanicalBrkd
 fact <scen2_location> situationInLocation mechanicalBrkd dundalk
 fact <scen2> isIn dundalk abroad
-fact <scen1_distance> distance home dundalk 15
+fact <scen2_distance> distance home dundalk 15
 
 # two apparently contradictory results can be derived (cover / no cover provided)
 assert <scen2_assert1> {SMT: valid} 
