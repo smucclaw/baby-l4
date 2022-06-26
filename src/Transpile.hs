@@ -1,3 +1,5 @@
+
+{-# LANGUAGE NamedFieldPuns #-}
 module Transpile where
 
 import L4.KeyValueMap
@@ -76,6 +78,53 @@ data HornClause2 = HC2
   deriving (Eq, Show)
 
 
+type RuleName   = MultiTerm
+
+-- Etc. Still very incomplete
+data MyToken = Every | Party | TokAll
+
+type RuleLabel = (Text.Text   --  "§"
+                 ,Int         --   1
+                 ,Text.Text   --  "My First Rule"
+                 )
+
+data SrcRef = SrcRef { url      :: Text.Text
+                     , short    :: Text.Text
+                     , srcrow   :: Int
+                     , srccol   :: Int
+                     , version  :: Maybe Text.Text
+                     }
+              deriving (Eq, Show)
+
+
+data Rule =   Hornlike
+            { name     :: RuleName           -- MyInstance
+            , super    :: Maybe TypeSig         -- IS A Superclass
+            , keyword  :: MyToken            -- decide / define / means
+            , given    :: Maybe ParamText    -- applicant has submitted fee
+            , upon     :: Maybe ParamText    -- second request occurs
+            , clauses  :: [HornClause2]      -- colour IS blue WHEN fee > $10 ; colour IS green WHEN fee > $20 AND approver IS happy
+            , rlabel   :: Maybe RuleLabel
+            , lsource  :: Maybe Text.Text
+            , srcref   :: Maybe SrcRef
+            , defaults :: [RelationalPredicate] -- SomeConstant IS 500 ; MentalCapacity TYPICALLY True
+            , symtab   :: [RelationalPredicate] -- SomeConstant IS 500 ; MentalCapacity TYPICALLY True
+            }       
+  | TypeDecl
+            { name     :: RuleName              -- DECLARE Class
+            , super    :: Maybe TypeSig         -- IS A Superclass
+            , has      :: [Transpile.Rule]      -- HAS foo :: List Hand \n bar :: Optional Restaurant
+            , enums    :: Maybe ParamText   -- ONE OF rock, paper, scissors (basically, disjoint subtypes)
+            , given    :: Maybe ParamText
+            , upon     :: Maybe ParamText
+            , rlabel   :: Maybe RuleLabel
+            , lsource  :: Maybe Text.Text
+            , srcref   :: Maybe SrcRef
+            , defaults :: [RelationalPredicate] -- SomeConstant IS 500 ; MentalCapacity TYPICALLY True
+            , symtab   :: [RelationalPredicate] -- SomeConstant IS 500 ; MentalCapacity TYPICALLY True
+            }
+
+
 
 
 -------------------------------------------------------------
@@ -133,7 +182,7 @@ boolStructRToExpr (Transpile.All _lbls itms) = conjsExprUT (map boolStructRToExp
 boolStructRToExpr (Transpile.Any _lbls itms) = disjsExprUT (map boolStructRToExpr itms)
 boolStructRToExpr (Transpile.Not itm) = notExprUT (boolStructRToExpr itm)
 
-hornClauseToRule :: HornClause2 -> Rule ()
+hornClauseToRule :: HornClause2 -> L4.Syntax.Rule ()
 hornClauseToRule (HC2 hd bd) =
       Rule
       { annotOfRule = ()
@@ -144,6 +193,54 @@ hornClauseToRule (HC2 hd bd) =
       , postcondOfRule = relationalPredicateToExpr hd
       }
 
+
+ruleNameToClassName :: RuleName -> ClassName
+ruleNameToClassName [n] = ClsNm (unpack n)
+ruleNameToClassName _ = undefined
+
+
+ruleNameToFieldName :: RuleName -> FieldName
+ruleNameToFieldName [n] = FldNm (unpack n)
+ruleNameToFieldName _ = undefined
+
+superToClassDefSupers :: Maybe TypeSig -> [ClassName]
+superToClassDefSupers Nothing = [ClassC]
+superToClassDefSupers (Just (SimpleType TOne n)) = [ClsNm (unpack n)]
+superToClassDefSupers _ = undefined
+
+superToType :: Maybe TypeSig -> Tp ()
+superToType Nothing = BooleanT
+superToType (Just ( SimpleType TOne t )) = ClassT () (ClsNm (unpack t))
+superToType _ = undefined
+
+typeDeclToFieldDecl :: Transpile.Rule -> FieldDecl ()
+typeDeclToFieldDecl 
+   TypeDecl { name   
+            , super  
+            , has    
+            , enums    -- ONE OF rock, paper, scissors (basically, disjoint subtypes)
+            , rlabel
+            , lsource
+            , srcref
+            } = FieldDecl () (ruleNameToFieldName name) (superToType super)
+typeDeclToFieldDecl _ = undefined
+
+typeDeclToClassDecl :: Transpile.Rule -> ClassDecl ()
+typeDeclToClassDecl 
+   TypeDecl { name   
+            , super  
+            , has    
+            , enums    -- ONE OF rock, paper, scissors (basically, disjoint subtypes)
+            , rlabel
+            , lsource
+            , srcref
+            } = 
+              let supers = superToClassDefSupers super
+                  fields = map typeDeclToFieldDecl has
+                  cd = ClassDef supers fields
+                  n = ruleNameToClassName name
+              in ClassDecl () n cd
+typeDeclToClassDecl _ = undefined
 
 -------------------------------------------------------------
 -- Tests
@@ -166,7 +263,7 @@ hc1 = HC2
                 )
             }
 
-rl1 :: Rule ()
+rl1 :: L4.Syntax.Rule ()
 rl1 = hornClauseToRule hc1
 
 {-
@@ -176,5 +273,63 @@ rule
 if (a && (b || c))
 then d
 
+if (a && (b || c))
+then d
+
+if (a && (b || c))
+then d
+
 -}
 
+
+
+td1 :: Transpile.Rule
+td1 = TypeDecl
+    { name = [ pack "Corporation" ]
+    , super = Just
+        ( SimpleType TOne (pack "Party" ))
+    , has =
+        [ TypeDecl
+            { name = [pack "representative" ]
+            , super = Just
+                ( SimpleType TOne (pack "Natural Person" ))
+            , has = []
+            , enums = Nothing
+            , given = Nothing
+            , upon = Nothing
+            , rlabel = Nothing
+            , lsource = Nothing
+            , srcref = Nothing
+            , defaults = []
+            , symtab = []
+            }
+        ]
+    , enums = Nothing
+    , given = Nothing
+    , upon = Nothing
+    , rlabel = Nothing
+    , lsource = Nothing
+    , srcref = Just
+        ( SrcRef
+            { url = pack "ontology_defn.csv"
+            , short = pack "ontology_defn.csv"
+            , srcrow = 1
+            , srccol = 5
+            , version = Nothing
+            }
+        )
+    , defaults = []
+    , symtab = []
+    }
+
+
+cd1 :: ClassDecl ()
+cd1 = typeDeclToClassDecl td1 
+
+
+-- note: showL4 only works for correctly typed classes (with elaborated list of superclasses)
+{-
+>>> cd1
+ClassDecl {annotOfClassDecl = (), nameOfClassDecl = ClsNm {stringOfClassName = "Corporation"}, defOfClassDecl = ClassDef {supersOfClassDef = [ClsNm {stringOfClassName = "Party"}], fieldsOfClassDef = [FieldDecl {annotOfFieldDecl = (), nameOfFieldDecl = FldNm {stringOfFieldName = "representative"}, tpOfFieldDecl = ClassT {annotOfTp = (), classNameOfTp = ClsNm {stringOfClassName = "Natural Person"}}}]}}
+
+-}
