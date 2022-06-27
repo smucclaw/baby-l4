@@ -242,6 +242,21 @@ typeDeclToClassDecl
               in ClassDecl () n cd
 typeDeclToClassDecl _ = undefined
 
+-- Example: in BabyL4
+-- decl joe : NaturalPerson
+
+varDeclToVarDecl :: Transpile.Rule -> VarDecl ()
+varDeclToVarDecl 
+   TypeDecl { name   
+            , super  
+            , has    
+            , enums    -- ONE OF rock, paper, scissors (basically, disjoint subtypes)
+            , rlabel
+            , lsource
+            , srcref
+            } = undefined   -- VarDecl ....
+varDeclToVarDecl _ = undefined
+
 -------------------------------------------------------------
 -- Tests
 -------------------------------------------------------------
