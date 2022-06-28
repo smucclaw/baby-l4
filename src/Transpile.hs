@@ -222,6 +222,11 @@ superToClassDefSupers Nothing = [ClassC]
 superToClassDefSupers (Just (SimpleType TOne n)) = [ClsNm (unpack n)]
 superToClassDefSupers _ = undefined
 
+
+-- TODO: this function is a gross oversimplification as it only deals with atomic types 
+-- and converts these to class types. 
+-- Still to be done: correctly translate predefined types (Boolean, Integer ...)
+-- and function types
 superToType :: Maybe TypeSig -> Tp ()
 superToType Nothing = BooleanT
 superToType (Just ( SimpleType TOne t )) = ClassT () (ClsNm (unpack t))
@@ -277,7 +282,7 @@ varDeclToVarDecl
             where
               annotOfVarDecl = ()
               nameOfVarDecl = ruleNameToVarName name
-              tpOfVarDecl = KindT
+              tpOfVarDecl = superToType super
               -- KindT is used as a dummy value. How do we determine what this is?
 varDeclToVarDecl _ = undefined
 
@@ -464,3 +469,8 @@ varDecl2 =
 -}
 varDecl2' :: VarDecl ()
 varDecl2' = varDeclToVarDecl varDecl2
+
+{-
+>>>  varDecl2'
+VarDecl {annotOfVarDecl = (), nameOfVarDecl = "joe", tpOfVarDecl = ClassT {annotOfTp = (), classNameOfTp = ClsNm {stringOfClassName = "Person"}}}
+-}
