@@ -1,0 +1,9 @@
+defn two : Integer = 2 
+
+class Person {
+  name : String
+}
+
+decl joe : Person
+
+decl A : Class

@@ -1,5 +1,7 @@
-
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
+
 module Transpile where
 
 import L4.KeyValueMap
@@ -19,10 +21,13 @@ import Control.Monad ( when, foldM )
 import L4.PrintProg (renameExpr, printARName, ShowL4 (showL4) )
 import Data.Maybe (fromMaybe)
 
-
+import Control.Arrow ((>>>))
+import Data.Function ((&))
 import qualified Data.Text as Text
 import Data.List.NonEmpty (NonEmpty ((:|)), toList, fromList)
 import Data.Text (unpack, pack)
+import GHC.Natural (naturalToInt)
+import qualified Llvm as KindT
 
 -------------------------------------------------------------
 -- Data types stolen from repo dsl/ Types.hs
@@ -124,9 +129,6 @@ data Rule =   Hornlike
             , symtab   :: [RelationalPredicate] -- SomeConstant IS 500 ; MentalCapacity TYPICALLY True
             }
 
-
-
-
 -------------------------------------------------------------
 -- Auxiliary functions 
 -------------------------------------------------------------
@@ -193,15 +195,27 @@ hornClauseToRule (HC2 hd bd) =
       , postcondOfRule = relationalPredicateToExpr hd
       }
 
+{-
+ - Helper function to convert names occuring in type declarations in natural l4
+ - to baby l4.
+ - Given a type a which is one of {ClassName, FieldName, VarName} and an
+ - appropriate data constructor (toBabyName :: String -> a) of a, we return a
+ - function of type (RuleName -> a).
+ - This returned function uses toBabyName to construct a value of type a
+ - out of the input rule name.
+-}
+naturalToBabyName :: (String -> a) -> RuleName -> a
+naturalToBabyName toBabyName = head >>> unpack >>> toBabyName
 
 ruleNameToClassName :: RuleName -> ClassName
-ruleNameToClassName [n] = ClsNm (unpack n)
-ruleNameToClassName _ = undefined
-
+ruleNameToClassName = naturalToBabyName ClsNm
 
 ruleNameToFieldName :: RuleName -> FieldName
-ruleNameToFieldName [n] = FldNm (unpack n)
-ruleNameToFieldName _ = undefined
+ruleNameToFieldName = naturalToBabyName FldNm
+
+ruleNameToVarName :: RuleName -> VarName
+ruleNameToVarName = naturalToBabyName id
+-- Note here that we have the type equality (String ~ VarName)
 
 superToClassDefSupers :: Maybe TypeSig -> [ClassName]
 superToClassDefSupers Nothing = [ClassC]
@@ -222,7 +236,11 @@ typeDeclToFieldDecl
             , rlabel
             , lsource
             , srcref
-            } = FieldDecl () (ruleNameToFieldName name) (superToType super)
+            } = FieldDecl {..}
+            where
+              annotOfFieldDecl = ()
+              nameOfFieldDecl = ruleNameToFieldName name
+              tpOfFieldDecl = superToType super
 typeDeclToFieldDecl _ = undefined
 
 typeDeclToClassDecl :: Transpile.Rule -> ClassDecl ()
@@ -234,17 +252,18 @@ typeDeclToClassDecl
             , rlabel
             , lsource
             , srcref
-            } = 
-              let supers = superToClassDefSupers super
-                  fields = map typeDeclToFieldDecl has
-                  cd = ClassDef supers fields
-                  n = ruleNameToClassName name
-              in ClassDecl () n cd
+            } = ClassDecl {..}
+            where
+              annotOfClassDecl = ()
+              nameOfClassDecl = ruleNameToClassName name
+              defOfClassDecl = ClassDef supers fields
+              supers = superToClassDefSupers super
+              fields = map typeDeclToFieldDecl has
 typeDeclToClassDecl _ = undefined
 
--- Example: in BabyL4
--- decl joe : NaturalPerson
-
+-- Example:
+-- in natural4: DECLARE joe IS A Person
+-- in BabyL4: decl joe : Person
 varDeclToVarDecl :: Transpile.Rule -> VarDecl ()
 varDeclToVarDecl 
    TypeDecl { name   
@@ -254,7 +273,12 @@ varDeclToVarDecl
             , rlabel
             , lsource
             , srcref
-            } = undefined   -- VarDecl ....
+            } = VarDecl {..}
+            where
+              annotOfVarDecl = ()
+              nameOfVarDecl = ruleNameToVarName name
+              tpOfVarDecl = KindT
+              -- KindT is used as a dummy value. How do we determine what this is?
 varDeclToVarDecl _ = undefined
 
 -------------------------------------------------------------
@@ -294,9 +318,10 @@ then d
 if (a && (b || c))
 then d
 
+if (a && (b || c))
+then d
+
 -}
-
-
 
 td1 :: Transpile.Rule
 td1 = TypeDecl
@@ -305,9 +330,9 @@ td1 = TypeDecl
         ( SimpleType TOne (pack "Party" ))
     , has =
         [ TypeDecl
-            { name = [pack "representative" ]
+            { name = ["representative" ]
             , super = Just
-                ( SimpleType TOne (pack "Natural Person" ))
+                ( SimpleType TOne "Natural Person" )
             , has = []
             , enums = Nothing
             , given = Nothing
@@ -348,3 +373,94 @@ cd1 = typeDeclToClassDecl td1
 ClassDecl {annotOfClassDecl = (), nameOfClassDecl = ClsNm {stringOfClassName = "Corporation"}, defOfClassDecl = ClassDef {supersOfClassDef = [ClsNm {stringOfClassName = "Party"}], fieldsOfClassDef = [FieldDecl {annotOfFieldDecl = (), nameOfFieldDecl = FldNm {stringOfFieldName = "representative"}, tpOfFieldDecl = ClassT {annotOfTp = (), classNameOfTp = ClsNm {stringOfClassName = "Natural Person"}}}]}}
 
 -}
+
+{-
+  Variable declarations in natural l4 can be expressed as:
+        DECLARE myint IS A Integer
+  This corresponds to the following declaration in baby l4:
+        decl myint : Integer
+
+  As of 2022-06-28, the natural l4 parser in the tab-mustsing branch of dsl
+  parses such declarations into the AST below.
+  This can be constructed by copying the included ontology_defn.csv file into
+  the natural l4 directory and running
+      stack run -- --only native ontology_defn.csv
+      
+  Running
+    varDeclToVarDecl varDeclExamle
+  in ghci yields:
+    VarDecl {annotOfVarDecl = (), nameOfVarDecl = "myint", tpOfVarDecl = KindT}
+-}
+varDecl1 :: Transpile.Rule
+varDecl1 =
+  TypeDecl
+    { name = ["myint"],
+      super = Just (SimpleType TOne "Integer"),
+      has = [],
+      enums = Nothing,
+      given = Nothing,
+      upon = Nothing,
+      rlabel = Nothing,
+      lsource = Nothing,
+      srcref =
+        Just
+          ( SrcRef
+              { url = "ontology_defn.csv",
+                short = "ontology_defn.csv",
+                srcrow = 1,
+                srccol = 34,
+                version = Nothing
+              }
+          ),
+      defaults = [],
+      symtab = []
+    }
+    
+{-
+varDecl1' when evaluated in ghc has the following body:
+  VarDecl1 {annotOfVarDecl = (), nameOfVarDecl = "myint", tpOfVarDecl = KindT}
+-}
+varDecl1' :: VarDecl ()
+varDecl1' = varDeclToVarDecl varDecl1
+
+{-
+In natural l4, the following is expressed as
+    DECLARE joe IS A Person
+which corresponds to 
+    decl joe : Person
+in baby l4
+ -}
+varDecl2 :: Transpile.Rule
+varDecl2 =
+  TypeDecl
+    { name = ["joe"],
+      super = Just (SimpleType TOne "Person"),
+      has = [],
+      enums = Nothing,
+      given = Nothing,
+      upon = Nothing,
+      rlabel = Nothing,
+      lsource = Nothing,
+      srcref =
+        Just
+          ( SrcRef
+              { url = "ontology_defn.csv",
+                short = "ontology_defn.csv",
+                srcrow = 1,
+                srccol = 35,
+                version = Nothing
+              }
+          ),
+      defaults = [],
+      symtab = []
+    }
+    
+{-
+  ghci evaluates this to
+    VarDecl {annotOfVarDecl = (), nameOfVarDecl = "joe", tpOfVarDecl = KindT}
+  Note here that above, we hardcoded tpOfVarDecl to be KindT.
+  However, the AST produced by running the baby l4 parser indicates that this
+  should actually be ClassT.
+-}
+varDecl2' :: VarDecl ()
+varDecl2' = varDeclToVarDecl varDecl2
