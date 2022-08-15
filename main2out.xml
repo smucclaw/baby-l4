@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Foo Num="42">
+  <Bar>b1</Bar>
+  <Bar>b2</Bar>
+</Foo>
+
