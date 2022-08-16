@@ -47,18 +47,21 @@ type ReqInput = String
 
 data Rule = Rule Id [InputEntry] [OutputEntry]
 
-data InputEntry = InputEntry Id (Maybe Condition)
+data InputEntry = InputEntry { sId :: Id, sMaybeCondition :: Maybe Condition }
 
 -- Condition is a FEEL Unary Test
 -- See notes on FEELTypes above
 -- TODO: can input expression be <= y + 3?
-data Condition
-  = CompVal BComparOp Val
-  | CompVar BComparOp VarName
-  -- | Intv
-  -- | Disj
-  -- | Neg
-  -- | FEELExpr
+-- data Condition
+--   = CompVal BComparOp Val
+--   | CompVar BComparOp VarName
+--   -- | Intv
+--   -- | Disj
+--   -- | Neg
+--   -- | FEELExpr
+
+newtype XMLText = XMLText {sText :: String}
+type Condition = XMLText
 
 
 -- Conclusion type is constrained by OutputSchema TypeRef? Which is a String representation of FEELExpr types

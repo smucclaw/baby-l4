@@ -8,6 +8,8 @@ import System.Environment
 import System.Console.GetOpt
 import System.Exit
 import GHC.RTS.Flags (MiscFlags(installSEHHandlers))
+import ToDMN.Types
+import L4.Syntax
 
 
 ----------------------------------------------
@@ -32,6 +34,48 @@ xpFoo = xpElem "Foo" $
           xpWrap ( uncurry Foo
                 ,  \f -> (sFooNum f, sFooBars f) ) $
           xpPair (xpAttr "Num" xpInt) (xpList xpBar)
+
+instance XmlPickler InputEntry where
+  xpickle = xpInputEntry
+
+xpInputEntry :: PU InputEntry
+xpInputEntry = xpElem "inputEntry" $
+               xpWrap ( uncurry InputEntry
+                      , \ip -> (sId ip, sMaybeCondition ip)) $
+               xpPair (xpAttr "id" xpText) (xpOption xpXMLText)
+
+
+-- This doesn't work because HXT requires a perfect match between the
+-- content of an XML element and the constituents of a datatype
+-- See https://wiki.haskell.org/HXT/Conversion_of_Haskell_data_from/to_XML#A_few_words_of_advice
+
+-- instance XmlPickler Condition where
+--   xpickle = xpAlt tag ps where
+--     tag (CompVal _ _) = 0
+--     tag (CompVar _ _) = 1
+--     ps = [ xpWrap (uncurry CompVal, \(CompVal o v) -> (o, v)) $
+--            ( xpElem "text" $
+--              xpAttr "" $
+--              xpickle )
+--          , xpWrap (uncurry CompVar, \(CompVar o v) -> (o, v)) $
+--            ( xpElem "text" $
+--              xpAttr "" $
+--              xpickle )
+--          ]
+
+
+-- Using xpText alone doesn't generate a <text> element
+-- so we're manually generating one with xpElem
+
+instance XmlPickler XMLText where
+  xpickle = xpXMLText
+
+xpXMLText :: PU XMLText
+xpXMLText = xpElem "text" $ xpWrap (XMLText, \ (XMLText b) -> b) xpText
+
+
+test :: InputEntry
+test = InputEntry "UnaryTests_0w2546x" (Just (XMLText "< x"))
 
 {-
 >>> uncurry Foo (42, [Bar "b1", Bar "b2"])
@@ -63,11 +107,13 @@ main2 :: IO ()
 main2
     = do
       runX (
-        constA (Foo 42 [Bar "b1", Bar "b2"])
+        -- constA (Foo 42 [Bar "b1", Bar "b2"])
+        -- constA (XMLText "hello")
+        constA test
         >>>
-        xpickleDocument   xpFoo
+        xpickleDocument        xpInputEntry -- xpFoo
                                [ withIndent yes
-                               ] "main2out.xml"
+                               ] "main2testout.xml" -- "main2out.xml"
           )
       return ()
 
