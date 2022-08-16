@@ -5,7 +5,7 @@ process AutA() {
 clock clock1, clock0;
 
 state
-    loc0,
+    loc0 { clock1 <= 4 },
     loc1 { clock1 <= 4 },
     loc2;
 init
@@ -49,7 +49,17 @@ decl DTransTrace : Integer -> State -> Time -> Time -> State -> Time -> Time -> 
 # fact <locsDifferent> loc0 /= loc1
 
 # assert E<> at loc2  && clock0 == 2.0
-assert {TA: {valid, config: {loglevel: 0, logic: AUFLIRA}}} E<> (at loc2 && b)
-# assert P (( \ st_1: State -> \st_2: State -> (f st_1)) st)
+# formula not valid:
+# contradictory clock constraints in loc0 and transition loc0 -> loc2
+assert {TA: { valid
+            , expansions: 2
+            , config: {loglevel: 0, logic: AUFLIRA}}}
+        E<> (at loc2)
+
+# formula valid:
+assert {TA: { valid
+            , expansions: 2
+            , config: {loglevel: 0, logic: AUFLIRA}}}
+        E<> (at loc2)
 
 
