@@ -1,0 +1,74 @@
+
+
+process AutA() {
+
+clock clock1, clock0;
+
+state
+    loc0,
+    loc1 { clock1 <= 4 },
+    loc2;
+init
+    loc0;
+trans
+   loc0 -> loc1 { guard clock0<=3;  },
+   loc0 -> loc2 { guard clock1>=5; assign clock1 = 0;  };
+}
+
+
+# Should be in the prelude
+class Automaton
+class State
+
+decl at: State -> Boolean
+
+# Should be automatic for a process declaration
+decl AutA : Automaton
+decl loc0 : State
+decl loc1 : State
+decl loc2 : State
+decl clock0 : Time
+decl clock1 : Time
+
+
+# decl ATrans : State -> State -> Boolean
+# decl DTrans : State -> Time -> Time -> State -> Time -> Time -> Boolean
+decl ATransRes : Integer -> State -> Time -> Time -> State -> Time -> Time -> Boolean
+
+
+# decl P: ((State -> State) -> State) -> Boolean
+# decl f: (State) -> Boolean
+# decl st : State
+# decl cl0: Time
+# decl st_0: State
+# decl cl0_0: Time
+
+# fact <locsDifferent> loc0 /= loc1
+
+# assert E<> at loc2  && clock0 == 2.0
+assert {SMT: {valid, config: {loglevel: 0, logic: AUFLIRA}}} E<> at loc2
+# assert P (( \ st_1: State -> \st_2: State -> (f st_1)) st)
+
+
+# ------------
+# valid(E<> Form(Tr)) --> sat(E<> Form(Tr)) by def
+# Assume sat(E<> Form(Tr)). Then also sat(E<> Form) and thus valid(E<> Form) because Form is closed
+# Assume not sat(E<> Form(Tr)). Then also not sat(E<> Form), because sat(E<> Form) --> sat(E<> Form(Tr))
+
+# ------------
+# Assume sat(E[] Form(Tr)). Then also sat(E[] Form) and thus valid(E[] Form) because Form is closed
+# Assume not sat(E[] Form(Tr)). Then also not sat(E[] Form). 
+
+# etc, also for A<> and A[]: formulas with and without trace are equi-satisfiable
+# ------------
+# ------------
+# Entailment:
+# Show Th |- E<> Form by showing unsat (Th && not (E<> Form))
+
+# Assume for a model M:
+# M |= (Th && not (E<> Form)),
+# then M |= Th and M |= (not (E<> Form))
+# then there exists M' with M' |= (not (E<> Form(Tr))) and M and M' are the same except for Tr
+# Because Tr not contained in Th: M' |= Th
+# thus M' |= (Th && not (E<> Form(Tr)))
+

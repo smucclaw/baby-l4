@@ -1,0 +1,59 @@
+system AutSys {
+
+chan x, y;
+
+
+process AutC() {
+
+clock clock0, clock1;
+
+state
+    loc0,
+    loc1 { clock1 <= 4 },
+    loc2 { clock1 <= 5 },
+    loc3;
+init
+    loc0;
+trans
+    loc1 -> loc3 { guard clock0 == 7;  },
+    loc2 -> loc1 { guard clock1 >= 3; },
+    loc1 -> loc2 { guard clock1 >= 3;  assign clock1 = 0; },
+    loc0 -> loc1 { };
+}
+
+}
+
+
+# These are not required for formula generation
+# class Automaton
+# decl AutC : Automaton
+
+# Should be in the prelude
+class State 
+decl at: State -> Boolean
+
+# Should be automatic for a process declaration
+decl loc0 : State
+decl loc1 : State
+decl loc2 : State
+decl loc3 : State
+decl clock0 : Time
+decl clock1 : Time
+decl ATransTrace : Integer -> State -> Time -> Time -> State -> Time -> Time -> Boolean
+decl DTransTrace : Integer -> State -> Time -> Time -> State -> Time -> Time -> Boolean
+
+
+# rule <foobar> 
+# for x: State, y: State
+# if at x && at y
+# then at loc0
+
+assert {printL4} True
+
+assert 
+    {TA: { consistent
+         , trace
+         , expansions: 4
+         , procs: {AutC}
+         , config: {loglevel: 0, logic: AUFLIRA}}} 
+E<> at loc3
