@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<inputEntry id="UnaryTests_0w2546x">
-  <text>&lt; x</text>
-</inputEntry>
+<rule id="DecisionRule_1080bsl">
+  <inputEntry id="UnaryTests_0w2546x">
+    <text>&lt; x</text>
+  </inputEntry>
+  <outputEntry id="LiteralExpression_174qejr">
+    <text>true</text>
+  </outputEntry>
+  <outputEntry id="LiteralExpression_0qis36e">
+    <text>yes</text>
+  </outputEntry>
+</rule>
 

@@ -35,13 +35,16 @@ xpFoo = xpElem "Foo" $
                 ,  \f -> (sFooNum f, sFooBars f) ) $
           xpPair (xpAttr "Num" xpInt) (xpList xpBar)
 
+
+-- Now for the real types
+
 instance XmlPickler InputEntry where
   xpickle = xpInputEntry
 
 xpInputEntry :: PU InputEntry
 xpInputEntry = xpElem "inputEntry" $
                xpWrap ( uncurry InputEntry
-                      , \ip -> (sId ip, sMaybeCondition ip)) $
+                      , \ip -> (sInputId ip, sMaybeCondition ip)) $
                xpPair (xpAttr "id" xpText) (xpOption xpXMLText)
 
 
@@ -64,8 +67,7 @@ xpInputEntry = xpElem "inputEntry" $
 --          ]
 
 
--- Using xpText alone doesn't generate a <text> element
--- so we're manually generating one with xpElem
+-- On Text nodes: the Text interface represents the textual content of an Element or Attr
 
 instance XmlPickler XMLText where
   xpickle = xpXMLText
@@ -74,8 +76,44 @@ xpXMLText :: PU XMLText
 xpXMLText = xpElem "text" $ xpWrap (XMLText, \ (XMLText b) -> b) xpText
 
 
-test :: InputEntry
-test = InputEntry "UnaryTests_0w2546x" (Just (XMLText "< x"))
+instance XmlPickler OutputEntry where
+  xpickle = xpOutputEntry
+
+xpOutputEntry :: PU OutputEntry
+xpOutputEntry = xpElem "outputEntry" $
+               xpWrap ( uncurry OutputEntry
+                      , \op -> (sOutputId op, sExpr op) ) $
+               xpPair (xpAttr "id" xpText) xpXMLText
+
+instance XmlPickler DMNRule where
+  xpickle = xpDMNRule
+
+xpDMNRule :: PU DMNRule
+xpDMNRule = xpElem "rule" $
+            xpWrap ( uncurry3 DMNRule
+                   , \r -> (sRuleId r, sInputEntries r, sOutputEntries r) ) $
+            xpTriple (xpAttr "id" xpText) (xpList xpInputEntry) (xpList xpOutputEntry)
+
+
+-- xpFoo :: PU Foo
+-- xpFoo = xpElem "Foo" $
+--           xpWrap ( uncurry Foo
+--                 ,  \f -> (sFooNum f, sFooBars f) ) $
+--           xpPair (xpAttr "Num" xpInt) (xpList xpBar)
+
+
+-- Tests
+testInputE :: InputEntry
+testInputE = InputEntry "UnaryTests_0w2546x" (Just (XMLText "< x"))
+
+testOutputE1 :: OutputEntry
+testOutputE1 = OutputEntry "LiteralExpression_174qejr" (XMLText "true")
+
+testOutputE2 :: OutputEntry
+testOutputE2 = OutputEntry "LiteralExpression_0qis36e" (XMLText "yes")
+
+testDMNRule :: DMNRule
+testDMNRule = DMNRule "DecisionRule_1080bsl" [testInputE] [testOutputE1, testOutputE2]
 
 {-
 >>> uncurry Foo (42, [Bar "b1", Bar "b2"])
@@ -109,9 +147,11 @@ main2
       runX (
         -- constA (Foo 42 [Bar "b1", Bar "b2"])
         -- constA (XMLText "hello")
-        constA test
+        -- constA testInputE
+        -- constA testOutputE
+        constA testDMNRule
         >>>
-        xpickleDocument        xpInputEntry -- xpFoo
+        xpickleDocument        xpDMNRule -- xpFoo
                                [ withIndent yes
                                ] "main2testout.xml" -- "main2out.xml"
           )

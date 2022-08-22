@@ -8,7 +8,8 @@ type VarName = String
 type Label = String
 
 -- TODO
-type FEELExpr = String
+-- should FEELExpr be XMLText? see XMLText def below
+-- type FEELExpr = String
 
 data DecOutVar = DecOutVar Id VarName FEELType
 
@@ -16,7 +17,7 @@ data DecOutVar = DecOutVar Id VarName FEELType
 -- TODO: crosscheck with DMN standard to see if classification scheme matches
 data Decision
   = LitExprEl Id Label DecOutVar [InfoReq] FEELExpr
-  | DecTableEl Id Label Schema [Rule]
+  | DecTableEl Id Label Schema [DMNRule]
 
 data Schema = Schema [InputSchema] [OutputSchema]
 
@@ -45,9 +46,14 @@ type DRD = [Decision]
 data InfoReq = ReqInputEl Id ReqInput
 type ReqInput = String
 
-data Rule = Rule Id [InputEntry] [OutputEntry]
+data DMNRule = DMNRule
+  { sRuleId :: Id
+  , sInputEntries :: [InputEntry]
+  , sOutputEntries :: [OutputEntry] }
 
-data InputEntry = InputEntry { sId :: Id, sMaybeCondition :: Maybe Condition }
+data InputEntry = InputEntry
+  { sInputId :: Id
+  , sMaybeCondition :: Maybe Condition }
 
 -- Condition is a FEEL Unary Test
 -- See notes on FEELTypes above
@@ -63,8 +69,14 @@ data InputEntry = InputEntry { sId :: Id, sMaybeCondition :: Maybe Condition }
 newtype XMLText = XMLText {sText :: String}
 type Condition = XMLText
 
+-- should FEELExpr be XMLText?
+type FEELExpr = XMLText
+
 
 -- Conclusion type is constrained by OutputSchema TypeRef? Which is a String representation of FEELExpr types
-data OutputEntry = OutputEntry Id FEELExpr
+-- data OutputEntry = OutputEntry { sOutputId :: Id, sExpr :: FEELExpr }
+data OutputEntry = OutputEntry
+  { sOutputId :: Id
+  , sExpr :: FEELExpr }
 
 -- to investigate: how much of this DMN syntax is part of the DMN standard, and how much is Camunda's implementation?
