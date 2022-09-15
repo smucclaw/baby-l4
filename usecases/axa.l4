@@ -47,6 +47,7 @@ class CoverageService
 
 decl noCoverProvided : CoverageType
 decl payBreakdownVehicle : CoverageType
+decl payMisfuelling : CoverageType
 decl recoverPassengersVehicle20MilesLim : CoverageType
 decl recoverPassengersVehicleAuthorizedOp : CoverageType
 
@@ -153,7 +154,7 @@ decl SecA_RecoverPassengersVehicle20MilesLim : RuleApp
 decl SecA_RecoverPassengersVehicleAuthorizedOp : RuleApp
 decl SecA_BreakdownLess1Mile : RuleApp
 decl SecA_BreakdownNotInUK : RuleApp
-
+decl SecB_PayMisfuelling : RuleApp
 
 decl premiumPaid: Boolean
 decl secA_Applicability: Boolean
@@ -221,6 +222,20 @@ decl myra2: RuleApp
 assert <contradictoryCover> {SMT: consistent}
 coverProvided mySit myCov myra1 && coverProvided mySit noCoverProvided myra2
 
+
+# -------------------------------------------------------------------
+# Section B
+# -------------------------------------------------------------------
+
+# SecB.Cov.1
+rule <SecB_PayMisfuelling>
+for s: Situation, loc: Location, d: Integer
+if currentSit s && s == misFuelling && situationInLocation s loc && isIn loc uk
+then coverProvided s payMisfuelling SecB_PayMisfuelling
+
+# -------------------------------------------------------------------
+# Assertions
+# -------------------------------------------------------------------
 
 # Scenario 1
 
