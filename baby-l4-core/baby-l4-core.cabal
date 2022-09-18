@@ -26,6 +26,7 @@ library
                   L4.Syntax
                   L4.SyntaxManipulation
                   L4.Typing
+                  L4.TypeInference
   other-modules: Paths_baby_l4_core
   hs-source-dirs:
     src

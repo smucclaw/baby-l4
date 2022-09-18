@@ -115,6 +115,8 @@ isIn home uk
 # to avoid an L4 -> SMT translation problem.
 decl mechanicalBrkd: Situation
 
+# enum Situation is mechanicalBrkd | vandalism | ....
+
 # Commented out redundant situations
 # decl vandalism: Situation
 # decl fire: Situation
@@ -165,6 +167,7 @@ rule <SecA_Context>
 if premiumPaid
 then secA_Applicability
 
+
 # SecA.Cov.1
 rule <SecA_PayBreakdownVehicle>
 for s: Situation, loc: Location, d: Integer
@@ -181,6 +184,7 @@ for s: Situation
 if secA_Applicability && currentSit s &&
    isBreakdownSituation s && notSafeToDrive s 
 then coverProvided s recoverPassengersVehicle20MilesLim SecA_RecoverPassengersVehicle20MilesLim
+
 
 # SecA.Cov.3
 # TODO: model "you will have to pay all other costs"
@@ -214,14 +218,6 @@ then coverProvided s noCoverProvided SecA_BreakdownNotInUK
 #      	       	        apply: {normalize, SecA_BreakdownNotInUK}
 #                             }}}
 
-decl mySit: Situation
-decl myCov: CoverageType
-decl myra1: RuleApp
-decl myra2: RuleApp
-
-assert <contradictoryCover> {SMT: consistent}
-coverProvided mySit myCov myra1 && coverProvided mySit noCoverProvided myra2
-
 
 # -------------------------------------------------------------------
 # Section B
@@ -236,6 +232,14 @@ then coverProvided s payMisfuelling SecB_PayMisfuelling
 # -------------------------------------------------------------------
 # Assertions
 # -------------------------------------------------------------------
+
+decl mySit: Situation
+decl myCov: CoverageType
+decl myra1: RuleApp
+decl myra2: RuleApp
+
+assert <contradictoryCover> {SMT: consistent}
+coverProvided mySit myCov myra1 && coverProvided mySit noCoverProvided myra2 && myCov /= noCoverProvided
 
 # Scenario 1
 
