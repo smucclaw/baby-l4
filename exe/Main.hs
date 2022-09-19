@@ -35,6 +35,7 @@ import ToDA2 (createDSyaml)
 import SimpleRules ( expSys )
 import ToRules.FromL4 (genREP)
 import ToASP (astToASP)
+import ToEpilog (astToEpilog)
 
 
 
@@ -53,6 +54,7 @@ process args input = do
           normalAst = normalizeProg tpAstNoSrc -- Creates predicates of class fields
 
       case format args of
+        Fepilog                  ->  astToEpilog tpAstNoSrc
         Fasp                     ->  astToASP tpAstNoSrc
         Fast                     ->  pPrint tpAst
         (Fgf GFOpts { gflang = gfl, showast = True } ) -> GF.nlgAST gfl fpath normalAst
@@ -70,7 +72,7 @@ process args input = do
         (Fexpsys Rules) -> genREP tpAstNoSrc
 
 
-data Format   = Fasp | Fast | Fgf GFOpts | Fscasp  | Fsmt | Fyaml | Fexpsys ESOpts
+data Format   = Fepilog | Fasp | Fast | Fgf GFOpts | Fscasp  | Fsmt | Fyaml | Fexpsys ESOpts
   deriving Show
 
 --  l4 gf en          output english only
@@ -97,6 +99,7 @@ optsParse :: Parser InputOpts
 optsParse = InputOpts <$>
               subparser
                 ( command "gf"   (info gfSubparser gfHelper)
+               <> command "epilog" (info (pure Fepilog) (progDesc "output to Epilog"))
                <> command "asp"  (info (pure Fasp) (progDesc "output to ASP / Clingo"))
                <> command "ast"  (info (pure Fast) (progDesc "Show the AST in Haskell"))
                <> command "scasp" (info (pure Fscasp) (progDesc "output to sCASP for DocAssemble purposes"))

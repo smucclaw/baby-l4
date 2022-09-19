@@ -85,6 +85,7 @@ library
                   ToGF.FromSCasp.ToAnswer
                   ToGF.FromL4.ToQuestions
                   ToGF.FromL4.ToAnswers
+                  ToEpilog
                   ToASP
                   ToSCASP
                   ToDA2

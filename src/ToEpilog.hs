@@ -1,6 +1,6 @@
  {-# LANGUAGE OverloadedStrings #-}
 
-module ToASP where
+module ToEpilog where
 
 import Prettyprinter
 import Prettyprinter.Render.Text (putDoc)
@@ -386,8 +386,8 @@ genOppClause (posvar, negvar, n) =
     let args = zipWith (\ vn i -> LocalVar (QVarName IntegerT (vn ++ show i)) i) (replicate n "V") [0 .. n-1]
     in OpposesClause (applyVars posvar args) (applyVars negvar args)
 
-astToASP :: Program (Tp ()) -> IO ()
-astToASP prg = do
+astToEpilog :: Program (Tp ()) -> IO ()
+astToEpilog prg = do
     let rules = concatMap ruleDisjL (clarify (rulesOfProgram prg))
     -- putStrLn "Simplified L4 rules:"
     -- putDoc $ vsep (map (showL4 []) rules) <> line
