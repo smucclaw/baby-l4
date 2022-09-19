@@ -26,6 +26,7 @@ import Control.Monad.Writer (Functor)
 import Data.Set (member)
 
 
+
 type InfClasses = [ClassName]
 --  deriving (Eq, Ord, Show, Semigroup, Monoid)
 
@@ -77,12 +78,23 @@ instance Monad InferRes where
     (InferRes comps (Just t)) >>= r = r t 
 -}
 
--- declare an inferred variable by creating a new class and assigning 
+-- declare an inferred variable by creating a new class 
+-- and assigning this class to return type
 declareInferredVar :: VarName -> Environment te -> InfComponents -> InferRes (Tp ())
 declareInferredVar vn env icomps =
     let newClassName = genNewClassName (map nameOfClassDecl (classDeclsOfEnv env) ++ infClasses icomps)
-        newClass = ClassT () newClassName in
-    InferRes (InfComponents (newClassName : infClasses icomps) [] []) (Just newClass)
+        newClass = ClassT () newClassName 
+        newDecl  = VarDecl () vn newClass in 
+    InferRes (addDeclToCnstrt newDecl (addClassToCnstrt newClassName icomps)) (Just newClass)
+
+addDeclToCnstrt :: VarDecl () -> InfComponents -> InfComponents
+addDeclToCnstrt = error "not implemented"
+
+addClassToCnstrt :: ClassName -> InfComponents -> InfComponents
+addClassToCnstrt = error "not implemented"
+
+addTpEqConstr :: Tp () -> Tp () -> InfComponents -> InfComponents
+addTpEqConstr = error "not implemented"
 
 -- generate a new name with given root which is not in strs
 -- Example: genNameAwayFrom ["ab", "ab1", "ab0"] "ab" 0 = "ab2"
@@ -119,8 +131,17 @@ inferExpr env icomps expr = case expr of
     AppE _ fe ae -> 
         let InferRes ficomps ftp = inferExpr env icomps fe in
         let InferRes aicomps atp = inferExpr env ficomps ae in
-        InferRes aicomps (inferAppE ftp atp)
+        inferAppE env aicomps ftp atp
     _ -> undefined
 
-inferAppE :: Maybe (Tp ()) -> Maybe (Tp ()) -> Maybe (Tp ())
-inferAppE = error "not implemented"
+inferAppE :: Environment te -> InfComponents -> Maybe (Tp ()) -> Maybe (Tp ()) -> InferRes (Tp())
+inferAppE _env icomps (Just (FunT _ tpar tbody)) (Just targ) =
+    case targ of
+        ClassT {} -> InferRes (addTpEqConstr tpar targ icomps) (Just tbody)
+        _ -> InferRes icomps (Just tbody)
+inferAppE env icomps (Just (ct@ClassT {})) (Just targ) = 
+    let newClassName = genNewClassName (map nameOfClassDecl (classDeclsOfEnv env) ++ infClasses icomps)
+        newClass = ClassT () newClassName in
+    InferRes (addTpEqConstr ct (FunT () targ newClass) icomps) (Just newClass)
+inferAppE _env icomps _ _ = InferRes icomps Nothing 
+
