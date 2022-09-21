@@ -403,7 +403,7 @@ astToEpilog prg = do
     putDoc $ vsep (map (showASP AccordingToR) aspRulesNoFact) <> line <> line
     -- putDoc $ vsep (map (showASP VarSubs1R) aspRulesNoFact) <> line <> line
     putDoc $ vsep (map (showASP AddFacts) aspRulesFact) <> line <> line
-    putDoc $ vsep (map (showASP FixedCode) ([head aspRulesFact])) <> line <> line
+    putDoc $ vsep (map (showASP FixedCode) [head aspRulesNoFact]) <> line <> line
 
     -- putDoc $ vsep (map (showASP VarSubs3R) aspRulesNoFact) <> line <> line
     -- putDoc $ vsep (map (showASP VarSubs2R) aspRulesNoFact) <> line <> line
