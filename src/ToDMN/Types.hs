@@ -1,10 +1,10 @@
 
 module ToDMN.Types where
 
-import L4.Syntax (BComparOp, Val)
+-- import L4.Syntax (BComparOp, Val)
 
 type Id = String
-type VarName = String
+type VarName = XMLText
 type Label = String
 
 -- TODO
@@ -12,14 +12,27 @@ type Label = String
 -- type FEELExpr = String
 
 data DecOutVar = DecOutVar Id VarName FEELType
+  deriving Show
 
 -- Label is tagged name in a decision element
 -- TODO: crosscheck with DMN standard to see if classification scheme matches
 data Decision
-  = LitExprEl Id Label DecOutVar [InfoReq] FEELExpr
-  | DecTableEl Id Label Schema [DMNRule]
+  = -- LitExprEl Id Label DecOutVar [InfoReq] FEELExpr
+  -- |
+  DecTableEl
+    { sDecTableId :: Id
+    , sDecTableLabel :: Label
+    , sDecTableInfoReqs :: [InfoReq]
+    , sSchema :: Schema
+    , sRules :: [DMNRule] }
+    -- Id Label [InfoReq] Schema [DMNRule]
+  deriving Show
 
-data Schema = Schema [InputSchema] [OutputSchema]
+data Schema = Schema
+  -- [InputSchema] OutputSchema
+  { sInputSchemas :: [InputSchema]
+  , sOutputSchema :: OutputSchema }
+  deriving Show
 
 -- TypeRef is a String representation of FEELExpr types
 -- The FEELExpr types enumerated here only reflect the possible options on Camunda Modeler
@@ -27,33 +40,54 @@ data Schema = Schema [InputSchema] [OutputSchema]
 -- Other types of FEEL expressions listed on the docs are: variables, control flow, functions
 -- See https://docs.camunda.io/docs/components/modeler/feel/language-guide/feel-expressions-introduction
 -- Maybe this is what the Modeler Any type covers?
-data InputExprEl = InputExprEl Id FEELType VarName
-data FEELType
-  = String
+data InputExprEl = InputExprEl
+  { sInputExprElId :: Id
+  , sInputExprFEELType :: FEELType
+  , sInputExprVarName :: VarName }
+  deriving Show
+
+data FEELType =
+    String
   | Bool
   | Number
   -- | DateTime
   -- | DayTimeDuration
   -- | YearMonthDuration
+  deriving (Show, Read)
+
 
 -- Table Headers
 -- Label is tagged label in input/output elements
-data InputSchema = InputSchema Id Label InputExprEl
-data OutputSchema = OutputSchema Label VarName FEELType
+data InputSchema = InputSchema
+  { sInputSchemaId :: Id
+  , sInputLabel :: Maybe Label
+  , sInputExprEl :: InputExprEl }
+  deriving Show
+data OutputSchema = OutputSchema
+  { sOutputLabel :: Label
+  , sOutputSchemaVarName :: String
+  , sOutputSchemaFEELType :: FEELType }
+  deriving Show
 
 type DRD = [Decision]
 
-data InfoReq = ReqInputEl Id ReqInput
+data InfoReq = ReqInputEl
+  { sReqInputId :: Id
+  , sReqInput :: ReqInput }
+  -- Id ReqInput
+  deriving Show
 type ReqInput = String
 
 data DMNRule = DMNRule
   { sRuleId :: Id
   , sInputEntries :: [InputEntry]
-  , sOutputEntries :: [OutputEntry] }
+  , sOutputEntry :: OutputEntry }
+  deriving Show
 
 data InputEntry = InputEntry
-  { sInputId :: Id
+  { sInputEntryId :: Id
   , sMaybeCondition :: Maybe Condition }
+  deriving Show
 
 -- Condition is a FEEL Unary Test
 -- See notes on FEELTypes above
@@ -67,6 +101,8 @@ data InputEntry = InputEntry
 --   -- | FEELExpr
 
 newtype XMLText = XMLText {sText :: String}
+  deriving Show
+
 type Condition = XMLText
 
 -- should FEELExpr be XMLText?
@@ -78,5 +114,94 @@ type FEELExpr = XMLText
 data OutputEntry = OutputEntry
   { sOutputId :: Id
   , sExpr :: FEELExpr }
+  deriving Show
 
 -- to investigate: how much of this DMN syntax is part of the DMN standard, and how much is Camunda's implementation?
+-- paste findings from slack threads
+
+
+-- Constraints:
+-- to resolve difficulties around name/id being used interchangeably as variables
+-- name and id of a component (where both are required) will be the same
+-- tables will only have 1 output column
+-- name of output column is the name of the table and its decision ID &
+-- a pred P1 will have input expr "P1" and be produced from a table (with name and id) "P1" with output name "P1"
+
+-- Simple Types (for removing ids and names)
+
+newtype SimpleInfoReq = SimpleReqInputEl ReqInput deriving Show
+
+-- when inforeq is an empty list, inforeq element is not generated
+data SimpleDecision
+  = SimpleLitExprEl DecOutVar [InfoReq] FEELExpr
+  | SimpleDecTableEl [SimpleInfoReq] SimpleSchema [SimpleDMNRule]
+  deriving Show
+
+data SimpleSchema = SimpleSchema [SimpleInputSchema] SimpleOutputSchema
+  deriving Show
+
+data SimpleInputSchema = SimpleInputSchema
+  { sSimpleInputExprVarName :: String
+  , sSimpleInputExprFEELType :: FEELType }
+  deriving Show
+
+data SimpleOutputSchema = SimpleOutputSchema
+  { sSimpleOutputSchemaVarName :: String
+  , sSimpleOutputSchemaFEELType :: FEELType }
+  deriving Show
+
+
+data SimpleDMNRule = SimpleDMNRule
+  { sSimpleInputEntries :: [SimpleInputEntry]
+  , sSimpleOutputEntry :: SimpleOutputEntry }
+  deriving Show
+
+newtype SimpleInputEntry = SimpleInputEntry
+  { sSimpleMaybeCondition :: Maybe Condition }
+  deriving Show
+
+newtype SimpleOutputEntry = SimpleOutputEntry
+  { sSimpleExpr :: FEELExpr }
+  deriving Show
+
+
+-- desired output
+-- to be transferred to test file
+schemaO :: SimpleSchema
+schemaO =
+  SimpleSchema
+    [ SimpleInputSchema "P1" Number
+    , SimpleInputSchema "P2" Number
+    , SimpleInputSchema "P3" Number ]
+    ( SimpleOutputSchema "O" Number )
+
+schemaO2 :: SimpleSchema
+schemaO2 =
+  SimpleSchema
+    [ SimpleInputSchema "P1" Number ]
+    ( SimpleOutputSchema "O2" Number )
+
+
+r1 :: SimpleDMNRule
+r1 =
+  SimpleDMNRule
+    [ SimpleInputEntry (Just (XMLText "1")),
+      SimpleInputEntry (Just (XMLText "True")),
+      SimpleInputEntry Nothing ]
+    ( SimpleOutputEntry (XMLText "10"))
+
+r2 :: SimpleDMNRule
+r2 =
+  SimpleDMNRule
+    [ SimpleInputEntry (Just (XMLText "2")),
+      SimpleInputEntry (Just (XMLText "4")),
+      SimpleInputEntry (Just (XMLText "False")) ]
+    ( SimpleOutputEntry (XMLText "11") )
+
+r3 :: SimpleDMNRule
+r3 =
+  SimpleDMNRule
+    [ SimpleInputEntry (Just (XMLText "1"))
+    , SimpleInputEntry Nothing
+    , SimpleInputEntry Nothing ]
+    ( SimpleOutputEntry (XMLText "10") )

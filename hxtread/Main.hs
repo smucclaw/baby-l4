@@ -10,7 +10,10 @@ import System.Exit
 import GHC.RTS.Flags (MiscFlags(installSEHHandlers))
 import ToDMN.Types
 import L4.Syntax
+import DecTables
 
+uncurry5 :: (a -> b -> c -> d -> e -> f) -> (a, b, c, d, e) -> f
+uncurry5 f ~(a, b, c, d, e) = f a b c d e
 
 ----------------------------------------------
 -- Some fake data types for experimenting with XML picklers
@@ -44,7 +47,7 @@ instance XmlPickler InputEntry where
 xpInputEntry :: PU InputEntry
 xpInputEntry = xpElem "inputEntry" $
                xpWrap ( uncurry InputEntry
-                      , \ip -> (sInputId ip, sMaybeCondition ip)) $
+                      , \ip -> (sInputEntryId ip, sMaybeCondition ip)) $
                xpPair (xpAttr "id" xpText) (xpOption xpXMLText)
 
 
@@ -91,15 +94,103 @@ instance XmlPickler DMNRule where
 xpDMNRule :: PU DMNRule
 xpDMNRule = xpElem "rule" $
             xpWrap ( uncurry3 DMNRule
-                   , \r -> (sRuleId r, sInputEntries r, sOutputEntries r) ) $
-            xpTriple (xpAttr "id" xpText) (xpList xpInputEntry) (xpList xpOutputEntry)
+                   , \r -> (sRuleId r, sInputEntries r, sOutputEntry r) ) $
+            xpTriple (xpAttr "id" xpText) (xpList xpInputEntry) xpOutputEntry
 
 
--- xpFoo :: PU Foo
--- xpFoo = xpElem "Foo" $
---           xpWrap ( uncurry Foo
---                 ,  \f -> (sFooNum f, sFooBars f) ) $
---           xpPair (xpAttr "Num" xpInt) (xpList xpBar)
+-- Input Expression Element
+instance XmlPickler InputExprEl where
+  xpickle = xpInputExprEl
+
+xpInputExprEl :: PU InputExprEl
+xpInputExprEl = xpElem "inputExpression" $
+                xpWrap ( uncurry3 InputExprEl
+                       , \ie -> (sInputExprElId ie, sInputExprFEELType ie, sInputExprVarName ie) ) $
+                xpTriple (xpAttr "id" xpText) (xpAttr "typeRef" xpickle) xpXMLText
+
+-- xpAttr :: String -> PU a -> PU a
+-- xpText :: PU String
+
+instance XmlPickler FEELType where
+  xpickle = xpPrim
+
+
+-- Input Schema
+instance XmlPickler InputSchema where
+  xpickle = xpInputSchema
+
+xpInputSchema :: PU InputSchema
+xpInputSchema = xpElem "input" $
+                xpWrap ( uncurry3 InputSchema
+                       , \s -> (sInputSchemaId s, sInputLabel s, sInputExprEl s) ) $
+                xpTriple (xpAttr "id" xpText) (xpAttrImplied "label" xpText) xpInputExprEl
+
+-- xpAttrImplied :: String -> PU a -> PU (Maybe a)
+
+instance XmlPickler OutputSchema where
+  xpickle = xpOutputSchema
+
+xpOutputSchema :: PU OutputSchema
+xpOutputSchema = xpElem "output" $
+                 xpWrap ( uncurry3 OutputSchema
+                        , \s -> (sOutputLabel s, sOutputSchemaVarName s, sOutputSchemaFEELType s) ) $
+                 xpTriple (xpAttr "label" xpText) (xpAttr "name" xpText) (xpAttr "typeRef" xpickle)
+
+instance XmlPickler ToDMN.Types.Schema where
+  xpickle = xpSchema
+
+xpSchema :: PU ToDMN.Types.Schema
+xpSchema = xpWrap ( uncurry Schema
+                  , \s -> (sInputSchemas s, sOutputSchema s) ) $
+           xpPair (xpList xpInputSchema) xpOutputSchema
+
+instance XmlPickler InfoReq where
+  xpickle = xpInfoReq
+
+xpInfoReq :: PU InfoReq
+xpInfoReq = xpElem "informationRequirement" $
+            xpWrap ( uncurry ReqInputEl
+                   , \i -> (sReqInputId i, sReqInput i) ) $
+            xpPair (xpAttr "id" xpText) (xpElem "requiredDecision" (xpAttr "href" xpText))
+
+instance XmlPickler Decision where
+  xpickle = xpDecision
+    -- xpElem "decision" $
+    -- xpAlt tag ps
+    -- where
+    --   tag (LitExprEl _ _ _ _ _) = 0
+    --   tag (DecTableEl _ _ _ _ _) = 1
+    --   ps = [ xpElem "literalExpression" $
+    --          xpWrap ( uncurry5 LitExprEl
+    --                 , \e -> (e, e, e, e, e) ) $
+    --          xp5Tuple (xpAttr "id" xpText) (xpAttr "label" xpText) (xpList xpInfoReq)
+    --        -- for now
+    --        , xpElem "decisionTable" $
+    --          xpWrap ( uncurry5 DecTableEl
+    --                 , \t -> (sDecTableId t, sDecTableLabel t, sDecTableInfoReqs t, sSchema t, sRules t) ) $
+    --          xp5Tuple (xpAttr "id" xpText) (xpAttr "label" xpText) (xpList xpInfoReq) xpSchema (xpList xpDMNRule)
+    --        ]
+
+xpDecision :: PU Decision
+xpDecision = xpElem "decision" $
+             xpElem "decisionTable" $
+             xpWrap ( uncurry5 DecTableEl
+                    , \t -> (sDecTableId t, sDecTableLabel t, sDecTableInfoReqs t, sSchema t, sRules t) ) $
+             xp5Tuple (xpAttr "id" xpText) (xpAttr "label" xpText) (xpList xpInfoReq) xpSchema (xpList xpDMNRule)
+
+-- <decision id="two_x" name="two_x">
+--     <decisionTable id="DecisionTable_097dr3y">
+--       <output id="OutputClause_0vm3i7a" name="two_x" typeRef="number" />
+--       <rule id="DecisionRule_1w4yafu">
+--         <outputEntry id="LiteralExpression_1npn7ls">
+--           <text>10</text>
+--         </outputEntry>
+--       </rule>
+--     </decisionTable>
+-- </decision>
+
+
+-- xpAlt :: (a -> Int) -> [PU a] -> PU a
 
 
 -- Tests
@@ -113,7 +204,43 @@ testOutputE2 :: OutputEntry
 testOutputE2 = OutputEntry "LiteralExpression_0qis36e" (XMLText "yes")
 
 testDMNRule :: DMNRule
-testDMNRule = DMNRule "DecisionRule_1080bsl" [testInputE] [testOutputE1, testOutputE2]
+testDMNRule = DMNRule "DecisionRule_1080bsl" [testInputE] testOutputE1
+
+testInputExprEl :: InputExprEl
+testInputExprEl = InputExprEl "LiteralExpression_0lo9u0r" Number (XMLText "minIncome")
+
+testInputSchema :: InputSchema
+testInputSchema = InputSchema "InputClause_1051ttc" (Just "MinIncome") testInputExprEl
+
+testOutputSchema :: OutputSchema
+testOutputSchema = OutputSchema "OutputClause_1kahfkg" "savings_adequacy" String
+-- <output id="OutputClause_1kahfkg" name="savings_adequacy" typeRef="string" />
+
+testInfoReq :: InfoReq
+testInfoReq = ReqInputEl "InformationRequirement_0cndp0l" "#two_x"
+-- <informationRequirement id="InformationRequirement_0cndp0l">
+--       <requiredDecision href="#two_x" />
+--     </informationRequirement>
+
+testSchema :: ToDMN.Types.Schema
+testSchema = ToDMN.Types.Schema [testInputSchema] testOutputSchema
+
+smolDecision :: Decision
+smolDecision =
+  DecTableEl "DecisionTable_097dr3y" "label" [testInfoReq] testSchema [testDMNRule]
+
+fstTable :: Decision
+fstTable = head testDecision
+
+-- <decision id="two_x" name="two_x">
+--     <decisionTable id="DecisionTable_097dr3y">
+--       <output id="OutputClause_0vm3i7a" name="two_x" typeRef="number" />
+--       <rule id="DecisionRule_1w4yafu">
+--         <outputEntry id="LiteralExpression_1npn7ls">
+--           <text>10</text>
+--         </outputEntry>
+--       </rule>
+--     </decisionTable>
 
 {-
 >>> uncurry Foo (42, [Bar "b1", Bar "b2"])
@@ -149,9 +276,17 @@ main2
         -- constA (XMLText "hello")
         -- constA testInputE
         -- constA testOutputE
-        constA testDMNRule
+        -- constA testDMNRule
+        -- constA testInputExprEl
+        -- constA testInputSchema
+        -- constA testOutputSchema
+        -- constA testInfoReq
+
+        -- constA smolDecision
+        constA fstTable
+
         >>>
-        xpickleDocument        xpDMNRule -- xpFoo
+        xpickleDocument        xpDecision -- xpInputSchema
                                [ withIndent yes
                                ] "main2testout.xml" -- "main2out.xml"
           )

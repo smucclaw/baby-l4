@@ -97,6 +97,8 @@ library
                   ToRules.ToRules
                   -- ToDMN
                   ToDMN.Types
+                  ToDMN.FromL4
+                  ToDMN.FromSimpleToReg
                   --ExampleInput
                   Exec
                   --InterfaceNunchaku
@@ -217,7 +219,7 @@ executable lsp-server-bl4
 executable hxtread
   hs-source-dirs: hxtread
   main-is: Main.hs
-  other-modules: Paths_baby_l4
+  other-modules: Paths_baby_l4, DecTables
   -- ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5

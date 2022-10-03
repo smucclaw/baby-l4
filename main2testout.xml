@@ -1,13 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<rule id="DecisionRule_1080bsl">
-  <inputEntry id="UnaryTests_0w2546x">
-    <text>&lt; x</text>
-  </inputEntry>
-  <outputEntry id="LiteralExpression_174qejr">
-    <text>true</text>
-  </outputEntry>
-  <outputEntry id="LiteralExpression_0qis36e">
-    <text>yes</text>
-  </outputEntry>
-</rule>
+<decision>
+  <decisionTable id="id" label="label">
+    <informationRequirement id="id">
+      <requiredDecision href="P1"/>
+    </informationRequirement>
+    <input id="id" label="label">
+      <inputExpression id="id" typeRef="Number">
+        <text>P1</text>
+      </inputExpression>
+    </input>
+    <output label="label" name="I" typeRef="Number"/>
+    <rule id="id">
+      <inputEntry id="id">
+        <text>9</text>
+      </inputEntry>
+      <outputEntry id="id">
+        <text>5</text>
+      </outputEntry>
+    </rule>
+    <rule id="id">
+      <inputEntry id="id"/>
+      <outputEntry id="id">
+        <text>5</text>
+      </outputEntry>
+    </rule>
+  </decisionTable>
+</decision>
 
