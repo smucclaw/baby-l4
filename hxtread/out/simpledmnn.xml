@@ -1,16 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/" xmlns:dmndi="https://www.omg.org/spec/DMN/20191111/DMNDI/" xmlns:dc="http://www.omg.org/spec/DMN/20180521/DC/" xmlns:modeler="http://camunda.org/schema/modeler/1.0" xmlns:di="http://www.omg.org/spec/DMN/20180521/DI/" id="Definitions_1bfjstg" name="myDRD" namespace="http://camunda.org/schema/1.0/dmn" exporter="Camunda Modeler" exporterVersion="5.1.0" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.0.0">
   <decision id="O" name="O">
+    <variable id="decision_O_variable" name="O" typeRef="number"/>
     <informationRequirement id="InformationRequirement_2">
       <requiredDecision href="#P1" />
     </informationRequirement>
     <decisionTable id="DecisionTable_2">
       <input id="InputClause_1">
-        <inputExpression id="LiteralExpression_1" typeRef="Number">
+        <inputExpression id="LiteralExpression_1" typeRef="number">
           <text>P1</text>
         </inputExpression>
       </input>
-      <output id="OutputClause_1" name="O" typeRef="Number" />
+      <output id="OutputClause_1" name="O" typeRef="number" />
       <rule id="DecisionRule_1">
         <inputEntry id="UnaryTests_66G1xr8">
           <text>1</text>
@@ -22,8 +23,9 @@
     </decisionTable>
   </decision>
   <decision id="P1" name="P1">
+    <variable id="decision_P1_variable" name="P1" typeRef="number"/>
     <decisionTable id="DecisionTable_3">
-      <output id="OutputClause_2" name="P1" typeRef="Number" />
+      <output id="OutputClause_2" name="P1" typeRef="number" />
       <rule id="DecisionRule_2">
         <outputEntry id="LiteralExpression_3">
           <text>1</text>
