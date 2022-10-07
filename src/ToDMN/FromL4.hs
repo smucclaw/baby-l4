@@ -139,8 +139,8 @@ genDMN x = do
     -- pPrint "all tables"
     -- pPrint allTables
 
-    pPrint (map sDecisionToDecision allTables)
-
+    decisions <- mapM sDecisionToDecision allTables
+    pPrint decisions
 
 isValE :: Expr t -> Bool
 isValE ValE {} = True
