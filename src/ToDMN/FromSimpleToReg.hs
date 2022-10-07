@@ -2,15 +2,18 @@
 module ToDMN.FromSimpleToReg where
 
 import ToDMN.Types
-import Text.StringRandom
-import qualified Data.Text as T
+import Control.Monad.Trans.State
 
-mkID :: String -> IO String
+-- consider State (Map.Map String Int) so we have a separate integer range for each tag type
+type ID = State Int
+
+mkID :: String -> ID String
 mkID pfx = do
-  idIO <- stringRandomIO (T.pack (pfx ++ "_([0-9]|[a-z]|[A-Z]){7}"))
-  return $ T.unpack idIO
+  n <- get
+  put (n+1)
+  return $ pfx ++ "_" ++ show n
 
-sDecisionToDecision :: SimpleDecision -> IO Decision
+sDecisionToDecision :: SimpleDecision -> ID Decision
 sDecisionToDecision (SimpleDecTableEl sInfoReqs simSchema sDMNRules) = do
   sch         <- sSchemaToSchema simSchema
   let outsch  =  sOutputSchema sch
@@ -21,18 +24,18 @@ sDecisionToDecision (SimpleDecTableEl sInfoReqs simSchema sDMNRules) = do
   return $ Decision outname outname $ DecTable iddt sinforeqs sch sdmns
 sDecisionToDecision SimpleLitExprEl {} = error "not yet implemented"
 
-sInfoReqToInfoReq :: SimpleInfoReq -> IO InfoReq
+sInfoReqToInfoReq :: SimpleInfoReq -> ID InfoReq
 sInfoReqToInfoReq (SimpleReqInputEl reqInput) = do
   idir <- mkID "InformationRequirement"
   return $ ReqInputEl idir reqInput
 
-sSchemaToSchema :: SimpleSchema -> IO Schema
+sSchemaToSchema :: SimpleSchema -> ID Schema
 sSchemaToSchema (SimpleSchema sInputSchemas' sOutputSchema') = do
   Schema
     <$> mapM sInputSchemaToInputSchema sInputSchemas'
     <*> sOutputSchemaToOutputSchema sOutputSchema'
 
-sInputSchemaToInputSchema :: SimpleInputSchema -> IO InputSchema
+sInputSchemaToInputSchema :: SimpleInputSchema -> ID InputSchema
 sInputSchemaToInputSchema (SimpleInputSchema sInpExprVarName sInpExprFEELType) = do
   idic <- mkID "InputClause"
   idle <- mkID "LiteralExpression"
@@ -40,23 +43,23 @@ sInputSchemaToInputSchema (SimpleInputSchema sInpExprVarName sInpExprFEELType) =
     InputSchema idic (Just "optional input label")
     (InputExprEl idle sInpExprFEELType (XMLText sInpExprVarName))
 
-sOutputSchemaToOutputSchema :: SimpleOutputSchema -> IO OutputSchema
+sOutputSchemaToOutputSchema :: SimpleOutputSchema -> ID OutputSchema
 sOutputSchemaToOutputSchema (SimpleOutputSchema sOutSchemaVarName sOutSchemaFEELType) = do
   idoc <- mkID "OutputClause"
   return $ OutputSchema idoc (Just "optional output label") sOutSchemaVarName sOutSchemaFEELType
 
-sDMNRuleToDMNRule :: SimpleDMNRule -> IO DMNRule
+sDMNRuleToDMNRule :: SimpleDMNRule -> ID DMNRule
 sDMNRuleToDMNRule (SimpleDMNRule sInpEntries sOutputEntry') = do
   DMNRule
     <$> mkID "DecisionRule"
     <*> mapM sInputEntryToInputEntry sInpEntries
     <*> sOutputEntryToOutputEntry sOutputEntry'
 
-sInputEntryToInputEntry :: SimpleInputEntry -> IO InputEntry
+sInputEntryToInputEntry :: SimpleInputEntry -> ID InputEntry
 sInputEntryToInputEntry (SimpleInputEntry mCondition) = do
   idut <- mkID "UnaryTests"
   return $ InputEntry idut mCondition
 
-sOutputEntryToOutputEntry :: SimpleOutputEntry -> IO OutputEntry
+sOutputEntryToOutputEntry :: SimpleOutputEntry -> ID OutputEntry
 sOutputEntryToOutputEntry (SimpleOutputEntry feelExpr) = do
   OutputEntry <$> mkID "LiteralExpression" <*> pure feelExpr

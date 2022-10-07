@@ -156,7 +156,6 @@ library
                      , transformers
                      , rope-utf16-splay
                      , mmorph
-                     , string-random >= 0.1.4.3
                      , random
   default-language: Haskell2010
   ghc-options: -Wall

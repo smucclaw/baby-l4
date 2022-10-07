@@ -22,7 +22,6 @@ extra-deps:
   - simple-smt-0.9.5@sha256:70e6f694d401d23783b6f5c62774262a01cc7c305a64a13690ab7664a4f98ebf,736
   - sbv-8.9@sha256:efb0f16c671869805e57d11e269793d5e5ae512e8e626582cf76b8e46a63e9c6,28985
   - prettyprinter-1.7.0@sha256:6a9569e21fa61163a7f066d23d701e23e917893e8f39733d6e617ec72787ae5f,6007
-  - string-random-0.1.4.3
 
 # Required for the option custom-preprocessor-extensions
 require-stack-version: ">= 2.7.1"

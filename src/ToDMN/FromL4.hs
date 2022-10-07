@@ -1,6 +1,6 @@
-module ToDMN.FromL4 where
-
 {-# LANGUAGE OverloadedStrings #-}
+
+module ToDMN.FromL4 where
 
 import Debug.Trace
 import qualified Data.List as List
@@ -19,8 +19,7 @@ import Text.Pretty.Simple ( pPrint )
 
 import ToDMN.FromSimpleToReg
 
-import qualified Data.Text as T
-import Text.StringRandom
+import Control.Monad.Trans.State (runState)
 
 obtRule :: Program (Tp ()) -> String -> [Rule (Tp ())]
 obtRule prog rname = [r | r <- rulesOfProgram prog, nameOfRule r == Just rname ]
@@ -139,7 +138,7 @@ genDMN x = do
     -- pPrint "all tables"
     -- pPrint allTables
 
-    decisions <- mapM sDecisionToDecision allTables
+    let (decisions, _stateID) = runState (mapM sDecisionToDecision allTables) 1
     pPrint decisions
 
 isValE :: Expr t -> Bool
