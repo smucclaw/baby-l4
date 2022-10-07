@@ -3,14 +3,16 @@ module ToDMN.FromSimpleToReg where
 
 import ToDMN.Types
 import Control.Monad.Trans.State
+import qualified Data.Map as Map
+import Data.Maybe
 
--- consider State (Map.Map String Int) so we have a separate integer range for each tag type
-type ID = State Int
+type ID = State (Map.Map String Int)
 
 mkID :: String -> ID String
 mkID pfx = do
-  n <- get
-  put (n+1)
+  mymap <- get
+  let n = fromMaybe 1 (Map.lookup pfx mymap)
+  put (Map.insert pfx (n+1) mymap)
   return $ pfx ++ "_" ++ show n
 
 sDecisionToDecision :: SimpleDecision -> ID Decision

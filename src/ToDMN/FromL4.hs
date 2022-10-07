@@ -2,7 +2,7 @@
 
 module ToDMN.FromL4 where
 
-import Debug.Trace
+-- import Debug.Trace
 import qualified Data.List as List
 import qualified Data.Function as Fn
 import Control.Arrow ( Arrow((&&&)) )
@@ -20,6 +20,7 @@ import Text.Pretty.Simple ( pPrint )
 import ToDMN.FromSimpleToReg
 
 import Control.Monad.Trans.State (runState)
+import qualified Data.Map as Map
 
 obtRule :: Program (Tp ()) -> String -> [Rule (Tp ())]
 obtRule prog rname = [r | r <- rulesOfProgram prog, nameOfRule r == Just rname ]
@@ -138,7 +139,7 @@ genDMN x = do
     -- pPrint "all tables"
     -- pPrint allTables
 
-    let (decisions, _stateID) = runState (mapM sDecisionToDecision allTables) 1
+    let (decisions, _idState) = runState (mapM sDecisionToDecision allTables) Map.empty
     pPrint decisions
 
 isValE :: Expr t -> Bool
