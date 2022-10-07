@@ -117,6 +117,13 @@ packages:
       sha256: d22f820a1f63497f7fd7e1f04b7d356d92de35582258f6ad55428c88b09e63ff
   original:
     hackage: prettyprinter-1.7.0@sha256:6a9569e21fa61163a7f066d23d701e23e917893e8f39733d6e617ec72787ae5f,6007
+- completed:
+    hackage: string-random-0.1.4.3@sha256:4b3092568889e00b419093a1938f14a67743844bc86476ee5cb6f8827dc40545,2172
+    pantry-tree:
+      size: 489
+      sha256: 778cbe4d98614a6ce425e311453e01373a6cf6ce9c9a1367e989302cffac2dfe
+  original:
+    hackage: string-random-0.1.4.3
 snapshots:
 - completed:
     size: 532177

@@ -6,6 +6,7 @@ module ToDMN.Types where
 type Id = String
 type VarName = XMLText
 type Label = String
+type DecName = String
 
 -- TODO
 -- should FEELExpr be XMLText? see XMLText def below
@@ -16,17 +17,22 @@ data DecOutVar = DecOutVar Id VarName FEELType
 
 -- Label is tagged name in a decision element
 -- TODO: crosscheck with DMN standard to see if classification scheme matches
-data Decision
-  = -- LitExprEl Id Label DecOutVar [InfoReq] FEELExpr
-  -- |
-  DecTableEl
-    { sDecTableId :: Id
-    , sDecTableLabel :: Label
-    , sDecTableInfoReqs :: [InfoReq]
-    , sSchema :: Schema
-    , sRules :: [DMNRule] }
-    -- Id Label [InfoReq] Schema [DMNRule]
+data Decision = Decision
+  { sDecId :: Id
+  , sDecName :: DecName
+  , sDecTableOrLitExpr :: DecTableOrLitExpr }
   deriving Show
+
+
+data DecTableOrLitExpr =
+  DecTable
+  { sDecTableId :: Id
+  , sDecTableInfoReqs :: [InfoReq]
+  , sSchema :: Schema
+  , sRules :: [DMNRule] }
+  -- | LitExpr Id Label DecOutVar [InfoReq] FEELExpr
+  deriving Show
+
 
 data Schema = Schema
   -- [InputSchema] OutputSchema
@@ -64,7 +70,8 @@ data InputSchema = InputSchema
   , sInputExprEl :: InputExprEl }
   deriving Show
 data OutputSchema = OutputSchema
-  { sOutputLabel :: Label
+  { sOutputSchemaId :: Id
+  , sOutputLabel :: Maybe Label
   , sOutputSchemaVarName :: String
   , sOutputSchemaFEELType :: FEELType }
   deriving Show

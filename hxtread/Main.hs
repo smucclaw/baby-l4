@@ -132,9 +132,9 @@ instance XmlPickler OutputSchema where
 
 xpOutputSchema :: PU OutputSchema
 xpOutputSchema = xpElem "output" $
-                 xpWrap ( uncurry3 OutputSchema
-                        , \s -> (sOutputLabel s, sOutputSchemaVarName s, sOutputSchemaFEELType s) ) $
-                 xpTriple (xpAttr "label" xpText) (xpAttr "name" xpText) (xpAttr "typeRef" xpickle)
+                 xpWrap ( uncurry4 OutputSchema
+                        , \s -> (sOutputSchemaId s, sOutputLabel s, sOutputSchemaVarName s, sOutputSchemaFEELType s) ) $
+                 xp4Tuple (xpAttr "id" xpText) (xpAttrImplied "label" xpText) (xpAttr "name" xpText) (xpAttr "typeRef" xpickle)
 
 instance XmlPickler ToDMN.Types.Schema where
   xpickle = xpSchema
@@ -171,12 +171,23 @@ instance XmlPickler Decision where
     --          xp5Tuple (xpAttr "id" xpText) (xpAttr "label" xpText) (xpList xpInfoReq) xpSchema (xpList xpDMNRule)
     --        ]
 
+instance XmlPickler DecTableOrLitExpr where
+  xpickle = xpDecTableOrLitExpr
+
+xpDecTableOrLitExpr :: PU DecTableOrLitExpr
+xpDecTableOrLitExpr = xpElem "decisionTable" $
+                      xpWrap ( uncurry4 DecTable
+                             , \t -> ( sDecTableId t
+                                     , sDecTableInfoReqs t
+                                     , sSchema t
+                                     , sRules t ) ) $
+                      xp4Tuple (xpAttr "id" xpText) (xpList xpInfoReq) xpSchema (xpList xpDMNRule)
+
 xpDecision :: PU Decision
 xpDecision = xpElem "decision" $
-             xpElem "decisionTable" $
-             xpWrap ( uncurry5 DecTableEl
-                    , \t -> (sDecTableId t, sDecTableLabel t, sDecTableInfoReqs t, sSchema t, sRules t) ) $
-             xp5Tuple (xpAttr "id" xpText) (xpAttr "label" xpText) (xpList xpInfoReq) xpSchema (xpList xpDMNRule)
+             xpWrap ( uncurry3 Decision
+                    , \d -> ( sDecId d, sDecName d, sDecTableOrLitExpr d )) $
+             xpTriple (xpAttr "id" xpText) (xpAttr "name" xpText) xpDecTableOrLitExpr
 
 -- <decision id="two_x" name="two_x">
 --     <decisionTable id="DecisionTable_097dr3y">
@@ -213,7 +224,7 @@ testInputSchema :: InputSchema
 testInputSchema = InputSchema "InputClause_1051ttc" (Just "MinIncome") testInputExprEl
 
 testOutputSchema :: OutputSchema
-testOutputSchema = OutputSchema "OutputClause_1kahfkg" "savings_adequacy" String
+testOutputSchema = OutputSchema "OutputClause_1kahfkg" Nothing "savings_adequacy" String
 -- <output id="OutputClause_1kahfkg" name="savings_adequacy" typeRef="string" />
 
 testInfoReq :: InfoReq
@@ -225,13 +236,15 @@ testInfoReq = ReqInputEl "InformationRequirement_0cndp0l" "#two_x"
 testSchema :: ToDMN.Types.Schema
 testSchema = ToDMN.Types.Schema [testInputSchema] testOutputSchema
 
-smolDecision :: Decision
-smolDecision =
-  DecTableEl "DecisionTable_097dr3y" "label" [testInfoReq] testSchema [testDMNRule]
+-- smolDecision :: Decision
+-- smolDecision =
+--   DecTableEl "DecisionTable_097dr3y" "label" [testInfoReq] testSchema [testDMNRule]
 
 fstTable :: Decision
 fstTable = head testDecision
 
+sndTable :: Decision
+sndTable = last testDecision
 -- <decision id="two_x" name="two_x">
 --     <decisionTable id="DecisionTable_097dr3y">
 --       <output id="OutputClause_0vm3i7a" name="two_x" typeRef="number" />
@@ -283,12 +296,12 @@ main2
         -- constA testInfoReq
 
         -- constA smolDecision
-        constA fstTable
+        constA sndTable
 
         >>>
         xpickleDocument        xpDecision -- xpInputSchema
                                [ withIndent yes
-                               ] "main2testout.xml" -- "main2out.xml"
+                               ] "sndtable.xml" -- "main2out.xml"
           )
       return ()
 
