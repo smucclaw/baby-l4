@@ -3,8 +3,6 @@ module ToDMN.FromSimpleToReg where
 
 import ToDMN.Types
 import Text.StringRandom
-import qualified Data.Text.Lazy as TL
-import qualified System.Random as Random
 import qualified Data.Text as T
 
 mkID :: String -> IO String
@@ -30,9 +28,9 @@ sInfoReqToInfoReq (SimpleReqInputEl reqInput) = do
 
 sSchemaToSchema :: SimpleSchema -> IO Schema
 sSchemaToSchema (SimpleSchema sInputSchemas' sOutputSchema') = do
-  sins <- mapM sInputSchemaToInputSchema sInputSchemas'
-  souts <- sOutputSchemaToOutputSchema sOutputSchema'
-  return $ Schema sins souts
+  Schema
+    <$> mapM sInputSchemaToInputSchema sInputSchemas'
+    <*> sOutputSchemaToOutputSchema sOutputSchema'
 
 sInputSchemaToInputSchema :: SimpleInputSchema -> IO InputSchema
 sInputSchemaToInputSchema (SimpleInputSchema sInpExprVarName sInpExprFEELType) = do
@@ -49,10 +47,10 @@ sOutputSchemaToOutputSchema (SimpleOutputSchema sOutSchemaVarName sOutSchemaFEEL
 
 sDMNRuleToDMNRule :: SimpleDMNRule -> IO DMNRule
 sDMNRuleToDMNRule (SimpleDMNRule sInpEntries sOutputEntry') = do
-  iddr  <- mkID "DecisionRule"
-  sinps <- mapM sInputEntryToInputEntry sInpEntries
-  souts <- sOutputEntryToOutputEntry sOutputEntry'
-  return $ DMNRule iddr sinps souts
+  DMNRule
+    <$> mkID "DecisionRule"
+    <*> mapM sInputEntryToInputEntry sInpEntries
+    <*> sOutputEntryToOutputEntry sOutputEntry'
 
 sInputEntryToInputEntry :: SimpleInputEntry -> IO InputEntry
 sInputEntryToInputEntry (SimpleInputEntry mCondition) = do
@@ -61,5 +59,4 @@ sInputEntryToInputEntry (SimpleInputEntry mCondition) = do
 
 sOutputEntryToOutputEntry :: SimpleOutputEntry -> IO OutputEntry
 sOutputEntryToOutputEntry (SimpleOutputEntry feelExpr) = do
-  idle <- mkID "LiteralExpression"
-  return $ OutputEntry idle feelExpr
+  OutputEntry <$> mkID "LiteralExpression" <*> pure feelExpr
