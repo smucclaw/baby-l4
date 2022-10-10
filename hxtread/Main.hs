@@ -2,7 +2,6 @@ module Main where
 
 import System.Environment
 import Text.XML.HXT.Core
-import Text.XML.HXT.Curl
 import System.IO
 import System.Environment
 import System.Console.GetOpt
@@ -328,7 +327,6 @@ application cfg src dst =
   configSysVars (withTrace 1 : cfg)
   >>> readDocument [ -- withParseHTML yes,
                    withValidate no
-                   ,withCurl []
                    ] src
   -- >>> withTraceLevel 4 (traceDoc "resulting document")      -- (1)
   -- >>> processChildren (processDocumentRootElement `when` isElem)  -- (1)

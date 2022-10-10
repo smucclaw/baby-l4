@@ -226,7 +226,6 @@ executable hxtread
       base >=4.7 && <5
     , hxt
     , hxt-css
-    , hxt-curl
     , baby-l4
     , baby-l4-core
   default-language: Haskell2010
