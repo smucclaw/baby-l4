@@ -45,11 +45,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1665405013,
-        "narHash": "sha256-9ZAmhErRKI/S/TiKQyLPfps6xKRcEXDirHrZ++UWPr4=",
+        "lastModified": 1665407027,
+        "narHash": "sha256-/qeEJlyJx/l/7n9/bbPGq7p+JX4Ol9f7MFxSal6Abx4=",
         "owner": "anka-213",
         "repo": "cclaw-nix-stuff",
-        "rev": "e74afb851fef407e3f5ea3f01d0bb75e15e2fedd",
+        "rev": "63a1db57430347fb2f0f4716eda07619f662c5db",
         "type": "github"
       },
       "original": {
