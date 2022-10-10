@@ -25,7 +25,7 @@
           ];
           shellHook = ''
             export NIX_PATH=nixpkgs=${nixpkgs};
-            export GF_LIB_PATH=$GF_LIB_PATH''${GF_LIB_PATH:+':'}${gf-pkgs.gf-rgl}/rgl:${gf-pkgs.gf-wordnet}
+            export GF_LIB_PATH=$GF_LIB_PATH''${GF_LIB_PATH:+':'}${gf-pkgs.gf-rgl}/share/gf/lib:${gf-pkgs.gf-wordnet}/share/gf/lib
           '';
         })
       nixpkgs.legacyPackages;
