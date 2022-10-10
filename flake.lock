@@ -62,11 +62,11 @@
     "gf-rgl": {
       "flake": false,
       "locked": {
-        "lastModified": 1619423169,
-        "narHash": "sha256-mvL210n2FWPAYxBokIItnGaY1u2MDSKwbD/OVG8uPm4=",
+        "lastModified": 1664962879,
+        "narHash": "sha256-9DbWSHxTpAH6Jf0UGkDt6/Y6UFD86KYbWUCJRV4eSWg=",
         "owner": "GrammaticalFramework",
         "repo": "gf-rgl",
-        "rev": "af36eaf077bef4c99da8e93b7e0238149c168530",
+        "rev": "c656f91f939570b65a9dad14e323bbc1edb9b2e6",
         "type": "github"
       },
       "original": {
