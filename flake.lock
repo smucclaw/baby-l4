@@ -3,11 +3,11 @@
     "bnfc": {
       "flake": false,
       "locked": {
-        "lastModified": 1604002702,
-        "narHash": "sha256-pbclcb8PrjadaBI6GzPjLdzzg47LCpBKPvkRmAoY448=",
+        "lastModified": 1648744212,
+        "narHash": "sha256-BiytW8cailDil0qc8zgCf/Pi/vvfZ3Ew38WldUjlVtc=",
         "owner": "BNFC",
         "repo": "bnfc",
-        "rev": "d43e2571acae7a8254f289bff5868f9006aa74eb",
+        "rev": "348e57a55a0d9df53376b1da2f59f104521c5153",
         "type": "github"
       },
       "original": {
@@ -20,11 +20,11 @@
     "gf-core": {
       "flake": false,
       "locked": {
-        "lastModified": 1615207710,
-        "narHash": "sha256-z7HCJtOxHs/kZVWmSbb/ITYJwEI3l0P1xNDEQtdkOEE=",
+        "lastModified": 1646458097,
+        "narHash": "sha256-dTKkS+kWJU5SCNGRVGz8ZE0B4zvoEWv/ZHloSle8YPY=",
         "owner": "GrammaticalFramework",
         "repo": "gf-core",
-        "rev": "9b4f2dd18b64b770aaebfa1885085e8e3447f119",
+        "rev": "25dd1354c71ab9267d6fdb8ad7cf8cc7ce30812f",
         "type": "github"
       },
       "original": {
@@ -45,11 +45,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1614325735,
-        "narHash": "sha256-fOWlk0zgBiGq2x4PZK+myDXHrHLjavfW7TACD1U7anU=",
+        "lastModified": 1665389025,
+        "narHash": "sha256-6VMIxYmwVILxH7H84ZzfjazofwY4hhpI8vYaWfodUzo=",
         "owner": "anka-213",
         "repo": "cclaw-nix-stuff",
-        "rev": "0250e1ea2fe7153c3fe35c2aa89ef32fc990c489",
+        "rev": "6a9b5abf6db092c44483cb16caf638e40fedd52d",
         "type": "github"
       },
       "original": {
@@ -62,11 +62,11 @@
     "gf-rgl": {
       "flake": false,
       "locked": {
-        "lastModified": 1619423169,
-        "narHash": "sha256-mvL210n2FWPAYxBokIItnGaY1u2MDSKwbD/OVG8uPm4=",
+        "lastModified": 1664531415,
+        "narHash": "sha256-SqYc/7OYxJvDCJbO/FxlFnmfC1kUDTawSdQZpGEpOTo=",
         "owner": "GrammaticalFramework",
         "repo": "gf-rgl",
-        "rev": "af36eaf077bef4c99da8e93b7e0238149c168530",
+        "rev": "ac3b8bba6bba80e63139ba8b3f5374e4e0609059",
         "type": "github"
       },
       "original": {
@@ -79,11 +79,11 @@
     "gf-wordnet": {
       "flake": false,
       "locked": {
-        "lastModified": 1619167270,
-        "narHash": "sha256-/GVcZnLscruLZXRiEvTj/TjmY6cj/dhbWgKE9cezF+Y=",
+        "lastModified": 1663659559,
+        "narHash": "sha256-/+ci68mEeVetiJF7pGVHuOGWFFCA1R+fcM+/H9WdbUY=",
         "owner": "GrammaticalFramework",
         "repo": "gf-wordnet",
-        "rev": "55662a243a27ee5c255185d940851d234db4122b",
+        "rev": "9e2265a3849c2844595f41d8296313860a542d51",
         "type": "github"
       },
       "original": {
@@ -95,11 +95,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1614288967,
-        "narHash": "sha256-6Q2gH8lMzF6wMO9//2nE7v/9U2LXR2h/wDLuGpfQJ4M=",
+        "lastModified": 1665296151,
+        "narHash": "sha256-uOB0oxqxN9K7XGF1hcnY+PQnlQJ+3bP2vCn/+Ru/bbc=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "04ac9dcd311956d1756d77f4baf9258392ee7bdd",
+        "rev": "14ccaaedd95a488dd7ae142757884d8e125b3363",
         "type": "github"
       },
       "original": {
