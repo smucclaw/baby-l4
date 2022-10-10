@@ -11,10 +11,9 @@ import ToGF.Disambiguate
 import qualified Data.Map as M
 import Control.Monad (forM_, void)
 import Safe.Partial (Partial)
-import Test.Tasty.ExpectedFailure (expectFailBecause)
 
 disambiguateTests :: PGF -> TestTree
-disambiguateTests pgf = expectFailBecause "Unreliable gf tests" $ testGroup "Disambiguation questions"
+disambiguateTests pgf = testGroup "Disambiguation questions"
     [
       unauthorizedSharingFees
     , prohibited
