@@ -15,15 +15,36 @@ mkID pfx = do
   put (Map.insert pfx (n+1) mymap)
   return $ pfx ++ "_" ++ show n
 
+decisionsToDefs :: [Decision] -> ID Definitions
+decisionsToDefs decs = do
+  iddefs <- mkID "Definitions"
+  return $ Definitions {
+      sXmlns = "https://www.omg.org/spec/DMN/20191111/MODEL/"
+    , sXmlnsDmndi = "https://www.omg.org/spec/DMN/20191111/DMNDI/"
+    , sXmlnsDc = "http://www.omg.org/spec/DMN/20180521/DC/"
+    , sXmlnsModeler = "http://camunda.org/schema/modeler/1.0"
+    , sXmlnsDi = "http://www.omg.org/spec/DMN/20180521/DI/"
+    , sDefId = iddefs
+    , sDefName = "myDRD"
+    , sNamespace = "http://camunda.org/schema/1.0/dmn"
+    , sExporter = "Camunda Modeler"
+    , sExporterVersion = "5.1.0"
+    , sModelerExPlat = "Camunda Cloud"
+    , sModelerExPlatVer = "8.0.0"
+    , sDecisions = decs
+    }
+
 sDecisionToDecision :: SimpleDecision -> ID Decision
 sDecisionToDecision (SimpleDecTableEl sInfoReqs simSchema sDMNRules) = do
   sch         <- sSchemaToSchema simSchema
   let outsch  =  sOutputSchema sch
   let outname =  sOutputSchemaVarName outsch
+  let outtype =  sOutputSchemaFEELType outsch
   iddt        <- mkID "DecisionTable"
   sinforeqs   <- mapM sInfoReqToInfoReq sInfoReqs
   sdmns       <- mapM sDMNRuleToDMNRule sDMNRules
-  return $ Decision outname outname $ DecTable iddt sinforeqs sch sdmns
+  iddov       <- mkID "InformationItem"
+  return $ Decision outname outname (DecOutVar iddov outname outtype) sinforeqs $ DecTable iddt sch sdmns
 sDecisionToDecision SimpleLitExprEl {} = error "not yet implemented"
 
 sInfoReqToInfoReq :: SimpleInfoReq -> ID InfoReq

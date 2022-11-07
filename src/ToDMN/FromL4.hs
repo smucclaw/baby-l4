@@ -139,8 +139,14 @@ genDMN x = do
     -- pPrint "all tables"
     -- pPrint allTables
 
+    -- mapM :: (a -> m b) -> t a -> m (t b)
+    -- mapM :: (SimpleDecision -> ID Decision) -> [SimpleDecision] -> ID [Decision]
+
+
     let (decisions, _idState) = runState (mapM sDecisionToDecision allTables) Map.empty
-    pPrint decisions
+    let iddefs = decisionsToDefs decisions
+    let (defs, _idState) = runState iddefs Map.empty
+    pPrint defs
 
 isValE :: Expr t -> Bool
 isValE ValE {} = True
@@ -261,9 +267,9 @@ mkSimpleOutputSchema env pd = SimpleOutputSchema pd (stringTpToFEELTp (lookupPre
 -- TODO
 -- how to deal with predicates of arbitrary classes (invalid types)
 stringTpToFEELTp :: String -> FEELType
-stringTpToFEELTp "String" = String
-stringTpToFEELTp "Boolean" = Bool -- is this actually "Boolean"?
-stringTpToFEELTp "Integer" = Number
+stringTpToFEELTp "String" = "string"
+stringTpToFEELTp "Boolean" = "bool" -- is this actually "Boolean"?
+stringTpToFEELTp "Integer" = "number"
 stringTpToFEELTp _ = error "not a valid FEELType"
 
 
@@ -299,9 +305,6 @@ lookupPredType nm env =
 -- 2  | 4  | False | 10
 -- 1  | -  | -     | 11
 
--- TODO
--- we do not deal with dependent tables yet
-
 -- [("O", [r2, r3]), ("O2", [r1])]
 allRulesToTables :: Show t => VarEnvironment -> [(String, [Rule t])] -> [SimpleDecision]
 allRulesToTables env = map (ruleGroupToTable env)
@@ -314,7 +317,7 @@ ruleGroupToTable env rg@(_, rs) =
       schema = schematize env predGp
       ruleLines = map (mkRuleLine predGp) rs
       inputPreds = snd predGp
-  in SimpleDecTableEl (map SimpleReqInputEl inputPreds) schema ruleLines
+  in SimpleDecTableEl (map (SimpleReqInputEl . ("#"++)) inputPreds) schema ruleLines
 
 -- given a list of input preds and a rule, generates a list of input entries
 -- schemaPreds (from O): ["P1", "P3", "P2"]

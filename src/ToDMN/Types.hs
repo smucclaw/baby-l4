@@ -12,7 +12,26 @@ type DecName = String
 -- should FEELExpr be XMLText? see XMLText def below
 -- type FEELExpr = String
 
-data DecOutVar = DecOutVar Id VarName FEELType
+data DecOutVar = DecOutVar
+  { sDecVarId :: Id
+  , sDecVarName :: DecName
+  , sDecVarFEELType :: FEELType }
+  deriving Show
+
+data Definitions = Definitions
+  { sXmlns :: String
+  , sXmlnsDmndi :: String
+  , sXmlnsDc :: String
+  , sXmlnsModeler :: String
+  , sXmlnsDi :: String
+  , sDefId :: Id
+  , sDefName :: String
+  , sNamespace :: String
+  , sExporter :: String
+  , sExporterVersion :: String
+  , sModelerExPlat :: String
+  , sModelerExPlatVer :: String
+  , sDecisions :: [Decision] }
   deriving Show
 
 -- Label is tagged name in a decision element
@@ -20,14 +39,14 @@ data DecOutVar = DecOutVar Id VarName FEELType
 data Decision = Decision
   { sDecId :: Id
   , sDecName :: DecName
+  , sDecOutVar :: DecOutVar
+  , sDecTableInfoReqs :: [InfoReq]
   , sDecTableOrLitExpr :: DecTableOrLitExpr }
   deriving Show
-
 
 data DecTableOrLitExpr =
   DecTable
   { sDecTableId :: Id
-  , sDecTableInfoReqs :: [InfoReq]
   , sSchema :: Schema
   , sRules :: [DMNRule] }
   -- | LitExpr Id Label DecOutVar [InfoReq] FEELExpr
@@ -35,7 +54,6 @@ data DecTableOrLitExpr =
 
 
 data Schema = Schema
-  -- [InputSchema] OutputSchema
   { sInputSchemas :: [InputSchema]
   , sOutputSchema :: OutputSchema }
   deriving Show
@@ -52,14 +70,17 @@ data InputExprEl = InputExprEl
   , sInputExprVarName :: VarName }
   deriving Show
 
-data FEELType =
-    String
-  | Bool
-  | Number
-  -- | DateTime
-  -- | DayTimeDuration
-  -- | YearMonthDuration
-  deriving (Show, Read)
+-- data FEELType =
+--     String
+--   | Bool
+--   | Number
+--   -- | DateTime
+--   -- | DayTimeDuration
+--   -- | YearMonthDuration
+--   deriving (Show, Read)
+-- The above has been discarded in favour of the String type alias because
+-- FeelType has to be converted to lowercase, which is not possible at the time of pickling
+type FEELType = String
 
 
 -- Table Headers
@@ -177,16 +198,16 @@ newtype SimpleOutputEntry = SimpleOutputEntry
 schemaO :: SimpleSchema
 schemaO =
   SimpleSchema
-    [ SimpleInputSchema "P1" Number
-    , SimpleInputSchema "P2" Number
-    , SimpleInputSchema "P3" Number ]
-    ( SimpleOutputSchema "O" Number )
+    [ SimpleInputSchema "P1" "number"
+    , SimpleInputSchema "P2" "number"
+    , SimpleInputSchema "P3" "number" ]
+    ( SimpleOutputSchema "O" "number" )
 
 schemaO2 :: SimpleSchema
 schemaO2 =
   SimpleSchema
-    [ SimpleInputSchema "P1" Number ]
-    ( SimpleOutputSchema "O2" Number )
+    [ SimpleInputSchema "P1" "number" ]
+    ( SimpleOutputSchema "O2" "number" )
 
 
 r1 :: SimpleDMNRule

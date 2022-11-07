@@ -11,8 +11,14 @@ import ToDMN.Types
 import L4.Syntax
 import DecTables
 
+-- Utils
 uncurry5 :: (a -> b -> c -> d -> e -> f) -> (a, b, c, d, e) -> f
 uncurry5 f ~(a, b, c, d, e) = f a b c d e
+
+uncurry13 :: (a -> b -> c -> d -> e -> f -> g -> h -> i -> j -> k -> l -> m -> n)
+          -> (a, b, c, d, e, f, g, h, i, j, k, l, m)
+          -> n
+uncurry13 fn ~(a, b, c, d, e, f, g, h, i, j, k, l, m) = fn a b c d e f g h i j k l m
 
 ----------------------------------------------
 -- Some fake data types for experimenting with XML picklers
@@ -105,13 +111,10 @@ xpInputExprEl :: PU InputExprEl
 xpInputExprEl = xpElem "inputExpression" $
                 xpWrap ( uncurry3 InputExprEl
                        , \ie -> (sInputExprElId ie, sInputExprFEELType ie, sInputExprVarName ie) ) $
-                xpTriple (xpAttr "id" xpText) (xpAttr "typeRef" xpickle) xpXMLText
+                xpTriple (xpAttr "id" xpText) (xpAttr "typeRef" xpText) xpXMLText
 
 -- xpAttr :: String -> PU a -> PU a
 -- xpText :: PU String
-
-instance XmlPickler FEELType where
-  xpickle = xpPrim
 
 
 -- Input Schema
@@ -133,7 +136,8 @@ xpOutputSchema :: PU OutputSchema
 xpOutputSchema = xpElem "output" $
                  xpWrap ( uncurry4 OutputSchema
                         , \s -> (sOutputSchemaId s, sOutputLabel s, sOutputSchemaVarName s, sOutputSchemaFEELType s) ) $
-                 xp4Tuple (xpAttr "id" xpText) (xpAttrImplied "label" xpText) (xpAttr "name" xpText) (xpAttr "typeRef" xpickle)
+                 xp4Tuple (xpAttr "id" xpText) (xpAttrImplied "label" xpText) (xpAttr "name" xpText)
+                 (xpAttr "typeRef" xpText)
 
 instance XmlPickler ToDMN.Types.Schema where
   xpickle = xpSchema
@@ -151,6 +155,12 @@ xpInfoReq = xpElem "informationRequirement" $
             xpWrap ( uncurry ReqInputEl
                    , \i -> (sReqInputId i, sReqInput i) ) $
             xpPair (xpAttr "id" xpText) (xpElem "requiredDecision" (xpAttr "href" xpText))
+
+-- xpAttr :: String -> PU String -> PU String
+-- xpText :: PU String
+-- xpLift :: String -> PU String
+
+
 
 instance XmlPickler Decision where
   xpickle = xpDecision
@@ -175,18 +185,64 @@ instance XmlPickler DecTableOrLitExpr where
 
 xpDecTableOrLitExpr :: PU DecTableOrLitExpr
 xpDecTableOrLitExpr = xpElem "decisionTable" $
-                      xpWrap ( uncurry4 DecTable
+                      xpWrap ( uncurry3 DecTable
                              , \t -> ( sDecTableId t
-                                     , sDecTableInfoReqs t
                                      , sSchema t
                                      , sRules t ) ) $
-                      xp4Tuple (xpAttr "id" xpText) (xpList xpInfoReq) xpSchema (xpList xpDMNRule)
+                      xpTriple (xpAttr "id" xpText) xpSchema (xpList xpDMNRule)
 
 xpDecision :: PU Decision
 xpDecision = xpElem "decision" $
-             xpWrap ( uncurry3 Decision
-                    , \d -> ( sDecId d, sDecName d, sDecTableOrLitExpr d )) $
-             xpTriple (xpAttr "id" xpText) (xpAttr "name" xpText) xpDecTableOrLitExpr
+             xpWrap ( uncurry5 Decision
+                    , \d -> ( sDecId d
+                            , sDecName d
+                            , sDecOutVar d
+                            , sDecTableInfoReqs d
+                            , sDecTableOrLitExpr d )) $
+             xp5Tuple (xpAttr "id" xpText) (xpAttr "name" xpText) xpDecOutVar (xpList xpInfoReq) xpDecTableOrLitExpr
+
+instance XmlPickler DecOutVar where
+  xpickle = xpDecOutVar
+
+xpDecOutVar :: PU DecOutVar
+xpDecOutVar = xpElem "variable" $
+              xpWrap ( uncurry3 DecOutVar
+                     , \v -> ( sDecVarId v
+                             , sDecVarName v
+                             , sDecVarFEELType v )) $
+              xpTriple (xpAttr "id" xpText) (xpAttr "name" xpText) (xpAttr "typeRef" xpText)
+
+
+xpDefinitions :: PU Definitions
+xpDefinitions = xpElem "definitions" $
+                xpWrap ( uncurry13 Definitions
+                       , \d -> ( sXmlns d
+                               , sXmlnsDmndi d
+                               , sXmlnsDc d
+                               , sXmlnsModeler d
+                               , sXmlnsDi d
+                               , sDefId d
+                               , sDefName d
+                               , sNamespace d
+                               , sExporter d
+                               , sExporterVersion d
+                               , sModelerExPlat d
+                               , sModelerExPlatVer d
+                               , sDecisions d )) $
+                xp13Tuple ( xpAttr "xmlns" xpText )
+                          ( xpAttrNS "http://camunda.org/schema/1.0/dmn" "xmlns" "dmndi" xpText )
+                          ( xpAttrNS "http://camunda.org/schema/1.0/dmn" "xmlns" "dc" xpText )
+                          ( xpAttrNS "http://camunda.org/schema/1.0/dmn" "xmlns" "modeler" xpText )
+                          ( xpAttrNS "http://camunda.org/schema/1.0/dmn" "xmlns" "di" xpText )
+                          ( xpAttr "id" xpText )
+                          ( xpAttr "name" xpText )
+                          ( xpAttr "namespace" xpText )
+                          ( xpAttr "exporter" xpText )
+                          ( xpAttr "exporterVersion" xpText )
+                          ( xpAttrNS "http://camunda.org/schema/1.0/dmn" "modeler" "executionPlatform" xpText )
+                          ( xpAttrNS "http://camunda.org/schema/1.0/dmn" "modeler" "executionPlatformVersion" xpText )
+                          ( xpList xpDecision )
+
 
 -- <decision id="two_x" name="two_x">
 --     <decisionTable id="DecisionTable_097dr3y">
@@ -217,13 +273,13 @@ testDMNRule :: DMNRule
 testDMNRule = DMNRule "DecisionRule_1080bsl" [testInputE] testOutputE1
 
 testInputExprEl :: InputExprEl
-testInputExprEl = InputExprEl "LiteralExpression_0lo9u0r" Number (XMLText "minIncome")
+testInputExprEl = InputExprEl "LiteralExpression_0lo9u0r" "number" (XMLText "minIncome")
 
 testInputSchema :: InputSchema
 testInputSchema = InputSchema "InputClause_1051ttc" (Just "MinIncome") testInputExprEl
 
 testOutputSchema :: OutputSchema
-testOutputSchema = OutputSchema "OutputClause_1kahfkg" Nothing "savings_adequacy" String
+testOutputSchema = OutputSchema "OutputClause_1kahfkg" Nothing "savings_adequacy" "string"
 -- <output id="OutputClause_1kahfkg" name="savings_adequacy" typeRef="string" />
 
 testInfoReq :: InfoReq
@@ -235,24 +291,12 @@ testInfoReq = ReqInputEl "InformationRequirement_0cndp0l" "#two_x"
 testSchema :: ToDMN.Types.Schema
 testSchema = ToDMN.Types.Schema [testInputSchema] testOutputSchema
 
--- smolDecision :: Decision
--- smolDecision =
---   DecTableEl "DecisionTable_097dr3y" "label" [testInfoReq] testSchema [testDMNRule]
+-- fstTable :: Decision
+-- fstTable = head testDecision
 
-fstTable :: Decision
-fstTable = head testDecision
+-- sndTable :: Decision
+-- sndTable = last testDecision
 
-sndTable :: Decision
-sndTable = last testDecision
--- <decision id="two_x" name="two_x">
---     <decisionTable id="DecisionTable_097dr3y">
---       <output id="OutputClause_0vm3i7a" name="two_x" typeRef="number" />
---       <rule id="DecisionRule_1w4yafu">
---         <outputEntry id="LiteralExpression_1npn7ls">
---           <text>10</text>
---         </outputEntry>
---       </rule>
---     </decisionTable>
 
 {-
 >>> uncurry Foo (42, [Bar "b1", Bar "b2"])
@@ -280,6 +324,25 @@ simplePickler = do
 
 -}
 
+-- [OLD]
+-- constA :: c -> arr b c
+-- constA :: Decision -> arr b Decision
+
+-- xpickleDocument :: PU a -> SysConfigList -> String -> IOStateArrow s a XmlTree
+
+-- type IOSArrow b c = IOStateArrow () b c
+-- runX :: IOStateArrow () XmlTree c -> IO [c]
+
+-- (>>>) :: arr a b -> arr b c -> arr a c
+-- (>>>) (arr ? Decision) (IOStateArrow s ? XmlTree)
+-- (>>>) :: arr XmlTree Decision -> arr Decision XmlTree -> arr XmlTree XmlTree
+
+-- a ~ XmlTree, b ~ Decision, c ~ XmlTree, arr ~ IOStateArrow ()
+
+-- xread :: ArrowXml arr => arr String XmlTree
+-- [OLD]
+
+
 main2 :: IO ()
 main2
     = do
@@ -294,13 +357,13 @@ main2
         -- constA testOutputSchema
         -- constA testInfoReq
 
-        -- constA smolDecision
-        constA sndTable
+        constA testDefs
 
         >>>
-        xpickleDocument        xpDecision -- xpInputSchema
+        xpickleDocument        xpDefinitions
                                [ withIndent yes
-                               ] "sndtable.xml" -- "main2out.xml"
+                               ] "hxtread/out/minimal.dmn" -- "main2out.xml"
+
           )
       return ()
 
