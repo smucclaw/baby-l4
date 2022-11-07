@@ -3,27 +3,27 @@
 module ToDMN.FromL4 where
 
 -- import Debug.Trace
-import qualified Data.List as List
 import qualified Data.Function as Fn
-import Control.Arrow ( Arrow((&&&)) )
-import ToDMN.Types
--- import ToRules.ToDecls (filterDecls, varDeclToProductionClassDecl, varDefnToProductionDefn)
--- import ToRules.ToRules (filterRule)
-import L4.Syntax
-import L4.SyntaxManipulation
--- import Data.Either (rights)
-import L4.Typing
-import L4.PrintProg
-
-import Text.Pretty.Simple ( pPrint )
-
-import ToDMN.FromSimpleToReg
-
-import Control.Monad.Trans.State (runState)
+import qualified Data.List as List
 import qualified Data.Map as Map
 
-obtRule :: Program (Tp ()) -> String -> [Rule (Tp ())]
-obtRule prog rname = [r | r <- rulesOfProgram prog, nameOfRule r == Just rname ]
+import Control.Arrow ( Arrow((&&&)) )
+import Control.Monad.Trans.State (runState)
+
+import Text.Pretty.Simple ( pPrint )
+import Text.XML.HXT.Core
+
+import L4.PrintProg
+import L4.Syntax
+import L4.SyntaxManipulation
+import L4.Typing
+
+import ToDMN.FromSimpleToReg
+import ToDMN.Types
+import ToDMN.Picklers
+
+-- obtRule :: Program (Tp ()) -> String -> [Rule (Tp ())]
+-- obtRule prog rname = [r | r <- rulesOfProgram prog, nameOfRule r == Just rname ]
 
 -- mkProd :: Program (Tp ()) -> ProductionSystem
 -- mkProd x = ProductionSystem {
@@ -146,7 +146,19 @@ genDMN x = do
     let (decisions, _idState) = runState (mapM sDecisionToDecision allTables) Map.empty
     let iddefs = decisionsToDefs decisions
     let (defs, _idState) = runState iddefs Map.empty
-    pPrint defs
+
+
+    runX (
+
+      constA defs
+      >>>
+      xpickleDocument xpDefinitions
+                      [ withIndent yes
+                      ] "src/ToDMN/out/minimal.dmn"
+      )
+
+    return ()
+
 
 isValE :: Expr t -> Bool
 isValE ValE {} = True

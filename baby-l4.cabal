@@ -99,6 +99,7 @@ library
                   ToDMN.Types
                   ToDMN.FromL4
                   ToDMN.FromSimpleToReg
+                  ToDMN.Picklers
                   --ExampleInput
                   Exec
                   --InterfaceNunchaku
@@ -157,6 +158,7 @@ library
                      , rope-utf16-splay
                      , mmorph
                      , random
+                     , hxt
   default-language: Haskell2010
   ghc-options: -Wall
 
