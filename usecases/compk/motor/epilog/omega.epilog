@@ -1,0 +1,289 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Eligibility
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: "must [...] if appropriate, have a current MOT certificate and valid road fund license or tax disc on display."
+vehicle.insurable(Vehicle) :-
+  (vehicle.car(Vehicle) | vehicle.motorcycle(Vehicle))
+  & vehicle.age(Vehicle,Years) & evaluate(max(Years,15),15)
+  & vehicle.length(Vehicle,Length) & evaluate(max(Length,5.5),5.5)
+  & vehicle.width(Vehicle,Width) & evaluate(max(Width,2.3),2.3)
+  & vehicle.height(Vehicle,Height) & evaluate(max(Height,3),3)
+  & vehicle.weight(Vehicle,Weight) & evaluate(max(Weight,3500),3500)
+  & vehicle.registered_uk(Vehicle)
+  & ~vehicle.commercial(Vehicle)
+
+vehicle.condition_unacceptable(Vehicle) :-
+  ~vehicle.serviced_regularly(Vehicle) | ~vehicle.good_condition(Vehicle)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Breakdown coverage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Breakdown covered if not excluded
+breakdown.covered(Breakdown, Policy) :-
+  evaluate(countofall(Reason, breakdown.excluded(Breakdown, Policy, Reason)), 0)
+
+% Excluded if vehicle not included in policy schedule
+breakdown.excluded(Breakdown, Policy, vehicle_not_scheduled) :-
+  breakdown.vehicle(Breakdown, Vehicle)
+  & policy.vehicle_not_scheduled(Policy, Vehicle)
+
+% Excluded if vehicle doesn't meet requirements
+breakdown.excluded(Breakdown, Policy, vehicle_unacceptable) :-
+  breakdown.vehicle(Breakdown,Vehicle) & unacceptable_vehicle(Vehicle)
+
+% Excluded if vehicle is not properly maintained
+breakdown.excluded(Breakdown, Policy, vehicle_condition) :-
+  breakdown.vehicle(Breakdown,Vehicle)
+  & vehicle.condition_unacceptable(Vehicle)
+
+% Excluded if breakdown not caused by an enumerated reason
+breakdown.excluded(Breakdown, Policy, unenumerated) :-
+  breakdown.reason(Breakdown,Reason) & not_member(Reason, [mechanical, vandalism, fire, theft, flat_tyre, flat_battery, accident, no_fuel, misfuel, keys_faulty, keys_lost, keys_broken, keys_locked_in])
+
+% Excluded if breakdown happens less than a mile from home
+breakdown.excluded(Breakdown, Policy, close_to_home) :-
+  breakdown.location(Breakdown,Location) & distance_to(Location,Distance) & evaluate(max(Distance,1),Distance)
+
+% Excluded if breakdown happens outside the UK
+breakdown.excluded(Breakdown, Policy, outside_uk) :-
+  breakdown.location(Breakdown, Location) & location.outside_uk(Location)
+
+% Excluded if breakdown happens outside policy coverage period
+breakdown.excluded(Breakdown, Policy, outside_period) :-
+  policy.start(Policy,StartTime) & policy.end(Policy,EndTime)
+  & breakdown.time(Breakdown,Time)
+  & outside_range(Time,StartTime,EndTime)
+
+% Excluded until excess paid
+breakdown.excluded(Breakdown, Policy, excess_unpaid) :-
+  policy.excess(Policy,Excess)
+  & breakdown.excess_unpaid(Breakdown,Policy)
+
+% Excluded if vehicle modified or used for racing
+breakdown.excluded(Breakdown, Policy, racing) :-
+  breakdown.vehicle(Breakdown,Vehicle)
+  & vehicle.racing(Vehicle)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Roadside assistance
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Breakdown vehicle will attend and try to fix.
+expense.covered(Expense, Policy) :-
+  expense.category(Expense, breakdown_vehicle)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Vehicle recovery
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Vehicle will be recovered if it "cannot be made to safe to drive at the
+% place you have broken down", after trying for up to one hour.
+expense.covered(Expense, Policy) :-
+  expense.category(Expense, Category)
+  & member(Category, [vehicle_recovery, vehicle_recovery_mileage])
+  & breakdown.expense(Breakdown, Expense)
+  & (breakdown.on_site_repair_start(Breakdown, StartTime)
+    & one_hour_elapsed(StartTime))
+  % Might be that we don't need an hour to figure out the vehicle is
+  % unrepairable on site.
+  | breakdown.unrepairable_on_site(Breakdown)
+
+expense.excluded(Expense, Policy, unsuitable_use) :-
+  expense.category(Expense, Category)
+  & member(Category, [vehicle_recovery, lockout_vehicle_recovery, passenger_recovery])
+  & breakdown.expense(Breakdown, Expense)
+  & (breakdown.excess_weight(Breakdown) | breakdown.excess_passengers(Breakdown) | breakdown.unsuitable_ground(Breakdown))
+
+% Vehicle and passengers will be recovered to Authorized Operator's base or
+% home/local repairer if keys are broken or lost.
+expense.covered(Expense,Policy) :-
+  expense.category(Expense, lockout_vehicle_recovery)
+  & breakdown.expense(Breakdown, Expense)
+  & (breakdown.reason(Breakdown, keys_lost) | breakdown.reason(Breakdown, keys_broken))
+
+% For most breakdowns, recovery is covered to a destination "of your choice". In the
+% specific case of key loss or breakage, the only destinations covered are the Authorized
+% Operator's base, your home, or a local repairer.
+expense.covered(Expense, Policy) :-
+  expense.category(Expense, Category)
+  & member(Category, [lockout_vehicle_recovery, lockout_vehicle_recovery_mileage])
+  & breakdown.expense(Breakdown, Expense)
+  & (breakdown.reason(Breakdown, keys_lost) | breakdown.reason(Breakdown, keys_broken))
+  & expense.destination(Expense, Location)
+  & location.territory(Location, uk)
+  & (location.home(Location) | location.authorized_operator_base(Location) | local_repairer(Location))
+
+expense.limit(Expense, quantity(7, person), max) :-
+  expense.category(Expense, passenger_recovery)
+
+expense.limit(Expense, quantity(20, mile), max) :-
+  expense.category(Expense, passenger_recovery)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Messages to home or work
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+expense.covered(Expense,Policy) :-
+  breakdown.expense(Breakdown, Expense)
+  & expense.category(Expense, message)
+  & expense.message(Expense, Message)
+  & message.to(Message, To) & (insuree.home(To) | insuree.work(To))
+  & breakdown.sent_messages(Breakdown, SentMessages)
+  & evaluate(max(length(SentMessages), 1), 1)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Misfueling specifics
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Excluded if more than one prior misfuel
+breakdown.excluded(Breakdown, Policy, prior_misfuels) :-
+  breakdown.reason(Breakdown, misfuel)
+  & policy.prior_misfuels(Policy, PriorMisfuels)
+  & evaluate(max(length(PriorMisfuels), 1), 1)
+
+% Excluded if breakdown caused by misfuel in first 24 hours of coverage
+breakdown.excluded(Breakdown, Policy, misfuel_first_24) :-
+  breakdown.reason(Breakdown,misfuel)
+  & policy.start(Policy,StartTime)
+  & breakdown.time(Breakdown,Time)
+  & evaluate(min(Time,plus(StartTime,times(60,60,24))),Time)
+
+expense.covered(Expense, Policy) :-
+  breakdown.expense(Breakdown, Expense) & breakdown.reason(Breakdown, misfuel)
+  & expense.category(Expense, Category)
+  & member(Category, [fuel_flush, refuel])
+
+breakdown.limit(Breakdown, Policy, quantity(250, gbp), max) :-
+  breakdown.reason(Breakdown, misfuel)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% General conditions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% General exclusions: Dangerous situations, nuclear, war
+
+breakdown.excluded(Breakdown, Policy, dangerous) :-
+  breakdown.repair_dangerous(Breakdown)
+
+breakdown.excluded(Breakdown, Policy, nuclear) :-
+  breakdown.nuclear_contributed(Breakdown)
+
+breakdown.excluded(Breakdown, Policy, war) :-
+  breakdown.war_contributed(Breakdown)
+
+% 100 GBP limit if disagreement with agent's decision on suitable help
+breakdown.limit(Breakdown, Policy, quantity(100, gbp), max) :-
+  breakdown.advice_refused(Breakdown)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Limits
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+limited_expense_payout(Expense, Policy, Payout) :-
+  evaluate(countofall(Quantity, expense.quantity(Expense, Quantity)), 0)
+  & expense.price(Expense, Payout)
+
+limited_expense_payout(Expense, Policy, quantity(LimitedPayoutAmount, PayoutUnit)) :-
+  evaluate(
+    setofall(Quantity, expense.quantity(Expense, Quantity)),
+    Quantities)
+  & limit_quantities(Quantities, Expense, LimitedQuantities)
+  & multiply_quantities(LimitedQuantities, quantity(TotalAmount, TotalUnit))
+  % TODO Check that units match up here
+  & expense.unit_price(Expense, quantity(PriceAmount, PayoutUnit))
+  & evaluate(times(TotalAmount, PriceAmount), LimitedPayoutAmount)
+
+limit_quantities([], Expense, [])
+limit_quantities(Quantity!Tail, Expense, Limited) :-
+  limit_quantity(Quantity, Expense, LimitedQuantity)
+  & limit_quantities(Tail, Expense, LimitedTail)
+  & same(LimitedQuantity!LimitedTail, Limited)
+
+limit_quantity(quantity(Amount, Unit), Expense, Limited) :-
+  % There should only be one limit with a matching unit. Should check for
+  % contrary case, indicate problem
+  expense.limit(Expense, quantity(LimitAmount, Unit), max)
+  & evaluate(min(Amount, LimitAmount), LimitedAmount)
+  & same(Limited, quantity(LimitedAmount, Unit))
+
+limit_quantity(quantity(Amount, Unit), Expense, Limited) :-
+  evaluate(countofall(Limit, expense.limit(Expense, quantity(LimitAmount, Unit), LimitType)), 0)
+  & same(Limited, quantity(Amount, Unit))
+
+multiply_quantities([quantity(Amount, Unit)], quantity(Amount, Unit))
+multiply_quantities(quantity(Amount, Unit)!Tail, quantity(MultipliedAmount, MultipliedUnit)) :-
+  multiply_quantities(Tail, quantity(TailAmount, TailUnit))
+  & evaluate(times(Amount, TailAmount), MultipliedAmount)
+  & multiply_units(Unit, TailUnit, MultipliedUnit)
+
+multiply_units(Unit1, Unit2, multunit(Unit1, Unit2))
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Claims
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+expenses_payout(Policy, Breakdown, Payout) :-
+  evaluate(
+    setofall(Expense,
+      breakdown.expense(Breakdown, Expense)
+      & expense.coverage(Expense, Policy, covered)),
+    EligibleExpenses)
+  & sum_expenses(EligibleExpenses, Policy, Payout)
+  
+payout(Policy, Breakdown, Payout) :-
+  breakdown.coverage(Breakdown, Policy, covered)
+  & evaluate(countofall(Limit, breakdown.limit(Breakdown, Policy, Quantity, LimitType)), 0)
+  & expenses_payout(Policy, Breakdown, Payout)
+
+payout(Policy, Breakdown, quantity(PayoutAmount, gbp)) :-
+  breakdown.coverage(Breakdown, Policy, covered)
+  & breakdown.limit(Breakdown, Policy, quantity(PayoutAmountMax, gbp), max)
+  & expenses_payout(Policy, Breakdown, quantity(ExpensesPayoutAmount, gbp))
+  & evaluate(min(ExpensesPayoutAmount, PayoutAmountMax), PayoutAmount)
+
+% What if we aren't using GBP?
+sum_expenses([], Policy, quantity(0, gbp))
+sum_expenses(Expense!Tail, Policy, quantity(TotalAmount, gbp)) :-
+  limited_expense_payout(Expense, Policy, quantity(PayoutAmount, gbp))
+  & sum_expenses(Tail, Policy, quantity(TailAmount, gbp))
+  & evaluate(plus(PayoutAmount, TailAmount), TotalAmount)
+
+breakdown.coverage(Breakdown,Policy,covered) :-
+  breakdown.covered(Breakdown, Policy)
+  & evaluate(countofall(B, breakdown.excluded(Breakdown, Policy, X)),0)
+
+breakdown.coverage(Breakdown, Policy, excluded) :-
+  breakdown.excluded(Breakdown, Policy, X)
+
+expense.coverage(Expense,Policy,covered) :-
+  expense.covered(Expense, Policy)
+  & evaluate(countofall(E, expense.excluded(Expense, Policy, X)), 0)
+
+expense.coverage(Expense, Policy, excluded) :-
+  expense.excluded(Expense, Policy, X)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Utilities
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+policy.vehicle_not_scheduled(Policy, Vehicle) :- ~policy.vehicle(Policy, Vehicle)
+
+location.outside_uk(Location) :- ~location.territory(Location,uk)
+
+breakdown.excess_unpaid(Breakdown,Policy) :- ~breakdown.excess_paid(Breakdown,Policy)
+
+one_hour_elapsed(StartTime) :-
+  current_time(CurrentTime)
+  & evaluate(min(minus(CurrentTime,StartTime), 3600), 3600)
+
+in_range(X, Start, End) :-
+  evaluate(min(X, Start), Start)
+  & evaluate(max(X, End), End)
+
+outside_range(X, Start, End) :- ~in_range(X, Start, End)
+
+member(X, Head!Tail) :- same(X, Head) | member(X, Tail)
+
+not_member(X, List) :- ~member(X, List)

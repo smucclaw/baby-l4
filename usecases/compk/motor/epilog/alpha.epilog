@@ -1,0 +1,473 @@
+<div id="_main" style="margin-top: 24px; position: absolute; top: 0px; bottom: 10px; width: 100%; left: 0px; right: 0px; overflow: auto;">
+<div type="lambda" style="z-index: 5; transform: translate(820px, 7px); box-shadow: none;" onclick="windowclick(this)" class="text-container drag-element" data-x="820" data-y="7"><div class="handle operation">Lambda<b style="cursor: pointer; position: absolute; right: 3px; top: 1px; font-size: 18px; line-height: 18px;" onclick="removewindow(mywindow(this))">×</b></div><table style="width: 100%; border-style: solid; border-width: 0px 1px; border-color: darkgray;" cellspacing="0" cellpadding="0"><tbody><tr><td style="padding: 0px 2px 5px;" valign="center" height="30" align="center"><input type="button" value="Save" onclick="lambdasave(mywindow(this))" disabled="true"><input type="button" value="Revert" onclick="lambdaback(mywindow(this))" disabled="true"><input type="button" value="Sort" onclick="lambdasort(mywindow(this))"></td></tr></tbody></table><textarea oninput="lambdaopen(mywindow(this))" spellcheck="false" style="width: 477px; height: 502px;">vehicle.car(my_car)
+vehicle.age(my_car,15)
+vehicle.length(my_car,4)
+vehicle.width(my_car,2)
+vehicle.height(my_car,1)
+vehicle.weight(my_car,1000)
+vehicle.registered_uk(my_car)
+vehicle.good_condition(my_car)
+vehicle.serviced_regularly(my_car)
+policy.start(my_policy,0)
+policy.end(my_policy,31536000)
+policy.vehicle(my_policy,my_car)
+policy.excess(my_policy,50)
+policy.home(my_policy,croydon)
+location.territory(croydon,uk)
+location.territory(wembley,uk)
+location.territory(london,uk)
+location.distance_to(croydon,london,10)
+location.distance_to(wembley,london,12)
+breakdown.vehicle(my_breakdown,my_car)
+breakdown.reason(my_breakdown,mechanical)
+breakdown.time(my_breakdown,172800)
+breakdown.location(my_breakdown,wembley)
+breakdown.excess_paid(my_breakdown,my_policy)
+breakdown.expense(my_breakdown,bv)
+expense.category(bv,breakdown_vehicle)
+expense.price(bv,quantity(200,gbp))
+breakdown.unrepairable_on_site(my_breakdown)
+breakdown.expense(my_breakdown,vr)
+expense.category(vr,vehicle_recovery)
+expense.price(vr,quantity(50,gbp))
+breakdown.expense(my_breakdown,vrm)
+expense.category(vrm,vehicle_recovery_mileage)
+expense.quantity(vrm,quantity(25,mile))
+expense.unit_price(vrm,quantity(5,gbp))
+breakdown.expense(my_breakdown,pr)
+expense.category(pr,passenger_recovery)
+expense.quantity(pr,quantity(5,person))
+expense.quantity(pr,quantity(25,mile))
+expense.unit_price(pr,quantity(1,gbp))
+breakdown.expense(my_breakdown,ff)
+expense.category(ff,fuel_flush)
+expense.price(ff,quantity(100,gbp))
+</textarea></div><div type="library" style="z-index: 4; transform: translate(5px, 5px); box-shadow: none;" onclick="windowclick(this)" class="text-container drag-element active" data-x="5" data-y="5"><div class="handle operation">Library<b style="cursor: pointer; position: absolute; right: 3px; top: 1px; font-size: 18px; line-height: 18px;" onclick="removewindow(mywindow(this))">×</b></div><table style="width: 100%; border-style: solid; border-width: 0px 1px; border-color: darkgray;" cellspacing="0" cellpadding="0"><tbody><tr><td style="padding: 0px 2px 5px;" valign="center" height="30" align="center"><input type="button" value="Save" onclick="librarysave(mywindow(this))" disabled="true"><input type="button" value="Revert" onclick="libraryrevert(mywindow(this))" disabled="true"></td></tr></tbody></table><textarea oninput="libraryopen(mywindow(this))" spellcheck="false" style="width: 804px; height: 839px;">%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Eligibility
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% TODO: "must [...] if appropriate, have a current MOT certificate and valid road fund license or tax disc on display."
+vehicle.insurable(Vehicle) :-
+  (vehicle.car(Vehicle) | vehicle.motorcycle(Vehicle))
+  &amp; vehicle.age(Vehicle,Years) &amp; evaluate(max(Years,15),15)
+  &amp; vehicle.length(Vehicle,Length) &amp; evaluate(max(Length,5.5),5.5)
+  &amp; vehicle.width(Vehicle,Width) &amp; evaluate(max(Width,2.3),2.3)
+  &amp; vehicle.height(Vehicle,Height) &amp; evaluate(max(Height,3),3)
+  &amp; vehicle.weight(Vehicle,Weight) &amp; evaluate(max(Weight,3500),3500)
+  &amp; vehicle.registered_uk(Vehicle)
+  &amp; ~vehicle.commercial(Vehicle)
+
+vehicle.condition_unacceptable(Vehicle) :-
+  ~vehicle.serviced_regularly(Vehicle) | ~vehicle.good_condition(Vehicle)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Breakdown coverage
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Breakdown covered if not excluded
+breakdown.covered(Breakdown, Policy) :-
+  evaluate(countofall(Reason, breakdown.excluded(Breakdown, Policy, Reason)), 0)
+
+% Excluded if vehicle not included in policy schedule
+breakdown.excluded(Breakdown, Policy, vehicle_not_scheduled) :-
+  breakdown.vehicle(Breakdown, Vehicle)
+  &amp; policy.vehicle_not_scheduled(Policy, Vehicle)
+
+% Excluded if vehicle doesn't meet requirements
+breakdown.excluded(Breakdown, Policy, vehicle_unacceptable) :-
+  breakdown.vehicle(Breakdown,Vehicle) &amp; unacceptable_vehicle(Vehicle)
+
+% Excluded if vehicle is not properly maintained
+breakdown.excluded(Breakdown, Policy, vehicle_condition) :-
+  breakdown.vehicle(Breakdown,Vehicle)
+  &amp; vehicle.condition_unacceptable(Vehicle)
+
+% Excluded if breakdown not caused by an enumerated reason
+breakdown.excluded(Breakdown, Policy, unenumerated) :-
+  breakdown.reason(Breakdown,Reason) &amp; not_member(Reason, [mechanical, vandalism, fire, theft, flat_tyre, flat_battery, accident, no_fuel, misfuel, keys_faulty, keys_lost, keys_broken, keys_locked_in])
+
+% Excluded if breakdown happens less than a mile from home
+breakdown.excluded(Breakdown, Policy, close_to_home) :-
+  breakdown.location(Breakdown,Location) &amp; distance_to(Location,Distance) &amp; evaluate(max(Distance,1),Distance)
+
+% Excluded if breakdown happens outside the UK
+breakdown.excluded(Breakdown, Policy, outside_uk) :-
+  breakdown.location(Breakdown, Location) &amp; location.outside_uk(Location)
+
+% Excluded if breakdown happens outside policy coverage period
+breakdown.excluded(Breakdown, Policy, outside_period) :-
+  policy.start(Policy,StartTime) &amp; policy.end(Policy,EndTime)
+  &amp; breakdown.time(Breakdown,Time)
+  &amp; outside_range(Time,StartTime,EndTime)
+
+% Excluded until excess paid
+breakdown.excluded(Breakdown, Policy, excess_unpaid) :-
+  policy.excess(Policy,Excess)
+  &amp; breakdown.excess_unpaid(Breakdown,Policy)
+
+% Excluded if vehicle modified or used for racing
+breakdown.excluded(Breakdown, Policy, racing) :-
+  breakdown.vehicle(Breakdown,Vehicle)
+  &amp; vehicle.racing(Vehicle)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Roadside assistance
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Breakdown vehicle will attend and try to fix.
+expense.covered(Expense, Policy) :-
+  expense.category(Expense, breakdown_vehicle)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Vehicle recovery
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Vehicle will be recovered if it "cannot be made to safe to drive at the
+% place you have broken down", after trying for up to one hour.
+expense.covered(Expense, Policy) :-
+  expense.category(Expense, Category)
+  &amp; member(Category, [vehicle_recovery, vehicle_recovery_mileage])
+  &amp; breakdown.expense(Breakdown, Expense)
+  &amp; (breakdown.on_site_repair_start(Breakdown, StartTime)
+    &amp; one_hour_elapsed(StartTime))
+  % Might be that we don't need an hour to figure out the vehicle is
+  % unrepairable on site.
+  | breakdown.unrepairable_on_site(Breakdown)
+
+expense.excluded(Expense, Policy, unsuitable_use) :-
+  expense.category(Expense, Category)
+  &amp; member(Category, [vehicle_recovery, lockout_vehicle_recovery, passenger_recovery])
+  &amp; breakdown.expense(Breakdown, Expense)
+  &amp; (breakdown.excess_weight(Breakdown) | breakdown.excess_passengers(Breakdown) | breakdown.unsuitable_ground(Breakdown))
+
+% Vehicle and passengers will be recovered to Authorized Operator's base or
+% home/local repairer if keys are broken or lost.
+expense.covered(Expense,Policy) :-
+  expense.category(Expense, lockout_vehicle_recovery)
+  &amp; breakdown.expense(Breakdown, Expense)
+  &amp; (breakdown.reason(Breakdown, keys_lost) | breakdown.reason(Breakdown, keys_broken))
+
+% For most breakdowns, recovery is covered to a destination "of your choice". In the
+% specific case of key loss or breakage, the only destinations covered are the Authorized
+% Operator's base, your home, or a local repairer.
+expense.covered(Expense, Policy) :-
+  expense.category(Expense, Category)
+  &amp; member(Category, [lockout_vehicle_recovery, lockout_vehicle_recovery_mileage])
+  &amp; breakdown.expense(Breakdown, Expense)
+  &amp; (breakdown.reason(Breakdown, keys_lost) | breakdown.reason(Breakdown, keys_broken))
+  &amp; expense.destination(Expense, Location)
+  &amp; location.territory(Location, uk)
+  &amp; (location.home(Location) | location.authorized_operator_base(Location) | local_repairer(Location))
+
+expense.limit(Expense, quantity(7, person), max) :-
+  expense.category(Expense, passenger_recovery)
+
+expense.limit(Expense, quantity(20, mile), max) :-
+  expense.category(Expense, passenger_recovery)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Messages to home or work
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+expense.covered(Expense,Policy) :-
+  breakdown.expense(Breakdown, Expense)
+  &amp; expense.category(Expense, message)
+  &amp; expense.message(Expense, Message)
+  &amp; message.to(Message, To) &amp; (insuree.home(To) | insuree.work(To))
+  &amp; breakdown.sent_messages(Breakdown, SentMessages)
+  &amp; evaluate(max(length(SentMessages), 1), 1)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Misfueling specifics
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Excluded if more than one prior misfuel
+breakdown.excluded(Breakdown, Policy, prior_misfuels) :-
+  breakdown.reason(Breakdown, misfuel)
+  &amp; policy.prior_misfuels(Policy, PriorMisfuels)
+  &amp; evaluate(max(length(PriorMisfuels), 1), 1)
+
+% Excluded if breakdown caused by misfuel in first 24 hours of coverage
+breakdown.excluded(Breakdown, Policy, misfuel_first_24) :-
+  breakdown.reason(Breakdown,misfuel)
+  &amp; policy.start(Policy,StartTime)
+  &amp; breakdown.time(Breakdown,Time)
+  &amp; evaluate(min(Time,plus(StartTime,times(60,60,24))),Time)
+
+expense.covered(Expense, Policy) :-
+  breakdown.expense(Breakdown, Expense) &amp; breakdown.reason(Breakdown, misfuel)
+  &amp; expense.category(Expense, Category)
+  &amp; member(Category, [fuel_flush, refuel])
+
+breakdown.limit(Breakdown, Policy, quantity(250, gbp), max) :-
+  breakdown.reason(Breakdown, misfuel)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% General conditions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% General exclusions: Dangerous situations, nuclear, war
+
+breakdown.excluded(Breakdown, Policy, dangerous) :-
+  breakdown.repair_dangerous(Breakdown)
+
+breakdown.excluded(Breakdown, Policy, nuclear) :-
+  breakdown.nuclear_contributed(Breakdown)
+
+breakdown.excluded(Breakdown, Policy, war) :-
+  breakdown.war_contributed(Breakdown)
+
+% 100 GBP limit if disagreement with agent's decision on suitable help
+breakdown.limit(Breakdown, Policy, quantity(100, gbp), max) :-
+  breakdown.advice_refused(Breakdown)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Limits
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+limited_expense_payout(Expense, Policy, Payout) :-
+  evaluate(countofall(Quantity, expense.quantity(Expense, Quantity)), 0)
+  &amp; expense.price(Expense, Payout)
+
+limited_expense_payout(Expense, Policy, quantity(LimitedPayoutAmount, PayoutUnit)) :-
+  evaluate(
+    setofall(Quantity, expense.quantity(Expense, Quantity)),
+    Quantities)
+  &amp; limit_quantities(Quantities, Expense, LimitedQuantities)
+  &amp; multiply_quantities(LimitedQuantities, quantity(TotalAmount, TotalUnit))
+  % TODO Check that units match up here
+  &amp; expense.unit_price(Expense, quantity(PriceAmount, PayoutUnit))
+  &amp; evaluate(times(TotalAmount, PriceAmount), LimitedPayoutAmount)
+
+limit_quantities([], Expense, [])
+limit_quantities(Quantity!Tail, Expense, Limited) :-
+  limit_quantity(Quantity, Expense, LimitedQuantity)
+  &amp; limit_quantities(Tail, Expense, LimitedTail)
+  &amp; same(LimitedQuantity!LimitedTail, Limited)
+
+limit_quantity(quantity(Amount, Unit), Expense, Limited) :-
+  % There should only be one limit with a matching unit. Should check for
+  % contrary case, indicate problem
+  expense.limit(Expense, quantity(LimitAmount, Unit), max)
+  &amp; evaluate(min(Amount, LimitAmount), LimitedAmount)
+  &amp; same(Limited, quantity(LimitedAmount, Unit))
+
+limit_quantity(quantity(Amount, Unit), Expense, Limited) :-
+  evaluate(countofall(Limit, expense.limit(Expense, quantity(LimitAmount, Unit), LimitType)), 0)
+  &amp; same(Limited, quantity(Amount, Unit))
+
+multiply_quantities([quantity(Amount, Unit)], quantity(Amount, Unit))
+multiply_quantities(quantity(Amount, Unit)!Tail, quantity(MultipliedAmount, MultipliedUnit)) :-
+  multiply_quantities(Tail, quantity(TailAmount, TailUnit))
+  &amp; evaluate(times(Amount, TailAmount), MultipliedAmount)
+  &amp; multiply_units(Unit, TailUnit, MultipliedUnit)
+
+multiply_units(Unit1, Unit2, multunit(Unit1, Unit2))
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Claims
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+expenses_payout(Policy, Breakdown, Payout) :-
+  evaluate(
+    setofall(Expense,
+      breakdown.expense(Breakdown, Expense)
+      &amp; expense.coverage(Expense, Policy, covered)),
+    EligibleExpenses)
+  &amp; sum_expenses(EligibleExpenses, Policy, Payout)
+  
+payout(Policy, Breakdown, Payout) :-
+  breakdown.coverage(Breakdown, Policy, covered)
+  &amp; evaluate(countofall(Limit, breakdown.limit(Breakdown, Policy, Quantity, LimitType)), 0)
+  &amp; expenses_payout(Policy, Breakdown, Payout)
+
+payout(Policy, Breakdown, quantity(PayoutAmount, gbp)) :-
+  breakdown.coverage(Breakdown, Policy, covered)
+  &amp; breakdown.limit(Breakdown, Policy, quantity(PayoutAmountMax, gbp), max)
+  &amp; expenses_payout(Policy, Breakdown, quantity(ExpensesPayoutAmount, gbp))
+  &amp; evaluate(min(ExpensesPayoutAmount, PayoutAmountMax), PayoutAmount)
+
+% What if we aren't using GBP?
+sum_expenses([], Policy, quantity(0, gbp))
+sum_expenses(Expense!Tail, Policy, quantity(TotalAmount, gbp)) :-
+  limited_expense_payout(Expense, Policy, quantity(PayoutAmount, gbp))
+  &amp; sum_expenses(Tail, Policy, quantity(TailAmount, gbp))
+  &amp; evaluate(plus(PayoutAmount, TailAmount), TotalAmount)
+
+breakdown.coverage(Breakdown,Policy,covered) :-
+  breakdown.covered(Breakdown, Policy)
+  &amp; evaluate(countofall(B, breakdown.excluded(Breakdown, Policy, X)),0)
+
+breakdown.coverage(Breakdown, Policy, excluded) :-
+  breakdown.excluded(Breakdown, Policy, X)
+
+expense.coverage(Expense,Policy,covered) :-
+  expense.covered(Expense, Policy)
+  &amp; evaluate(countofall(E, expense.excluded(Expense, Policy, X)), 0)
+
+expense.coverage(Expense, Policy, excluded) :-
+  expense.excluded(Expense, Policy, X)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Utilities
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+policy.vehicle_not_scheduled(Policy, Vehicle) :- ~policy.vehicle(Policy, Vehicle)
+
+location.outside_uk(Location) :- ~location.territory(Location,uk)
+
+breakdown.excess_unpaid(Breakdown,Policy) :- ~breakdown.excess_paid(Breakdown,Policy)
+
+one_hour_elapsed(StartTime) :-
+  current_time(CurrentTime)
+  &amp; evaluate(min(minus(CurrentTime,StartTime), 3600), 3600)
+
+in_range(X, Start, End) :-
+  evaluate(min(X, Start), Start)
+  &amp; evaluate(max(X, End), End)
+
+outside_range(X, Start, End) :- ~in_range(X, Start, End)
+
+member(X, Head!Tail) :- same(X, Head) | member(X, Tail)
+
+not_member(X, List) :- ~member(X, List)</textarea></div><div type="compute" style="z-index: 275; transform: translate(1326px, 3px);" onclick="windowclick(this)" class="text-container drag-element" data-x="1326" data-y="3" autorefresh="true"><div class="handle operation">Compute<b style="cursor: pointer; position: absolute; right: 3px; top: 1px; font-size: 18px; line-height: 18px;" onclick="removewindow(mywindow(this))">×</b></div><table style="width: 100%; border-style: solid; border-width: 0px 1px; border-color: darkgray;" cellspacing="0" cellpadding="0"><tbody><tr><td style="width: 40px; padding: 0px 2px;">Query</td><td><input type="text" style="font-family: Courier;" oninput="computerefresh(mywindow(this))" data-com.bitwarden.browser.user-edited="yes" value="breakdown.limit(my_breakdown, my_policy, Limit, LimitType)"></td></tr><tr><td colspan="2" style="padding: 0px 2px 5px;" align="center"><input type="button" value="Show" onclick="computeshow(mywindow(this))" disabled="true"><input type="button" value="Next" onclick="computenext(mywindow(this))" disabled="true"><input type="text" onchange="computerefresh(mywindow(this))" class="result" placeholder="100" style="width:30px; border-color:black; border-style:solid; border-width:0px 0px 0px 0px; background:white;" value="100">result(s) <input type="checkbox" onclick="computeautomatic(mywindow(this))" data-com.bitwarden.browser.user-edited="yes" checked="true">Autorefresh<hr style="margin-bottom:0px"><input type="text" class="result" style="width:240px; border-color:black;border-style:solid; border-width:0px 0px 0px 0px; background:#e5f1ff; text-align:center" value="2 unification(s)" disabled=""></td></tr></tbody></table><textarea readonly="true" class="clear" spellcheck="false" style="width: 584px; height: 79px;"></textarea></div><div type="compute" style="z-index: 3; transform: translate(1327px, 332px);" onclick="windowclick(this)" class="text-container drag-element" data-x="1327" data-y="332" autorefresh="true"><div class="handle operation">Compute<b style="cursor: pointer; position: absolute; right: 3px; top: 1px; font-size: 18px; line-height: 18px;" onclick="removewindow(mywindow(this))">×</b></div><table style="width: 100%; border-style: solid; border-width: 0px 1px; border-color: darkgray;" cellspacing="0" cellpadding="0"><tbody><tr><td style="width: 40px; padding: 0px 2px;">Query</td><td><input type="text" style="font-family: Courier;" oninput="computerefresh(mywindow(this))" data-com.bitwarden.browser.user-edited="yes" value="payout(my_policy, my_breakdown, Payout)"></td></tr><tr><td colspan="2" style="padding: 0px 2px 5px;" align="center"><input type="button" value="Show" onclick="computeshow(mywindow(this))" disabled="true"><input type="button" value="Next" onclick="computenext(mywindow(this))" disabled="true"><input type="text" onchange="computerefresh(mywindow(this))" class="result" placeholder="100" style="width:30px; border-color:black; border-style:solid; border-width:0px 0px 0px 0px; background:white;" value="100">result(s) <input type="checkbox" onclick="computeautomatic(mywindow(this))" data-com.bitwarden.browser.user-edited="yes" checked="true">Autorefresh<hr style="margin-bottom:0px"><input type="text" class="result" style="width:240px; border-color:black;border-style:solid; border-width:0px 0px 0px 0px; background:#e5f1ff; text-align:center" value="456 unification(s)" disabled=""></td></tr></tbody></table><textarea readonly="true" class="clear" spellcheck="false" style="width: 584px; height: 117px;">payout(my_policy,my_breakdown,quantity(575,gbp))
+</textarea></div><div type="trace" style="z-index: 277; transform: translate(823px, 570px);" onclick="windowclick(this)" class="text-container drag-element" data-x="823" data-y="570"><div class="handle operation">Trace<b style="cursor: pointer; position: absolute; right: 3px; top: 1px; font-size: 18px; line-height: 18px;" onclick="removewindow(mywindow(this))">×</b></div><table style="width: 100%; border-style: solid; border-width: 0px 1px; border-color: darkgray;" cellspacing="0" cellpadding="0"><tbody><tr><td style="width: 40px; padding: 0px 2px;">Query</td><td><input type="text" style="font-family: Courier;" oninput="tracerefresh(mywindow(this))" data-com.bitwarden.browser.user-edited="yes" value="payout(my_policy, my_breakdown, Payout)"></td></tr><tr><td colspan="2" style="padding: 0px 2px 5px;" align="center"><input type="button" value="Show" onclick="traceshow(mywindow(this))"><input type="text" onchange="tracerefresh(mywindow(this))" class="result" placeholder="100" style="width: 30px; border-color: black; border-style: solid; border-width: 0px 0px 0px 0px; background: white;" value="1">result(s)</td></tr></tbody></table><textarea readonly="true" class="clear" spellcheck="false" style="width: 495px; height: 239px;">Call: payout(my_policy,my_breakdown,Payout)
+| Call: breakdown.covered(my_breakdown,my_policy)
+| | Call: evaluate(countofall(V575,breakdown.excluded(my_breakdown,my_policy,V575)),0)
+| | Exit: evaluate(countofall(V577,breakdown.excluded(my_breakdown,my_policy,V577)),0)
+| Exit: breakdown.covered(Breakdown,Policy)
+| Call: evaluate(countofall(V578,breakdown.limit(my_breakdown,my_policy,V579,V580)),0)
+| Fail: evaluate(countofall(V578,breakdown.limit(my_breakdown,my_policy,V579,V580)),0)
+| Redo: breakdown.covered(Breakdown,Policy)
+| Fail: breakdown.covered(my_breakdown,my_policy)
+| Call: breakdown.covered(my_breakdown,my_policy)
+| | Call: evaluate(countofall(V584,breakdown.excluded(my_breakdown,my_policy,V584)),0)
+| | Exit: evaluate(countofall(V586,breakdown.excluded(my_breakdown,my_policy,V586)),0)
+| Exit: breakdown.covered(Breakdown,Policy)
+| Call: breakdown.limit(my_breakdown,my_policy,quantity(V587,gbp),max)
+| | Call: breakdown.reason(my_breakdown,misfuel)
+| | Exit: breakdown.reason(my_breakdown,misfuel)
+| Exit: breakdown.limit(Breakdown,Policy,quantity(PayoutAmountMax,gbp),max)
+| Call: expenses_payout(my_policy,my_breakdown,V588)
+| | Call: evaluate(setofall(V589,breakdown.expense(my_breakdown,V589) &amp; expense.coverage(V589,my_policy,covered)),V590)
+| | Exit: evaluate(setofall(V592,breakdown.expense(my_breakdown,V592) &amp; expense.coverage(V592,my_policy,covered)),[bv,vr,vrm,pr,ff])
+| | Call: sum_expenses([bv,vr,vrm,pr,ff],my_policy,V588)
+| | | Call: limited_expense_payout(bv,my_policy,quantity(V593,gbp))
+| | | | Call: evaluate(countofall(V594,expense.quantity(bv,V594)),0)
+| | | | Exit: evaluate(countofall(V596,expense.quantity(bv,V596)),0)
+| | | | Call: expense.price(bv,quantity(V593,gbp))
+| | | | Exit: expense.price(bv,quantity(200,gbp))
+| | | Exit: limited_expense_payout(Expense,Policy,quantity(PayoutAmount,gbp))
+| | | Call: sum_expenses([vr,vrm,pr,ff],my_policy,quantity(V597,gbp))
+| | | | Call: limited_expense_payout(vr,my_policy,quantity(V598,gbp))
+| | | | | Call: evaluate(countofall(V599,expense.quantity(vr,V599)),0)
+| | | | | Exit: evaluate(countofall(V601,expense.quantity(vr,V601)),0)
+| | | | | Call: expense.price(vr,quantity(V598,gbp))
+| | | | | Exit: expense.price(vr,quantity(50,gbp))
+| | | | Exit: limited_expense_payout(Expense,Policy,quantity(PayoutAmount,gbp))
+| | | | Call: sum_expenses([vrm,pr,ff],my_policy,quantity(V602,gbp))
+| | | | | Call: limited_expense_payout(vrm,my_policy,quantity(V603,gbp))
+| | | | | | Call: evaluate(countofall(V604,expense.quantity(vrm,V604)),0)
+| | | | | | Fail: evaluate(countofall(V604,expense.quantity(vrm,V604)),0)
+| | | | | | Call: evaluate(setofall(V606,expense.quantity(vrm,V606)),V607)
+| | | | | | Exit: evaluate(setofall(V609,expense.quantity(vrm,V609)),[quantity(25,mile)])
+| | | | | | Call: limit_quantities([quantity(25,mile)],vrm,V610)
+| | | | | | | Call: limit_quantity(quantity(25,mile),vrm,V611)
+| | | | | | | | Call: expense.limit(vrm,quantity(V612,mile),max)
+| | | | | | | | | Call: expense.category(vrm,passenger_recovery)
+| | | | | | | | | Fail: expense.category(vrm,passenger_recovery)
+| | | | | | | | Fail: expense.limit(vrm,quantity(V612,mile),max)
+| | | | | | | | Call: evaluate(countofall(V613,expense.limit(vrm,quantity(V614,mile),V615)),0)
+| | | | | | | | Exit: evaluate(countofall(V619,expense.limit(vrm,quantity(V620,mile),V621)),0)
+| | | | | | | | Call: same(V611,quantity(25,mile))
+| | | | | | | | Exit: same(quantity(25,mile),quantity(25,mile))
+| | | | | | | Exit: limit_quantity(Quantity,Expense,LimitedQuantity)
+| | | | | | | Call: limit_quantities([],vrm,V622)
+| | | | | | | Exit: limit_quantities([],Expense,[])
+| | | | | | | Call: same([quantity(25,mile)],V610)
+| | | | | | | Exit: same([quantity(25,mile)],[quantity(25,mile)])
+| | | | | | Exit: limit_quantities(Quantities,Expense,LimitedQuantities)
+| | | | | | Call: multiply_quantities([quantity(25,mile)],quantity(V623,V624))
+| | | | | | Exit: multiply_quantities([quantity(Amount,Unit)],quantity(Amount,Unit))
+| | | | | | Call: expense.unit_price(vrm,quantity(V625,gbp))
+| | | | | | Exit: expense.unit_price(vrm,quantity(5,gbp))
+| | | | | | Call: evaluate(times(25,5),V603)
+| | | | | | Exit: evaluate(times(25,5),125)
+| | | | | Exit: limited_expense_payout(Expense,Policy,quantity(PayoutAmount,gbp))
+| | | | | Call: sum_expenses([pr,ff],my_policy,quantity(V626,gbp))
+| | | | | | Call: limited_expense_payout(pr,my_policy,quantity(V627,gbp))
+| | | | | | | Call: evaluate(countofall(V628,expense.quantity(pr,V628)),0)
+| | | | | | | Fail: evaluate(countofall(V628,expense.quantity(pr,V628)),0)
+| | | | | | | Call: evaluate(setofall(V630,expense.quantity(pr,V630)),V631)
+| | | | | | | Exit: evaluate(setofall(V633,expense.quantity(pr,V633)),[quantity(5,person),quantity(25,mile)])
+| | | | | | | Call: limit_quantities([quantity(5,person),quantity(25,mile)],pr,V634)
+| | | | | | | | Call: limit_quantity(quantity(5,person),pr,V635)
+| | | | | | | | | Call: expense.limit(pr,quantity(V636,person),max)
+| | | | | | | | | | Call: expense.category(pr,passenger_recovery)
+| | | | | | | | | | Exit: expense.category(pr,passenger_recovery)
+| | | | | | | | | Exit: expense.limit(Expense,quantity(LimitAmount,Unit),max)
+| | | | | | | | | Call: evaluate(min(5,7),V637)
+| | | | | | | | | Exit: evaluate(min(5,7),5)
+| | | | | | | | | Call: same(V635,quantity(5,person))
+| | | | | | | | | Exit: same(quantity(5,person),quantity(5,person))
+| | | | | | | | Exit: limit_quantity(Quantity,Expense,LimitedQuantity)
+| | | | | | | | Call: limit_quantities([quantity(25,mile)],pr,V638)
+| | | | | | | | | Call: limit_quantity(quantity(25,mile),pr,V639)
+| | | | | | | | | | Call: expense.limit(pr,quantity(V640,mile),max)
+| | | | | | | | | | | Call: expense.category(pr,passenger_recovery)
+| | | | | | | | | | | Exit: expense.category(pr,passenger_recovery)
+| | | | | | | | | | Exit: expense.limit(Expense,quantity(LimitAmount,Unit),max)
+| | | | | | | | | | Call: evaluate(min(25,20),V641)
+| | | | | | | | | | Exit: evaluate(min(25,20),20)
+| | | | | | | | | | Call: same(V639,quantity(20,mile))
+| | | | | | | | | | Exit: same(quantity(20,mile),quantity(20,mile))
+| | | | | | | | | Exit: limit_quantity(Quantity,Expense,LimitedQuantity)
+| | | | | | | | | Call: limit_quantities([],pr,V642)
+| | | | | | | | | Exit: limit_quantities([],Expense,[])
+| | | | | | | | | Call: same([quantity(20,mile)],V638)
+| | | | | | | | | Exit: same([quantity(20,mile)],[quantity(20,mile)])
+| | | | | | | | Exit: limit_quantities(Tail,Expense,LimitedTail)
+| | | | | | | | Call: same([quantity(5,person),quantity(20,mile)],V634)
+| | | | | | | | Exit: same([quantity(5,person),quantity(20,mile)],[quantity(5,person),quantity(20,mile)])
+| | | | | | | Exit: limit_quantities(Quantities,Expense,LimitedQuantities)
+| | | | | | | Call: multiply_quantities([quantity(5,person),quantity(20,mile)],quantity(V643,V644))
+| | | | | | | | Call: multiply_quantities([quantity(20,mile)],quantity(V645,V646))
+| | | | | | | | Exit: multiply_quantities([quantity(Amount,Unit)],quantity(Amount,Unit))
+| | | | | | | | Call: evaluate(times(5,20),V643)
+| | | | | | | | Exit: evaluate(times(5,20),100)
+| | | | | | | | Call: multiply_units(person,mile,V644)
+| | | | | | | | Exit: multiply_units(Unit1,Unit2,multunit(Unit1,Unit2))
+| | | | | | | Exit: multiply_quantities(LimitedQuantities,quantity(TotalAmount,TotalUnit))
+| | | | | | | Call: expense.unit_price(pr,quantity(V647,gbp))
+| | | | | | | Exit: expense.unit_price(pr,quantity(1,gbp))
+| | | | | | | Call: evaluate(times(100,1),V627)
+| | | | | | | Exit: evaluate(times(100,1),100)
+| | | | | | Exit: limited_expense_payout(Expense,Policy,quantity(PayoutAmount,gbp))
+| | | | | | Call: sum_expenses([ff],my_policy,quantity(V648,gbp))
+| | | | | | | Call: limited_expense_payout(ff,my_policy,quantity(V649,gbp))
+| | | | | | | | Call: evaluate(countofall(V650,expense.quantity(ff,V650)),0)
+| | | | | | | | Exit: evaluate(countofall(V652,expense.quantity(ff,V652)),0)
+| | | | | | | | Call: expense.price(ff,quantity(V649,gbp))
+| | | | | | | | Exit: expense.price(ff,quantity(100,gbp))
+| | | | | | | Exit: limited_expense_payout(Expense,Policy,quantity(PayoutAmount,gbp))
+| | | | | | | Call: sum_expenses([],my_policy,quantity(V653,gbp))
+| | | | | | | Exit: sum_expenses([],Policy,quantity(0,gbp))
+| | | | | | | Call: evaluate(plus(100,0),V648)
+| | | | | | | Exit: evaluate(plus(100,0),100)
+| | | | | | Exit: sum_expenses(Tail,Policy,quantity(TailAmount,gbp))
+| | | | | | Call: evaluate(plus(100,100),V626)
+| | | | | | Exit: evaluate(plus(100,100),200)
+| | | | | Exit: sum_expenses(Tail,Policy,quantity(TailAmount,gbp))
+| | | | | Call: evaluate(plus(125,200),V602)
+| | | | | Exit: evaluate(plus(125,200),325)
+| | | | Exit: sum_expenses(Tail,Policy,quantity(TailAmount,gbp))
+| | | | Call: evaluate(plus(50,325),V597)
+| | | | Exit: evaluate(plus(50,325),375)
+| | | Exit: sum_expenses(Tail,Policy,quantity(TailAmount,gbp))
+| | | Call: evaluate(plus(200,375),V654)
+| | | Exit: evaluate(plus(200,375),575)
+| | Exit: sum_expenses(EligibleExpenses,Policy,quantity(V655,gbp))
+| Exit: expenses_payout(Policy,Breakdown,ExpensesPayout)
+| Call: evaluate(min(quantity(575,gbp),250),V655)
+| Exit: evaluate(min(quantity(575,gbp),250),V656)
+Exit: payout(my_policy,my_breakdown,quantity(V656,gbp))</textarea></div></div>

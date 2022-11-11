@@ -1,0 +1,21 @@
+#+TITLE: compk use case -- motor insurance contract
+
+* background
+** insurance dashboard
+
+http://insurance.stanford.edu/insurance/hospitalcash/home.html?room=codex
+
+** source repository
+
+https://gitlab.com/whohanley/compk-benchmarks/-/tree/main
+
+** extraction of epilog source
+
+#+begin_src bash
+  for i in `json -k < compk-benchmark-epilog.json | json -a`; do json $i < compk-benchmark-epilog.json ; done
+#+end_src
+
+* our implementation in L4
+
+spreadsheet: https://docs.google.com/spreadsheets/d/1leBCZhgDsn-Abg2H_OINGGv-8Gpf9mzuX1RR56v0Sss/edit#gid=2061671536
+
