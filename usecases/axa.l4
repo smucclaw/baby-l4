@@ -1,7 +1,7 @@
 # Compk Language Benchmarking case study
 # https://docs.google.com/document/d/1BUP-byDd7K9kaK-ulkRDH3lHawiBDcwGI_1VvuxYFdM/edit#heading=h.u6ulh21yljgi
 
-# Reference to clauses: 
+# Reference to clauses:
 # MW.n: clause n in section Meaning of Words
 # SecA.Cov.n ... SecB.Cov.n: what is covered in Section A/B
 # SecA.NoCov.n ... SecB.NoCov.n: what is not covered in Section A/B
@@ -19,8 +19,8 @@ class Driver extends Passenger
 class GeneralVehicle                   # all possible vehicles
 class Vehicle extends GeneralVehicle   # vehicles covered by the insurance, further defined below
 
-decl vehicleAge: GeneralVehicle -> Integer
-decl vehicleLength: GeneralVehicle -> Float 
+decl vehicleAge: GeneralVehicle -> Integer -> Boolean
+decl vehicleLength: GeneralVehicle -> Float -> Boolean
 
 
 class Event
@@ -32,15 +32,15 @@ class Surface      # 2-dimensional space
 decl isIn : Location -> Surface -> Boolean
 
 
-# A breakdown cause provokes a breakdown situation. 
-# In a state-based model, breakdown situations could be parallel automata, 
+# A breakdown cause provokes a breakdown situation.
+# In a state-based model, breakdown situations could be parallel automata,
 # where a breakdown cause is an event leading into a breakdown situation.
 # During a breakdown, several breakdown situations may hold at the same time.
 class Situation      # a situation can also be understood as a state in an automaton
 class BreakdownSituation extends Situation
 
 # A CoverageService is a concrete service or repair action (e.g. transport, payments) in case of a breakdown.
-# For separation of concerns and easier adaptation of concrete values, 
+# For separation of concerns and easier adaptation of concrete values,
 # it is abstracted away into a CoverageType.
 class CoverageType
 class CoverageService
@@ -53,7 +53,7 @@ decl recoverPassengersVehicleAuthorizedOp : CoverageType
 
 
 fact <coverageTypeDisj>
-noCoverProvided /= payBreakdownVehicle && 
+noCoverProvided /= payBreakdownVehicle &&
     noCoverProvided /= recoverPassengersVehicle20MilesLim &&
     noCoverProvided /= recoverPassengersVehicleAuthorizedOp &&
 payBreakdownVehicle /= recoverPassengersVehicle20MilesLim &&
@@ -84,7 +84,7 @@ decl isVehicle : GeneralVehicle -> Boolean
 
 rule <VehicleClassIncl>
 for v: GeneralVehicle
-if isVehicle v 
+if isVehicle v
 then isGeneralVehicle v
 
 
@@ -109,7 +109,7 @@ fact <homeInUK>
 isIn home uk
 
 # MW.10
-# This is an exhaustive enumeration of BreakdownSituation 
+# This is an exhaustive enumeration of BreakdownSituation
 # TODO: still state corresponding axiom
 # TODO: The following have been declared as Situation and not BreakdownSituation
 # to avoid an L4 -> SMT translation problem.
@@ -139,10 +139,10 @@ fact <factMissingKeys> isBreakdownSituation missingKeys
 
 # MW.8
 # To be understood as necessary and sufficient condition (with rule inversion)
-rule <vehicleSpec> 
-for v: GeneralVehicle
-if vehicleAge v <= 16 && vehicleLength v <= 5.5   # and several other conditions
-then isVehicle v 
+rule <vehicleSpec>
+for v: GeneralVehicle, a: Integer, l: Float 
+if vehicleAge v a && a <= 16 && vehicleLength v l && l <= 5.5   # and several other conditions
+then isVehicle v
 
 
 # -------------------------------------------------------------------
@@ -182,7 +182,7 @@ decl notSafeToDrive: Situation -> Boolean
 rule <SecA_RecoverPassengersVehicle20MilesLim>
 for s: Situation
 if secA_Applicability && currentSit s &&
-   isBreakdownSituation s && notSafeToDrive s 
+   isBreakdownSituation s && notSafeToDrive s
 then coverProvided s recoverPassengersVehicle20MilesLim SecA_RecoverPassengersVehicle20MilesLim
 
 
@@ -197,7 +197,7 @@ then coverProvided s recoverPassengersVehicleAuthorizedOp SecA_RecoverPassengers
 rule <SecA_BreakdownLess1Mile>
 for s: Situation, loc: Location, d: Integer
 if currentSit s && isBreakdownSituation s &&
-    situationInLocation s loc && distance home loc d && d <= 1 
+    situationInLocation s loc && distance home loc d && d <= 1
 then coverProvided s noCoverProvided SecA_BreakdownLess1Mile
 
 # SecA.NoCov.2
@@ -250,10 +250,10 @@ fact <scen1_currentSit> currentSit mechanicalBrkd
 fact <scen1_location> situationInLocation mechanicalBrkd swansea
 fact <scen1_distance> distance home swansea 10
 
-assert <scen1_assert1> {SMT: valid} 
+assert <scen1_assert1> {SMT: valid}
 exists r: RuleApp. (coverProvided mechanicalBrkd payBreakdownVehicle r) # SecA_PayBreakdownVehicle
 
-assert <scen1_assert2> {SMT: valid} 
+assert <scen1_assert2> {SMT: valid}
 coverProvided mechanicalBrkd payBreakdownVehicle SecA_PayBreakdownVehicle
 
 
@@ -267,8 +267,8 @@ fact <scen2> isIn dundalk abroad
 fact <scen2_distance> distance home dundalk 15
 
 # two apparently contradictory results can be derived (cover / no cover provided)
-assert <scen2_assert1> {SMT: valid} 
+assert <scen2_assert1> {SMT: valid}
 coverProvided mechanicalBrkd noCoverProvided SecA_BreakdownNotInUK
 
-assert <scen2_assert2> {SMT: valid} 
+assert <scen2_assert2> {SMT: valid}
 coverProvided mechanicalBrkd payBreakdownVehicle SecA_PayBreakdownVehicle
