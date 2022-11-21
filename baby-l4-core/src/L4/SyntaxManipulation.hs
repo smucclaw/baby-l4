@@ -74,11 +74,20 @@ appToFunArgs acc (AppE _ f a) = appToFunArgs (a:acc) f
 appToFunArgs acc t = (t, acc)
 
 -- compose (f, [a1 .. an]) to (f a1 .. an)
+-- Comes in a variant correctly reconstructing types
 funArgsToApp :: Expr (Tp ()) -> [Expr (Tp ())] -> Expr (Tp ())
 funArgsToApp = foldl (\ f -> AppE (forceResultTp (annotOfExpr f)) f)
 
+--- ... and a variant without types (creating dummy types)
+funArgsToAppNoType :: Expr t -> [Expr t] -> Expr t
+funArgsToAppNoType = foldl (\ f -> AppE (annotOfExpr f) f)
+
 applyVars :: Var (Tp()) -> [Var (Tp())] -> Expr (Tp())
 applyVars f args = funArgsToApp (mkVarE f) (map mkVarE args)
+
+-- same as for funArgsToApp(NoType)
+applyVarsNoType :: Var t -> [Var t] -> Expr t
+applyVarsNoType f args = funArgsToAppNoType (mkVarE f) (map mkVarE args)
 
 notExpr :: Expr (Tp ()) -> Expr (Tp())
 notExpr = UnaOpE BooleanT (UBool UBnot)

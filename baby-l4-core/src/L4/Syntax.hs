@@ -202,9 +202,9 @@ mapAssertion f e = case e of
 -- TODO: also types have to be annotated with position information
 -- for the parser to do the right job
 data Tp t
-  = ClassT {annotOfTp :: t, classNameOfTp :: ClassName}
-  | FunT {annotOfTp :: t, paramTp :: Tp t, resultTp :: Tp t}
-  | TupleT {annotOfTp :: t, componentsOfTpTupleT :: [Tp t]}
+  = ClassT {annotOfTp :: t, classNameOfTp :: ClassName}  -- class Integer, Boolean ...
+  | FunT {annotOfTp :: t, paramTp :: Tp t, resultTp :: Tp t}   -- T1 -> T2
+  | TupleT {annotOfTp :: t, componentsOfTpTupleT :: [Tp t]}    -- (T1, T2)
   | ErrT
   | OkT        -- fake type appearing in constructs (classes, rules etc.) that do not have a genuine type
   | KindT

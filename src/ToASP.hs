@@ -11,7 +11,7 @@ import L4.PrintProg
       capitalise )
 import RuleTransfo (ruleDisjL, clarify)
 import Data.Maybe (fromJust, mapMaybe)
-import L4.SyntaxManipulation (decomposeBinop, appToFunArgs, funArgsToApp, applyVars, globalVarsOfProgram)
+import L4.SyntaxManipulation (decomposeBinop, appToFunArgs, applyVars, globalVarsOfProgram, funArgsToAppNoType, applyVarsNoType)
 import Data.List (nub)
 import Data.Foldable (find)
 import L4.KeyValueMap (ValueKVM)
@@ -34,7 +34,7 @@ skolemizedASPRuleName :: ASPRule t -> String
 skolemizedASPRuleName = nameOfASPRule
 skolemizedASPRulePostcond :: ASPRule t -> Expr t
 skolemizedASPRulePostcond = postcondOfASPRule
-skolemizedASPRulePrecond :: ASPRule (Tp ()) -> [Expr (Tp ())]
+skolemizedASPRulePrecond :: Eq t => ASPRule t -> [Expr t]
 skolemizedASPRulePrecond r = [transformPrecond precon (postcondOfASPRule r) (localVarDeclsOfASPRule r ++ globalVarDeclsOfASPRule r) (globalVarDeclsOfASPRule r) (nameOfASPRule r) | precon <- precondOfASPRule r]
 --skolemizedASPRuleVardecls r = genSkolemList (localVarDeclsOfASPRule r) ([varExprToDecl expr (localVarDeclsOfASPRule r) | expr <- snd (appToFunArgs [] (postcondOfASPRule r))]) (nameOfASPRule r)
 
@@ -44,7 +44,7 @@ skolemizedASPRuleVardecls r =
 
 -- skolemizeASPRule :: ASPRule t -> ASPRule t
 
-skolemizeASPRule :: ASPRule (Tp ()) -> ASPRule (Tp ())
+skolemizeASPRule :: Eq t => ASPRule t -> ASPRule t
 skolemizeASPRule r = ASPRule (skolemizedASPRuleName r)  (skolemizeASPRuleGlobals r) (skolemizedASPRuleVardecls r) (skolemizedASPRulePrecond r) (skolemizedASPRulePostcond r)
 
 
@@ -60,14 +60,14 @@ convertVarExprToDecl _decls _ = error "trying to convert a non-variable expressi
 -- because transformed predicates (ie function applications) have type Expr (Tp()) rather than Expr t
 -- Need to change this !!! First : Check if precon occurs among vardecls, then check if postcon occurs among vardecls
 
-transformPrecond :: Expr (Tp ()) -> Expr (Tp ()) -> [VarDecl (Tp ())] -> [VarDecl (Tp ())] -> [Char] -> Expr (Tp ())
+transformPrecond :: Eq t => Expr t -> Expr t -> [VarDecl t] -> [VarDecl t] -> [Char] -> Expr t
 transformPrecond precon postcon vardecls vardeclsGlobal ruleid =
                     -- [varExprToDecl expr vardecls | expr <- snd (appToFunArgs [] precon)]
-                let preconvar_dec = map (convertVarExprToDecl (vardecls)) (snd (appToFunArgs [] precon))
+                let preconvar_dec = map (convertVarExprToDecl vardecls) (snd (appToFunArgs [] precon))
                     -- [varExprToDecl expr vardecls | expr <- snd (appToFunArgs [] postcon)]
-                    postconvar_dec = map (convertVarExprToDecl (vardecls)) (snd (appToFunArgs [] postcon))
+                    postconvar_dec = map (convertVarExprToDecl vardecls) (snd (appToFunArgs [] postcon))
                     new_preconvar_dec = genSkolemList preconvar_dec postconvar_dec vardeclsGlobal ruleid
-                    new_precond = funArgsToApp (fst (appToFunArgs [] precon)) (map varDeclToExpr new_preconvar_dec)
+                    new_precond = funArgsToAppNoType (fst (appToFunArgs [] precon)) (map varDeclToExpr new_preconvar_dec)
 
                 in new_precond
 
@@ -133,17 +133,17 @@ negationVarname :: QVarName t -> QVarName t
 negationVarname (QVarName t vn) = QVarName t ("not"++vn)
 
 
-negationPredicate :: Expr (Tp ()) -> (Expr (Tp ()), Maybe (Var (Tp ()), Var (Tp ()), Int))
+negationPredicate :: Expr t -> (Expr t, Maybe (Var t, Var t, Int))
 negationPredicate (UnaOpE _ (UBool UBnot) e@AppE{}) =
     let (f, args) = appToFunArgs [] e in
         case f of
             VarE t posvar@(GlobalVar vn) ->
                 let negvar = GlobalVar (negationVarname vn)
-                in (funArgsToApp (VarE t negvar) args, Just (posvar, negvar, length args))
+                in (funArgsToAppNoType (VarE t negvar) args, Just (posvar, negvar, length args))
             _ -> error "negationPredicate: ill-formed negation"
 negationPredicate e = (e, Nothing)
 
-ruleToASPRule :: [VarDecl (Tp ())] -> Rule (Tp ()) -> (ASPRule (Tp ()), [(Var (Tp ()), Var (Tp ()), Int)])
+ruleToASPRule :: [VarDecl t] -> Rule t -> (ASPRule t, [(Var t, Var t, Int)])
 ruleToASPRule globals r =
     let precondsNeg = map negationPredicate (decomposeBinop (BBool BBand)(precondOfRule r))
         postcondNeg = negationPredicate (postcondOfRule r)
@@ -377,18 +377,28 @@ genOppClause (posvar, negvar, n) =
     let args = zipWith (\ vn i -> LocalVar (QVarName IntegerT (vn ++ show i)) i) (replicate n "V") [0 .. n-1]
     in OpposesClause (applyVars posvar args) (applyVars negvar args)
 
-astToASP :: Program (Tp ()) -> IO ()
+genOppClauseNoType :: (Var t, Var t, Int) -> OpposesClause t
+genOppClauseNoType (posvar, negvar, n) =
+    let vart = annotOfQVarName (nameOfVar posvar) in
+    let args = zipWith (\ vn i -> LocalVar (QVarName vart (vn ++ show i)) i) (replicate n "V") [0 .. n-1]
+    in OpposesClause (applyVarsNoType posvar args) (applyVarsNoType negvar args)
+
+-- TODO: type of function has been abstracted, is not Program t and not Program (Tp())
+-- The price to pay: No more preprocessing of rules (simplification with clarify and ruleDisjL)
+-- This could possibly be remedied with NoType versions of these tactics
+astToASP :: (Eq t, Show t) => Program t -> IO ()
 astToASP prg = do
-    let rules = concatMap ruleDisjL (clarify (rulesOfProgram prg))
+    -- let rules = concatMap ruleDisjL (clarify (rulesOfProgram prg))
+    let rules = rulesOfProgram prg
     -- putStrLn "Simplified L4 rules:"
     -- putDoc $ vsep (map (showL4 []) rules) <> line
     let aspRulesWithNegs = map (ruleToASPRule (globalVarsOfProgram prg)) rules
     let aspRules = map fst aspRulesWithNegs
     let aspRulesNoFact = removeFacts aspRules
     let aspRulesFact = keepFacts aspRules
-    let skolemizedASPRules = map skolemizeASPRule aspRulesNoFact
+    let skolemizedASPRules = map skolemizeASPRule aspRulesNoFact  -- TODO: not used ??
     let oppClausePrednames = nub (concatMap snd aspRulesWithNegs)
-    let oppClauses = map genOppClause oppClausePrednames
+    let oppClauses = map genOppClauseNoType oppClausePrednames
 
     -- putStrLn "ASP rules:"
     putDoc $ vsep (map (showASP AccordingToR) aspRulesNoFact) <> line <> line
@@ -429,9 +439,10 @@ my_str_trans_list s ts = [my_str_trans s t | t <- ts]
 
 
 my_str_trans2 :: String -> [String] -> String -> String
-my_str_trans2 v postc rulen  = if elem v postc
-      then v
-else "extVar"
+my_str_trans2 v postc rulen  =
+    if v `elem` postc
+    then v
+    else "extVar"
 
 my_str_trans_list2 s t u = [my_str_trans2 r t u | r <- s]
 
