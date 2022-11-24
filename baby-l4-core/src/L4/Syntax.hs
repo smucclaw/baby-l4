@@ -333,6 +333,11 @@ trueV = ValE BooleanT (BoolV True)
 falseV :: Expr (Tp ())
 falseV = ValE BooleanT (BoolV False)
 
+trueVNoType :: Expr ()
+trueVNoType = ValE () (BoolV True)
+falseVNoType :: Expr ()
+falseVNoType = ValE () (BoolV False)
+
 -- TODO: in most cases, the annotation of QVarName seems redundant. 
 data Var t
       -- global variable only known by its name
