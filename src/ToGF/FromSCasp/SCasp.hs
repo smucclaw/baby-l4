@@ -68,7 +68,8 @@ parseModel = parseWError pModel ""
 parseModel' :: String -> IO ()
 parseModel' = parseTest pModel
 
-parseWError :: (Stream s, ShowErrorComponent e) => Parsec e s b -> String -> s -> Either String b
+parseWError :: (VisualStream s, TraversableStream s, Stream s, ShowErrorComponent e)
+            => Parsec e s b -> String -> s -> Either String b
 parseWError p src = either (Left . errorBundlePretty) Right . parse p src
 
 spaceConsumer :: Parser ()

@@ -62,13 +62,6 @@ packages:
   original:
     hackage: dependent-map-0.4.0.0@sha256:ca2b131046f4340a1c35d138c5a003fe4a5be96b14efc26291ed35fd08c62221,1657
 - completed:
-    hackage: dependent-sum-0.7.1.0@sha256:5599aa89637db434431b1dd3fa7c34bc3d565ee44f0519bfbc877be1927c2531,2068
-    pantry-tree:
-      size: 290
-      sha256: 9cbfb32b5a8a782b7a1c941803fd517633cb699159b851c1d82267a9e9391b50
-  original:
-    hackage: dependent-sum-0.7.1.0@sha256:5599aa89637db434431b1dd3fa7c34bc3d565ee44f0519bfbc877be1927c2531,2068
-- completed:
     hackage: dependent-sum-template-0.1.0.3@sha256:0bbbacdfbd3abf2a15aaf0cf2c27e5bdd159b519441fec39e1e6f2f54424adde,1682
     pantry-tree:
       size: 436
@@ -82,13 +75,6 @@ packages:
       sha256: e81c5a1e82ec2cd68cbbbec9cd60567363abe02257fa1370a906f6754b6818b8
   original:
     hackage: unliftio-core-0.2.0.1@sha256:9b3e44ea9aacacbfc35b3b54015af450091916ac3618a41868ebf6546977659a,1082
-- completed:
-    hackage: constraints-extras-0.3.0.2@sha256:013b8d0392582c6ca068e226718a4fe8be8e22321cc0634f6115505bf377ad26,1853
-    pantry-tree:
-      size: 594
-      sha256: 3ce1012bfb02e4d7def9df19ce80b8cd2b472c691b25b181d9960638673fecd1
-  original:
-    hackage: constraints-extras-0.3.0.2@sha256:013b8d0392582c6ca068e226718a4fe8be8e22321cc0634f6115505bf377ad26,1853
 - completed:
     hackage: regex-posix-clib-2.7@sha256:998fca06da3d719818f0691ef0b8b9b7375afeea228cb08bd9e2db53f96b0cd7,1232
     pantry-tree:
@@ -104,13 +90,6 @@ packages:
   original:
     hackage: simple-smt-0.9.5@sha256:70e6f694d401d23783b6f5c62774262a01cc7c305a64a13690ab7664a4f98ebf,736
 - completed:
-    hackage: sbv-8.9@sha256:efb0f16c671869805e57d11e269793d5e5ae512e8e626582cf76b8e46a63e9c6,28985
-    pantry-tree:
-      size: 62515
-      sha256: 9bb3bb8dbb26363388e013c795e60e81f9b243ecac6e28b3e9d7079c083ebdf4
-  original:
-    hackage: sbv-8.9@sha256:efb0f16c671869805e57d11e269793d5e5ae512e8e626582cf76b8e46a63e9c6,28985
-- completed:
     hackage: prettyprinter-1.7.0@sha256:6a9569e21fa61163a7f066d23d701e23e917893e8f39733d6e617ec72787ae5f,6007
     pantry-tree:
       size: 3194
@@ -119,7 +98,7 @@ packages:
     hackage: prettyprinter-1.7.0@sha256:6a9569e21fa61163a7f066d23d701e23e917893e8f39733d6e617ec72787ae5f,6007
 snapshots:
 - completed:
-    size: 532177
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/16/20.yaml
-    sha256: 0e14ba5603f01e8496e8984fd84b545a012ca723f51a098c6c9d3694e404dc6d
-  original: lts-16.20
+    size: 590100
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/18/28.yaml
+    sha256: 428ec8d5ce932190d3cbe266b9eb3c175cd81e984babf876b64019e2cbe4ea68
+  original: lts-18.28
