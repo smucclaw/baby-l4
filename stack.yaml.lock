@@ -5,100 +5,37 @@
 
 packages:
 - completed:
-    size: 3496815
-    url: https://github.com/GrammaticalFramework/gf-core/archive/eeda03e9b065ee74905b6d593aa88912c78ef8bb.tar.gz
     name: gf
-    version: 3.10.4
-    sha256: ee7c4be2b98a029a7bfbf678faff606352cbccc262f8ac75a8088d3dec21b94a
     pantry-tree:
-      size: 65672
-      sha256: 35ebb425ebbfd12a7e3f76ac94022fec61e8d57e5f1817e3938e35d44abf7092
+      sha256: d249b94c8de1cf7cdf08aa1235a0fa9c8a138bed8697d3fa6bb9727e633bcb29
+      size: 67922
+    sha256: 739b06c62790b2b61b5c102a28b2f30bceffe717b419c41a39abb3c3e3a5903a
+    size: 3499590
+    url: https://github.com/GrammaticalFramework/gf-core/archive/85038d01750c56241d45686d14c513f72421526c.tar.gz
+    version: 3.11.0
   original:
-    url: https://github.com/GrammaticalFramework/gf-core/archive/eeda03e9b065ee74905b6d593aa88912c78ef8bb.tar.gz
+    url: https://github.com/GrammaticalFramework/gf-core/archive/85038d01750c56241d45686d14c513f72421526c.tar.gz
 - completed:
-    size: 1346969
-    url: https://github.com/GrammaticalFramework/gf-ud/archive/4b0760e02f9efdb8fbdd47ed2258e9b89f15a14d.tar.gz
     name: gf-ud
+    pantry-tree:
+      sha256: c32ddb452d0a1450984614cb9eb5997cace1812c84af39519eb2cd8a16db9453
+      size: 7012
+    sha256: cf10611d53c229b020fc309ceddad93486f7ff610dc776afd72dd49df2616192
+    size: 1364864
+    url: https://github.com/anka-213/gf-ud/archive/9a3a89f1e2896a26ab1671405f2af2b3facfc893.tar.gz
     version: 0.1.0.0
-    sha256: 4ec4eca56d13419249ccf3d97ded02691f859c8276e492e7c802b18ae91af397
-    pantry-tree:
-      size: 6064
-      sha256: f629c3806bfe53c3ee09cde66d8922d7e7d5fa789d7f4bff71f50234177c0309
   original:
-    url: https://github.com/GrammaticalFramework/gf-ud/archive/4b0760e02f9efdb8fbdd47ed2258e9b89f15a14d.tar.gz
+    url: https://github.com/anka-213/gf-ud/archive/9a3a89f1e2896a26ab1671405f2af2b3facfc893.tar.gz
 - completed:
-    hackage: json-0.10@sha256:d9fc6b07ce92b8894825a17d2cf14799856767eb30c8bf55962baa579207d799,3210
+    hackage: simple-smt-0.9.7@sha256:a93eba88f8177e13b39bf664b53ad65ca8eea976f00cae443c081b3ea3c26fb3,736
     pantry-tree:
-      size: 3190
-      sha256: 5654f66b7cd8bf087ac040a9b0a83eb064219eab32230f61a3adeddfdbb4d4cd
-  original:
-    hackage: json-0.10@sha256:d9fc6b07ce92b8894825a17d2cf14799856767eb30c8bf55962baa579207d799,3210
-- completed:
-    hackage: lsp-1.1.1.0@sha256:c8856e5fc71bc9834301731b5ba8786159e1d7e2d2d8ee07aec4f5421f2cf847,5568
-    pantry-tree:
-      size: 1397
-      sha256: c94bd9be1c7c038c25c993985753fc88bc742321119282ecb2c3edf4beb9b599
-  original:
-    hackage: lsp-1.1.1.0@sha256:c8856e5fc71bc9834301731b5ba8786159e1d7e2d2d8ee07aec4f5421f2cf847,5568
-- completed:
-    hackage: lsp-types-1.1.0.0@sha256:071289b1c5e2ba8fedf846cfe1931d1cfdaac24a624abdf5dcee52562b1f3e2a,4240
-    pantry-tree:
-      size: 3955
-      sha256: c64a95700b5e32b3cbbb64d672f1595e0a521ae7caaacab805504300ae46f8aa
-  original:
-    hackage: lsp-types-1.1.0.0@sha256:071289b1c5e2ba8fedf846cfe1931d1cfdaac24a624abdf5dcee52562b1f3e2a,4240
-- completed:
-    hackage: lsp-test-0.13.0.0@sha256:f04ae384d6da554d83e4e396134e09f71e72dfeff3ec27d8b49ac689ac15ea37,4218
-    pantry-tree:
-      size: 906
-      sha256: 7d5be8abfeabef8fd660a5e643f7ac398f545eb3c145b6e935fae775b926d200
-  original:
-    hackage: lsp-test-0.13.0.0
-- completed:
-    hackage: dependent-map-0.4.0.0@sha256:ca2b131046f4340a1c35d138c5a003fe4a5be96b14efc26291ed35fd08c62221,1657
-    pantry-tree:
-      size: 551
-      sha256: 5defa30010904d2ad05a036f3eaf83793506717c93cbeb599f40db1a3632cfc5
-  original:
-    hackage: dependent-map-0.4.0.0@sha256:ca2b131046f4340a1c35d138c5a003fe4a5be96b14efc26291ed35fd08c62221,1657
-- completed:
-    hackage: dependent-sum-template-0.1.0.3@sha256:0bbbacdfbd3abf2a15aaf0cf2c27e5bdd159b519441fec39e1e6f2f54424adde,1682
-    pantry-tree:
-      size: 436
-      sha256: 32eeadeb991a290a1da41ce7e995dee7d38ebba3bd3e53ea8074c32c086701fd
-  original:
-    hackage: dependent-sum-template-0.1.0.3@sha256:0bbbacdfbd3abf2a15aaf0cf2c27e5bdd159b519441fec39e1e6f2f54424adde,1682
-- completed:
-    hackage: unliftio-core-0.2.0.1@sha256:9b3e44ea9aacacbfc35b3b54015af450091916ac3618a41868ebf6546977659a,1082
-    pantry-tree:
-      size: 328
-      sha256: e81c5a1e82ec2cd68cbbbec9cd60567363abe02257fa1370a906f6754b6818b8
-  original:
-    hackage: unliftio-core-0.2.0.1@sha256:9b3e44ea9aacacbfc35b3b54015af450091916ac3618a41868ebf6546977659a,1082
-- completed:
-    hackage: regex-posix-clib-2.7@sha256:998fca06da3d719818f0691ef0b8b9b7375afeea228cb08bd9e2db53f96b0cd7,1232
-    pantry-tree:
-      size: 524
-      sha256: 5bf20952472d930323766d250f5fbbe3fe6f2cd3d931e5cf7b62a238ab2099ff
-  original:
-    hackage: regex-posix-clib-2.7@sha256:998fca06da3d719818f0691ef0b8b9b7375afeea228cb08bd9e2db53f96b0cd7,1232
-- completed:
-    hackage: simple-smt-0.9.5@sha256:70e6f694d401d23783b6f5c62774262a01cc7c305a64a13690ab7664a4f98ebf,736
-    pantry-tree:
+      sha256: ddbb8343712ef5d96480180f4df7113db80ecb41336ec3e02876ccdb6ff6b547
       size: 253
-      sha256: 2c3dc6abc101832026902feb1f4d0cfd227dc0cddf9db857c30da38c80ac387c
   original:
-    hackage: simple-smt-0.9.5@sha256:70e6f694d401d23783b6f5c62774262a01cc7c305a64a13690ab7664a4f98ebf,736
-- completed:
-    hackage: prettyprinter-1.7.0@sha256:6a9569e21fa61163a7f066d23d701e23e917893e8f39733d6e617ec72787ae5f,6007
-    pantry-tree:
-      size: 3194
-      sha256: d22f820a1f63497f7fd7e1f04b7d356d92de35582258f6ad55428c88b09e63ff
-  original:
-    hackage: prettyprinter-1.7.0@sha256:6a9569e21fa61163a7f066d23d701e23e917893e8f39733d6e617ec72787ae5f,6007
+    hackage: simple-smt-0.9.7@sha256:a93eba88f8177e13b39bf664b53ad65ca8eea976f00cae443c081b3ea3c26fb3,736
 snapshots:
 - completed:
-    size: 590100
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/18/28.yaml
-    sha256: 428ec8d5ce932190d3cbe266b9eb3c175cd81e984babf876b64019e2cbe4ea68
-  original: lts-18.28
+    sha256: 6d1532d40621957a25bad5195bfca7938e8a06d923c91bc52aa0f3c41181f2d4
+    size: 619204
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/19/33.yaml
+  original: lts-19.33
