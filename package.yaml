@@ -137,19 +137,19 @@ executables:
 #    - l4-generated
 
 
-tests:
-  lsp-server-tests:
-    main:                Spec.hs
-    source-dirs:         lsp-tests
-    ghc-options:
-    - Wall
-    dependencies:
-    - tasty
-    - tasty-hunit
-    - tasty-expected-failure
-    - baby-l4
-    - l4-generated
-    - lsp-test
-    - lsp-types
-    - text
+#tests:
+  # lsp-server-tests:
+  #   main:                Spec.hs
+  #   source-dirs:         lsp-tests
+  #   ghc-options:
+  #   - Wall
+  #   dependencies:
+  #   - tasty
+  #   - tasty-hunit
+  #   - tasty-expected-failure
+  #   - baby-l4
+  #   - l4-generated
+  #   - lsp-test
+  #   - lsp-types
+  #   - text
 
