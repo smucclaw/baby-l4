@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<decision id="P1" name="P1">
+  <decisionTable id="DecisionTable_sNwgo15">
+    <output id="OutputClause_6G1xr8W" label="optional output label" name="P1" typeRef="Number"/>
+    <rule id="DecisionRule_6G1xr8W">
+      <outputEntry id="LiteralExpression_wgo15L1">
+        <text>1</text>
+      </outputEntry>
+    </rule>
+  </decisionTable>
+</decision>
+

@@ -120,13 +120,13 @@ gteExpr = BinOpE BooleanT (BCompar BCgte)
 mkEq :: Var (Tp()) -> Var (Tp()) -> Expr (Tp())
 mkEq v1 v2 = eqExpr (mkVarE v1) (mkVarE v2)
 
-isTrueV :: Expr t -> Bool 
+isTrueV :: Expr t -> Bool
 isTrueV (ValE _ (BoolV True)) = True
-isTrueV _ = False 
+isTrueV _ = False
 
-isFalseV :: Expr t -> Bool 
+isFalseV :: Expr t -> Bool
 isFalseV (ValE _ (BoolV False)) = True
-isFalseV _ = False 
+isFalseV _ = False
 
 
 -- Decompose list of successive applications of the same binary operator

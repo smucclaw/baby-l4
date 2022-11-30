@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/" xmlns:dmndi="https://www.omg.org/spec/DMN/20191111/DMNDI/" xmlns:dc="http://www.omg.org/spec/DMN/20180521/DC/" xmlns:modeler="http://camunda.org/schema/modeler/1.0" xmlns:di="http://www.omg.org/spec/DMN/20180521/DI/" id="Definitions_1afjstg" name="myDRD" namespace="http://camunda.org/schema/1.0/dmn" exporter="Camunda Modeler" exporterVersion="5.1.0" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.0.0">
+  <decision id="O" name="O">
+    <informationRequirement id="InformationRequirement_1">
+      <requiredDecision href="#P1" />
+    </informationRequirement>
+    <decisionTable id="DecisionTable_1">
+      <input id="InputClause_1">
+        <inputExpression id="LiteralExpression_1" typeRef="Number">
+          <text>P1</text>
+        </inputExpression>
+      </input>
+      <output id="OutputClause_1" name="O" typeRef="Number" />
+      <rule id="DecisionRule_1">
+        <inputEntry id="UnaryTests_66G1xr8">
+          <text>1</text>
+        </inputEntry>
+        <outputEntry id="LiteralExpression_2">
+          <text>10</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <decision id="P1" name="P1">
+    <decisionTable id="DecisionTable_2">
+      <output id="OutputClause_2" name="P1" typeRef="Number" />
+      <rule id="DecisionRule_2">
+        <outputEntry id="LiteralExpression_3">
+          <text>1</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <!--
+  <dmndi:DMNDI>
+    <dmndi:DMNDiagram id="DMNDiagram_0k53hz9">
+      <dmndi:DMNShape id="DMNShape_1jc48tx" dmnElementRef="O">
+        <dc:Bounds height="80" width="180" x="150" y="80" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="DMNShape_010ljtn" dmnElementRef="p1">
+        <dc:Bounds height="80" width="180" x="150" y="220" />
+      </dmndi:DMNShape>
+      <dmndi:DMNEdge id="DMNEdge_0p00nc1" dmnElementRef="InformationRequirement_18d0esu">
+        <di:waypoint x="240" y="220" />
+        <di:waypoint x="240" y="180" />
+        <di:waypoint x="240" y="160" />
+      </dmndi:DMNEdge>
+    </dmndi:DMNDiagram>
+  </dmndi:DMNDI>
+  -->
+</definitions>
