@@ -1,41 +1,33 @@
-resolver: lts-19.33
+resolver: lts-20.2
 
 packages:
   - .
 
 extra-deps:
-  - github: GrammaticalFramework/gf-core
-    commit: 85038d01750c56241d45686d14c513f72421526c
-  - github: anka-213/gf-ud # Upstream: GrammaticalFramework/gf-ud
-    commit: 9a3a89f1e2896a26ab1671405f2af2b3facfc893
-    # branch: all-changes
+- github: smucclaw/gf-core
+  commit: edb55df7b0c4892ba0bac2817b5f493921c20c36
 
+#   - github: anka-213/gf-ud # Upstream: GrammaticalFramework/gf-ud
+#     commit: 9a3a89f1e2896a26ab1671405f2af2b3facfc893
+    # branch: all-changes
 #  - github: GrammaticalFramework/gf-ud
 #    commit: 4b0760e02f9efdb8fbdd47ed2258e9b89f15a14d
 
-  - simple-smt-0.9.7@sha256:a93eba88f8177e13b39bf664b53ad65ca8eea976f00cae443c081b3ea3c26fb3,736
+- github: smucclaw/gf-ud
+  commit: bb53f75a789fa1d8173bccf52bd076e60771796c
+- github: mengwong/compact
+  commit: 214867cfd0868c02313e97f29215d48545458da3
 
-#  - simple-smt-0.9.7@sha256:a93eba88f8177e13b39bf664b53ad65ca8eea976f00cae443c081b3ea3c26fb3,736
+- cgi-3001.5.0.0@sha256:3d1193a328d5f627a021a0ef3927c1ae41dd341e32dba612fed52d0e3a6df056,2990
+- multipart-0.2.1@sha256:c96322a5bb34c29738ba82345d071a8e07d752648de3522f1c04d96df955ea0d,1150
 
-#   - lsp-1.6.0.0@sha256:2b95e406cc85ffa95406ae8ad7d16b82283a6ca2fcb7ea5308a4ef3e6d6e68e6,4397
-#   - rope-utf16-splay-0.4.0.0@sha256:2237ca21b950f5a45971f09ea2d38532a8e06949c82629095351e4bff5207aed,2034
-#   - simple-smt-0.9.7@sha256:a93eba88f8177e13b39bf664b53ad65ca8eea976f00cae443c081b3ea3c26fb3,736
-#   - co-log-core-0.3.2.0@sha256:9b2699adecee2f072b6c713089e675b592ef23f00a2ff3740bdaf4d87de8d456,3850
-#   - text-2.0.1@sha256:907ecca6d20c42dafceb709ebac546f5d72e8b7dda3c39b286888c2f09e3bad8,9262
-#   - Cabal-3.8.1.0@sha256:155d64beeecbae2b19e5d67844532494af88bc8795d4db4146a0c29296f59967,12220
-#   - parsec-3.1.15.1@sha256:8c7a36aaadff12a38817fc3c4ff6c87e3352cffd1a58df640de7ed7a97ad8fa3,4601
-
-
-#   - json-0.10@sha256:d9fc6b07ce92b8894825a17d2cf14799856767eb30c8bf55962baa579207d799,3210
-#   - lsp-1.1.1.0@sha256:c8856e5fc71bc9834301731b5ba8786159e1d7e2d2d8ee07aec4f5421f2cf847,5568
-#   - lsp-types-1.1.0.0@sha256:071289b1c5e2ba8fedf846cfe1931d1cfdaac24a624abdf5dcee52562b1f3e2a,4240
-#   - lsp-test-0.13.0.0
-#   - dependent-map-0.4.0.0@sha256:ca2b131046f4340a1c35d138c5a003fe4a5be96b14efc26291ed35fd08c62221,1657
-#   - dependent-sum-template-0.1.0.3@sha256:0bbbacdfbd3abf2a15aaf0cf2c27e5bdd159b519441fec39e1e6f2f54424adde,1682
-#   - unliftio-core-0.2.0.1@sha256:9b3e44ea9aacacbfc35b3b54015af450091916ac3618a41868ebf6546977659a,1082
-#   - regex-posix-clib-2.7@sha256:998fca06da3d719818f0691ef0b8b9b7375afeea228cb08bd9e2db53f96b0cd7,1232
-#   - simple-smt-0.9.5@sha256:70e6f694d401d23783b6f5c62774262a01cc7c305a64a13690ab7664a4f98ebf,736
-#   - prettyprinter-1.7.0@sha256:6a9569e21fa61163a7f066d23d701e23e917893e8f39733d6e617ec72787ae5f,6007
+- lsp-1.6.0.0@sha256:2b95e406cc85ffa95406ae8ad7d16b82283a6ca2fcb7ea5308a4ef3e6d6e68e6,4397
+- rope-utf16-splay-0.4.0.0@sha256:2237ca21b950f5a45971f09ea2d38532a8e06949c82629095351e4bff5207aed,2034
+- simple-smt-0.9.7@sha256:a93eba88f8177e13b39bf664b53ad65ca8eea976f00cae443c081b3ea3c26fb3,736
+- co-log-core-0.3.2.0@sha256:9b2699adecee2f072b6c713089e675b592ef23f00a2ff3740bdaf4d87de8d456,3850
+- text-2.0.1@sha256:907ecca6d20c42dafceb709ebac546f5d72e8b7dda3c39b286888c2f09e3bad8,9262
+- parsec-3.1.15.1@sha256:8c7a36aaadff12a38817fc3c4ff6c87e3352cffd1a58df640de7ed7a97ad8fa3,4601
+- Cabal-3.8.1.0@sha256:155d64beeecbae2b19e5d67844532494af88bc8795d4db4146a0c29296f59967,12220
 
 # Required for the option custom-preprocessor-extensions
 require-stack-version: ">= 2.7.1"

@@ -1,5 +1,5 @@
 name:                baby-l4
-version:             0.1.2.0
+version:             0.1.2.1
 github:              "smucclaw/baby-l4"
 license:             BSD3
 author:              "Wong Meng Weng"
@@ -48,8 +48,8 @@ dependencies:
 - text
 - extra
   # required for lexer and parser
-- haskeline  >= 0.7
-- mtl        >= 2.2 && <2.4
+- haskeline
+- mtl
   # required for GF
 - gf
 - gf-ud
@@ -62,17 +62,17 @@ dependencies:
 - simple-smt
 - sbv
   # required for graph processing (rule transformation)
-- fgl >= 5.7
+- fgl
 - graphviz
   # for package Util
 - ghc
 - tasty
 - tasty-hunit
   # required for lsp
-- lsp        >=1.0.0.0
-- lsp-types  >=1.0.0.0
-- haskeline  >= 0.7
-- mtl        >= 2.2 && <2.4
+- lsp
+- lsp-types
+- haskeline
+- mtl
 - lens
 - hslogger
 - sorted-list

@@ -5,7 +5,7 @@ cabal-version: 2.0
 -- see: https://github.com/sol/hpack
 
 name:           baby-l4
-version:        0.1.2.0
+version:        0.1.2.1
 description:    baby-l4 provides the core language to which natural4 compiles.
 homepage:       https://github.com/smucclaw/baby-l4#readme
 bug-reports:    https://github.com/smucclaw/baby-l4/issues
@@ -106,20 +106,20 @@ library
     , containers
     , either
     , extra
-    , fgl >=5.7
+    , fgl
     , gf
     , gf-ud
     , ghc
     , graphviz
-    , haskeline >=0.7
+    , haskeline
     , hslogger
     , l4-generated
     , lens
-    , lsp >=1.0.0.0
-    , lsp-types >=1.0.0.0
+    , lsp
+    , lsp-types
     , megaparsec
     , mmorph
-    , mtl >=2.2 && <2.4
+    , mtl
     , optparse-applicative
     , pretty-simple
     , prettyprinter >=1.7.0
@@ -155,19 +155,19 @@ library l4-generated
     , containers
     , either
     , extra
-    , fgl >=5.7
+    , fgl
     , gf
     , gf-ud
     , ghc
     , graphviz
-    , haskeline >=0.7
+    , haskeline
     , hslogger
     , lens
-    , lsp >=1.0.0.0
-    , lsp-types >=1.0.0.0
+    , lsp
+    , lsp-types
     , megaparsec
     , mmorph
-    , mtl >=2.2 && <2.4
+    , mtl
     , optparse-applicative
     , pretty-simple
     , prettyprinter >=1.7.0
@@ -201,20 +201,20 @@ executable l4
     , containers
     , either
     , extra
-    , fgl >=5.7
+    , fgl
     , gf
     , gf-ud
     , ghc
     , graphviz
-    , haskeline >=0.7
+    , haskeline
     , hslogger
     , l4-generated
     , lens
-    , lsp >=1.0.0.0
-    , lsp-types >=1.0.0.0
+    , lsp
+    , lsp-types
     , megaparsec
     , mmorph
-    , mtl >=2.2 && <2.4
+    , mtl
     , optparse-applicative
     , pretty-simple
     , prettyprinter >=1.7.0
