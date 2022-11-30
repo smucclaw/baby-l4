@@ -59,13 +59,6 @@ packages:
   original:
     hackage: lsp-1.6.0.0@sha256:2b95e406cc85ffa95406ae8ad7d16b82283a6ca2fcb7ea5308a4ef3e6d6e68e6,4397
 - completed:
-    hackage: rope-utf16-splay-0.4.0.0@sha256:2237ca21b950f5a45971f09ea2d38532a8e06949c82629095351e4bff5207aed,2034
-    pantry-tree:
-      sha256: 8f8650b21381dee11be10d327b8df1999f1ba00e303cd1ed3ed52dfd63e1ca69
-      size: 667
-  original:
-    hackage: rope-utf16-splay-0.4.0.0@sha256:2237ca21b950f5a45971f09ea2d38532a8e06949c82629095351e4bff5207aed,2034
-- completed:
     hackage: simple-smt-0.9.7@sha256:a93eba88f8177e13b39bf664b53ad65ca8eea976f00cae443c081b3ea3c26fb3,736
     pantry-tree:
       sha256: ddbb8343712ef5d96480180f4df7113db80ecb41336ec3e02876ccdb6ff6b547

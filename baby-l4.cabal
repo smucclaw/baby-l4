@@ -123,7 +123,6 @@ library
     , optparse-applicative
     , pretty-simple
     , prettyprinter >=1.7.0
-    , rope-utf16-splay
     , sbv
     , simple-smt
     , sorted-list
@@ -171,7 +170,6 @@ library l4-generated
     , optparse-applicative
     , pretty-simple
     , prettyprinter >=1.7.0
-    , rope-utf16-splay
     , sbv
     , simple-smt
     , sorted-list
@@ -218,7 +216,6 @@ executable l4
     , optparse-applicative
     , pretty-simple
     , prettyprinter >=1.7.0
-    , rope-utf16-splay
     , sbv
     , simple-smt
     , sorted-list

@@ -78,7 +78,6 @@ dependencies:
 - sorted-list
 - either
 - transformers
-- rope-utf16-splay
 - mmorph
 - optparse-applicative
 
