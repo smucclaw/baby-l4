@@ -94,12 +94,12 @@ packages:
   original:
     hackage: parsec-3.1.15.1@sha256:8c7a36aaadff12a38817fc3c4ff6c87e3352cffd1a58df640de7ed7a97ad8fa3,4601
 - completed:
-    hackage: Cabal-3.8.1.0@sha256:155d64beeecbae2b19e5d67844532494af88bc8795d4db4146a0c29296f59967,12220
+    hackage: Cabal-3.6.3.0@sha256:ff97c442b0c679c1c9876acd15f73ac4f602b973c45bde42b43ec28265ee48f4,12459
     pantry-tree:
-      sha256: 0df207f33a2167f23ab8192b3c1e5722b60836bcdde18a0b5b24fb85b41c05ef
-      size: 8955
+      sha256: b250a53bdb56844f047a2927833bb565b936a289abfa85dfc2a63148d776368a
+      size: 19757
   original:
-    hackage: Cabal-3.8.1.0@sha256:155d64beeecbae2b19e5d67844532494af88bc8795d4db4146a0c29296f59967,12220
+    hackage: Cabal-3.6.3.0@sha256:ff97c442b0c679c1c9876acd15f73ac4f602b973c45bde42b43ec28265ee48f4,12459
 snapshots:
 - completed:
     sha256: fc39d8afc97531d53d87b10abdef593bce503c0c1e46c2e9a84ebcbc78bf8470
