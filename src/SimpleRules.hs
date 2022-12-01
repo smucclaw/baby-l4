@@ -19,6 +19,10 @@ import Data.Either
         -- usefulrules = ["accInad", "accAdIncAd", "accAdIncInad", "savingsAd", "savingsInad", "incomeAd", "incomeInadESteady", "incomeInadEUnsteady"]
         -- usefulsimple = [r | r <- validRules , nameOfSimpleRule r `elem` usefulrule
 
+-- | consider having a VerySimpleRule whose precond is an AnyAll item.
+--
+-- That would enable a pathway from natural4 to something like Prolog \/ Epilog \/ DMN without having to go through babyl4's parser.
+
 data SimpleRule t = SimpleRule {
                      nameOfSimpleRule :: String -- Maybe String
                    , varDeclsOfSimpleRule :: [VarDecl t]

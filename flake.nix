@@ -2,11 +2,12 @@
   description = "A flake for installing the dependencies of baby l4";
 
   inputs.nixpkgs.url = github:NixOS/nixpkgs/nixpkgs-unstable;
+  inputs.nixpkgs-newer.url = github:NixOS/nixpkgs/nixpkgs-unstable;
   # inputs.nixpkgs.url = github:NixOS/nixpkgs/nixos-20.09;
   inputs.gf-nix.url = github:anka-213/cclaw-nix-stuff/nix-flakes;
   inputs.gf-nix.inputs.nixpkgs.follows = "nixpkgs";
 
-  outputs = { self, nixpkgs, gf-nix }: {
+  outputs = { self, nixpkgs, nixpkgs-newer, gf-nix }: {
 
     devShell = builtins.mapAttrs
       (arch: pkgs:
@@ -18,6 +19,7 @@
           nativeBuildInputs = [
             gf-pkgs.gf-with-rgl
             pkgs.haskell.compiler.ghc884
+            nixpkgs-newer.legacyPackages.${arch}.stack
             # pkgs.graphviz
             # pkgs.emacs
           ];

@@ -36,8 +36,10 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.ghc }}-stack-${{ hashFiles('stack.yaml.lock') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.ghc }}-stack
+      - name: Install libcurl
+        run: sudo apt-get  install libcurl4-openssl-dev
       - name: Initial nix develop
-        run: nix develop --profile .dev-profile -c sh -c 'which stack; which gf; which ghc; echo $GF_LIB_PATH'
+        run: nix develop -L --profile .dev-profile -c sh -c 'which stack; which gf; which ghc; echo $GF_LIB_PATH'
       - name: stack deps
         run: nix develop --profile .dev-profile -c stack build --nix --no-nix-pure --test --only-dependencies
       - name: stack build
