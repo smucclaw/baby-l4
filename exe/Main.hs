@@ -33,9 +33,10 @@ import Control.Monad.Except (runExceptT)
 
 import ToDA2 (createDSyaml)
 import SimpleRules ( expSys )
-import ToRules (astToRules)
+import ToRules.FromL4 (genREP)
+import ToDMN.FromL4 (genDMN)
 import ToASP (astToASP)
-
+import ToEpilog (astToEpilog)
 
 
 process :: InputOpts -> String -> IO ()
@@ -55,21 +56,24 @@ process args input = do
       case format args of
         Fasp                     ->  astToASP tpAstNoSrc
         Fast                     ->  pPrint tpAst
+        (Fexpsys Graph)          -> expSys tpAstNoSrc
+         -- (Fexpsys Rules) -> astToRules tpAstNoSrc
+        (Fexpsys Rules)          -> genREP tpAstNoSrc
         (Fgf GFOpts { gflang = gfl, showast = True } ) -> GF.nlgAST gfl fpath normalAst
         (Fgf GFOpts { gflang = gfl, showast = False} ) -> GF.nlg    gfl fpath normalAst
-        Fsmt -> proveProgram tpAstNoSrc
-        Fscasp -> createSCasp normalAst
-        Fyaml -> do createDSyaml tpAstNoSrc
-                    putStrLn "---------------"
-                    putStrLn "WIP: create the questions with GF. Below is the current progress. They are not used yet in the yaml."
-                    createQuestions fpath normalAst
-                    putStrLn "---------------"
-                    createPGFforAnswers fpath normalAst
-        (Fexpsys Graph) -> expSys tpAstNoSrc 
-        (Fexpsys Rules) -> astToRules tpAstNoSrc
+        Fdmn                     -> genDMN tpAstNoSrc
+        Fepilog                  ->  astToEpilog tpAstNoSrc
+        Fscasp                   -> createSCasp normalAst
+        Fsmt                     -> proveProgram tpAstNoSrc
+        Fyaml                    -> do createDSyaml tpAstNoSrc
+                                       putStrLn "---------------"
+                                       putStrLn "WIP: create the questions with GF. Below is the current progress. They are not used yet in the yaml."
+                                       createQuestions fpath normalAst
+                                       putStrLn "---------------"
+                                       createPGFforAnswers fpath normalAst
 
 
-data Format   = Fasp | Fast | Fgf GFOpts | Fscasp  | Fsmt | Fyaml | Fexpsys ESOpts
+data Format   = Fasp | Fast | Fdmn | Fepilog | Fexpsys ESOpts | Fgf GFOpts | Fscasp  | Fsmt | Fyaml
   deriving Show
 
 --  l4 gf en          output english only
@@ -96,12 +100,14 @@ optsParse :: Parser InputOpts
 optsParse = InputOpts <$>
               subparser
                 ( command "gf"   (info gfSubparser gfHelper)
+               <> command "epilog" (info (pure Fepilog) (progDesc "output to Epilog"))
                <> command "asp"  (info (pure Fasp) (progDesc "output to ASP / Clingo"))
                <> command "ast"  (info (pure Fast) (progDesc "Show the AST in Haskell"))
                <> command "scasp" (info (pure Fscasp) (progDesc "output to sCASP for DocAssemble purposes"))
                <> command "smt"   (info (pure Fsmt) (progDesc "Check assertion with SMT solver"))
                <> command "yaml" (info (pure Fyaml) (progDesc "output to YAML for DocAssemble purposes"))
                <> command "expsys" (info esSubparser esHelper)
+               <> command "dmn"  (info (pure Fdmn) (progDesc "DMN test"))
                )
             <*> switch (long "testModels" <> help "Demo of NLG from sCASP models")
             <*> argument str (metavar "Filename")

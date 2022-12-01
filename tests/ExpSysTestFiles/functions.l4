@@ -1,0 +1,16 @@
+#
+# This file contains several examples of supported functions in L4
+# For reference and testing purposes only
+#
+
+# Single argument
+
+defn plusOne : Integer -> Integer = \x : Integer -> x + 1
+defn isEven : Integer -> Boolean = \x : Integer -> (x % 2) == 0
+defn isTrue : Boolean -> Boolean = \x : Boolean -> x  
+defn float : Float -> Float = \x : Float -> x
+
+# multiple arguments
+
+defn plus : Integer -> Integer -> Integer = \x : Integer -> \y : Integer -> x + y
+defn equals : Integer -> Integer -> Boolean = \x : Integer -> \y : Integer -> x == y

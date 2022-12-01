@@ -1,0 +1,39 @@
+
+
+process AutA() {
+
+clock clock0;
+
+state
+    loc0,
+    loc1;
+init
+    loc0;
+trans
+;
+#    loc0 -> loc1 { guard clock0<=3; assign clock0 = 0; },
+#    loc0 -> loc2 { guard clock1>=5; assign clock1 = 0;  }
+}
+
+
+
+# Should be in the prelude
+class Automaton
+class State
+
+decl at: State -> Boolean
+
+# Should be automatic for a process declaration
+decl AutA : Automaton
+decl loc0 : State
+decl loc1 : State
+decl clock0 : Time
+
+
+# fact <locsDifferent> loc0 /= loc1
+
+# assert E<> at loc2  && clock0 == 2.0
+assert {SMT: {valid, config: {loglevel: 0}}}
+at loc1
+
+

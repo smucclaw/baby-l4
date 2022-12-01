@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/" xmlns:dmndi="https://www.omg.org/spec/DMN/20191111/DMNDI/" xmlns:dc="http://www.omg.org/spec/DMN/20180521/DC/" xmlns:modeler="http://camunda.org/schema/modeler/1.0" xmlns:biodi="http://bpmn.io/schema/dmn/biodi/2.0" xmlns:di="http://www.omg.org/spec/DMN/20180521/DI/" id="Definitions_120cwfh" name="DRD" namespace="http://camunda.org/schema/1.0/dmn" exporter="Camunda Modeler" exporterVersion="5.1.0" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.0.0">
+  <decision id="diag_min_income" name="Min Income">
+    <variable id="InformationItem_17kq0ay" name="minIncome" typeRef="number" />
+    <informationRequirement id="InformationRequirement_1s0cyap">
+      <requiredInput href="#diag_input_data" />
+    </informationRequirement>
+    <literalExpression>
+      <text>2 * x + 3 * y</text>
+    </literalExpression>
+  </decision>
+  <decision id="diag_income_adequacy" name="Income Adequacy">
+    <informationRequirement id="InformationRequirement_0udwre2">
+      <requiredDecision href="#diag_min_income" />
+    </informationRequirement>
+    <informationRequirement id="InformationRequirement_1694d0t">
+      <requiredInput href="#diag_input_data" />
+    </informationRequirement>
+    <decisionTable id="DecisionTable_0lvgxrq">
+      <input id="InputClause_1051ttc" label="Min Income">
+        <inputExpression id="LiteralExpression_0lo9u0r" typeRef="number">
+          <text>minIncome</text>
+        </inputExpression>
+      </input>
+      <output label="Adequacy" name="adequacy" typeRef="boolean" biodi:width="192" />
+      <output label="Bloop" name="bloop" typeRef="string" />
+      <rule id="DecisionRule_1080bsl">
+        <inputEntry id="UnaryTests_0w2546x">
+          <text>&lt; x</text>
+        </inputEntry>
+        <outputEntry id="LiteralExpression_174qejr">
+          <text>true</text>
+        </outputEntry>
+        <outputEntry id="LiteralExpression_0qis36e">
+          <text>"yes"</text>
+        </outputEntry>
+      </rule>
+      <rule id="DecisionRule_1szxplj">
+        <inputEntry id="UnaryTests_1klv58y">
+          <text>&gt;= x</text>
+        </inputEntry>
+        <outputEntry id="LiteralExpression_1v1d2kw">
+          <text>false</text>
+        </outputEntry>
+        <outputEntry id="LiteralExpression_027btnb">
+          <text>"no"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <inputData id="diag_input_data" name="Some Input" />
+  <dmndi:DMNDI>
+    <dmndi:DMNDiagram id="DMNDiagram_1qjtnik">
+      <dmndi:DMNShape id="DMNShape_09eokhn" dmnElementRef="diag_min_income">
+        <dc:Bounds height="80" width="180" x="150" y="270" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="DMNShape_0ynvssu" dmnElementRef="diag_income_adequacy">
+        <dc:Bounds height="80" width="180" x="150" y="80" />
+      </dmndi:DMNShape>
+      <dmndi:DMNEdge id="DMNEdge_0ptw8fv" dmnElementRef="InformationRequirement_0udwre2">
+        <di:waypoint x="240" y="270" />
+        <di:waypoint x="210" y="180" />
+        <di:waypoint x="210" y="160" />
+      </dmndi:DMNEdge>
+      <dmndi:DMNShape id="DMNShape_0plylfu" dmnElementRef="diag_input_data">
+        <dc:Bounds height="45" width="125" x="178" y="428" />
+      </dmndi:DMNShape>
+      <dmndi:DMNEdge id="DMNEdge_0ktxbdk" dmnElementRef="InformationRequirement_1s0cyap">
+        <di:waypoint x="241" y="428" />
+        <di:waypoint x="240" y="370" />
+        <di:waypoint x="240" y="350" />
+      </dmndi:DMNEdge>
+      <dmndi:DMNEdge id="DMNEdge_15bk8h8" dmnElementRef="InformationRequirement_1694d0t">
+        <di:waypoint x="241" y="428" />
+        <di:waypoint x="510" y="290" />
+        <di:waypoint x="270" y="180" />
+        <di:waypoint x="270" y="160" />
+      </dmndi:DMNEdge>
+    </dmndi:DMNDiagram>
+  </dmndi:DMNDI>
+</definitions>

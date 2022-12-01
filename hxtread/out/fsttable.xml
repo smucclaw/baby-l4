@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<decision id="O" name="O">
+  <decisionTable id="DecisionTable_sNwgo15">
+    <informationRequirement id="InformationRequirement_8W7Dch7">
+      <requiredDecision href="P1"/>
+    </informationRequirement>
+    <input id="InputClause_1sNwgo1" label="optional input label">
+      <inputExpression id="LiteralExpression_wgo15L1" typeRef="Number">
+        <text>P1</text>
+      </inputExpression>
+    </input>
+    <output id="OutputClause_6G1xr8W" label="optional output label" name="O" typeRef="Number"/>
+    <rule id="DecisionRule_6G1xr8W">
+      <inputEntry id="UnaryTests_66G1xr8">
+        <text>1</text>
+      </inputEntry>
+      <outputEntry id="LiteralExpression_wgo15L1">
+        <text>10</text>
+      </outputEntry>
+    </rule>
+  </decisionTable>
+</decision>
+

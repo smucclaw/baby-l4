@@ -1,7 +1,10 @@
-module ToASP where
+ {-# LANGUAGE OverloadedStrings #-}
+-- changed AddFacts and AccordingToR
+module ToEpilog where
 
 import Prettyprinter
 import Prettyprinter.Render.Text (putDoc)
+--import ansi-wl-pprint
 import L4.Syntax
 import L4.PrintProg
     ( showL4,
@@ -11,10 +14,11 @@ import L4.PrintProg
       capitalise )
 import RuleTransfo (ruleDisjL, clarify)
 import Data.Maybe (fromJust, mapMaybe)
-import L4.SyntaxManipulation (decomposeBinop, appToFunArgs, applyVars, globalVarsOfProgram, funArgsToAppNoType, applyVarsNoType)
+import L4.SyntaxManipulation (decomposeBinop, appToFunArgs, funArgsToApp, applyVars, globalVarsOfProgram)
 import Data.List (nub)
 import Data.Foldable (find)
 import L4.KeyValueMap (ValueKVM)
+
 
 data ASPRule t = ASPRule {
                      nameOfASPRule :: String
@@ -34,7 +38,7 @@ skolemizedASPRuleName :: ASPRule t -> String
 skolemizedASPRuleName = nameOfASPRule
 skolemizedASPRulePostcond :: ASPRule t -> Expr t
 skolemizedASPRulePostcond = postcondOfASPRule
-skolemizedASPRulePrecond :: Eq t => ASPRule t -> [Expr t]
+skolemizedASPRulePrecond :: ASPRule (Tp ()) -> [Expr (Tp ())]
 skolemizedASPRulePrecond r = [transformPrecond precon (postcondOfASPRule r) (localVarDeclsOfASPRule r ++ globalVarDeclsOfASPRule r) (globalVarDeclsOfASPRule r) (nameOfASPRule r) | precon <- precondOfASPRule r]
 --skolemizedASPRuleVardecls r = genSkolemList (localVarDeclsOfASPRule r) ([varExprToDecl expr (localVarDeclsOfASPRule r) | expr <- snd (appToFunArgs [] (postcondOfASPRule r))]) (nameOfASPRule r)
 
@@ -44,7 +48,7 @@ skolemizedASPRuleVardecls r =
 
 -- skolemizeASPRule :: ASPRule t -> ASPRule t
 
-skolemizeASPRule :: Eq t => ASPRule t -> ASPRule t
+skolemizeASPRule :: ASPRule (Tp ()) -> ASPRule (Tp ())
 skolemizeASPRule r = ASPRule (skolemizedASPRuleName r)  (skolemizeASPRuleGlobals r) (skolemizedASPRuleVardecls r) (skolemizedASPRulePrecond r) (skolemizedASPRulePostcond r)
 
 
@@ -60,14 +64,14 @@ convertVarExprToDecl _decls _ = error "trying to convert a non-variable expressi
 -- because transformed predicates (ie function applications) have type Expr (Tp()) rather than Expr t
 -- Need to change this !!! First : Check if precon occurs among vardecls, then check if postcon occurs among vardecls
 
-transformPrecond :: Eq t => Expr t -> Expr t -> [VarDecl t] -> [VarDecl t] -> [Char] -> Expr t
+transformPrecond :: Expr (Tp ()) -> Expr (Tp ()) -> [VarDecl (Tp ())] -> [VarDecl (Tp ())] -> [Char] -> Expr (Tp ())
 transformPrecond precon postcon vardecls vardeclsGlobal ruleid =
                     -- [varExprToDecl expr vardecls | expr <- snd (appToFunArgs [] precon)]
-                let preconvar_dec = map (convertVarExprToDecl vardecls) (snd (appToFunArgs [] precon))
+                let preconvar_dec = map (convertVarExprToDecl (vardecls)) (snd (appToFunArgs [] precon))
                     -- [varExprToDecl expr vardecls | expr <- snd (appToFunArgs [] postcon)]
-                    postconvar_dec = map (convertVarExprToDecl vardecls) (snd (appToFunArgs [] postcon))
+                    postconvar_dec = map (convertVarExprToDecl (vardecls)) (snd (appToFunArgs [] postcon))
                     new_preconvar_dec = genSkolemList preconvar_dec postconvar_dec vardeclsGlobal ruleid
-                    new_precond = funArgsToAppNoType (fst (appToFunArgs [] precon)) (map varDeclToExpr new_preconvar_dec)
+                    new_precond = funArgsToApp (fst (appToFunArgs [] precon)) (map varDeclToExpr new_preconvar_dec)
 
                 in new_precond
 
@@ -133,17 +137,17 @@ negationVarname :: QVarName t -> QVarName t
 negationVarname (QVarName t vn) = QVarName t ("not"++vn)
 
 
-negationPredicate :: Expr t -> (Expr t, Maybe (Var t, Var t, Int))
+negationPredicate :: Expr (Tp ()) -> (Expr (Tp ()), Maybe (Var (Tp ()), Var (Tp ()), Int))
 negationPredicate (UnaOpE _ (UBool UBnot) e@AppE{}) =
     let (f, args) = appToFunArgs [] e in
         case f of
             VarE t posvar@(GlobalVar vn) ->
                 let negvar = GlobalVar (negationVarname vn)
-                in (funArgsToAppNoType (VarE t negvar) args, Just (posvar, negvar, length args))
+                in (funArgsToApp (VarE t negvar) args, Just (posvar, negvar, length args))
             _ -> error "negationPredicate: ill-formed negation"
 negationPredicate e = (e, Nothing)
 
-ruleToASPRule :: [VarDecl t] -> Rule t -> (ASPRule t, [(Var t, Var t, Int)])
+ruleToASPRule :: [VarDecl (Tp ())] -> Rule (Tp ()) -> (ASPRule (Tp ()), [(Var (Tp ()), Var (Tp ()), Int)])
 ruleToASPRule globals r =
     let precondsNeg = map negationPredicate (decomposeBinop (BBool BBand)(precondOfRule r))
         postcondNeg = negationPredicate (postcondOfRule r)
@@ -159,7 +163,7 @@ ruleToASPRule globals r =
         , negpreds)
 
 
-data TranslationMode = AccordingToR | CausedByR | ExplainsR | VarSubs1R | VarSubs2R | VarSubs3R | AccordingToE String | LegallyHoldsE | QueryE | VarSubs4R | RawL4 | AddFacts
+data TranslationMode = AccordingToR | CausedByR | ExplainsR | VarSubs1R | VarSubs2R | VarSubs3R | AccordingToE String | LegallyHoldsE | QueryE | VarSubs4R | RawL4 | AddFacts | FixedCode
 class ShowASP x where
     showASP :: TranslationMode -> x -> Doc ann
 class ShowOppClause x where
@@ -170,78 +174,76 @@ aspPrintConfig = [PrintVarCase CapitalizeLocalVar, PrintCurried MultiArg]
 
 instance Show t => ShowASP (Expr t) where
     showASP (AccordingToE rn) e =
-        pretty "according_to" <> parens (pretty rn <> pretty "," <+> showASP RawL4 e)
+        "according_to" <> parens (pretty rn <> "," <+> showASP RawL4 e)
 
     -- predicates (App expressions) are written wrapped into legally_holds,
     -- whereas any other expressions are written as is.
     showASP LegallyHoldsE e@AppE{} =
-        pretty "legally_holds" <> parens (showASP RawL4 e)
+        "legally_holds" <> parens (showASP RawL4 e)
 
     showASP LegallyHoldsE e =
-        pretty "legally_holds" <> parens (showASP RawL4 e)
+        "legally_holds" <> parens (showASP RawL4 e)
     showASP QueryE e@AppE{} =
-        pretty "query" <> parens (showASP RawL4 e <> pretty "," <> pretty "L")
+        "query" <> parens (showASP RawL4 e <> "," <> "L")
     showASP QueryE e =
-        pretty "query" <> parens (showASP RawL4 e <> pretty "," <> pretty "L")
+        "query" <> parens (showASP RawL4 e <> "," <> "L")
 
     -- showASP LegallyHoldsE e =
     --     showASP RawL4 e
     -- showASP QueryE e@AppE{} =
-    --     pretty "query" <> parens (showASP RawL4 e <> pretty "," <> pretty "L")
+    --     "query" <> parens (showASP RawL4 e <> "," <> "L")
     -- showASP QueryE e =
     --     showASP RawL4 e
 
     showASP RawL4 e = showL4 aspPrintConfig e
-    showASP _ _ = pretty ""   -- not implemented
+    showASP _ _ = ""   -- not implemented
 
 instance Show t => ShowOppClause (OpposesClause t) where
     showOppClause (OpposesClause pos neg) =
-        pretty "opposes" <>
-            parens (showASP RawL4 pos <> pretty "," <+> showASP RawL4 neg) <+>
-        pretty ":-" <+>
-            showASP (AccordingToE "R") pos <> pretty "." <> line <>
-        pretty "opposes" <>
-            parens (showASP RawL4 pos <> pretty "," <+> showASP RawL4 neg) <+>
-        pretty ":-" <+>
-            showASP (AccordingToE "R") neg <> pretty "." <> line <>
+        "opposes" <>
+            parens (showASP RawL4 pos <> "," <+> showASP RawL4 neg) <+>
+        ":-" <+>
+            showASP (AccordingToE "R") pos <> line <>
+        "opposes" <>
+            parens (showASP RawL4 pos <> "," <+> showASP RawL4 neg) <+>
+        ":-" <+>
+            showASP (AccordingToE "R") neg <> line <>
 
-        pretty "opposes" <>
-            parens (showASP RawL4 pos <> pretty "," <+> showASP RawL4 neg) <+>
+        "opposes" <>
+            parens (showASP RawL4 pos <> "," <+> showASP RawL4 neg) <+>
 
 
-        pretty ":-" <+>
-            showASP LegallyHoldsE pos <> pretty "." <> line <>
+        ":-" <+>
+            showASP LegallyHoldsE pos <> line <>
 
-        pretty "opposes" <>
-            parens (showASP RawL4 pos <> pretty "," <+> showASP RawL4 neg) <+>
+        "opposes" <>
+            parens (showASP RawL4 pos <> "," <+> showASP RawL4 neg) <+>
 
-        pretty ":-" <+>
-            showASP LegallyHoldsE neg <> pretty "." <> line <>
+        ":-" <+>
+            showASP LegallyHoldsE neg <> line <>
 
-        pretty "opposes" <>
-            parens (showASP RawL4 pos <> pretty "," <+> showASP RawL4 neg) <+>
+{-        "opposes" <>
+            parens (showASP RawL4 pos <> "," <+> showASP RawL4 neg) <+>
 
-        pretty ":-" <+>
-        pretty "query" <>
+        ":-" <+>
+        "query" <>
         parens (
                 showASP RawL4 pos <+>
-                pretty "," <>
-                pretty "_N"
-                ) <> pretty "." <> line <>
+                "," <>
+                "_N"
+                ) <> "." <> line <>
 
 
 
+-}
 
-        pretty "opposes" <>
-            parens (showASP RawL4 pos <> pretty "," <+> showASP RawL4 neg) <+>
+       "opposes" <>
+            parens (showASP RawL4 pos <> "," <+> showASP RawL4 neg) <+>
 
-        pretty ":-" <+>
-        pretty "query" <>
-        parens (
-                showASP RawL4 neg <+>
-                pretty "," <>
-                pretty "_N"
-                ) <> pretty "."
+        ":-" <+>
+            showASP LegallyHoldsE neg
+
+
 
 
 
@@ -249,8 +251,8 @@ instance Show t => ShowOppClause (OpposesClause t) where
 
 instance Show t => ShowASP (ASPRule t) where
     showASP AccordingToR (ASPRule rn _env _vds preconds postcond) =
-        showASP (AccordingToE rn) postcond <+> pretty ":-" <+>
-            hsep (punctuate comma (map (showASP LegallyHoldsE) preconds)) <>  pretty "."
+        showASP RawL4 postcond <+> ":-" <+>
+            hsep (punctuate " &" (map (showASP RawL4) preconds))
 
 {-     showASP ExplainsSkolemR (ASPRule rn vds preconds postcond)=
                              let new_rn = rn
@@ -262,22 +264,22 @@ instance Show t => ShowASP (ASPRule t) where
 
     showASP ExplainsR (ASPRule _rn _env _vds preconds postcond) =
         vsep (map (\pc ->
-                    pretty "explains" <>
+                    "explains" <>
                     parens (
-                        showASP RawL4 pc <> pretty "," <+>
+                        showASP RawL4 pc <> "," <+>
                         showASP RawL4 postcond <+>
-                        pretty "," <>
-                        pretty "_N+1"
+                        "," <>
+                        "_N+1"
                         ) <+>
-                    pretty ":-" <+>
-                    pretty "query" <>
+                    ":-" <+>
+                    "query" <>
                     parens (
                             showASP RawL4 postcond <+>
-                            pretty "," <>
-                            pretty "_N"
+                            "," <>
+                            "_N"
                             ) <>
-                    pretty "_N < M, max_ab_lvl(M)" <>
-                    pretty "."
+                    "_N < M, max_ab_lvl(M)" <>
+                    "."
                     )
             preconds)
 
@@ -287,42 +289,50 @@ instance Show t => ShowASP (ASPRule t) where
     showASP VarSubs3R (ASPRule _rn _env _vds preconds postcond) =
         vsep (map (\pc ->
                     pretty ("createSub(subInst" ++ "_" ++ _rn ++ skolemize2 (_vds ++ _env) _vds postcond _rn ++ "," ++ "_N+1" ++ ")") <+>
-                    pretty ":-" <+>
-                    pretty "query" <>
+                    ":-" <+>
+                    "query" <>
                     parens (
                             showASP RawL4 postcond <+>
-                            pretty "," <>
-                            pretty "_N"
+                            "," <>
+                            "_N"
                             ) <>
-                    pretty ", _N < M, max_ab_lvl(M)" <>
-                    pretty "."
+                    ", _N < M, max_ab_lvl(M)" <>
+                    "."
                     )
             [head preconds])
 
     showASP VarSubs1R (ASPRule _rn _env _vds preconds postcond) =
         vsep (map (\pc ->
-                    pretty "explains" <>
+                    "explains" <>
                     parens (
-                        showASP RawL4 pc <> pretty "," <+>
+                        showASP RawL4 pc <> "," <+>
                         showASP RawL4 postcond <+>
-                        pretty "," <>
-                        pretty "_N"
+                        "," <>
+                        "_N"
                         ) <+>
-                    pretty ":-" <+>
+                    ":-" <+>
                     pretty ("createSub(subInst" ++ "_" ++ _rn ++ toBrackets _vds ++ "," ++ "_N" ++ ").")
                     )
             preconds)
 
+    showASP FixedCode (ASPRule _rn _env _vds preconds postcond) = vsep (["defeated(R2,C2):-overrides(R1,R2) & according_to(R2,C2) & legally_enforces(R1,C1) & opposes(C1,C2)", "opposes(C1,C2):-opposes(C2,C1)", "legally_enforces(R,C):-according_to(R,C) & ~defeated(R,C) ", "legally_holds(C):-legally_enforces(R,C)", "legally_holds(contradiction_entailed):-opposes(C1,C2) & legally_holds(C1) & legally_holds(C2)",
+     "caused_by(pos,overrides(R1,R2),defeated(R2,C2),0):-defeated(R2,C2) & overrides(R1,R2) & according_to(R2,C2) & legally_enforces(R1,C1) & opposes(C1,C2) & justify(defeated(R2,C2),0)", "caused_by(pos,according_to(R2,C2),defeated(R2,C2),0):-defeated(R2,C2) & overrides(R1,R2) & according_to(R2,C2) & legally_enforces(R1,C1) & opposes(C1,C2) & justify(defeated(R2,C2),0)",
+     "caused_by(pos,legally_enforces(R1,C1),defeated(R2,C2),0):-defeated(R2,C2) & overrides(R1,R2) & according_to(R2,C2) & legally_enforces(R1,C1) & opposes(C1,C2) & justify(defeated(R2,C2),0)","caused_by(pos,opposes(C1,C2),defeated(R2,C2),0):-defeated(R2,C2) & overrides(R1,R2) & according_to(R2,C2) & legally_enforces(R1,C1) & opposes(C1,C2) & justify(defeated(R2,C2),0)", "caused_by(pos,according_to(R,C),legally_enforces(R,C),0):-legally_enforces(R,C) & according_to(R,C) & ~defeated(R,C) & justify(legally_enforces(R,C),0)", "caused_by(neg,defeated(R,C),legally_enforces(R,C),0):-legally_enforces(R,C) & according_to(R,C) & ~defeated(R,C) & justify(legally_enforces(R,C),0)", "caused_by(pos,legally_enforces(R,C),legally_holds(C),0):-legally_holds(C) & legally_enforces(R,C) & justify(legally_holds(C),0)","justify(X,0):-caused_by(pos,X,Y,0)", "directedEdge(Sgn,X,Y):-caused_by(Sgn,X,Y,0)", "justify(X,0):-gen_graph(X)"])
+
+
+
+
+
 
     showASP AddFacts (ASPRule _rn _env _vds _preconds postcond) =
         vsep (map (\pc ->
-                    pretty "user_input" <>
-                    parens (
-                        showASP RawL4 pc <> pretty "," <+>
-                        pretty _rn
 
-                        ) <>
-                    pretty "."
+                     (
+                        showASP RawL4 pc
+
+
+                        )
+
                     )
             [postcond])
 
@@ -334,9 +344,9 @@ instance Show t => ShowASP (ASPRule t) where
         vsep (map (\pc ->
                     pretty ("createSub(subInst" ++ "_" ++ _rn ++ toBrackets2 (my_str_trans_list (preconToVarStrList pc (_vds ++ _env)) (varDeclToVarStrList (_vds))) ++ "," ++ "_N" ++ ")")
                          <+>
-                    pretty ":-" <+>
+                    ":-" <+>
                     pretty ("createSub(subInst" ++ "_" ++ _rn ++ toBrackets2 (my_str_trans_list [] (varDeclToVarStrList (_vds))) ++ "," ++ "_N" ++ ")" ++ ",") <+>
-                    showASP LegallyHoldsE pc <> pretty "."
+                    showASP LegallyHoldsE pc <> "."
                     )
             (postcond : preconds))
 
@@ -345,72 +355,63 @@ instance Show t => ShowASP (ASPRule t) where
         vsep (map (\pc ->
                     pretty ("createSub(subInst" ++ "_" ++ rn ++ toBrackets2 (my_str_trans_list (preconToVarStrList pc (_vds ++ _env)) (varDeclToVarStrList (_vds))) ++ "," ++ "_N" ++ ")")
                          <+>
-                    pretty ":-" <+>
+                    ":-" <+>
                     pretty ("createSub(subInst" ++ "_" ++ rn ++ toBrackets2 (my_str_trans_list [] (varDeclToVarStrList (_vds))) ++ "," ++ "_N" ++ ")" ++ ",") <+>
-                    showASP QueryE pc <> pretty "."
+                    showASP QueryE pc <> "."
                     )
             (postcond : preconds))
 
     showASP CausedByR (ASPRule rn _env _vds preconds postcond) =
         vsep (map (\pc ->
-                    pretty "caused_by" <>
+                    "caused_by" <>
                         parens (
-                            pretty "pos," <+>
-                            showASP LegallyHoldsE pc <> pretty "," <+>
-                            showASP (AccordingToE rn) postcond <> pretty "," <+>
-                            pretty "_N+1"
+                            "pos," <+>
+                            showASP LegallyHoldsE pc <> "," <+>
+                            showASP (AccordingToE rn) postcond <> "," <+>
+                            "0"
                             ) <+>
-                        pretty ":-" <+>
-                        showASP (AccordingToE rn) postcond <> pretty "," <+>
-                        hsep (punctuate comma (map (showASP LegallyHoldsE) preconds)) <>  pretty "," <+>
-                        pretty "justify" <>
-                        parens (
-                            showASP (AccordingToE rn) postcond <>  pretty "," <+>
-                            pretty "_N") <>
-                        pretty "."
+                        ":-" <> line <> indent 4 (
+                        vsep [indent 2 $ showASP (AccordingToE rn) postcond
+                             , "&" <+> hang 0 (vsep (punctuate " &" (map (showASP LegallyHoldsE) preconds)))
+                             , "&" <+> "justify" <> parens ( showASP (AccordingToE rn) postcond <>  "," <+> "0")
+                        ]
+                        )
+
                     )
             preconds)
-    showASP _ _ = pretty ""  -- not implemented
+    showASP _ _ = ""  -- not implemented
 
 genOppClause :: (Var (Tp ()), Var (Tp ()), Int) -> OpposesClause (Tp ())
 genOppClause (posvar, negvar, n) =
     let args = zipWith (\ vn i -> LocalVar (QVarName IntegerT (vn ++ show i)) i) (replicate n "V") [0 .. n-1]
     in OpposesClause (applyVars posvar args) (applyVars negvar args)
 
-genOppClauseNoType :: (Var t, Var t, Int) -> OpposesClause t
-genOppClauseNoType (posvar, negvar, n) =
-    let vart = annotOfQVarName (nameOfVar posvar) in
-    let args = zipWith (\ vn i -> LocalVar (QVarName vart (vn ++ show i)) i) (replicate n "V") [0 .. n-1]
-    in OpposesClause (applyVarsNoType posvar args) (applyVarsNoType negvar args)
-
--- TODO: type of function has been abstracted, is not Program t and not Program (Tp())
--- The price to pay: No more preprocessing of rules (simplification with clarify and ruleDisjL)
--- This could possibly be remedied with NoType versions of these tactics
-astToASP :: (Eq t, Show t) => Program t -> IO ()
-astToASP prg = do
-    -- let rules = concatMap ruleDisjL (clarify (rulesOfProgram prg))
-    let rules = rulesOfProgram prg
+astToEpilog :: Program (Tp ()) -> IO ()
+astToEpilog prg = do
+    let rules = concatMap ruleDisjL (clarify (rulesOfProgram prg))
     -- putStrLn "Simplified L4 rules:"
     -- putDoc $ vsep (map (showL4 []) rules) <> line
     let aspRulesWithNegs = map (ruleToASPRule (globalVarsOfProgram prg)) rules
     let aspRules = map fst aspRulesWithNegs
     let aspRulesNoFact = removeFacts aspRules
     let aspRulesFact = keepFacts aspRules
-    let skolemizedASPRules = map skolemizeASPRule aspRulesNoFact  -- TODO: not used ??
+    let skolemizedASPRules = map skolemizeASPRule aspRulesNoFact
     let oppClausePrednames = nub (concatMap snd aspRulesWithNegs)
-    let oppClauses = map genOppClauseNoType oppClausePrednames
+    let oppClauses = map genOppClause oppClausePrednames
 
     -- putStrLn "ASP rules:"
     putDoc $ vsep (map (showASP AccordingToR) aspRulesNoFact) <> line <> line
-    putDoc $ vsep (map (showASP VarSubs1R) aspRulesNoFact) <> line <> line
+    -- putDoc $ vsep (map (showASP VarSubs1R) aspRulesNoFact) <> line <> line
     putDoc $ vsep (map (showASP AddFacts) aspRulesFact) <> line <> line
-    putDoc $ vsep (map (showASP VarSubs3R) aspRulesNoFact) <> line <> line
-    putDoc $ vsep (map (showASP VarSubs2R) aspRulesNoFact) <> line <> line
-    putDoc $ vsep (map (showASP VarSubs4R) aspRulesNoFact) <> line <> line
+    -- putDoc $ vsep (map (showASP FixedCode) [head aspRulesNoFact]) <> line <> line
+
+    -- putDoc $ vsep (map (showASP VarSubs3R) aspRulesNoFact) <> line <> line
+    -- putDoc $ vsep (map (showASP VarSubs2R) aspRulesNoFact) <> line <> line
+    -- putDoc $ vsep (map (showASP VarSubs4R) aspRulesNoFact) <> line <> line
     -- putDoc $ vsep (map (showASP VarSubs2R) aspRules) <> line <> line
     -- putDoc $ vsep (map (showASP ExplainsR) aspRules) <> line <> line
     -- putDoc $ vsep (map (showASP ExplainsR) skolemizedASPRules) <> line <> line
-    putDoc $ vsep (map (showASP CausedByR) aspRulesNoFact) <> line <> line
+    -- putDoc $ vsep (map (showASP CausedByR) aspRulesNoFact) <> line <> line
     putDoc $ vsep (map showOppClause oppClauses) <> line
 
 
@@ -439,10 +440,9 @@ my_str_trans_list s ts = [my_str_trans s t | t <- ts]
 
 
 my_str_trans2 :: String -> [String] -> String -> String
-my_str_trans2 v postc rulen  =
-    if v `elem` postc
-    then v
-    else "extVar"
+my_str_trans2 v postc rulen  = if elem v postc
+      then v
+else "extVar"
 
 my_str_trans_list2 s t u = [my_str_trans2 r t u | r <- s]
 

@@ -1,0 +1,23 @@
+# L4 encoding of the Schedule of the PDPA case study.
+# The encoding is only partial (not all rules covered) and only Boolean
+# For example, isNotifiableDataBreach : DataBreach -> Boolean (in pdpa_act.l4)
+# becomes isNotifiable
+
+class Event
+
+class DataBreach  extends Event 
+
+class Actor
+
+class Individual extends Actor
+
+decl amountOfWagesOfBreach : DataBreach -> Individual -> Boolean
+decl isNotifiable : DataBreach -> Boolean
+
+
+
+rule <sched_1>
+for db: DataBreach, indiv: Individual
+if amountOfWagesOfBreach db indiv
+then isNotifiable db
+

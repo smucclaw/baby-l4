@@ -134,3 +134,23 @@ assert {nSMT: valid}
       ==
    (isCar v && isHighway r && not (isSportsCar v && isWorkday d))
 
+
+
+assert <ICLP_Scenario1> 
+       {SMT: {consistent, 
+              rules: {del : {maxSpeedSportsCar'Orig,maxSpeedCarHighway'Orig}}}}
+isWorkday instDay && isHighway instRoad && isSportsCar instCar 
+&& maxSpeed instCar instDay instRoad instSpeed1
+
+assert <ICLP_Scenario2> 
+       {SMT: {consistent, 
+              rules: {del : {maxSpeedSportsCar'Orig,maxSpeedCarHighway'Orig}}}}
+not isWorkday instDay && isHighway instRoad && not isSportsCar instCar 
+&& maxSpeed instCar instDay instRoad instSpeed1
+
+
+assert <ICLP_Scenario3> 
+       {SMT: {consistent, 
+              rules: {del : {maxSpeedSportsCar'Orig,maxSpeedCarHighway'Orig}}}}
+isHighway instRoad && isCar instCar 
+&& maxSpeed instCar instDay instRoad instSpeed1

@@ -74,11 +74,20 @@ appToFunArgs acc (AppE _ f a) = appToFunArgs (a:acc) f
 appToFunArgs acc t = (t, acc)
 
 -- compose (f, [a1 .. an]) to (f a1 .. an)
+-- Comes in a variant correctly reconstructing types
 funArgsToApp :: Expr (Tp ()) -> [Expr (Tp ())] -> Expr (Tp ())
 funArgsToApp = foldl (\ f -> AppE (forceResultTp (annotOfExpr f)) f)
 
+--- ... and a variant without types (creating dummy types)
+funArgsToAppNoType :: Expr t -> [Expr t] -> Expr t
+funArgsToAppNoType = foldl (\ f -> AppE (annotOfExpr f) f)
+
 applyVars :: Var (Tp()) -> [Var (Tp())] -> Expr (Tp())
 applyVars f args = funArgsToApp (mkVarE f) (map mkVarE args)
+
+-- same as for funArgsToApp(NoType)
+applyVarsNoType :: Var t -> [Var t] -> Expr t
+applyVarsNoType f args = funArgsToAppNoType (mkVarE f) (map mkVarE args)
 
 notExpr :: Expr (Tp ()) -> Expr (Tp())
 notExpr = UnaOpE BooleanT (UBool UBnot)
@@ -111,6 +120,15 @@ gteExpr = BinOpE BooleanT (BCompar BCgte)
 mkEq :: Var (Tp()) -> Var (Tp()) -> Expr (Tp())
 mkEq v1 v2 = eqExpr (mkVarE v1) (mkVarE v2)
 
+isTrueV :: Expr t -> Bool
+isTrueV (ValE _ (BoolV True)) = True
+isTrueV _ = False
+
+isFalseV :: Expr t -> Bool
+isFalseV (ValE _ (BoolV False)) = True
+isFalseV _ = False
+
+
 -- Decompose list of successive applications of the same binary operator
 -- for example, decomposeBinop (&&) (A && (B||C) & (D || (E&&F))) = [A, B||C, D || (E&&F)]
 decomposeBinop :: BinOp -> Expr t -> [Expr t]
@@ -119,6 +137,12 @@ decomposeBinop bop e@(BinOpE _ bop' e1 e2) =
     then decomposeBinop bop e1 ++ decomposeBinop bop e2
     else [e]
 decomposeBinop _ e = [e]
+
+-- decompose and remove True from list of conjuncts / False from list of disjuncts
+decomposeBinopClean :: BinOp -> Expr t -> [Expr t]
+decomposeBinopClean bop@(BBool BBand) e = filter (not . isTrueV) (decomposeBinop bop e)
+decomposeBinopClean bop@(BBool BBor ) e = filter (not . isFalseV) (decomposeBinop bop e)
+decomposeBinopClean bop e = decomposeBinop bop e
 
 -- lps and lpconcats are two different forms of list products used for computing cnf / dnf
 

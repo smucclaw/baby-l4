@@ -453,7 +453,7 @@ castCompatible _te _ctp = True
 tpVar :: Environment te -> SRng -> Var t -> TCM (Tp ())
 tpVar env loc (GlobalVar (QVarName _ vn)) =
   maybeToTCEither (UndeclaredVariable loc vn) $
-    lookup vn (globalsOfEnv env) <|> lookup vn (localsOfEnv env)
+    lookup vn (localsOfEnv env) <|> lookup vn (globalsOfEnv env)
 tpVar _env _ (LocalVar _ _) = error "internal error: for type checking, variable should be GlobalVar"
 
 varIdentityInEnv :: Environment te -> Var t -> Var t

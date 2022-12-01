@@ -33,20 +33,36 @@ data SimpleRule t = SimpleRule {
 -- Helper function that determines if a rule structure is a predicate
 isRule :: Rule t -> Bool
 isRule x
-  | condValid (precondOfRule x) && condValid (postcondOfRule x) = True -- do i need to check if the rule has a name?
+  | condValid (precondOfRule x) && isAtomic (postcondOfRule x) = True -- do i need to check if the rule has a name?
   | otherwise = False
 
 -- Helper function for checking valid pre/post-condition
 condValid :: Expr t -> Bool
 condValid x = case x of
+  -- TODO:
+  -- previously || was used because of (x <= minincome y) in fa r7
+  -- check AST
   BinOpE _ (BBool BBand) e1 e2-> condValid e1 || condValid e2
   AppE {} -> True
+  ValE _ (BoolV True) -> True -- e.g. if True then ..
+  VarE _ _ -> True -- e.g. if a then ..
   _ -> False
 
+-- VarE {annotOfExpr = ClassT {annotOfTp = (), classNameOfTp = ClsNm {stringOfClassName = "Boolean"}}, varOfExprVarE = GlobalVar {nameOfVar = QVarName {annotOfQVarName = OkT, nameOfQVarName = "amountOfWages"}}}
+
+isAtomic :: Expr t -> Bool
+isAtomic (AppE {}) = True
+-- isAtomic (ValE _ (BoolV _)) = True -- problematic
+isAtomic (VarE _ _) = True
+isAtomic _ = False
+
+-- not used for production rules (code generation)
 -- Helper function to extract useful expressions within conjunctions
 flattenConjs :: Expr t -> [Expr t]
 flattenConjs (BinOpE _ (BBool BBand) e1 e2) = flattenConjs e1 <> flattenConjs e2
 flattenConjs fApp@AppE {} = [fApp]
+flattenConjs valE@(ValE {}) = [valE]
+flattenConjs varE@(VarE {}) = [varE]
 flattenConjs _ = []
 
 -- TODO 1: some sort of preprocesing that removes illegal expressions (not applications of predicates to arguments)

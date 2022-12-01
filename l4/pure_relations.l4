@@ -1,0 +1,23 @@
+class Person
+
+
+
+decl relA: Person -> Person -> Boolean
+decl relB: Person -> Person -> Boolean
+decl relC: Person -> Person -> Person -> Boolean
+decl relE: Person -> Person -> Person -> Boolean
+decl relD: Person -> Boolean
+
+
+rule <r1>
+   for p: Person, q: Person, r: Person, s: Person
+   if relB p r && relE q r s
+   then relA p q
+
+
+
+
+rule <r2>
+   for p: Person, q: Person, r: Person
+   if relC p q r && relD r
+   then relB p q
