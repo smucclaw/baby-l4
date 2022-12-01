@@ -1,255 +1,279 @@
-name:                baby-l4
-version:             0.1.0.0
--- synopsis:
--- description:
-homepage:            https://github.com/smucclaw/baby-l4
-license:             BSD3
-license-file:        LICENSE
-author:              SMU CCLAW
-maintainer:          example@example.com
-copyright:           2020 SMU CCLAW
-category:            Web
--- build-type:          Simple
-Build-Type:          Custom
-cabal-version:       >=1.10
-extra-source-files:  README.org
-                   , grammars/Prop.gf
-                   , grammars/Answer.gf
-                   , grammars/Questions.gf
-                   , grammars/Predicates.gf
-                   , grammars/ParsePredicates.gf
-data-files:          l4/Prelude.l4
-                   , grammars/Prop.gf
-                   , grammars/PropI.gf
-                   , grammars/PropEng.gf
-                   , grammars/Atoms.gf
-                   , grammars/AtomsEng.gf
-                   , grammars/Answer.gf
-                   , grammars/AnswerEng.gf
-                   , grammars/Questions.gf
-                   , grammars/QuestionsEng.gf
-                   , grammars/Predicates.gf
-                   , grammars/PredicatesEng.gf
-                   , grammars/ReducedWordNet.gf
-                   , grammars/ReducedWordNetEng.gf
-                   , grammars/ParsePredicates.labels
-                   , grammars/ParsePredicatesEng.labels
--- data-files: LICENSE
--- data-files: Prop.pgf
+cabal-version: 2.0
+
+-- This file has been generated from package.yaml by hpack version 0.35.0.
+--
+-- see: https://github.com/sol/hpack
+
+name:           baby-l4
+version:        0.1.2.1
+description:    baby-l4 provides the core language to which natural4 compiles.
+homepage:       https://github.com/smucclaw/baby-l4#readme
+bug-reports:    https://github.com/smucclaw/baby-l4/issues
+author:         Wong Meng Weng
+maintainer:     mwwong@smu.edu.sg
+copyright:      2022
+license:        BSD3
+license-file:   LICENSE
+build-type:     Custom
+extra-source-files:
+    README.org
+    grammars/Prop.gf
+    grammars/Answer.gf
+    grammars/Questions.gf
+    grammars/Predicates.gf
+    grammars/ParsePredicates.gf
+data-files:
+    l4/Prelude.l4
+    grammars/Prop.gf
+    grammars/PropI.gf
+    grammars/PropEng.gf
+    grammars/Atoms.gf
+    grammars/AtomsEng.gf
+    grammars/Answer.gf
+    grammars/AnswerEng.gf
+    grammars/Questions.gf
+    grammars/QuestionsEng.gf
+    grammars/Predicates.gf
+    grammars/PredicatesEng.gf
+    grammars/ReducedWordNet.gf
+    grammars/ReducedWordNetEng.gf
+    grammars/ParsePredicates.labels
+    grammars/ParsePredicatesEng.labels
+
+source-repository head
+  type: git
+  location: https://github.com/smucclaw/baby-l4
 
 custom-setup
-  setup-depends:       base >= 4.7 && < 5
-                     , Cabal >= 1.10
-                     , filepath
-
-library l4-generated
-  exposed-modules:
-                  -- generated from GF grammars
-                  Prop
-                  Answer
-                  Questions
-                  ParsePredicates
-                  Predicates
-
-  build-depends:       base >= 4.7 && < 5
-                     , gf
-                     , mtl        >= 2.2 && <2.4
-  ghc-options: -Wno-all
-  build-tools:         gf
-  -- build-tools-depends: gf:gf
-  hs-source-dirs:
-    -- src
-    -- Stack complains with this and doesn't work without it
-    -- https://github.com/commercialhaskell/stack/issues/3929
-    grammars
-  default-language: Haskell2010
+  setup-depends:
+      Cabal ==3.6.3.0
+    , base >=4.7 && <5
+    , filepath
 
 library
   exposed-modules:
-                  Model
-                  MainHelpers
-
-                  -- lsp
-                  L4LSP
-
-                  --ToYaml
-                  ToGF.FromL4.ToProp
-                  ToGF.FromL4.TransProp
-                  ToGF.GenerateLexicon
-                  ToGF.NormalizeSyntax
-                  ToGF.ParsePred
-                  ToGF.Disambiguate
-                  ToGF.TreeTransform
-                  ToGF.FromSCasp.SCasp
-                  ToGF.FromSCasp.ToAnswer
-                  ToGF.FromL4.ToQuestions
-                  ToGF.FromL4.ToAnswers
-                  ToEpilog
-                  ToASP
-                  ToSCASP
-                  ToDA2
-                  -- ToRuleEngine
-                  SimpleRules
-                  JustificationVis
-                  ToRules.Types
-                  ToRules.FromL4
-                  ToRules.ToDecls
-                  ToRules.ToRules
-                  -- ToDMN
-                  ToDMN.Types
-                  ToDMN.FromL4
-                  ToDMN.FromSimpleToReg
-                  ToDMN.Picklers
-                  --ExampleInput
-                  Exec
-                  --InterfaceNunchaku
-                  --RuleToTa
-                  --TaToUppaal
-                  Proof
-                  RuleTransfo
-                  Smt
-                  TimedMC
-                  -- SmtSBV
-  other-modules: Paths_baby_l4
+      Exec
+      InterfaceNunchaku
+      JustificationVis
+      L4.Annotation
+      L4.Error
+      L4.KeyValueMap
+      L4.Lexer
+      L4.Parser
+      L4.PrintProg
+      L4.Syntax
+      L4.SyntaxManipulation
+      L4.TypeInference
+      L4.Typing
+      MainHelpers
+      Model
+      Proof
+      RuleTransfo
+      SimpleRules
+      Smt
+      TimedMC
+      ToASP
+      ToDA2
+      ToDMN.FromL4
+      ToDMN.FromSimpleToReg
+      ToDMN.Picklers
+      ToDMN.Types
+      ToEpilog
+      ToGF.Disambiguate
+      ToGF.FromL4.ToAnswers
+      ToGF.FromL4.ToProp
+      ToGF.FromL4.ToQuestions
+      ToGF.FromL4.TransProp
+      ToGF.FromSCasp.SCasp
+      ToGF.FromSCasp.ToAnswer
+      ToGF.GenerateLexicon
+      ToGF.NormalizeSyntax
+      ToGF.ParsePred
+      ToGF.TreeTransform
+      ToRules.FromL4
+      ToRules.ToDecls
+      ToRules.ToRules
+      ToRules.Types
+      ToSCASP
+  other-modules:
+      Paths_baby_l4
+  autogen-modules:
+      Paths_baby_l4
   hs-source-dirs:
-    src
-
-  build-depends:       base >= 4.7 && < 5
-                     , baby-l4-core
-                     , l4-generated
-                     , array
-                     , containers
-                     , pretty-simple
-                     , prettyprinter >= 1.7.0
-                     , split
-                     , text
-                     , extra
-                     -- required for lexer and parser
-                     , haskeline  >= 0.7
-                     , mtl        >= 2.2 && <2.4
-                     -- required for GF
-                     , gf
-                     , gf-ud
-                     -- required for SCasp abs.syn.
-                     , megaparsec
-                     -- Required for lexer/lsp interop
-                     , lsp-types
-                     , MissingH
-                     -- required for SMT interaction
-                     , simple-smt
-                     , sbv
-                     -- required for graph processing (rule transformation)
-                     , fgl >= 5.7
-                     , graphviz
-                     -- for package Util
-                     , ghc
-                     , tasty
-                     , tasty-hunit
-                     -- required for lsp
-                     , lsp        >=1.0.0.0
-                     , lsp-types  >=1.0.0.0
-                     , haskeline  >= 0.7
-                     , mtl        >= 2.2 && <2.4
-                     , lens
-                     , hslogger
-                     , sorted-list
-                     , either
-                     , transformers
-                     , rope-utf16-splay
-                     , mmorph
-                     , random
-                     , hxt
-  default-language: Haskell2010
-  ghc-options: -Wall
-
-test-suite unit-tests
-  default-language:
-    Haskell2010
-  type:
-    exitcode-stdio-1.0
-  hs-source-dirs:
-    tests
-  main-is:
-    Test.hs
-  other-modules:       DisambiguateTest
-                     , ToGFTest
-                     , Paths_baby_l4
-                     , ExpSysTest
+      src
+  ghc-options: -Wall -Wno-missed-extra-shared-lib
   build-depends:
-      base >= 4 && < 5
-    , baby-l4-core
-    , baby-l4
+      MissingH
+    , array
+    , base >=4.7 && <5
     , containers
+    , either
     , extra
+    , fgl
     , gf
     , gf-ud
-    , l4-generated
-    , prettyprinter
-    , split
-    , safe
-    , mtl
-    , tasty
-    , tasty-expected-failure
-    , tasty-golden
-    , tasty-hunit
-  ghc-options: -Wall
-
-executable l4
-  hs-source-dirs:      exe
-  main-is:             Main.hs
-  default-language:    Haskell2010
-  other-modules:       Paths_baby_l4
-  build-depends:       base >= 4.7 && < 5
-                     , baby-l4-core
-                     , baby-l4
-                     , array
-                     , containers
-                     , haskeline  >= 0.7
-                     , mtl        >= 2.2 && <2.4
-                     , pretty-simple
-                     , optparse-applicative
-
-executable lsp-server-bl4
-  hs-source-dirs:      lsp
-  main-is:             Main.hs
-  default-language:    Haskell2010
-  build-depends:       base >= 4.7 && < 5
-                     , baby-l4-core
-                     , baby-l4
-  ghc-options: -Wall
-
-
-executable hxtread
-  hs-source-dirs: hxtread
-  main-is: Main.hs
-  other-modules: Paths_baby_l4, DecTables
-  -- ghc-options: -threaded -rtsopts -with-rtsopts=-N
-  build-depends:
-      base >=4.7 && <5
+    , ghc
+    , graphviz
+    , haskeline
+    , hslogger
     , hxt
-    , hxt-css
-    , baby-l4
-    , baby-l4-core
+    , l4-generated
+    , lens
+    , lsp
+    , lsp-types
+    , megaparsec
+    , mmorph
+    , mtl
+    , optparse-applicative
+    , pretty-simple
+    , prettyprinter >=1.7.0
+    , sbv
+    , simple-smt
+    , sorted-list
+    , split
+    , tasty
+    , tasty-hunit
+    , text
+    , transformers
   default-language: Haskell2010
 
-test-suite lsp-server-tests
-  default-language:
-    Haskell2010
-  type:
-    exitcode-stdio-1.0
+library l4-generated
+  exposed-modules:
+      Prop
+      Answer
+      Questions
+      ParsePredicates
+      Predicates
+  other-modules:
+      Paths_baby_l4
+  autogen-modules:
+      Paths_baby_l4
   hs-source-dirs:
-    lsp-tests
+      grammars
+  ghc-options: -Wall -Wno-missed-extra-shared-lib
   build-tool-depends:
-    baby-l4:lsp-server-bl4
-  main-is:
-    Test.hs
+      gf:gf
   build-depends:
-      base >= 4 && < 5
-    , baby-l4-core
+      MissingH
+    , array
+    , base >=4.7 && <5
+    , containers
+    , either
+    , extra
+    , fgl
+    , gf
+    , gf-ud
+    , ghc
+    , graphviz
+    , haskeline
+    , hslogger
+    , hxt
+    , lens
+    , lsp
+    , lsp-types
+    , megaparsec
+    , mmorph
+    , mtl
+    , optparse-applicative
+    , pretty-simple
+    , prettyprinter >=1.7.0
+    , sbv
+    , simple-smt
+    , sorted-list
+    , split
     , tasty
     , tasty-hunit
-    , tasty-expected-failure
-    , baby-l4
-    , lsp-test
-    , lsp-types
     , text
+    , transformers
+  default-language: Haskell2010
+
+executable hxtread
+  main-is: Main.hs
+  other-modules:
+      DecTables
+      Paths_baby_l4
+  autogen-modules:
+      Paths_baby_l4
+  hs-source-dirs:
+      hxtread
+  ghc-options: -Wall -Wno-missed-extra-shared-lib
+  build-depends:
+      MissingH
+    , array
+    , baby-l4
+    , base >=4.7 && <5
+    , containers
+    , either
+    , extra
+    , fgl
+    , gf
+    , gf-ud
+    , ghc
+    , graphviz
+    , haskeline
+    , hslogger
+    , hxt
+    , hxt-css
+    , lens
+    , lsp
+    , lsp-types
+    , megaparsec
+    , mmorph
+    , mtl
+    , optparse-applicative
+    , pretty-simple
+    , prettyprinter >=1.7.0
+    , sbv
+    , simple-smt
+    , sorted-list
+    , split
+    , tasty
+    , tasty-hunit
+    , text
+    , transformers
+  default-language: Haskell2010
+
+executable l4
+  main-is: Main.hs
+  other-modules:
+      Paths_baby_l4
+  autogen-modules:
+      Paths_baby_l4
+  hs-source-dirs:
+      exe
+  ghc-options: -Wall -Wno-missed-extra-shared-lib -threaded -rtsopts "-with-rtsopts=-N -H500M -qg"
+  build-depends:
+      MissingH
+    , array
+    , baby-l4
+    , base >=4.7 && <5
+    , containers
+    , either
+    , extra
+    , fgl
+    , gf
+    , gf-ud
+    , ghc
+    , graphviz
+    , haskeline
+    , hslogger
+    , hxt
+    , l4-generated
+    , lens
+    , lsp
+    , lsp-types
+    , megaparsec
+    , mmorph
+    , mtl
+    , optparse-applicative
+    , pretty-simple
+    , prettyprinter >=1.7.0
+    , sbv
+    , simple-smt
+    , sorted-list
+    , split
+    , tasty
+    , tasty-hunit
+    , text
+    , transformers
+  default-language: Haskell2010

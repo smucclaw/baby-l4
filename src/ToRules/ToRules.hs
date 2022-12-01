@@ -5,11 +5,10 @@ import ToRules.Types
 import Prettyprinter (line)
 import L4.Syntax
 import L4.SyntaxManipulation (appToFunArgs)
-import L4LSP (arNameToString)
 import SimpleRules (isRule)
 import Data.Either (rights)
 import qualified Data.Set as S
-import Util (capitalise)
+import GHC.Utils.Misc (capitalise)
 import Data.Maybe (mapMaybe)
 
 
@@ -36,6 +35,10 @@ filterRule :: (Ord t, Show t) => Rule t -> Either String ProductionRule
 filterRule x
     | isRule x = Right $ ruleToProductionRule x
     | otherwise = Left $ "Not a valid rule: " ++ arNameToString (nameOfRule x) ++ "\n"
+
+arNameToString :: ARName -> String
+arNameToString Nothing = "(anonymous)"
+arNameToString (Just s) = s
 
 ruleToProductionRule :: (Ord t, Show t) => Rule t -> ProductionRule
 ruleToProductionRule Rule {nameOfRule, varDeclsOfRule, precondOfRule, postcondOfRule}

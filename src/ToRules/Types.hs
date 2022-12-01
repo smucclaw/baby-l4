@@ -15,8 +15,8 @@ module ToRules.Types where
 
 import Prettyprinter
 import L4.Syntax
-import Util (capitalise)
-import CoreSyn (Tickish(profNoteCC))
+import GHC.Utils.Misc (capitalise)
+-- import GHC.Types.Tickish (profNoteCC)
 
 -- L4 AST -> intermediate AST -> output format (clara/drools)
 
