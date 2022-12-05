@@ -18,7 +18,7 @@
         pkgs.mkShell {
           nativeBuildInputs = [
             gf-pkgs.gf-with-rgl
-            pkgs.haskell.compiler.ghc925
+            pkgs.haskell.compiler.ghc924
             nixpkgs-newer.legacyPackages.${arch}.stack
             # pkgs.graphviz
             # pkgs.emacs
