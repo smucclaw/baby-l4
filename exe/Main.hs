@@ -11,22 +11,16 @@ import L4.Typing ( checkError )
 import Proof (proveProgram)
 import System.Environment ( getEnv )
 import Options.Applicative
-import qualified ToGF.FromL4.ToProp as GF
 import System.IO ( stderr, hPutStr, hPutStrLn, hPrint )
 import System.IO.Error (catchIOError)
 import Control.Exception (catch, SomeException (SomeException))
 import Control.Monad ( when, unless )
-import ToSCASP (createSCasp)
-import ToGF.FromSCasp.SCasp ( parseModel )
-import ToGF.FromSCasp.ToAnswer ( nlgModels )
-import ToGF.FromL4.ToQuestions ( createQuestions )
-import ToGF.FromL4.ToAnswers ( createPGFforAnswers )
-import ToGF.NormalizeSyntax
 import L4.Annotation ( SRng, LocTypeAnnot (typeAnnot) )
 import Paths_baby_l4 (getDataFileName)
 import Text.Pretty.Simple ( pPrint, pPrintString, pPrint )
 import L4.Error (printError)
 import Data.Either (rights)
+import NormalizeSyntax
 
 import MainHelpers (readPrelude, getTpAst, HelperErr(..) )
 import Control.Monad.Except (runExceptT)
@@ -59,21 +53,16 @@ process args input = do
         (Fexpsys Graph)          -> expSys tpAstNoSrc
          -- (Fexpsys Rules) -> astToRules tpAstNoSrc
         (Fexpsys Rules)          -> genREP tpAstNoSrc
-        (Fgf GFOpts { gflang = gfl, showast = True } ) -> GF.nlgAST gfl fpath normalAst
-        (Fgf GFOpts { gflang = gfl, showast = False} ) -> GF.nlg    gfl fpath normalAst
         Fdmn                     -> genDMN tpAstNoSrc
-        Fepilog                  ->  astToEpilog tpAstNoSrc
-        Fscasp                   -> createSCasp normalAst
+        Fepilog                  -> astToEpilog tpAstNoSrc
         Fsmt                     -> proveProgram tpAstNoSrc
         Fyaml                    -> do createDSyaml tpAstNoSrc
                                        putStrLn "---------------"
                                        putStrLn "WIP: create the questions with GF. Below is the current progress. They are not used yet in the yaml."
-                                       createQuestions fpath normalAst
                                        putStrLn "---------------"
-                                       createPGFforAnswers fpath normalAst
 
 
-data Format   = Fasp | Fast | Fdmn | Fepilog | Fexpsys ESOpts | Fgf GFOpts | Fscasp  | Fsmt | Fyaml
+data Format   = Fasp | Fast | Fdmn | Fepilog | Fexpsys ESOpts | Fscasp  | Fsmt | Fyaml
   deriving Show
 
 --  l4 gf en          output english only
@@ -89,18 +78,13 @@ data InputOpts = InputOpts
   , filepath :: FilePath
   } deriving Show
 
-data GFOpts = GFOpts
-  { gflang  :: GF.GFlang   -- perhaps this should be a list of strings
-  , showast :: Bool }
-  deriving Show
 
 data ESOpts = Graph | Rules deriving Show
 
 optsParse :: Parser InputOpts
 optsParse = InputOpts <$>
               subparser
-                ( command "gf"   (info gfSubparser gfHelper)
-               <> command "epilog" (info (pure Fepilog) (progDesc "output to Epilog"))
+                ( command "epilog" (info (pure Fepilog) (progDesc "output to Epilog"))
                <> command "asp"  (info (pure Fasp) (progDesc "output to ASP / Clingo"))
                <> command "ast"  (info (pure Fast) (progDesc "Show the AST in Haskell"))
                <> command "scasp" (info (pure Fscasp) (progDesc "output to sCASP for DocAssemble purposes"))
@@ -113,14 +97,6 @@ optsParse = InputOpts <$>
             <*> argument str (metavar "Filename")
             <**> helper
         where
-          gfSubparser = fmap Fgf $ GFOpts <$>
-                          subparser
-                             ( command "all" (info (pure GF.GFall) (progDesc "tell GF to output all languages"))
-                            <> command "en"  (info (pure GF.GFeng) (progDesc "tell GF to output english"))
-                            <> command "swe" (info (pure GF.GFswe) (progDesc "tell GF to output swedish"))
-                             )
-                          <*> switch (long "ast" <> help "Print GF AST to STDERR")
-                        <**> helper
           gfHelper = fullDesc
                   <> header "l4 gf - specialized for natLang output"
                   <> progDesc "Prints natLang format (subcommands: en, my)"

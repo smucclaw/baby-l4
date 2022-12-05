@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE PatternSynonyms #-}
-module ToGF.NormalizeSyntax where
+module NormalizeSyntax where
 
 import L4.Annotation (HasDefault (defaultVal))
 import Data.Char (toLower)
