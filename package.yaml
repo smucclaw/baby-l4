@@ -8,29 +8,9 @@ copyright:           "2022"
 
 extra-source-files:
 - README.org
-- grammars/Prop.gf
-- grammars/Answer.gf
-- grammars/Questions.gf
-- grammars/Predicates.gf
-- grammars/ParsePredicates.gf
 
 data-files:
 - l4/Prelude.l4
-- grammars/Prop.gf
-- grammars/PropI.gf
-- grammars/PropEng.gf
-- grammars/Atoms.gf
-- grammars/AtomsEng.gf
-- grammars/Answer.gf
-- grammars/AnswerEng.gf
-- grammars/Questions.gf
-- grammars/QuestionsEng.gf
-- grammars/Predicates.gf
-- grammars/PredicatesEng.gf
-- grammars/ReducedWordNet.gf
-- grammars/ReducedWordNetEng.gf
-- grammars/ParsePredicates.labels
-- grammars/ParsePredicatesEng.labels
 
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
@@ -85,8 +65,6 @@ ghc-options: -Wall -Wno-missed-extra-shared-lib
 
 library:
   source-dirs: src
-  dependencies:
-  - l4-generated
 
 custom-setup:
   dependencies:
@@ -94,23 +72,6 @@ custom-setup:
     - base >= 4.7 && < 5
     - Cabal == 3.6.3.0
 
-internal-libraries:
-  l4-generated:
-    exposed-modules:
-      # generated from GF grammars
-      - Prop
-      - Answer
-      - Questions
-      - ParsePredicates
-      - Predicates
-
-    dependencies:
-    - gf
-    build-tools: gf:gf
-    ghc-options: []
-    source-dirs:
-      - grammars
-    language: Haskell2010
 
 executables:
   l4:
@@ -122,7 +83,6 @@ executables:
     - '"-with-rtsopts=-N -H500M -qg"'
     dependencies:
     - baby-l4
-    - l4-generated
 
   hxtread:
     source-dirs: hxtread
@@ -130,32 +90,3 @@ executables:
     dependencies:
     - hxt-css
     - baby-l4
-
-#  lsp-server-bl4:
-#    main:                Main.hs
-#    source-dirs:         lsp
-#    ghc-options:
-#    - -threaded
-#    - -rtsopts
-#    - '"-with-rtsopts=-N -H500M -qg"'
-#    dependencies:
-#    - baby-l4
-#    - l4-generated
-
-
-#tests:
-  # lsp-server-tests:
-  #   main:                Spec.hs
-  #   source-dirs:         lsp-tests
-  #   ghc-options:
-  #   - Wall
-  #   dependencies:
-  #   - tasty
-  #   - tasty-hunit
-  #   - tasty-expected-failure
-  #   - baby-l4
-  #   - l4-generated
-  #   - lsp-test
-  #   - lsp-types
-  #   - text
-
