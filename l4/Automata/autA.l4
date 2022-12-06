@@ -51,13 +51,13 @@ decl DTransTrace : Integer -> State -> Time -> Time -> State -> Time -> Time -> 
 # assert E<> at loc2  && clock0 == 2.0
 # formula not valid:
 # contradictory clock constraints in loc0 and transition loc0 -> loc2
-assert {TA: { valid
+assert <EF_at_Loc2_w_clock> {TA: { valid
             , expansions: 2
             , config: {loglevel: 0, logic: AUFLIRA}}}
-        E<> (at loc2)
+        E<> (at loc2) && clock0 == 2.0
 
 # formula valid:
-assert {TA: { valid
+assert <EF_at_Loc2> {TA: { valid
             , expansions: 2
             , config: {loglevel: 0, logic: AUFLIRA}}}
         E<> (at loc2)

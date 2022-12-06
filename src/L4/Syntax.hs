@@ -542,7 +542,10 @@ data Transition t = Transition {
 -- an invariant per location and
 -- a labelling (an expression true in the location).
 -- Major extension: "Labeling function" which is typically taken to be Loc -> AP -> Bool
--- for AP a type of atomic propositioons and which is here taken to be [(Loc, Expr t)].
+-- for AP a type of atomic propositions and which is here taken to be [(Loc, Expr t)].
+-- TODO: this needs a second thought because it can lead to inconsistencies, such as:
+-- a labelling [(l, a), (l, (and a b))] saying that a and (and a b) are true 
+-- but b is (implicitly) false
 -- Note: the set of locations, actions, clocks could in principle be inferred from the remaining info.
 -- Type parameter t: type of expressions: () or Tp, see function Typing/tpExprr
 data TA t =

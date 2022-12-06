@@ -346,13 +346,14 @@ uppaalBoolDecls : uppaalBool QVarsCommaSep ';'
 uppaalIntDecls : uppaalInt QVarsCommaSep ';' 
   { map (\(QVarName ann v) -> VarDecl ann v (ClassT (getLoc $1) IntegerC)) $2 }
 
--- TODO: labellings still to be added (if needed at all ...)
 -- TODO: annotation is a rough approximation, to be synthesized from annotations of subexpressions
-Automaton : process VAR '(' ')' '{' Clocks States Urgents Initial Transitions '}'
-  { TA {annotOfTA = (tokenRange $1 $11),
+-- NOTE: The Labellings component is specific to L4 and is not part of the Uppaal syntax.
+--       In Uppaal, labellings can somehow be coded in invariants, see note on invariants below
+Automaton : process VAR '(' ')' '{' Clocks States Urgents Initial Transitions Labellings '}'
+  { TA {annotOfTA = (tokenRange $1 $12),
         nameOfTA = (tokenSym $2), locsOfTA = (map fst $7), clocksOfTA = $6,
         transitionsOfTA = $10, urgentLocsOfTA = $8,
-        initialLocOfTA = $9, invarsOfTA = $7, labellingOfTA = []}}
+        initialLocOfTA = $9, invarsOfTA = $7, labellingOfTA = $11}}
 
 -- automaton list in reverse order
 AutomatonList :                          { [] }
@@ -386,7 +387,9 @@ InvarsAndSep :                        { [] }
             | Invar                     { [$1] }
             | InvarsAndSep '&&' Invar  { $3 : $1 }
 
--- TODO: refine the notion of invariant
+-- TODO: refine the notion of invariant.
+-- NOTE: In Uppaal, invariants can be boolean combinations of clock constraints (as below) and 
+--       other expressions. The precise syntactic conditions are not clear.
 Invar : VAR '<' INT  { ClConstr (Clock (tokenSym $1)) BClt $3 }
       | VAR '<=' INT { ClConstr (Clock (tokenSym $1)) BClte $3 }
       | VAR '>' INT  { ClConstr (Clock (tokenSym $1)) BCgt $3 }
@@ -433,6 +436,8 @@ TrAssignmentsCommaSep :                             { [] }
 -- The value assigned is here not taken into account
 TrAssignment : VAR '=' INT { Clock (tokenSym $1)  }
 
+-- TODO: to be defined
+Labellings : VAR   {[]}
 
 ----------------------------------------------------------------------
 -- Key-Value-Maps (used as instructions in rules and assertions)

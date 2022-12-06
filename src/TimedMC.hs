@@ -6,7 +6,7 @@ module TimedMC where
 import L4.Syntax
 import L4.SyntaxManipulation (conjExpr, disjExpr, implExpr, abstractQ, abstractF, liftVarBy, conjsExpr, disjsExpr, applyVars, mkVarE, mkEq, mkFloatConst, mkFunTp, index, indexListFromTo, gteExpr, eqExpr, mkIntConst, liftVar, funArgsToApp, notExpr, liftType)
 
-import L4.PrintProg (renameAndPrintExpr, renameExpr, printExpr)
+import L4.PrintProg (renameAndPrintExpr, renameExpr, printExpr, printARName )
 import Data.List (find)
 import Data.Maybe (fromMaybe)
 import Text.Pretty.Simple (pPrint)
@@ -465,6 +465,7 @@ proveAssertionTA prg instr asrt =
       concl = goalSpecificForm nExpans ta genTrace (exprOfAssertion asrt)
       proofTarget = constrProofTarget proveConsistency preconds concl
   in do
+    putStrLn ("Launching symbolic TA checker on " ++ printARName (nameOfAssertion asrt))
     print proveConsistency
     print (getAssocOfPathValue ["procs"] instr)
     proveExpr config proveConsistency cdecls globalVarDecls defs proofTarget -- launching the real checker

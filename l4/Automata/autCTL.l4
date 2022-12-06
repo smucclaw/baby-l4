@@ -7,7 +7,7 @@ clock clock1, clock0;
 state
     loc0,
     loc1 { clock1 <= 4 },
-    loc2;
+    loc2 { clock0 < 4 && clock1 < 42 };
 init
     loc0;
 trans
@@ -29,7 +29,7 @@ decl loc1 : State
 decl loc2 : State
 decl clock0 : Time
 decl clock1 : Time
-
+decl foobar : Boolean
 
 # decl ATrans : State -> State -> Boolean
 # decl DTrans : State -> Time -> Time -> State -> Time -> Time -> Boolean
@@ -46,7 +46,7 @@ decl ATransRes : Integer -> State -> Time -> Time -> State -> Time -> Time -> Bo
 # fact <locsDifferent> loc0 /= loc1
 
 # assert E<> at loc2  && clock0 == 2.0
-assert <EF_at_Loc2> {TA: {valid, config: {loglevel: 0, logic: AUFLIRA}}} E<> at loc2
+assert <EF_at_Loc2> {printUp: {valid, config: {loglevel: 0, logic: AUFLIRA}}} E<> at loc2
 # assert P (( \ st_1: State -> \st_2: State -> (f st_1)) st)
 
 

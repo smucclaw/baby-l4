@@ -11,6 +11,7 @@ import L4.Syntax
       rulesOfProgram )
 import ToASP(proveAssertionASP)
 import TimedMC (proveAssertionTA)
+import CtlMC (proveAssertionCTL)
 import Smt(proveAssertionSMT)
 import Control.Monad (foldM)
 import RuleTransfo (rewriteRuleSetDerived, rewriteRuleSetSubjectTo, rewriteRuleSetDespite)
@@ -22,6 +23,7 @@ import L4.PrintProg
 proveAssertion :: Program (Tp ()) -> Assertion (Tp ()) -> IO ()
 proveAssertion p asrt = foldM (\r (k,instr) ->
             case k of
+              "CTL" -> proveAssertionCTL p instr asrt
               "SMT" -> proveAssertionSMT p instr asrt
               "sCASP"-> proveAssertionASP p instr asrt
               "TA" -> proveAssertionTA p instr asrt

@@ -52,6 +52,7 @@ custom-setup
 
 library
   exposed-modules:
+      CtlMC
       Exec
       InterfaceNunchaku
       JustificationVis
