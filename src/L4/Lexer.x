@@ -75,6 +75,7 @@ tokens :-
   urgent                        { lex' TokenUrgent }
   init                          { lex' TokenInit }
   trans                         { lex' TokenTrans }
+  labels                        { lex' TokenLabels }
   guard                         { lex' TokenGuard }
   sync                          { lex' TokenSync }
   assign                        { lex' TokenAssign }
@@ -432,6 +433,7 @@ data TokenKind
   | TokenUrgent
   | TokenInit
   | TokenTrans
+  | TokenLabels
   | TokenGuard
   | TokenSync
   | TokenAssign
@@ -505,6 +507,7 @@ unLex TokenState     = "state"
 unLex TokenUrgent    = "urgent"
 unLex TokenInit      = "init"
 unLex TokenTrans     = "trans"
+unLex TokenLabels    = "labels"
 unLex TokenGuard     = "guard"
 unLex TokenSync      = "sync"
 unLex TokenAssign    = "assign"

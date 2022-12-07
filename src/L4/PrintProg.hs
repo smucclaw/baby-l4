@@ -9,7 +9,7 @@ import L4.KeyValueMap ( KVMap )
 import Prettyprinter
 --import Prettyprinter.Render.Text (putDoc)
 --import qualified Data.Maybe
-import Data.List (find)
+import Data.List (find, groupBy)
 --import Data.Maybe (fromMaybe)
 --import Util (capitalise)
 import L4.SyntaxManipulation (appToFunArgs)
@@ -482,6 +482,26 @@ showClockDecls cfs clocks =  pretty "clock" <+> hsep (punctuate comma (map (show
 showUrgent :: [PrintConfig] -> [Loc] -> Doc ann
 showUrgent _cfs [] = emptyDoc
 showUrgent cfs locs =  pretty "urgent" <+> hsep (punctuate comma (map (showL4 cfs) locs)) <> pretty ";"
+
+showLabels  :: Show t => [PrintConfig] -> (Loc, [Expr t]) -> Doc ann
+showLabels cfs (l, exprs) = 
+    pretty (nameOfLoc l) <> pretty ":" <+> 
+    hsep (punctuate comma (map (showL4 cfs) exprs)) <> pretty ";"
+
+
+showLabelling :: Show t => [PrintConfig] -> [(Loc, Expr t)] -> Doc ann
+showLabelling _cfs [] = emptyDoc
+showLabelling cfs lbs = 
+    let lbs_grouped = groupBy (\l1 -> \l2 -> fst l1 == fst l2) lbs in
+    let lbs_lbl_group = map (\gr -> (fst (head gr), map snd gr)) lbs_grouped in
+    --pretty "labels" <+> hsep (punctuate comma (map (showLabels cfs) lbs_lbl_group)) <> pretty ";"
+    nest nestingDepth
+        (vsep ([ pretty "labels" ] ++
+               (map (showLabels cfs) lbs_lbl_group)
+               )
+        )
+
+
 instance Show t => ShowL4 (TA t) where
     showL4 cfs aut =
         optionalBraces (pretty "process" <+> pretty (nameOfTA aut) <+> pretty "()") False
@@ -489,7 +509,8 @@ instance Show t => ShowL4 (TA t) where
              , showState cfs (locsOfTA aut) (invarsOfTA aut)
              , showUrgent cfs (urgentLocsOfTA aut)
              , pretty "init" <+> showL4 cfs (initialLocOfTA aut) <> pretty ";"
-             , showTrans cfs (transitionsOfTA aut)]
+             , showTrans cfs (transitionsOfTA aut)
+             , showLabelling cfs (labellingOfTA aut)]
 
 
 printL4System :: Show t => [PrintConfig] -> TASys t -> Doc ann

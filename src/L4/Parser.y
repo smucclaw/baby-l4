@@ -63,6 +63,7 @@ import Data.Maybe (fromMaybe)
     urgent      { L _ TokenUrgent }
     init        { L _ TokenInit }
     trans       { L _ TokenTrans }
+    labels      { L _ TokenLabels }
     guard       { L _ TokenGuard }
     sync        { L _ TokenSync }
     assign      { L _ TokenAssign }
@@ -349,7 +350,7 @@ uppaalIntDecls : uppaalInt QVarsCommaSep ';'
 -- TODO: annotation is a rough approximation, to be synthesized from annotations of subexpressions
 -- NOTE: The Labellings component is specific to L4 and is not part of the Uppaal syntax.
 --       In Uppaal, labellings can somehow be coded in invariants, see note on invariants below
-Automaton : process VAR '(' ')' '{' Clocks States Urgents Initial Transitions Labellings '}'
+Automaton : process VAR '(' ')' '{' Clocks States Urgents Initial Transitions Labelling '}'
   { TA {annotOfTA = (tokenRange $1 $12),
         nameOfTA = (tokenSym $2), locsOfTA = (map fst $7), clocksOfTA = $6,
         transitionsOfTA = $10, urgentLocsOfTA = $8,
@@ -437,7 +438,16 @@ TrAssignmentsCommaSep :                             { [] }
 TrAssignment : VAR '=' INT { Clock (tokenSym $1)  }
 
 -- TODO: to be defined
-Labellings : VAR   {[]}
+Labelling :                                  { [] }
+	 | labels LabelsSemicolonSep ';'           { $2 }
+
+LabelsSemicolonSep :                         { [] }
+            | Labels                         { $1 }
+            | LabelsSemicolonSep ';' Labels  { $1 ++ $3 }
+
+Labels : VAR ':' ExprsCommaSep               { map (\x -> ((Loc (tokenSym $1)), x)) $3 }
+
+
 
 ----------------------------------------------------------------------
 -- Key-Value-Maps (used as instructions in rules and assertions)
