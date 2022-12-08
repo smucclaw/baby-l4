@@ -296,10 +296,6 @@ ExprsCommaSep :                      { [] }
 ARName :                 { Nothing }
        | '<' VAR '>'     { Just (tokenSym $2) }
 
-Rules  :                       { [] }
-       | Rules Rule            { $2 : $1}
-       | Rules Fact            { $2 : $1}
-
 RuleOrFact : Rule { $1 }
            | Fact { $1 }
 -- TODO: KVMaps do not have a location, so the token range in the following is incomplete
