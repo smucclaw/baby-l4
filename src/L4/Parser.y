@@ -310,9 +310,6 @@ RuleVarDecls :                       { [] }
 RulePrecond : if Expr      { $2 }
 RuleConcl   : then Expr    { $2 }
 
-Assertions :                       { [] }
-           | Assertions Assertion  { $2 : $1 }
-
 -- TODO: same problem with locations as for Rule above
 Assertion : assert ARName KVMap        { Assertion (getLoc $1) $2 $3 (ValE (nullSRng) (BoolV True)) }
           | assert ARName KVMap Expr   { Assertion (tokenRange $1 $4) $2 $3 $4 }
