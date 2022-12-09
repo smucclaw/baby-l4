@@ -4,31 +4,31 @@
 module Main where
 
 
-import L4.Parser (parseProgram)
-import L4.Syntax (Program, ClassName)
-import L4.Typing ( checkError )
+--import L4.Parser (parseProgram)
+--import L4.Syntax (Program, ClassName)
+--import L4.Typing ( checkError )
 --import SmtSBV (proveProgram)
 import Proof (proveProgram)
 import System.Environment ( getEnv )
 import Options.Applicative
 import qualified ToGF.FromL4.ToProp as GF
-import System.IO ( stderr, hPutStr, hPutStrLn, hPrint )
+import System.IO ( stderr, hPutStr, hPutStrLn )
 import System.IO.Error (catchIOError)
 import Control.Exception (catch, SomeException (SomeException))
-import Control.Monad ( when, unless )
+--import Control.Monad ( when, unless )
 import ToSCASP (createSCasp)
-import ToGF.FromSCasp.SCasp ( parseModel )
-import ToGF.FromSCasp.ToAnswer ( nlgModels )
+--import ToGF.FromSCasp.SCasp ( parseModel )
+--import ToGF.FromSCasp.ToAnswer ( nlgModels )
 import ToGF.FromL4.ToQuestions ( createQuestions )
 import ToGF.FromL4.ToAnswers ( createPGFforAnswers )
 import ToGF.NormalizeSyntax
-import L4.Annotation ( SRng, LocTypeAnnot (typeAnnot) )
-import Paths_baby_l4 (getDataFileName)
-import Text.Pretty.Simple ( pPrint, pPrintString, pPrint )
+import L4.Annotation ( LocTypeAnnot (typeAnnot) )
+--import Paths_baby_l4 (getDataFileName)
+import Text.Pretty.Simple ( pPrint, pPrint )
 import L4.Error (printError)
-import Data.Either (rights)
+--import Data.Either (rights)
 
-import MainHelpers (readPrelude, getTpAst, HelperErr(..) )
+import MainHelpers (getTpAst, HelperErr(..) )
 import Control.Monad.Except (runExceptT)
 
 import ToDA2 (createDSyaml)
@@ -47,8 +47,8 @@ process args input = do
     Left (LexErr err) -> do
       putStrLn "Parser Error:"
       print err
-    Left (TpErr error) -> do
-      putStrLn (printError error)
+    Left (TpErr err) -> do
+      putStrLn (printError err)
     Right tpAst -> do
       let tpAstNoSrc = typeAnnot <$> tpAst 
           normalAst = normalizeProg tpAstNoSrc -- Creates predicates of class fields
