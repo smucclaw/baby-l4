@@ -358,8 +358,10 @@ data UBoolOp = UBnot
 data UTemporalOp
   = UTAF -- always finally
   | UTAG -- always generally
+  | UTAX -- always next
   | UTEF -- exists finally
   | UTEG -- exists generally
+  | UTEX -- exists next
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 -- unary operators (union of the above)
