@@ -7,16 +7,22 @@ clock clock1, clock0;
 state
     loc0,
     loc1 { clock1 <= 4 },
-    loc2 { clock0 < 4 && clock1 < 42 };
+    loc2 { clock0 < 4 && clock1 < 42 },
+    loc3;
 init
     loc0;
 trans
-   loc0 -> loc1 { guard clock0<=3;  },
-   loc0 -> loc2 { guard clock1>=5; assign clock1 = 0;  };
+     loc0 -> loc1 { guard clock0<=3;  }
+     , loc1 -> loc2 {}
+     , loc2 -> loc0 {}
+     , loc2 -> loc3 {}
+#   , loc0 -> loc2 { guard clock1>=5; assign clock1 = 0;  }
+   ;
 labels 
     loc0: a;
-    loc0: b;
-    loc1: b, c;
+    loc1: a, b, c;
+    loc2: a;
+    loc3: d;
 }
 
 
@@ -36,6 +42,7 @@ decl clock1 : Time
 decl a : Boolean
 decl b : Boolean
 decl c : Boolean
+decl d : Boolean
 
 # decl ATrans : State -> State -> Boolean
 # decl DTrans : State -> Time -> Time -> State -> Time -> Time -> Boolean
@@ -53,8 +60,14 @@ decl ATransRes : Integer -> State -> Time -> Time -> State -> Time -> Time -> Bo
 
 # assert E<> at loc2  && clock0 == 2.0
 # assert <EF_at_Loc2> {TA: {valid, config: {loglevel: 0, logic: AUFLIRA}}} E<> at loc2
-assert <EF_at_Loc2> {CTL} E[] b
-# assert P (( \ st_1: State -> \st_2: State -> (f st_1)) st)
+assert <AF_d> {CTL} A<> d
+assert <EF_d> {CTL} E<> d
+assert <AG_a> {CTL} A[] a
+assert <EF_b> {CTL} E<> b
+assert <EG_b> {CTL} E[] b
+
+assert <EF_AF_d> {CTL} E<> A<> d
+assert <AG_EF_d> {CTL} A[] E<> d
 
 
 # ------------
