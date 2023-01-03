@@ -22,131 +22,40 @@ import ToDMN.FromSimpleToReg
 import ToDMN.Types
 import ToDMN.Picklers
 
--- obtRule :: Program (Tp ()) -> String -> [Rule (Tp ())]
--- obtRule prog rname = [r | r <- rulesOfProgram prog, nameOfRule r == Just rname ]
 
--- mkProd :: Program (Tp ()) -> ProductionSystem
--- mkProd x = ProductionSystem {
---       boilerplate = ""
---     , functions = map varDefnToProductionDefn gdefns
---     , queries = ""
---     , classDecls = map (uncurry varDeclToProductionClassDecl) gdecls
---     , globals = ""
---     , rules = grules
---     } where gdecls = rights $ map filterDecls $ varDeclsOfProgram x
---             gdefns = varDefnsOfProgram x
---             grules = rights $ map filterRule $ rulesOfProgram x
+-- extracts the rules of a program and translates each rule into a decision table
+rulesToDecTables :: Show t => Program t -> [SimpleDecision]
+rulesToDecTables pg =
+    let rs = rulesOfProgram pg
+        filtered = filterRules rs
 
-genDMN :: Program (Tp ()) -> IO ()
+        classDecls = classDeclsOfProgram pg
+        varDecls = varDeclsOfProgram pg
+        env = initialEnvOfProgram classDecls varDecls
+        allPreds = globalsOfEnv env
+
+        -- groupedRules = groupBy' headPredOf filtered
+        -- e.g. [(I, [r6, facti]), ...]
+
+        -- let predMap = ruleGpsToPredGps groupedRules
+
+        allTables = allRulesToTables allPreds (groupBy' headPredOf filtered)
+    in allTables
+
+-- wraps the list of tables in an xml definitions element
+decTablesToXMLDefs :: [SimpleDecision] -> Definitions
+decTablesToXMLDefs sds =
+  let (decisions, _decIDState) = runState (mapM sDecisionToDecision sds) Map.empty
+      iddefs = decisionsToDefs decisions
+      (definitions, _defIDState) = runState iddefs Map.empty
+  in definitions
+
+
+-- genDMN :: Program (Tp ()) -> IO ()
+genDMN :: Show t => Program t -> IO ()
 genDMN x = do
-    -- let rf = Drools
-    -- let rf = Clara
-    -- print $ showForm rf $ mkProd x
 
-    let rs = rulesOfProgram x
-
-    let filtered = filterRules rs
-
-
-    -- let extractName = (map . map) nameOfRule
-    -- let unsortedGroup = extractName $ classifyHeadPred filtered
-    -- let sortedGroup = extractName $ (List.groupBy ((==) `Fn.on` headPredOf) . List.sortOn headPredOf) filtered
-
-    let classDecls = classDeclsOfProgram x
-    let varDecls = varDeclsOfProgram x
-    let env = initialEnvOfProgram classDecls varDecls
-    let allPreds = globalsOfEnv env
-    let dec = decomposeBinop (BBool BBand)
-
-    let groupedRules = groupBy' headPredOf filtered
-    -- e.g. [(I, [r6, facti]), ...]
-
-    let predMap = ruleGpsToPredGps groupedRules
-
-    let allTables = allRulesToTables allPreds (groupBy' headPredOf filtered)
-
-    -- pPrint "isValidPrecond"
-    -- pPrint $ map isValidPrecond rs
-    -- putStrLn "\n"
-
-    -- pPrint "isValidPostcond"
-    -- pPrint $ map isValidPostcond rs
-    -- putStrLn "\n"
-
-    -- pPrint $ map nameOfRule $ filterRules rs
-    -- pPrint "filtered rules"
-    -- pPrint filtered
-
-
-    -- print ( classifyBy (\a b -> (a `mod` 3) == (b `mod` 3)) [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] )
-    -- pPrint $ classifyHeadPred $ filterRules rs
-
-    -- ((+) `on` f) x y = f x + f y
-    -- pPrint $ (compare `Fn.on` headPredOf) (head filtered) (last filtered)
-
-    -- pPrint "rules grouped by sorted head preds"
-    -- pPrint groupedRules
-    -- putStrLn "\n"
-
-    -- pPrint "all preds"
-    -- pPrint allPreds
-    -- putStrLn "\n"
-
-    -- pPrint "decompose"
-    -- pPrint $ concatMap (dec . precondOfRule) (snd $ head groupedRules)
-    -- pPrint $ filter isTrueV $ concatMap (dec . precondOfRule) (snd $ head groupedRules)
-
-    -- pPrint "pred map"
-    -- pPrint predMap
-    -- putStrLn "\n"
-
-    -- pPrint "all preds"
-    -- pPrint allPreds
-    -- putStrLn "\n"
-
-    -- pPrint "schema"
-    -- pPrint $ map (schematize allPreds) predMap
-    -- putStrLn "\n"
-
-
-    -- pPrint "classDecls"
-    -- pPrint classDecls
-
-    -- pPrint "varDecls"
-    -- pPrint varDecls
-
-    -- pPrint "globals of env"
-    -- pPrint allPreds
-
-    -- pPrint "1st elem of env globals"
-    -- pPrint $ head allPreds
-
-    -- pPrint "pred type of P1"
-    -- pPrint $ lookupPredType "P1" allPreds
-
-
-    -- pPrint "input entries for r1"
-    -- pPrint $ mkInputEntries ["P1", "P2"] $ head rs
-    -- putStrLn "\n"
-
-    -- pPrint "dmn rule for r1"
-    -- pPrint $ mkRuleLine $ head rs
-
-    -- pPrint "table I"
-    -- pPrint $ ruleGroupToTable allPreds (head $ groupBy' headPredOf filtered)
-    -- putStrLn "\n"
-
-    -- pPrint "all tables"
-    -- pPrint allTables
-
-    -- mapM :: (a -> m b) -> t a -> m (t b)
-    -- mapM :: (SimpleDecision -> ID Decision) -> [SimpleDecision] -> ID [Decision]
-
-
-    let (decisions, _idState) = runState (mapM sDecisionToDecision allTables) Map.empty
-    let iddefs = decisionsToDefs decisions
-    let (defs, _idState) = runState iddefs Map.empty
-
+    let defs = (decTablesToXMLDefs . rulesToDecTables) x
 
     runX (
 
