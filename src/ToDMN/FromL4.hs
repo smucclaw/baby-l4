@@ -53,20 +53,49 @@ decTablesToXMLDefs sds =
 
 -- genDMN :: Program (Tp ()) -> IO ()
 genDMN :: Show t => Program t -> IO ()
-genDMN x = do
+genDMN x = -- do
 
-    let defs = (decTablesToXMLDefs . rulesToDecTables) x
+    -- let defs = (decTablesToXMLDefs . rulesToDecTables) x
 
-    runX (
+    -- runX (
 
-      constA defs
-      >>>
-      xpickleDocument xpDefinitions
-                      [ withIndent yes
-                      ] "src/ToDMN/out/minimal.dmn"
-      )
+    --   constA defs
+    --   >>>
+    --   xpickleDocument xpDefinitions
+    --                   [ withIndent yes
+    --                   ] "" -- "src/ToDMN/out/minimal.dmn"
+    --   )
 
-    return ()
+    -- return ()
+  writeTreeToDoc $ genXMLTree x
+
+genXMLTree :: (ArrowXml cat, Show t) => Program t -> cat a XmlTree
+genXMLTree x =
+  let defs = decTablesToXMLDefs $ rulesToDecTables x
+      arrDefs = constA defs
+      pickledXML = xpickleVal xpDefinitions
+  in arrDefs >>> pickledXML
+
+writeTreeToDoc :: IOSLA (XIOState ()) XmlTree XmlTree -> IO ()
+writeTreeToDoc tree = do
+  _ <- runX ( tree >>> writeDocument [ withIndent yes ] "" )
+  return ()
+
+-- constA :: c -> a b c
+-- constA :: Defs -> IOSArrow b Defs
+
+-- xpickleDocument :: PU a -> SysConfigList -> String -> IOSArrow a XmlTree
+-- xpickleDocument :: PU Defs -> [] -> "" -> IOSArrow Defs XmlTree
+
+-- (>>>) :: cat a b -> cat b c -> cat a c
+-- (>>>) :: IOSArrow b Defs -> IOSArrow Defs XmlTree -> IOSArrow b XmlTree
+
+
+-- xpickleVal :: ArrowXml a => PU b -> a b XmlTree
+-- xpickleVal :: ArrowXml a => PU Defs -> a Defs XmlTree
+
+-- (>>>) :: cat a b -> cat b c -> cat a c
+-- (>>>) :: arr x Defs -> arr Defs XmlTree -> arr x XmlTree
 
 
 isValE :: Expr t -> Bool
@@ -288,4 +317,3 @@ mkRuleLine (_, inPreds) r =
 
 
 -- assume that all variables come from tables
-
