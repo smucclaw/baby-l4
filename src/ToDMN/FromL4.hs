@@ -2,7 +2,7 @@
 
 module ToDMN.FromL4 where
 
--- import Debug.Trace
+import qualified Debug.Trace as Debug
 import qualified Data.Function as Fn
 import qualified Data.List as List
 import qualified Data.Map as Map
@@ -40,6 +40,7 @@ rulesToDecTables pg =
         -- let predMap = ruleGpsToPredGps groupedRules
 
         allTables = allRulesToTables allPreds (groupBy' headPredOf filtered)
+    -- in Debug.trace ("filtered rules" ++ show (map (showL4 []) filtered)) allTables
     in allTables
 
 -- wraps the list of tables in an xml definitions element
@@ -78,7 +79,7 @@ genXMLTree x =
 
 writeTreeToDoc :: IOSLA (XIOState ()) XmlTree XmlTree -> IO ()
 writeTreeToDoc tree = do
-  _ <- runX ( tree >>> writeDocument [ withIndent yes ] "" )
+  _ <- runX ( tree >>> writeDocument [ withIndent yes ] "src/ToDMN/out/minimal.dmn" )
   return ()
 
 -- constA :: c -> a b c
@@ -109,31 +110,36 @@ isVarE _  = False
 -- does AppE have only 1 arg?
 -- is each arg in AppE a value?
 -- appToFunArgs :: [Expr t] -> Expr t -> (Expr t, [Expr t])
-unaryApp :: Expr t -> Bool
+unaryApp :: Show t => Expr t -> Bool
 unaryApp appE =
   let (f, es) = appToFunArgs [] appE
+  -- in Debug.trace ("unary app\n" ++ show f ++ "\n" ++ show es) $ isVarE f && length es == 1 && all isValE es
   in isVarE f && length es == 1 && all isValE es
 
 
 -- is precond a conj of unary function applications?
-isValidPrecond :: Rule t -> Bool
+isValidPrecond :: Show t => Rule t -> Bool
 isValidPrecond = conjHasSimplePreds . precondOfRule
 
 -- is each pred in conjE a unary function application?
 -- decomposeBinop :: BinOp -> Expr t -> [Expr t]
-conjHasSimplePreds :: Expr t -> Bool
-conjHasSimplePreds bop = all unaryApp (decomposeBinopClean (BBool BBand) bop)
+conjHasSimplePreds :: Show t => Expr t -> Bool
+conjHasSimplePreds bop =
+  -- Debug.trace
+  -- ("simple preds" ++ show (decomposeBinopClean (BBool BBand) bop) )
+   all unaryApp (decomposeBinopClean (BBool BBand) bop)
 
 
 -- is postcond a unary function application?
-isValidPostcond :: Rule t -> Bool
+isValidPostcond :: Show t => Rule t -> Bool
 isValidPostcond = unaryApp . postcondOfRule
 
 
 -- filter for well-formed rules
 -- preconds should be conjs of app of single pred to single arg
 -- postcond should app of single pred to single arg
-filterRules :: [Rule t] -> [Rule t]
+filterRules :: Show t => [Rule t] -> [Rule t]
+-- filterRules = filter (\r -> isValidPrecond r)
 filterRules = filter (\r -> isValidPrecond r && isValidPostcond r)
 
 
