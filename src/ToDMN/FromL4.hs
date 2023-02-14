@@ -41,7 +41,8 @@ rulesToDecTables pg =
 
         allTables = allRulesToTables allPreds (groupBy' headPredOf filtered)
     -- in Debug.trace ("filtered rules" ++ show (map (showL4 []) filtered)) allTables
-    in allTables
+    in Debug.trace ("\nDEBUG env: " ++ show env)
+       allTables
 
 -- wraps the list of tables in an xml definitions element
 decTablesToXMLDefs :: [SimpleDecision] -> Definitions
@@ -113,8 +114,9 @@ isVarE _  = False
 unaryApp :: Show t => Expr t -> Bool
 unaryApp appE =
   let (f, es) = appToFunArgs [] appE
-  -- in Debug.trace ("unary app\n" ++ show f ++ "\n" ++ show es) $ isVarE f && length es == 1 && all isValE es
-  in isVarE f && length es == 1 && all isValE es
+  in Debug.trace ("\n--- DEBUG unary app --- \n" ++ show f ++ "\n" ++ show es ++ "\n--- DEBUG unary app --- \n" )
+  isVarE f && length es == 1 && all isValE es
+  -- in isVarE f && length es == 1 && all isValE es
 
 
 -- is precond a conj of unary function applications?
@@ -234,8 +236,13 @@ stringTpToFEELTp _ = error "not a valid FEELType"
 -- lookup should always succeed
 lookupPredType :: String -> VarEnvironment -> String
 lookupPredType nm env =
-  let (Just funt) = lookup nm env
-  in (stringOfClassName . classNameOfTp . paramTp) funt
+  -- let (Just funt) = lookup nm env
+  -- in (stringOfClassName . classNameOfTp . paramTp) funt
+
+  -- temporary modification to debug empty varnev
+  case lookup nm env of
+    Just funt -> (stringOfClassName . classNameOfTp . paramTp) funt
+    _ -> error ("DEBUG: pred " ++ nm ++ " not found in globalsOfEnv "  ++ show env ++ "\n")
 
 
 -- input is a single element of this
