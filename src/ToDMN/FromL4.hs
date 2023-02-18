@@ -7,10 +7,8 @@ import qualified Data.Function as Fn
 import qualified Data.List as List
 import qualified Data.Map as Map
 
-import Control.Arrow ( Arrow((&&&)) )
 import Control.Monad.Trans.State (runState)
 
-import Text.Pretty.Simple ( pPrint )
 import Text.XML.HXT.Core
 
 import L4.PrintProg
@@ -41,8 +39,15 @@ rulesToDecTables pg =
 
         allTables = allRulesToTables allPreds (groupBy' headPredOf filtered)
     -- in Debug.trace ("filtered rules" ++ show (map (showL4 []) filtered)) allTables
-    in Debug.trace ("\nDEBUG env: " ++ show env)
-       allTables
+    in allTables
+
+rulesToDecTablesNoType :: Show t => Program t -> [SimpleDecision]
+rulesToDecTablesNoType pg =
+  let rs = rulesOfProgram pg
+      filtered = filterRules rs
+      allTablesNoType = allRulesToTablesNoType (groupBy' headPredOf filtered)
+  in allTablesNoType
+
 
 -- wraps the list of tables in an xml definitions element
 decTablesToXMLDefs :: [SimpleDecision] -> Definitions
@@ -74,6 +79,13 @@ genDMN x = -- do
 genXMLTree :: (ArrowXml cat, Show t) => Program t -> cat a XmlTree
 genXMLTree x =
   let defs = decTablesToXMLDefs $ rulesToDecTables x
+      arrDefs = constA defs
+      pickledXML = xpickleVal xpDefinitions
+  in arrDefs >>> pickledXML
+
+genXMLTreeNoType :: (ArrowXml cat, Show t) => Program t -> cat a XmlTree
+genXMLTreeNoType x =
+  let defs = decTablesToXMLDefs $ rulesToDecTablesNoType x
       arrDefs = constA defs
       pickledXML = xpickleVal xpDefinitions
   in arrDefs >>> pickledXML
@@ -114,9 +126,8 @@ isVarE _  = False
 unaryApp :: Show t => Expr t -> Bool
 unaryApp appE =
   let (f, es) = appToFunArgs [] appE
-  in Debug.trace ("\n--- DEBUG unary app --- \n" ++ show f ++ "\n" ++ show es ++ "\n--- DEBUG unary app --- \n" )
-  isVarE f && length es == 1 && all isValE es
-  -- in isVarE f && length es == 1 && all isValE es
+  -- in Debug.trace ("\n--- DEBUG unary app --- \n" ++ show f ++ "\n" ++ show es ++ "\n--- DEBUG unary app --- \n" )
+  in isVarE f && length es == 1 && all isValE es
 
 
 -- is precond a conj of unary function applications?
@@ -215,12 +226,23 @@ schematize env (hp, body) =
   (map (mkSimpleInputSchema env) body)
   (mkSimpleOutputSchema env hp)
 
+schematizeNoType :: (String, [String]) -> SimpleSchema
+schematizeNoType (hp, body) =
+  SimpleSchema (map mkSimpleInputSchemaNoType body) (mkSimpleOutputSchemaNoType hp)
+
 mkSimpleInputSchema :: VarEnvironment -> String -> SimpleInputSchema
-mkSimpleInputSchema env "" = undefined
+mkSimpleInputSchema _ ""   = undefined
 mkSimpleInputSchema env pd = SimpleInputSchema pd (stringTpToFEELTp (lookupPredType pd env))
+
+mkSimpleInputSchemaNoType :: String -> SimpleInputSchema
+mkSimpleInputSchemaNoType "" = undefined
+mkSimpleInputSchemaNoType pd = SimpleInputSchema pd "Any"
 
 mkSimpleOutputSchema :: VarEnvironment -> String -> SimpleOutputSchema
 mkSimpleOutputSchema env pd = SimpleOutputSchema pd (stringTpToFEELTp (lookupPredType pd env))
+
+mkSimpleOutputSchemaNoType :: String -> SimpleOutputSchema
+mkSimpleOutputSchemaNoType pd = SimpleOutputSchema pd "Any"
 
 -- TODO
 -- how to deal with predicates of arbitrary classes (invalid types)
@@ -239,10 +261,10 @@ lookupPredType nm env =
   -- let (Just funt) = lookup nm env
   -- in (stringOfClassName . classNameOfTp . paramTp) funt
 
-  -- temporary modification to debug empty varnev
+  -- debug empty varnev
   case lookup nm env of
     Just funt -> (stringOfClassName . classNameOfTp . paramTp) funt
-    _ -> error ("DEBUG: pred " ++ nm ++ " not found in globalsOfEnv "  ++ show env ++ "\n")
+    _ -> error ("pred " ++ nm ++ " not found in globalsOfEnv "  ++ show env ++ "\n")
 
 
 -- input is a single element of this
@@ -265,12 +287,16 @@ lookupPredType nm env =
 
 -- table O
 -- P1 | P3 | P2    | O
--- 2  | 4  | False | 10
--- 1  | -  | -     | 11
+-- 2  | 4  | False | 11 (r2)
+-- 1  | -  | -     | 10 (r3)
+-- 11 | 33 | True  | 44 (r5)
 
 -- [("O", [r2, r3]), ("O2", [r1])]
 allRulesToTables :: Show t => VarEnvironment -> [(String, [Rule t])] -> [SimpleDecision]
 allRulesToTables env = map (ruleGroupToTable env)
+
+allRulesToTablesNoType :: Show t => [(String, [Rule t])] -> [SimpleDecision]
+allRulesToTablesNoType = map ruleGroupToTableNoType
 
 -- given a varenv, output pred and corresponding rules e.g. ("O", [r2, r3])
 -- generates a simple decision table
@@ -278,6 +304,14 @@ ruleGroupToTable :: Show t => VarEnvironment -> (String, [Rule t]) -> SimpleDeci
 ruleGroupToTable env rg@(_, rs) =
   let predGp = ruleGpToPredGp rg
       schema = schematize env predGp
+      ruleLines = map (mkRuleLine predGp) rs
+      inputPreds = snd predGp
+  in SimpleDecTableEl (map (SimpleReqInputEl . ("#"++)) inputPreds) schema ruleLines
+
+ruleGroupToTableNoType :: Show t => (String, [Rule t]) -> SimpleDecision
+ruleGroupToTableNoType rg@(_, rs) =
+  let predGp = ruleGpToPredGp rg
+      schema = schematizeNoType predGp
       ruleLines = map (mkRuleLine predGp) rs
       inputPreds = snd predGp
   in SimpleDecTableEl (map (SimpleReqInputEl . ("#"++)) inputPreds) schema ruleLines
