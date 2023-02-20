@@ -7,7 +7,6 @@ import Test.Tasty.HUnit
 -- import Control.Monad.IO.Class (MonadIO(liftIO))
 import PGF
 import Paths_baby_l4 (getDataFileName)
-import ToGF.Disambiguate
 import qualified Data.Map as M
 import Control.Monad (forM_, void)
 import Safe.Partial (Partial)

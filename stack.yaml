@@ -11,12 +11,6 @@ extra-deps:
 - github: mengwong/compact
   commit: 214867cfd0868c02313e97f29215d48545458da3
 
-#   - github: anka-213/gf-ud # Upstream: GrammaticalFramework/gf-ud
-#     commit: 9a3a89f1e2896a26ab1671405f2af2b3facfc893
-    # branch: all-changes
-#  - github: GrammaticalFramework/gf-ud
-#    commit: 4b0760e02f9efdb8fbdd47ed2258e9b89f15a14d
-
 
 - cgi-3001.5.0.0@sha256:3d1193a328d5f627a021a0ef3927c1ae41dd341e32dba612fed52d0e3a6df056,2990
 - multipart-0.2.1@sha256:c96322a5bb34c29738ba82345d071a8e07d752648de3522f1c04d96df955ea0d,1150
