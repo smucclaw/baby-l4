@@ -31,7 +31,6 @@ dependencies:
 - mtl
   # required for GF
 - gf
-- gf-ud
   # required for SCasp abs.syn.
 - megaparsec
   # Required for lexer/lsp interop
@@ -90,3 +89,19 @@ executables:
     dependencies:
     - hxt-css
     - baby-l4
+
+tests:
+  tasty:
+    main: Test.hs
+    source-dirs:
+      - tests
+      - src
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - '"-with-rtsopts=-N -H500M -qg"'
+    dependencies:
+      - hspec == 2.*
+      - safe
+      - tasty
+      - tasty-expected-failure
