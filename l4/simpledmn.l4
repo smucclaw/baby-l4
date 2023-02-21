@@ -1,11 +1,12 @@
 
 decl P1: Integer -> Boolean
-decl P2: Boolean -> Boolean
-decl P3: Integer -> Boolean
+# decl P2: Boolean -> Boolean
+# decl P3: Integer -> Boolean
 decl O: Integer -> Boolean
-decl O2: Integer -> Boolean
+# decl O2: Integer -> Boolean
 
-decl P5: Integer -> Integer -> Boolean
+# decl P5: Integer -> Integer -> Boolean
+
 # decl Foo: (Integer -> Integer) -> Boolean
 
 decl I: Integer -> Boolean
@@ -18,9 +19,9 @@ decl I: Integer -> Boolean
 # if P1 2 && P3 4 && P2 False
 # then O 11
 
-rule <r3>
-if P1 1
-then O 10
+# rule <r3>
+# if P1 1
+# then O 10
 
 # rule <r4>
 # if not (P1 6) && P5 8 9
@@ -40,8 +41,8 @@ then O 10
 
 
 ## facts
-fact <factp1>
-P1 1
+# fact <factp1>
+# P1 1
 
 # fact <factp2>
 # P2 True
@@ -51,3 +52,12 @@ P1 1
 
 # fact <facti>
 # I 5
+
+
+rule <Rule_r1>
+if (P1 1)
+then (O 10)
+
+rule <Rule_r2>
+if True
+then (P1 1)

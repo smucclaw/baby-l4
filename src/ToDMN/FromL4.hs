@@ -2,15 +2,13 @@
 
 module ToDMN.FromL4 where
 
--- import Debug.Trace
+import qualified Debug.Trace as Debug
 import qualified Data.Function as Fn
 import qualified Data.List as List
 import qualified Data.Map as Map
 
-import Control.Arrow ( Arrow((&&&)) )
 import Control.Monad.Trans.State (runState)
 
-import Text.Pretty.Simple ( pPrint )
 import Text.XML.HXT.Core
 
 import L4.PrintProg
@@ -22,142 +20,96 @@ import ToDMN.FromSimpleToReg
 import ToDMN.Types
 import ToDMN.Picklers
 
--- obtRule :: Program (Tp ()) -> String -> [Rule (Tp ())]
--- obtRule prog rname = [r | r <- rulesOfProgram prog, nameOfRule r == Just rname ]
 
--- mkProd :: Program (Tp ()) -> ProductionSystem
--- mkProd x = ProductionSystem {
---       boilerplate = ""
---     , functions = map varDefnToProductionDefn gdefns
---     , queries = ""
---     , classDecls = map (uncurry varDeclToProductionClassDecl) gdecls
---     , globals = ""
---     , rules = grules
---     } where gdecls = rights $ map filterDecls $ varDeclsOfProgram x
---             gdefns = varDefnsOfProgram x
---             grules = rights $ map filterRule $ rulesOfProgram x
+-- extracts the rules of a program and translates each rule into a decision table
+rulesToDecTables :: Show t => Program t -> [SimpleDecision]
+rulesToDecTables pg =
+    let rs = rulesOfProgram pg
+        filtered = filterRules rs
 
-genDMN :: Program (Tp ()) -> IO ()
-genDMN x = do
-    -- let rf = Drools
-    -- let rf = Clara
-    -- print $ showForm rf $ mkProd x
+        classDecls = classDeclsOfProgram pg
+        varDecls = varDeclsOfProgram pg
+        env = initialEnvOfProgram classDecls varDecls
+        allPreds = globalsOfEnv env
 
-    let rs = rulesOfProgram x
+        -- groupedRules = groupBy' headPredOf filtered
+        -- e.g. [(I, [r6, facti]), ...]
 
-    let filtered = filterRules rs
+        -- let predMap = ruleGpsToPredGps groupedRules
 
+        allTables = allRulesToTables allPreds (groupBy' headPredOf filtered)
+    -- in Debug.trace ("filtered rules" ++ show (map (showL4 []) filtered)) allTables
+    in allTables
 
-    -- let extractName = (map . map) nameOfRule
-    -- let unsortedGroup = extractName $ classifyHeadPred filtered
-    -- let sortedGroup = extractName $ (List.groupBy ((==) `Fn.on` headPredOf) . List.sortOn headPredOf) filtered
-
-    let classDecls = classDeclsOfProgram x
-    let varDecls = varDeclsOfProgram x
-    let env = initialEnvOfProgram classDecls varDecls
-    let allPreds = globalsOfEnv env
-    let dec = decomposeBinop (BBool BBand)
-
-    let groupedRules = groupBy' headPredOf filtered
-    -- e.g. [(I, [r6, facti]), ...]
-
-    let predMap = ruleGpsToPredGps groupedRules
-
-    let allTables = allRulesToTables allPreds (groupBy' headPredOf filtered)
-
-    -- pPrint "isValidPrecond"
-    -- pPrint $ map isValidPrecond rs
-    -- putStrLn "\n"
-
-    -- pPrint "isValidPostcond"
-    -- pPrint $ map isValidPostcond rs
-    -- putStrLn "\n"
-
-    -- pPrint $ map nameOfRule $ filterRules rs
-    -- pPrint "filtered rules"
-    -- pPrint filtered
+rulesToDecTablesNoType :: Show t => Program t -> [SimpleDecision]
+rulesToDecTablesNoType pg =
+  let rs = rulesOfProgram pg
+      filtered = filterRules rs
+      allTablesNoType = allRulesToTablesNoType (groupBy' headPredOf filtered)
+  in allTablesNoType
 
 
-    -- print ( classifyBy (\a b -> (a `mod` 3) == (b `mod` 3)) [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] )
-    -- pPrint $ classifyHeadPred $ filterRules rs
-
-    -- ((+) `on` f) x y = f x + f y
-    -- pPrint $ (compare `Fn.on` headPredOf) (head filtered) (last filtered)
-
-    -- pPrint "rules grouped by sorted head preds"
-    -- pPrint groupedRules
-    -- putStrLn "\n"
-
-    -- pPrint "all preds"
-    -- pPrint allPreds
-    -- putStrLn "\n"
-
-    -- pPrint "decompose"
-    -- pPrint $ concatMap (dec . precondOfRule) (snd $ head groupedRules)
-    -- pPrint $ filter isTrueV $ concatMap (dec . precondOfRule) (snd $ head groupedRules)
-
-    -- pPrint "pred map"
-    -- pPrint predMap
-    -- putStrLn "\n"
-
-    -- pPrint "all preds"
-    -- pPrint allPreds
-    -- putStrLn "\n"
-
-    -- pPrint "schema"
-    -- pPrint $ map (schematize allPreds) predMap
-    -- putStrLn "\n"
+-- wraps the list of tables in an xml definitions element
+decTablesToXMLDefs :: [SimpleDecision] -> Definitions
+decTablesToXMLDefs sds =
+  let (decisions, _decIDState) = runState (mapM sDecisionToDecision sds) Map.empty
+      iddefs = decisionsToDefs decisions
+      (definitions, _defIDState) = runState iddefs Map.empty
+  in definitions
 
 
-    -- pPrint "classDecls"
-    -- pPrint classDecls
+-- genDMN :: Program (Tp ()) -> IO ()
+genDMN :: Show t => Program t -> IO ()
+genDMN x = -- do
 
-    -- pPrint "varDecls"
-    -- pPrint varDecls
+    -- let defs = (decTablesToXMLDefs . rulesToDecTables) x
 
-    -- pPrint "globals of env"
-    -- pPrint allPreds
+    -- runX (
 
-    -- pPrint "1st elem of env globals"
-    -- pPrint $ head allPreds
+    --   constA defs
+    --   >>>
+    --   xpickleDocument xpDefinitions
+    --                   [ withIndent yes
+    --                   ] "" -- "src/ToDMN/out/minimal.dmn"
+    --   )
 
-    -- pPrint "pred type of P1"
-    -- pPrint $ lookupPredType "P1" allPreds
+    -- return ()
+  writeTreeToDoc $ genXMLTree x
+
+genXMLTree :: (ArrowXml cat, Show t) => Program t -> cat a XmlTree
+genXMLTree x =
+  let defs = decTablesToXMLDefs $ rulesToDecTables x
+      arrDefs = constA defs
+      pickledXML = xpickleVal xpDefinitions
+  in arrDefs >>> pickledXML
+
+genXMLTreeNoType :: (ArrowXml cat, Show t) => Program t -> cat a XmlTree
+genXMLTreeNoType x =
+  let defs = decTablesToXMLDefs $ rulesToDecTablesNoType x
+      arrDefs = constA defs
+      pickledXML = xpickleVal xpDefinitions
+  in arrDefs >>> pickledXML
+
+writeTreeToDoc :: IOSLA (XIOState ()) XmlTree XmlTree -> IO ()
+writeTreeToDoc tree = do
+  _ <- runX ( tree >>> writeDocument [ withIndent yes ] "src/ToDMN/out/minimal.dmn" )
+  return ()
+
+-- constA :: c -> a b c
+-- constA :: Defs -> IOSArrow b Defs
+
+-- xpickleDocument :: PU a -> SysConfigList -> String -> IOSArrow a XmlTree
+-- xpickleDocument :: PU Defs -> [] -> "" -> IOSArrow Defs XmlTree
+
+-- (>>>) :: cat a b -> cat b c -> cat a c
+-- (>>>) :: IOSArrow b Defs -> IOSArrow Defs XmlTree -> IOSArrow b XmlTree
 
 
-    -- pPrint "input entries for r1"
-    -- pPrint $ mkInputEntries ["P1", "P2"] $ head rs
-    -- putStrLn "\n"
+-- xpickleVal :: ArrowXml a => PU b -> a b XmlTree
+-- xpickleVal :: ArrowXml a => PU Defs -> a Defs XmlTree
 
-    -- pPrint "dmn rule for r1"
-    -- pPrint $ mkRuleLine $ head rs
-
-    -- pPrint "table I"
-    -- pPrint $ ruleGroupToTable allPreds (head $ groupBy' headPredOf filtered)
-    -- putStrLn "\n"
-
-    -- pPrint "all tables"
-    -- pPrint allTables
-
-    -- mapM :: (a -> m b) -> t a -> m (t b)
-    -- mapM :: (SimpleDecision -> ID Decision) -> [SimpleDecision] -> ID [Decision]
-
-
-    let (decisions, _idState) = runState (mapM sDecisionToDecision allTables) Map.empty
-    let iddefs = decisionsToDefs decisions
-    let (defs, _idState) = runState iddefs Map.empty
-
-
-    runX (
-
-      constA defs
-      >>>
-      xpickleDocument xpDefinitions
-                      [ withIndent yes
-                      ] "src/ToDMN/out/minimal.dmn"
-      )
-
-    return ()
+-- (>>>) :: cat a b -> cat b c -> cat a c
+-- (>>>) :: arr x Defs -> arr Defs XmlTree -> arr x XmlTree
 
 
 isValE :: Expr t -> Bool
@@ -171,31 +123,36 @@ isVarE _  = False
 -- does AppE have only 1 arg?
 -- is each arg in AppE a value?
 -- appToFunArgs :: [Expr t] -> Expr t -> (Expr t, [Expr t])
-unaryApp :: Expr t -> Bool
+unaryApp :: Show t => Expr t -> Bool
 unaryApp appE =
   let (f, es) = appToFunArgs [] appE
+  -- in Debug.trace ("\n--- DEBUG unary app --- \n" ++ show f ++ "\n" ++ show es ++ "\n--- DEBUG unary app --- \n" )
   in isVarE f && length es == 1 && all isValE es
 
 
 -- is precond a conj of unary function applications?
-isValidPrecond :: Rule t -> Bool
+isValidPrecond :: Show t => Rule t -> Bool
 isValidPrecond = conjHasSimplePreds . precondOfRule
 
 -- is each pred in conjE a unary function application?
 -- decomposeBinop :: BinOp -> Expr t -> [Expr t]
-conjHasSimplePreds :: Expr t -> Bool
-conjHasSimplePreds bop = all unaryApp (decomposeBinopClean (BBool BBand) bop)
+conjHasSimplePreds :: Show t => Expr t -> Bool
+conjHasSimplePreds bop =
+  -- Debug.trace
+  -- ("simple preds" ++ show (decomposeBinopClean (BBool BBand) bop) )
+   all unaryApp (decomposeBinopClean (BBool BBand) bop)
 
 
 -- is postcond a unary function application?
-isValidPostcond :: Rule t -> Bool
+isValidPostcond :: Show t => Rule t -> Bool
 isValidPostcond = unaryApp . postcondOfRule
 
 
 -- filter for well-formed rules
 -- preconds should be conjs of app of single pred to single arg
 -- postcond should app of single pred to single arg
-filterRules :: [Rule t] -> [Rule t]
+filterRules :: Show t => [Rule t] -> [Rule t]
+-- filterRules = filter (\r -> isValidPrecond r)
 filterRules = filter (\r -> isValidPrecond r && isValidPostcond r)
 
 
@@ -269,12 +226,23 @@ schematize env (hp, body) =
   (map (mkSimpleInputSchema env) body)
   (mkSimpleOutputSchema env hp)
 
+schematizeNoType :: (String, [String]) -> SimpleSchema
+schematizeNoType (hp, body) =
+  SimpleSchema (map mkSimpleInputSchemaNoType body) (mkSimpleOutputSchemaNoType hp)
+
 mkSimpleInputSchema :: VarEnvironment -> String -> SimpleInputSchema
-mkSimpleInputSchema env "" = undefined
+mkSimpleInputSchema _ ""   = undefined
 mkSimpleInputSchema env pd = SimpleInputSchema pd (stringTpToFEELTp (lookupPredType pd env))
+
+mkSimpleInputSchemaNoType :: String -> SimpleInputSchema
+mkSimpleInputSchemaNoType "" = undefined
+mkSimpleInputSchemaNoType pd = SimpleInputSchema pd "Any"
 
 mkSimpleOutputSchema :: VarEnvironment -> String -> SimpleOutputSchema
 mkSimpleOutputSchema env pd = SimpleOutputSchema pd (stringTpToFEELTp (lookupPredType pd env))
+
+mkSimpleOutputSchemaNoType :: String -> SimpleOutputSchema
+mkSimpleOutputSchemaNoType pd = SimpleOutputSchema pd "Any"
 
 -- TODO
 -- how to deal with predicates of arbitrary classes (invalid types)
@@ -290,8 +258,13 @@ stringTpToFEELTp _ = error "not a valid FEELType"
 -- lookup should always succeed
 lookupPredType :: String -> VarEnvironment -> String
 lookupPredType nm env =
-  let (Just funt) = lookup nm env
-  in (stringOfClassName . classNameOfTp . paramTp) funt
+  -- let (Just funt) = lookup nm env
+  -- in (stringOfClassName . classNameOfTp . paramTp) funt
+
+  -- debug empty varnev
+  case lookup nm env of
+    Just funt -> (stringOfClassName . classNameOfTp . paramTp) funt
+    _ -> error ("pred " ++ nm ++ " not found in globalsOfEnv "  ++ show env ++ "\n")
 
 
 -- input is a single element of this
@@ -314,12 +287,16 @@ lookupPredType nm env =
 
 -- table O
 -- P1 | P3 | P2    | O
--- 2  | 4  | False | 10
--- 1  | -  | -     | 11
+-- 2  | 4  | False | 11 (r2)
+-- 1  | -  | -     | 10 (r3)
+-- 11 | 33 | True  | 44 (r5)
 
 -- [("O", [r2, r3]), ("O2", [r1])]
 allRulesToTables :: Show t => VarEnvironment -> [(String, [Rule t])] -> [SimpleDecision]
 allRulesToTables env = map (ruleGroupToTable env)
+
+allRulesToTablesNoType :: Show t => [(String, [Rule t])] -> [SimpleDecision]
+allRulesToTablesNoType = map ruleGroupToTableNoType
 
 -- given a varenv, output pred and corresponding rules e.g. ("O", [r2, r3])
 -- generates a simple decision table
@@ -327,6 +304,14 @@ ruleGroupToTable :: Show t => VarEnvironment -> (String, [Rule t]) -> SimpleDeci
 ruleGroupToTable env rg@(_, rs) =
   let predGp = ruleGpToPredGp rg
       schema = schematize env predGp
+      ruleLines = map (mkRuleLine predGp) rs
+      inputPreds = snd predGp
+  in SimpleDecTableEl (map (SimpleReqInputEl . ("#"++)) inputPreds) schema ruleLines
+
+ruleGroupToTableNoType :: Show t => (String, [Rule t]) -> SimpleDecision
+ruleGroupToTableNoType rg@(_, rs) =
+  let predGp = ruleGpToPredGp rg
+      schema = schematizeNoType predGp
       ruleLines = map (mkRuleLine predGp) rs
       inputPreds = snd predGp
   in SimpleDecTableEl (map (SimpleReqInputEl . ("#"++)) inputPreds) schema ruleLines
@@ -379,4 +364,3 @@ mkRuleLine (_, inPreds) r =
 
 
 -- assume that all variables come from tables
-
