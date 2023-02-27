@@ -1,0 +1,23 @@
+name: Build and run tests
+on:
+  push:
+  # pull_request: # Don't run twice
+jobs:
+  flakes-simple:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: haskell/actions/setup@v2
+        with:
+          enable-stack: true
+      - uses: actions/cache@v3
+        name: Cache ~/.stack
+        with:
+          path: ~/.stack
+          key: ${{ runner.os }}-${{ matrix.ghc }}-stack-${{ hashFiles('stack.yaml.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.ghc }}-stack
+      - name: Install libcurl
+        run: sudo apt-get  install libcurl4-openssl-dev
+      - name: Test explainable
+        run: stack test
