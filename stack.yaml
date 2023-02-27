@@ -1,4 +1,4 @@
-resolver: lts-20.11
+resolver: lts-20.12
 
 packages:
   - .
@@ -6,22 +6,10 @@ packages:
 extra-deps:
 - github: smucclaw/gf-core
   commit: edb55df7b0c4892ba0bac2817b5f493921c20c36
-- github: smucclaw/gf-ud
-  commit: bb53f75a789fa1d8173bccf52bd076e60771796c
 - github: mengwong/compact
   commit: 214867cfd0868c02313e97f29215d48545458da3
-
-
-- cgi-3001.5.0.0@sha256:3d1193a328d5f627a021a0ef3927c1ae41dd341e32dba612fed52d0e3a6df056,2990
-- multipart-0.2.1@sha256:c96322a5bb34c29738ba82345d071a8e07d752648de3522f1c04d96df955ea0d,1150
-
-- lsp-1.6.0.0@sha256:2b95e406cc85ffa95406ae8ad7d16b82283a6ca2fcb7ea5308a4ef3e6d6e68e6,4397
-- simple-smt-0.9.7@sha256:a93eba88f8177e13b39bf664b53ad65ca8eea976f00cae443c081b3ea3c26fb3,736
-- co-log-core-0.3.2.0@sha256:9b2699adecee2f072b6c713089e675b592ef23f00a2ff3740bdaf4d87de8d456,3850
-- text-2.0.1@sha256:907ecca6d20c42dafceb709ebac546f5d72e8b7dda3c39b286888c2f09e3bad8,9262
-- parsec-3.1.15.1@sha256:8c7a36aaadff12a38817fc3c4ff6c87e3352cffd1a58df640de7ed7a97ad8fa3,4601
-- Cabal-3.6.3.0@sha256:ff97c442b0c679c1c9876acd15f73ac4f602b973c45bde42b43ec28265ee48f4,12459
-# we want 3.6.3.0, not 3.8.1.0
+- github: yav/simple-smt  
+  commit: dd03ca1
 
 # Required for the option custom-preprocessor-extensions
 require-stack-version: ">= 2.7.1"
