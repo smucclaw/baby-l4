@@ -83,12 +83,12 @@ executables:
     dependencies:
     - baby-l4
 
-  hxtread:
-    source-dirs: hxtread
-    main: Main.hs
-    dependencies:
-    - hxt-css
-    - baby-l4
+  # hxtread:
+  #   source-dirs: hxtread
+  #   main: Main.hs
+  #   dependencies:
+  #   - hxt-css
+  #   - baby-l4
 
 tests:
   tasty:
