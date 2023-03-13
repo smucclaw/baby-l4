@@ -18,7 +18,7 @@ import L4.Typing
 
 import ToDMN.FromSimpleToReg
 import ToDMN.Types
-import ToDMN.Picklers
+-- import ToDMN.Picklers
 
 
 -- extracts the rules of a program and translates each rule into a decision table
