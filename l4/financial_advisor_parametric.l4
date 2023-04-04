@@ -221,7 +221,8 @@ isDead abel
 assert <incomeAdam> {SMT: valid}
 income adam adequate
 
-assert <incomeEve> {SMT: {valid, config: {loglevel: 0}}}
+# loglevel: 0  is verbose logging
+assert <incomeEve> {SMT: {valid, config: {loglevel: 1}}}
 income eve inadequate
 
 
@@ -229,6 +230,14 @@ assert <investmentEve> {SMT: valid}
 investment eve combination
 
 # decl recommendation: InvestmentStrategy
-assert <investmentEveQuery> {SMT: consistent}
-exists x: InvestmentStrategy. investment eve x
+
+fact <adamEveDisj>
+adam /= eve
+
+decl x: InvestmentStrategy 
+
+assert <investmentEveQuery> {SMT: {consistent, config: {loglevel: 0}}}
+investment eve x
+#exists x: InvestmentStrategy. investment eve x
+
 

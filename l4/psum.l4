@@ -1,0 +1,36 @@
+# Simple test for a predicate - function in Prolog style
+# Several configurations lead to non-termination, needs a further look
+
+# the predicate
+decl psum: Integer -> Integer -> Integer -> Boolean
+
+# Rule written in Prolog style
+# rule <psumTest>
+# for x : Integer, y : Integer, z: Integer
+# if x > 4 && y > 5 && z == x + y
+# then psum x y z
+
+# ... with its inversion
+# rule <psumInversion> 
+#      {derived: {apply: {inversion,
+# 						apply: {normalize, psumTest}}}}
+
+# The rule and the inversion correspond to the following equality:
+fact <psumTest>                        
+for x : Integer, y : Integer, z: Integer
+(psum x y z) == (x > 4 && y > 5 && z == x + y)
+
+decl xp: Integer
+decl yp: Integer
+
+# The following query is successful and yields solutions for xp and yp
+assert <psumQuery_success> 
+{SMT: {consistent, rules: {only: {}}, config: {logic: AUFLIA, loglevel: 0}}}
+xp > 4 && yp > 5 && 12 == xp + yp
+
+# The following, apparently equivalent, query fails
+# (solver does not terminate)
+# assert <psumQuery_fail> 
+# {SMT: {consistent, config: {logic: AUFLIA, loglevel: 0}}}
+# psum xp yp 12
+
