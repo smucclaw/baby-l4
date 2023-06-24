@@ -91,12 +91,12 @@ isRoad tRoad
 
 # rule <maxSpCarWorkdayHighway>
 (forall v: Class. forall d: Class. forall r: Class. forall s: Integer.
-    isCar v && isWorkday d && isHighway r && s = 130
+    isCar v && isWorkday d && isHighway r && s == 130
 --> maxSpeed v d r s)
 &&
 # rule <maxSpCarWorkdayRoad>
 (forall v: Class. forall d: Class. forall r: Class. forall s: Integer.
-    isCar v && isWorkday d && isRoad r && s = 90
+    isCar v && isWorkday d && isRoad r && s == 90
 --> maxSpeed v d r s)
 
 &&
@@ -104,8 +104,8 @@ isRoad tRoad
 (forall v: Class. forall d: Class. forall r: Class. forall s: Integer.
  maxSpeed v d r s
 --> 
- (isCar v && isWorkday d && isHighway r && s = 130) ||
- (isCar v && isWorkday d && isHighway r && s =  90))
+ (isCar v && isWorkday d && isHighway r && s == 130) ||
+ (isCar v && isWorkday d && isHighway r && s ==  90))
 
 
 # Assertion trying to derive a contradiction from the above rules:
