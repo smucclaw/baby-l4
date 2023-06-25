@@ -3,8 +3,6 @@ resolver: lts-21.0
 packages:
   - .
 
-allow-newer: true
-
 extra-deps:
 # - github: smucclaw/gf-core
 #   commit: edb55df7b0c4892ba0bac2817b5f493921c20c36
