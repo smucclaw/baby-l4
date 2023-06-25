@@ -39,7 +39,7 @@ packages:
     url: https://github.com/yav/simple-smt/archive/dd03ca1.tar.gz
 snapshots:
 - completed:
-    sha256: e63b43d506918278d05cd1448bd19352ab2faa9b8e9d64ce527b56f1a7fba149
-    size: 650255
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/20/25.yaml
-  original: lts-20.25
+    sha256: 1867d84255dff8c87373f5dd03e5a5cb1c10a99587e26c8793e750c54e83ffdc
+    size: 639139
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/21/0.yaml
+  original: lts-21.0
