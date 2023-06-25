@@ -1,6 +1,6 @@
 cabal-version: 1.24
 
--- This file has been generated from package.yaml by hpack version 0.35.1.
+-- This file has been generated from package.yaml by hpack version 0.35.2.
 --
 -- see: https://github.com/sol/hpack
 
@@ -26,7 +26,7 @@ source-repository head
 
 custom-setup
   setup-depends:
-      Cabal ==3.6.3.0
+      Cabal ==3.8.1.0
     , base >=4.7 && <5
     , filepath
 
@@ -72,12 +72,11 @@ library
   build-depends:
       MissingH
     , array
-    , base >=4.7 && <5
+    , base >=4.17.1.0 && <5
     , containers
     , either
     , extra
     , fgl
-    , gf
     , ghc
     , graphviz
     , haskeline
@@ -114,12 +113,11 @@ executable hxtread
       MissingH
     , array
     , baby-l4
-    , base >=4.7 && <5
+    , base >=4.17.1.0 && <5
     , containers
     , either
     , extra
     , fgl
-    , gf
     , ghc
     , graphviz
     , haskeline
@@ -156,12 +154,11 @@ executable l4
       MissingH
     , array
     , baby-l4
-    , base >=4.7 && <5
+    , base >=4.17.1.0 && <5
     , containers
     , either
     , extra
     , fgl
-    , gf
     , ghc
     , graphviz
     , haskeline
@@ -231,12 +228,11 @@ test-suite tasty
   build-depends:
       MissingH
     , array
-    , base >=4.7 && <5
+    , base >=4.17.1.0 && <5
     , containers
     , either
     , extra
     , fgl
-    , gf
     , ghc
     , graphviz
     , haskeline

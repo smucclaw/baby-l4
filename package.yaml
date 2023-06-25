@@ -18,7 +18,7 @@ data-files:
 description:         baby-l4 provides the core language to which natural4 compiles.
 
 dependencies:
-- base >= 4.7 && < 5
+- base >= 4.17.1.0 && < 5
 - array
 - containers
 - pretty-simple
@@ -30,7 +30,7 @@ dependencies:
 - haskeline
 - mtl
   # required for GF
-- gf
+# - gf
   # required for SCasp abs.syn.
 - megaparsec
   # Required for lexer/lsp interop
@@ -69,7 +69,7 @@ custom-setup:
   dependencies:
     - filepath
     - base >= 4.7 && < 5
-    - Cabal == 3.6.3.0
+    - Cabal == 3.8.1.0
 
 
 executables:
