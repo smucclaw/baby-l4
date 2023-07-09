@@ -19,8 +19,13 @@ import Data.Maybe ( mapMaybe, isJust )
 ----------------------------------------------------------------------
 
 
------ Names
+----- Name of object variable
 type VarName = String
+
+----- Name of type class, type variable
+type TypeClassName = String
+type TypeVarName = String
+
 -- Assertion / Rule name 
 type ARName = Maybe String
 -- newtype VarName = VarName String
@@ -79,6 +84,8 @@ data TopLevelElement t
   | ClassDeclTLE (ClassDecl t)
   | VarDeclTLE (VarDecl t)
   | VarDefnTLE (VarDefn t)
+  | PolyVarDeclTLE (PolyVarDecl t)
+  | PolyVarDefnTLE (PolyVarDefn t)
   | RuleTLE (Rule t)
   | AssertionTLE (Assertion t)
   | AutomatonTLE (TA t)
@@ -91,6 +98,8 @@ getAnnotOfTLE e = case e of
      ClassDeclTLE cd -> annotOfClassDecl cd
      VarDeclTLE vd -> annotOfVarDecl vd
      VarDefnTLE vd -> annotOfVarDefn vd
+     PolyVarDeclTLE vd -> annotOfPolyVarDecl vd
+     PolyVarDefnTLE vd -> annotOfPolyVarDefn vd
      RuleTLE ru -> annotOfRule ru
      AssertionTLE as -> annotOfAssertion as
      AutomatonTLE ta -> annotOfTA ta
@@ -102,6 +111,8 @@ updateAnnotOfTLE f e = case e of
      ClassDeclTLE cd -> ClassDeclTLE $ cd { annotOfClassDecl = f (annotOfClassDecl cd) }
      VarDeclTLE vd -> VarDeclTLE $ vd { annotOfVarDecl = f (annotOfVarDecl vd) }
      VarDefnTLE vd -> VarDefnTLE $ vd { annotOfVarDefn = f (annotOfVarDefn vd) }
+     PolyVarDeclTLE vd -> PolyVarDeclTLE $ vd { annotOfPolyVarDecl = f (annotOfPolyVarDecl vd) }
+     PolyVarDefnTLE vd -> PolyVarDefnTLE $ vd { annotOfPolyVarDefn = f (annotOfPolyVarDefn vd) }
      RuleTLE ru -> RuleTLE $ ru { annotOfRule = f (annotOfRule ru) }
      AssertionTLE as -> AssertionTLE $ as { annotOfAssertion = f (annotOfAssertion as) }
      AutomatonTLE ta -> AutomatonTLE $ ta { annotOfTA = f (annotOfTA ta) }
@@ -201,8 +212,10 @@ mapAssertion f e = case e of
 ----- Types
 -- TODO: also types have to be annotated with position information
 -- for the parser to do the right job
+-- TODO: ClassT is supposed to disappear after introduction of type classes
 data Tp t
-  = ClassT {annotOfTp :: t, classNameOfTp :: ClassName}  -- class Integer, Boolean ...
+  = TypeVar {annotOfTp :: t, typeVarNameOfTp :: TypeVarName}  -- type variable reference
+  | ClassT {annotOfTp :: t, classNameOfTp :: ClassName}  -- class Integer, Boolean ...
   | FunT {annotOfTp :: t, paramTp :: Tp t, resultTp :: Tp t}   -- T1 -> T2
   | TupleT {annotOfTp :: t, componentsOfTpTupleT :: [Tp t]}    -- (T1, T2)
   | ErrT
@@ -215,6 +228,31 @@ instance HasLoc t => HasLoc (Tp t) where
 
 instance HasDefault (Tp t) where
   defaultVal = OkT
+
+data ClassTpDecl t = ClassTpDecl {
+    annotOfClassTpDecl :: t
+  , classOfClassTpDecl :: TypeClassName
+  , varOfClassTpDecl :: TypeVarName}
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
+instance HasLoc t => HasLoc (ClassTpDecl t) where
+  getLoc e = getLoc (annotOfClassTpDecl e)
+
+-- Polymorphic type of the form forall a, b . C1(a), C2(b) => tp(a,b)
+-- TODO: the concrete syntax still contains type quantifiers, contrary to Haskell.
+-- There seem to be two options for recognizing type variables:
+-- - Distinction between defined types (names in uppercase) and type variables (lowercase)
+-- - Explicit quantification, the approach chosen here to 
+--   (uniform treatment of all type names, no upper/lower case distinction)
+data PolyTp t = PolyTp {
+    annotOfPolyTp :: t
+  , abstrsOfPolyTp :: [QVarName t]
+  , classTpDeclsOfPolyTp :: [ClassTpDecl t]
+  , tpOfPolyTp :: Tp t }
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
+instance HasLoc t => HasLoc (PolyTp t) where
+  getLoc e = getLoc (annotOfPolyTp e)
 
 
 pattern BooleanC :: ClassName
@@ -263,17 +301,46 @@ instance HasLoc t => HasLoc (VarDecl t) where
 instance HasLoc t => HasLoc (VarDefn t) where
   getLoc = getLoc . annotOfVarDefn
 
+instance HasAnnot VarDecl where
+  getAnnot = annotOfVarDecl
+  updateAnnot f p = p { annotOfVarDecl = f (annotOfVarDecl p)}
+
 instance HasAnnot VarDefn where
   getAnnot = annotOfVarDefn
   updateAnnot f p = p { annotOfVarDefn = f (annotOfVarDefn p)}
 
-instance HasAnnot VarDecl where
-  getAnnot = annotOfVarDecl
-  updateAnnot f p = p { annotOfVarDecl = f (annotOfVarDecl p)}
-data Mapping t = Mapping { annotOfMapping :: t
+-- Polymorphic variable declaration / definition
+-- TODO: these will eventually replace the non-polymorphic variants
+data PolyVarDecl t = PolyVarDecl {
+  annotOfPolyVarDecl :: t
+, nameOfPolyVarDecl :: VarName
+, tpOfPolyVarDecl :: PolyTp t}
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
+data PolyVarDefn t = PolyVarDefn {
+  annotOfPolyVarDefn :: t
+, nameOfPolyVarDefn :: VarName
+, tpOfPolyVarDefn :: PolyTp t
+, bodyOfPolyVarDefn :: Expr t}
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
+instance HasLoc t => HasLoc (PolyVarDecl t) where
+  getLoc = getLoc . annotOfPolyVarDecl
+
+instance HasLoc t => HasLoc (PolyVarDefn t) where
+  getLoc = getLoc . annotOfPolyVarDefn
+
+instance HasAnnot PolyVarDecl where
+  getAnnot = annotOfPolyVarDecl
+  updateAnnot f p = p { annotOfPolyVarDecl = f (annotOfPolyVarDecl p)}
+
+instance HasAnnot PolyVarDefn where
+  getAnnot = annotOfPolyVarDefn
+  updateAnnot f p = p { annotOfPolyVarDefn = f (annotOfPolyVarDefn p)}
+
+data Mapping t = Mapping {  annotOfMapping :: t
                           , fromMapping :: VarName
                           , toMapping :: Description}
-
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 instance HasLoc t => HasLoc (Mapping t) where
   getLoc (Mapping t _ _) = getLoc t
@@ -309,12 +376,27 @@ data ClassDecl t = ClassDecl { annotOfClassDecl :: t
                              , nameOfClassDecl :: ClassName
                              , defOfClassDecl :: ClassDef t }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
 instance HasLoc t => HasLoc (ClassDecl t) where
   getLoc = getLoc . annotOfClassDecl
 
 instance HasAnnot ClassDecl where
   getAnnot = annotOfClassDecl
   updateAnnot f p = p { annotOfClassDecl = f (annotOfClassDecl p)}
+
+data TypeClassDef t = TypeClassDef {
+  annotOfTypeClassDef :: t
+, supersOfTypeClassDef :: [ClassTpDecl t]
+, thisOfTypeClassDef :: ClassTpDecl t
+, fieldsOfTypeClassDef :: [FieldDecl t]}
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
+instance HasLoc t => HasLoc (TypeClassDef t) where
+  getLoc = getLoc . annotOfTypeClassDef
+
+instance HasAnnot TypeClassDef where
+  getAnnot = annotOfTypeClassDef
+  updateAnnot f p = p { annotOfTypeClassDef = f (annotOfTypeClassDef p)}
 
 
 ----- Expressions

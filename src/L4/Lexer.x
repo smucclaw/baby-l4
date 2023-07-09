@@ -65,6 +65,7 @@ tokens :-
   lexicon                       { lex' TokenLexicon }
   fact                          { lex' TokenFact }
   rule                          { lex' TokenRule }
+  typeclass                     { lex' TokenTypeClass }
 
   -- Automata
   system                        { lex' TokenSystem }
@@ -100,6 +101,7 @@ tokens :-
   "E<>"                         { lex' TokenEF }
   "E[]"                         { lex' TokenEG }
   "->"                          { lex' TokenArrow }
+  "=>"                          { lex' TokenThickArrow }
   \\                            { lex' TokenLambda }
   "-->"                         { lex' TokenImpl }
   "||"                          { lex' TokenOr }
@@ -422,6 +424,7 @@ data TokenKind
   | TokenLexicon
   | TokenFact
   | TokenRule
+  | TokenTypeClass
 
   -- Automata
   | TokenSystem
@@ -453,6 +456,7 @@ data TokenKind
   | TokenEG
   | TokenLambda
   | TokenArrow
+  | TokenThickArrow
   | TokenImpl
   | TokenOr
   | TokenAnd
@@ -497,6 +501,7 @@ unLex TokenExtends   = "extends"
 unLex TokenLexicon   = "lexicon"
 unLex TokenFact      = "fact"
 unLex TokenRule      = "rule"
+unLex TokenTypeClass = "typeclass"
 unLex TokenSystem    = "system"
 unLex TokenProcess   = "process"
 unLex TokenChannel   = "chan"
@@ -524,6 +529,7 @@ unLex TokenAG        = "A[]"
 unLex TokenEF        = "E<>"
 unLex TokenEG        = "E[]"
 unLex TokenArrow     = "->"
+unLex TokenThickArrow= "=>"
 unLex TokenLambda    = "\\"
 unLex TokenImpl      = "-->"
 unLex TokenOr        = "||"

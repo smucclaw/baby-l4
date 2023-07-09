@@ -54,6 +54,7 @@ import Data.Maybe (fromMaybe)
     lexicon { L _ TokenLexicon }
     fact    { L _ TokenFact }
     rule    { L _ TokenRule }
+    typeclass   { L _ TokenTypeClass }
 
     system      { L _ TokenSystem }
     process     { L _ TokenProcess }
@@ -86,6 +87,7 @@ import Data.Maybe (fromMaybe)
 
     '\\'  { L _ TokenLambda }
     '->'  { L _ TokenArrow }
+    '=>'  { L _ TokenThickArrow }
     '-->' { L _ TokenImpl }
     '||'  { L _ TokenOr }
     '&&'  { L _ TokenAnd }
@@ -150,6 +152,7 @@ TopLevelElementGroup : Mappings { map MappingTLE $1 }
 TopLevelElement : ClassDecl     { ClassDeclTLE $1 } 
                 | GlobalVarDecl { VarDeclTLE $1 } 
                 | GlobalVarDefn { VarDefnTLE $1 } 
+                | GlobalPolyVarDecl { PolyVarDeclTLE $1 } 
                 | RuleOrFact    { RuleTLE $1 }
                 | Assertion     { AssertionTLE $1 }
                 | Automaton     { AutomatonTLE $1 }
@@ -193,6 +196,16 @@ FieldDecls :                       { [] }
 FieldDecl : VAR ':' Tp             { FieldDecl (tokenRange $1 $3) (FldNm $ tokenSym $1) $3 }
 
 GlobalVarDecl : decl VAR ':' Tp          { VarDecl (tokenRange $1 $4) (tokenSym $2) $4 }
+
+GlobalPolyVarDecl : decl VAR ':' PolyTp  { PolyVarDecl (tokenRange $1 $4) (tokenSym $2) $4 }
+
+PolyTp : forall QVarsCommaSep '.' ClassTpDeclsTArrSep Tp { PolyTp (tokenRange $1 $5) (reverse $2) (reverse $4) $5 }
+
+ClassTpDecl : VAR VAR { ClassTpDecl (tokenRange $1 $2) (tokenSym $1) (tokenSym $2) }
+
+-- class type declarations with Thick Arrow as separator, in reverse order
+ClassTpDeclsTArrSep :                              { [] }
+            | ClassTpDeclsTArrSep ClassTpDecl '=>' { $2 : $1 }
 
 GlobalVarDefn : defn VAR ':' Tp '=' Expr     
    { VarDefn (tokenRange $1 $6) (tokenSym $2) $4 $6 }
