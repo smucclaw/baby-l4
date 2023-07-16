@@ -172,33 +172,26 @@ Mappings :  LexiconMapping  { [$1] }
 LexiconMapping : lexicon VAR '->' STRLIT { Mapping (tokenRange $1 $4) (tokenSym $2) (parseDescription $ tokenStringLit $4) }
 Mapping        : VAR '->' STRLIT { Mapping (tokenRange $1 $3) (tokenSym $1) (parseDescription $ tokenStringLit $3) }
 
-ClassDecl : class VAR ClassDef     { case snd $3 of
-                                       -- ClassDef is empty, so take token range of 'class VAR'
-                                       Nothing ->  if tokenSym $2 == "Object"
-                                                   -- special treatment: create Object class without superclass
-                                                   then ClassDecl (tokenRange $1 $2) (ClsNm $ tokenSym $2) (ClassDef [] [])
-                                                   -- take default class created in first component of $3
-                                                   else ClassDecl (tokenRange $1 $2) (ClsNm $ tokenSym $2) (fst $3)
-                                       -- ClassDef is non-empty, but the data type ClassDef has no position annotation,
-                                       -- so retrieve position info from production ClassDef
-                                       Just rng -> ClassDecl (coordFromTo (getLoc $1) rng) (ClsNm $ tokenSym $2) (fst $3) }
+-- TODO: get tokenRange info right
+ClassDecl : class VAR ClassDef     { if tokenSym $2 == "Object"
+                                     -- special treatment: create Object class without superclass
+                                     then ClassDecl (tokenRange $1 $2) (ClsNm $ tokenSym $2) (ClassDef nullSRng [] [])
+                                     -- take default class created in first component of $3
+                                     else ClassDecl (tokenRange $1 $2) (ClsNm $ tokenSym $2) $3 }
 
-ClassDef :   Fields                { (ClassDef [ClsNm "Class"] (reverse (fst $1)), (snd $1)) }
-         |   extends VAR Fields    { case snd $3 of
-                 Nothing -> (ClassDef [ClsNm $ tokenSym $2] (reverse (fst $3)), Just (tokenRange $1 $2))
-                 Just rng -> (ClassDef [ClsNm $ tokenSym $2] (reverse (fst $3)), Just (coordFromTo (getLoc $1) rng )) }
+ClassDef :   Fields2               { ClassDef nullSRng [ClsNm "Class"] (reverse (wrapContents $1)) }
+         |   extends VAR Fields2   { ClassDef nullSRng [ClsNm $ tokenSym $2] (reverse (wrapContents $3)) }
 
-TypeClassDef : typeclass ClassTpDeclsTArrSep ClassTpDecl Fields 
-        { case snd $4 of
-            Nothing -> TypeClassDef (tokenRange $1 $3) (reverse $2) $3 [] 
-            Just rng -> TypeClassDef (coordFromTo (getLoc $1) rng) (reverse $2) $3 (reverse (fst $4)) }
+TypeClassDef : typeclass ClassTpDeclsTArrSep ClassTpDecl Fields2
+        { TypeClassDef (tokenRange $1 $4) (reverse $2) $3 (reverse (wrapContents $4)) }
 
 -- Field decls in reverse order. 
 -- TODO: Not clear any more why this rule returns a couple, can probably be simplified.
 Fields  :                          { ([], Nothing) }
         | '{' FieldDecls '}'       { ($2, Just (tokenRange $1 $3)) }
 
-
+Fields2  :                         { SRngWrap nullSRng [] }
+         | '{' FieldDecls '}'      { SRngWrap (tokenRange $1 $3) $2 }
 
 -- Field decls in reverse order
 FieldDecls :                       { [] }

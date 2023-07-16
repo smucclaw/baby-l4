@@ -106,7 +106,7 @@ normalizeProg prg = prg{elementsOfProgram = elementsOfProgram prg ++ map VarDecl
       where argtype = ClassT annot clsname
 
     getFieldNmNType :: ClassDef t -> [(String, Tp t)]
-    getFieldNmNType (ClassDef  _ fields) = map getFieldNmNType' fields
+    getFieldNmNType (ClassDef _ _ fields) = map getFieldNmNType' fields
     getFieldNmNType' (FieldDecl _ (FldNm name) tp) = (name, tp)
 
 -- | Flip the arguments of binary predicates if lexicon indicates so:

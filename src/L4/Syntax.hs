@@ -371,7 +371,8 @@ instance HasAnnot FieldDecl where
 -- After type checking, the list of superclasses consists of the list of non-strict superclasses
 -- TODO: ClassDef currently without annotation as ClassDef may be empty
 --       and it is unclear how to define position information of empty elements
-data ClassDef t = ClassDef { supersOfClassDef :: [ClassName]
+data ClassDef t = ClassDef { annotOfClassDef :: t
+                           , supersOfClassDef :: [ClassName]
                            , fieldsOfClassDef :: [FieldDecl t] }
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 

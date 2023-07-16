@@ -96,13 +96,13 @@ superClassesConstr cdf_assoc visited cn =
     -- the following should not happen if definedSuperclass is true in a module
     Nothing -> error "in superClassesConstr: cn not in cdf_assoc (internal error)"
     -- reached the top of the hierarchy
-    Just (ClassDef [] _) -> Right (reverse (cn : visited))
+    Just (ClassDef _ [] _) -> Right (reverse (cn : visited))
     -- class has super-class with name scn
-    Just (ClassDef [scn] _) ->
+    Just (ClassDef _ [scn] _) ->
       if scn `elem` visited
       then  Left cn
       else superClassesConstr cdf_assoc (cn : visited) scn
-    Just (ClassDef _ _) -> error "in superClassesConstr: superclass list should be empty or singleton (internal error)"
+    Just (ClassDef {}) -> error "in superClassesConstr: superclass list should be empty or singleton (internal error)"
 
 
 superClasses :: [(ClassName, ClassDef t)] -> ClassName -> [ClassName]
@@ -114,8 +114,8 @@ superClasses cdf_assoc cn =
 
 
 elaborateSupersInClassDecl :: (ClassName -> [ClassName]) -> ClassDecl t -> ClassDecl t
-elaborateSupersInClassDecl supers (ClassDecl annot cn (ClassDef _ fds)) =
-  ClassDecl annot cn (ClassDef (supers cn) fds)
+elaborateSupersInClassDecl supers (ClassDecl annot cn (ClassDef t _ fds)) =
+  ClassDecl annot cn (ClassDef t (supers cn) fds)
 
 -- in a class declaration, replace the reference to the immediate super-class
 -- by the list of all super-classes (from more to less specific, excluding the current class from the list)
@@ -130,8 +130,8 @@ localFields fd_assoc cn =
   fromMaybe [] (lookup cn fd_assoc)
 
 elaborateFieldsInClassDecl :: [(ClassName, [FieldDecl t])] -> ClassDecl t -> ClassDecl t
-elaborateFieldsInClassDecl fdAssoc (ClassDecl annot cn (ClassDef scs _)) =
-  ClassDecl annot cn (ClassDef scs (concatMap (localFields fdAssoc) scs))
+elaborateFieldsInClassDecl fdAssoc (ClassDecl annot cn (ClassDef t scs _)) =
+  ClassDecl annot cn (ClassDef t scs (concatMap (localFields fdAssoc) scs))
 
 -- in a class declaration, replace the list of local fields of the class by the list of all fields (local and inherited)
 elaborateFieldsInClassDecls :: [ClassDecl t] -> [ClassDecl t]
@@ -152,7 +152,7 @@ superClassesOf :: Environment t -> ClassName -> [ClassName]
 superClassesOf env cn = case lookup cn (classDefAssoc (classDeclsOfEnv env)) of
   -- TODO: not call error (causes a crash for lsp server)
   Nothing -> error ("in superclassesOf: undefined class " ++ (case cn of (ClsNm n) -> n))
-  Just (ClassDef supcls _) -> supcls
+  Just (ClassDef _ supcls _) -> supcls
 
 strictSuperClassesOf :: Environment t -> ClassName -> [ClassName]
 strictSuperClassesOf env cn = drop 1 (superClassesOf env cn)
@@ -178,7 +178,7 @@ strictSuperClassesOfClassDecl = drop 1 . superClassesOfClassDecl
 fieldsOf :: Environment t -> ClassName -> [FieldDecl t]
 fieldsOf env cn = case lookup cn (classDefAssoc (classDeclsOfEnv env)) of
   Nothing -> error ("internal error in fieldsOf: undefined class " ++ (case cn of (ClsNm n) -> n))
-  Just (ClassDef _ fds) -> fds
+  Just (ClassDef _ _ fds) -> fds
 
 longestCommonPrefix :: Eq a=> [a] -> [a] -> [a]
 longestCommonPrefix (x:xs) (y:ys) = if x == y then x:longestCommonPrefix xs ys else []
@@ -634,7 +634,7 @@ checkClassesForWfError cds prg = do
   let class_names = map nameOfClassDecl cds
   expectEmptyOrThrow (filter (not . definedSuperclass class_names) cds) $
       UndefinedSuperclassCDEErr . map (\cd -> (getLoc cd, nameOfClassDecl cd))
-  expectEmptyOrThrow (duplicates class_names) $ 
+  expectEmptyOrThrow (duplicates class_names) $
       \ds -> DuplicateClassNamesCDEErr [(getLoc cd, nameOfClassDecl cd) | cd <- cds, nameOfClassDecl cd `elem` ds]
   pure prg
 
@@ -674,14 +674,14 @@ checkDuplicateFieldNamesFDE ::HasLoc t =>  Program t -> TCM (Program t)
 checkDuplicateFieldNamesFDE prg =
     prg <$ expectEmptyOrThrow classDeclsWithDup DuplicateFieldNamesFDEErr
   where
-    classDeclsWithDup = 
+    classDeclsWithDup =
         [(getLoc cd, nameOfClassDecl cd, duplicateFldsForCls duplicateFields)
         | cd <- classDeclsOfProgram prg
         , let fieldDecls = fieldsOfClassDef $ defOfClassDecl  cd
         , let duplicateFields = duplicatesWrtFun nameOfFieldDecl fieldDecls
         , not $ null duplicateFields ]
 
-    duplicateFldsForCls fds = map (\fd -> (getLoc fd, nameOfFieldDecl fd)) fds
+    duplicateFldsForCls = map (\fd -> (getLoc fd, nameOfFieldDecl fd))
 
 -- TODO: it would in principle be necessary to rewrite the types occurring in fields with KindT
 -- (same for checkUndefinedTypeVDE)

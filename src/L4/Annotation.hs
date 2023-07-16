@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE InstanceSigs #-}
 
 module L4.Annotation where
 
@@ -53,6 +54,12 @@ data RealSRng = SRng
   }
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
+data SRngWrap c = SRngWrap 
+  { wrapRange :: SRng 
+  , wrapContents :: c
+  }
+  deriving (Eq, Ord, Show, Read, Data, Typeable)
+
 nullSRng :: SRng
 nullSRng = DummySRng "Empty list"
 
@@ -89,8 +96,12 @@ instance HasLoc a => HasLoc [a] where
   getLoc = tokenRangeList . map getLoc
 
 instance HasLoc a => HasLoc (Maybe a) where
+  getLoc :: HasLoc a => Maybe a -> SRng
   getLoc = maybe nullSRng getLoc
 
+instance HasLoc a => HasLoc (SRngWrap a) where
+  getLoc = wrapRange
+  
 class HasDefault a where
   defaultVal :: a
 
