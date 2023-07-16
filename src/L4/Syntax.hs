@@ -82,6 +82,7 @@ Explicit: '{Player} participates in {Game}'
 data TopLevelElement t
   = MappingTLE (Mapping t)
   | ClassDeclTLE (ClassDecl t)
+  | TypeClassDefTLE (TypeClassDef t)
   | VarDeclTLE (VarDecl t)
   | VarDefnTLE (VarDefn t)
   | PolyVarDeclTLE (PolyVarDecl t)
@@ -96,6 +97,7 @@ getAnnotOfTLE :: TopLevelElement t -> t
 getAnnotOfTLE e = case e of
      MappingTLE mp -> annotOfMapping mp
      ClassDeclTLE cd -> annotOfClassDecl cd
+     TypeClassDefTLE tcd -> annotOfTypeClassDef tcd
      VarDeclTLE vd -> annotOfVarDecl vd
      VarDefnTLE vd -> annotOfVarDefn vd
      PolyVarDeclTLE vd -> annotOfPolyVarDecl vd
@@ -109,6 +111,7 @@ updateAnnotOfTLE :: (t -> t) -> TopLevelElement t -> TopLevelElement t
 updateAnnotOfTLE f e = case e of
      MappingTLE mp -> MappingTLE $ mp { annotOfMapping = f (annotOfMapping mp) }
      ClassDeclTLE cd -> ClassDeclTLE $ cd { annotOfClassDecl = f (annotOfClassDecl cd) }
+     TypeClassDefTLE tcd -> TypeClassDefTLE $ tcd { annotOfTypeClassDef = f (annotOfTypeClassDef tcd) }
      VarDeclTLE vd -> VarDeclTLE $ vd { annotOfVarDecl = f (annotOfVarDecl vd) }
      VarDefnTLE vd -> VarDefnTLE $ vd { annotOfVarDefn = f (annotOfVarDefn vd) }
      PolyVarDeclTLE vd -> PolyVarDeclTLE $ vd { annotOfPolyVarDecl = f (annotOfPolyVarDecl vd) }
@@ -229,6 +232,7 @@ instance HasLoc t => HasLoc (Tp t) where
 instance HasDefault (Tp t) where
   defaultVal = OkT
 
+-- Declaring a polymorphic variable to be of a type class, such as Eq a => ...
 data ClassTpDecl t = ClassTpDecl {
     annotOfClassTpDecl :: t
   , classOfClassTpDecl :: TypeClassName
@@ -384,6 +388,9 @@ instance HasAnnot ClassDecl where
   getAnnot = annotOfClassDecl
   updateAnnot f p = p { annotOfClassDecl = f (annotOfClassDecl p)}
 
+-- Definition of a type class.
+-- Is ultimately meant to replace ClassDecl and ClassDef
+-- Not to be confused with ClassTpDecl, which declares a polymorphic variable to be of a typeclass.
 data TypeClassDef t = TypeClassDef {
   annotOfTypeClassDef :: t
 , supersOfTypeClassDef :: [ClassTpDecl t]

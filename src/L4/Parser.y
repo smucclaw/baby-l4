@@ -150,6 +150,7 @@ TopLevelElements : TopLevelElement                  { [$1] }
 TopLevelElementGroup : Mappings { map MappingTLE $1 } 
 
 TopLevelElement : ClassDecl     { ClassDeclTLE $1 } 
+                | TypeClassDef  { TypeClassDefTLE $1 }
                 | GlobalVarDecl { VarDeclTLE $1 } 
                 | GlobalVarDefn { VarDefnTLE $1 } 
                 | GlobalPolyVarDecl { PolyVarDeclTLE $1 } 
@@ -187,9 +188,19 @@ ClassDef :   Fields                { (ClassDef [ClsNm "Class"] (reverse (fst $1)
                  Nothing -> (ClassDef [ClsNm $ tokenSym $2] (reverse (fst $3)), Just (tokenRange $1 $2))
                  Just rng -> (ClassDef [ClsNm $ tokenSym $2] (reverse (fst $3)), Just (coordFromTo (getLoc $1) rng )) }
 
+TypeClassDef : typeclass ClassTpDeclsTArrSep ClassTpDecl Fields 
+        { case snd $4 of
+            Nothing -> TypeClassDef (tokenRange $1 $3) (reverse $2) $3 [] 
+            Just rng -> TypeClassDef (coordFromTo (getLoc $1) rng) (reverse $2) $3 (reverse (fst $4)) }
+
+-- Field decls in reverse order. 
+-- TODO: Not clear any more why this rule returns a couple, can probably be simplified.
 Fields  :                          { ([], Nothing) }
         | '{' FieldDecls '}'       { ($2, Just (tokenRange $1 $3)) }
 
+
+
+-- Field decls in reverse order
 FieldDecls :                       { [] }
            | FieldDecls FieldDecl  { $2 : $1 }
 
@@ -210,6 +221,7 @@ ClassTpDeclsTArrSep :                              { [] }
 GlobalVarDefn : defn VAR ':' Tp '=' Expr     
    { VarDefn (tokenRange $1 $6) (tokenSym $2) $4 $6 }
 
+-- var decls in reverse order
 VarDeclsCommaSep :  VarDecl              { [$1] }
          | VarDeclsCommaSep  ',' VarDecl { $3 : $1 }
 
