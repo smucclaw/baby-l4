@@ -1,3 +1,6 @@
+-- What is this file good for?
+-- Flagged as candidate for the graveyard.
+
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}

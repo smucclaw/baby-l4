@@ -7,6 +7,7 @@
 module L4.Annotation where
 
 import Data.Data (Data, Typeable)
+import qualified ToDMN.Types as DummySRng
 
 ----------------------------------------------------------------------
 -- Positions and Ranges
@@ -54,6 +55,8 @@ data RealSRng = SRng
   }
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
+-- SRngWrap is for embedding syntax structures that have an SRng that is wider than its constituents,
+-- for example a liste of elements in { .. }
 data SRngWrap c = SRngWrap 
   { wrapRange :: SRng 
   , wrapContents :: c
@@ -79,6 +82,13 @@ coordFromTo :: SRng -> SRng -> SRng
 coordFromTo (RealSRng r) (RealSRng r1) = RealSRng $ r <> r1
 coordFromTo r (DummySRng _) = r
 coordFromTo (DummySRng _) r = r
+
+-- tokenRange can produce false results if either argument is a DummySRng.
+-- In this case, some token positions get lost. 
+-- Example: tokenRange $1 $3 = tokenRange $1 if the location of $3 is DummySRng.
+-- Instead use tokenRangeList [getLoc $1, getLog $2, getLoc $3]
+-- TODO: investigate: weird behaviour of type classes. The above type checks, but
+-- map getLoc [$1, $2, $3, $4]   does not
 
 tokenRange :: (HasLoc f, HasLoc g) => f -> g -> SRng
 tokenRange a b = getLoc a <> getLoc b

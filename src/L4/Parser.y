@@ -172,25 +172,22 @@ Mappings :  LexiconMapping  { [$1] }
 LexiconMapping : lexicon VAR '->' STRLIT { Mapping (tokenRange $1 $4) (tokenSym $2) (parseDescription $ tokenStringLit $4) }
 Mapping        : VAR '->' STRLIT { Mapping (tokenRange $1 $3) (tokenSym $1) (parseDescription $ tokenStringLit $3) }
 
--- TODO: get tokenRange info right
 ClassDecl : class VAR ClassDef     { if tokenSym $2 == "Object"
                                      -- special treatment: create Object class without superclass
-                                     then ClassDecl (tokenRange $1 $2) (ClsNm $ tokenSym $2) (ClassDef nullSRng [] [])
+                                     then ClassDecl (tokenRangeList [getLoc $1, getLoc $2]) (ClsNm $ tokenSym $2) (ClassDef nullSRng [] [])
                                      -- take default class created in first component of $3
-                                     else ClassDecl (tokenRange $1 $2) (ClsNm $ tokenSym $2) $3 }
+                                     else ClassDecl (tokenRangeList [getLoc $1, getLoc $2]) (ClsNm $ tokenSym $2) $3 }
 
-ClassDef :   Fields2               { ClassDef nullSRng [ClsNm "Class"] (reverse (wrapContents $1)) }
-         |   extends VAR Fields2   { ClassDef nullSRng [ClsNm $ tokenSym $2] (reverse (wrapContents $3)) }
+ClassDef :   Fields               { ClassDef nullSRng [ClsNm "Class"] (reverse (wrapContents $1)) }
+         |   extends VAR Fields   { ClassDef nullSRng [ClsNm $ tokenSym $2] (reverse (wrapContents $3)) }
 
-TypeClassDef : typeclass ClassTpDeclsTArrSep ClassTpDecl Fields2
-        { TypeClassDef (tokenRange $1 $4) (reverse $2) $3 (reverse (wrapContents $4)) }
+TypeClassDef : typeclass ClassTpDeclsTArrSep ClassTpDecl Fields
+        { TypeClassDef (tokenRangeList ([getLoc $1, getLoc $2, getLoc $3, getLoc $4])) (reverse $2) $3 (reverse (wrapContents $4)) }
+        -- The following is incorrect, see remark in Annotations/tokenRange
+        -- { TypeClassDef (tokenRange $1 $4) (reverse $2) $3 (reverse (wrapContents $4)) }        
 
 -- Field decls in reverse order. 
--- TODO: Not clear any more why this rule returns a couple, can probably be simplified.
-Fields  :                          { ([], Nothing) }
-        | '{' FieldDecls '}'       { ($2, Just (tokenRange $1 $3)) }
-
-Fields2  :                         { SRngWrap nullSRng [] }
+Fields  :                         { SRngWrap nullSRng [] }
          | '{' FieldDecls '}'      { SRngWrap (tokenRange $1 $3) $2 }
 
 -- Field decls in reverse order
