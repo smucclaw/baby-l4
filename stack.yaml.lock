@@ -5,17 +5,6 @@
 
 packages:
 - completed:
-    name: gf
-    pantry-tree:
-      sha256: ab1b24b4d2c8f56f19dd8bf6e345c38cc2c7c5243e2c552ff2cb9ad472df7818
-      size: 67922
-    sha256: 27012d1bf5d626a4446ad04f877255409a4d215494a0901d5510fa7748662d20
-    size: 3499717
-    url: https://github.com/smucclaw/gf-core/archive/edb55df7b0c4892ba0bac2817b5f493921c20c36.tar.gz
-    version: 3.11.1
-  original:
-    url: https://github.com/smucclaw/gf-core/archive/edb55df7b0c4892ba0bac2817b5f493921c20c36.tar.gz
-- completed:
     name: compact
     pantry-tree:
       sha256: 887183d029e4a043e9fabf14aacfa5eccfeda055457a9663c8742207cad37892

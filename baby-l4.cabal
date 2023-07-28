@@ -1,6 +1,6 @@
 cabal-version: 1.24
 
--- This file has been generated from package.yaml by hpack version 0.35.1.
+-- This file has been generated from package.yaml by hpack version 0.35.2.
 --
 -- see: https://github.com/sol/hpack
 
@@ -77,7 +77,6 @@ library
     , either
     , extra
     , fgl
-    , gf
     , ghc
     , graphviz
     , haskeline
@@ -119,7 +118,6 @@ executable hxtread
     , either
     , extra
     , fgl
-    , gf
     , ghc
     , graphviz
     , haskeline
@@ -161,7 +159,6 @@ executable l4
     , either
     , extra
     , fgl
-    , gf
     , ghc
     , graphviz
     , haskeline
@@ -236,7 +233,6 @@ test-suite tasty
     , either
     , extra
     , fgl
-    , gf
     , ghc
     , graphviz
     , haskeline

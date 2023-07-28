@@ -30,7 +30,7 @@ dependencies:
 - haskeline
 - mtl
   # required for GF
-- gf
+# - gf
   # required for SCasp abs.syn.
 - megaparsec
   # Required for lexer/lsp interop
