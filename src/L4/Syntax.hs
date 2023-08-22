@@ -31,6 +31,11 @@ type ARName = Maybe String
 -- newtype VarName = VarName String
 --   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
+
+-- TODO: all the different kinds of name need a second thought,
+-- because they can appear in unqualified and qualified (with location annotation) form.
+-- Best thing to do: convert QVarName into something like:
+-- data QName t n = QName {annotOfQName :: t, nameOfQName :: n}
 newtype ClassName = ClsNm {stringOfClassName :: String}
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 newtype FieldName = FldNm {stringOfFieldName :: String}
@@ -82,7 +87,8 @@ Explicit: '{Player} participates in {Game}'
 data TopLevelElement t
   = MappingTLE (Mapping t)
   | ClassDeclTLE (ClassDecl t)
-  | TypeClassDefTLE (TypeClassDef t)
+  | TypeClassDefnTLE (TypeClassDefn t)
+  | DatatypeDefnTLE (DatatypeDefn t)
   | VarDeclTLE (VarDecl t)
   | VarDefnTLE (VarDefn t)
   | PolyVarDeclTLE (PolyVarDecl t)
@@ -97,7 +103,8 @@ getAnnotOfTLE :: TopLevelElement t -> t
 getAnnotOfTLE e = case e of
      MappingTLE mp -> annotOfMapping mp
      ClassDeclTLE cd -> annotOfClassDecl cd
-     TypeClassDefTLE tcd -> annotOfTypeClassDef tcd
+     TypeClassDefnTLE tcd -> annotOfTypeClassDefn tcd
+     DatatypeDefnTLE dtd -> annotOfDatatypeDefn dtd
      VarDeclTLE vd -> annotOfVarDecl vd
      VarDefnTLE vd -> annotOfVarDefn vd
      PolyVarDeclTLE vd -> annotOfPolyVarDecl vd
@@ -111,7 +118,8 @@ updateAnnotOfTLE :: (t -> t) -> TopLevelElement t -> TopLevelElement t
 updateAnnotOfTLE f e = case e of
      MappingTLE mp -> MappingTLE $ mp { annotOfMapping = f (annotOfMapping mp) }
      ClassDeclTLE cd -> ClassDeclTLE $ cd { annotOfClassDecl = f (annotOfClassDecl cd) }
-     TypeClassDefTLE tcd -> TypeClassDefTLE $ tcd { annotOfTypeClassDef = f (annotOfTypeClassDef tcd) }
+     TypeClassDefnTLE tcd -> TypeClassDefnTLE $ tcd { annotOfTypeClassDefn = f (annotOfTypeClassDefn tcd) }
+     DatatypeDefnTLE dtd -> DatatypeDefnTLE $ dtd {annotOfDatatypeDefn = f (annotOfDatatypeDefn dtd) }
      VarDeclTLE vd -> VarDeclTLE $ vd { annotOfVarDecl = f (annotOfVarDecl vd) }
      VarDefnTLE vd -> VarDefnTLE $ vd { annotOfVarDefn = f (annotOfVarDefn vd) }
      PolyVarDeclTLE vd -> PolyVarDeclTLE $ vd { annotOfPolyVarDecl = f (annotOfPolyVarDecl vd) }
@@ -219,6 +227,7 @@ mapAssertion f e = case e of
 data Tp t
   = TypeVar {annotOfTp :: t, typeVarNameOfTp :: TypeVarName}  -- type variable reference
   | ClassT {annotOfTp :: t, classNameOfTp :: ClassName}  -- class Integer, Boolean ...
+  | AppT {annotOfTp :: t, funOfTpAppT :: Tp t, argOfTpAppT :: Tp t} -- application of type constructor
   | FunT {annotOfTp :: t, paramTp :: Tp t, resultTp :: Tp t}   -- T1 -> T2
   | TupleT {annotOfTp :: t, componentsOfTpTupleT :: [Tp t]}    -- (T1, T2)
   | ErrT
@@ -392,20 +401,48 @@ instance HasAnnot ClassDecl where
 -- Definition of a type class.
 -- Is ultimately meant to replace ClassDecl and ClassDef
 -- Not to be confused with ClassTpDecl, which declares a polymorphic variable to be of a typeclass.
-data TypeClassDef t = TypeClassDef {
-  annotOfTypeClassDef :: t
-, supersOfTypeClassDef :: [ClassTpDecl t]
-, thisOfTypeClassDef :: ClassTpDecl t
-, fieldsOfTypeClassDef :: [FieldDecl t]}
+data TypeClassDefn t = TypeClassDefn {
+  annotOfTypeClassDefn :: t
+, supersOfTypeClassDefn :: [ClassTpDecl t]
+, thisOfTypeClassDefn :: ClassTpDecl t
+, fieldsOfTypeClassDefn :: [FieldDecl t]}
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
 
-instance HasLoc t => HasLoc (TypeClassDef t) where
-  getLoc = getLoc . annotOfTypeClassDef
+instance HasLoc t => HasLoc (TypeClassDefn t) where
+  getLoc = getLoc . annotOfTypeClassDefn
 
-instance HasAnnot TypeClassDef where
-  getAnnot = annotOfTypeClassDef
-  updateAnnot f p = p { annotOfTypeClassDef = f (annotOfTypeClassDef p)}
+instance HasAnnot TypeClassDefn where
+  getAnnot = annotOfTypeClassDefn
+  updateAnnot f p = p { annotOfTypeClassDefn = f (annotOfTypeClassDefn p)}
 
+data DatatypeDefn t = DatatypeDefn {
+    annotOfDatatypeDefn :: t
+  , nameOfDatatypeDefn :: TypeClassName   -- TODO: that is not the right type
+  , typeParamsOfDatatypeDefn :: [TypeVarName]
+  , constructorDecls :: [ConstructorDecl t]}
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
+
+instance HasLoc t => HasLoc (DatatypeDefn t) where
+  getLoc = getLoc . annotOfDatatypeDefn
+
+instance HasAnnot DatatypeDefn where
+  getAnnot = annotOfDatatypeDefn
+  updateAnnot f p = p { annotOfDatatypeDefn = f (annotOfDatatypeDefn p)}
+
+data ConstructorDecl t = ConstructorDecl {
+    annotOfConstructorDecl :: t
+  , nameOfConstructor ::  TypeClassName   -- TODO: that is not the right type
+  , constructorParams :: [Tp t] -- TODO (possible extension): could be types with accessors
+}
+  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+
+instance HasLoc t => HasLoc (ConstructorDecl t) where
+  getLoc = getLoc . annotOfConstructorDecl
+
+instance HasAnnot ConstructorDecl where
+  getAnnot = annotOfConstructorDecl
+  updateAnnot f p = p { annotOfConstructorDecl = f (annotOfConstructorDecl p)}
 
 ----- Expressions
 data Val
@@ -532,6 +569,9 @@ allSubExprs e = e : concatMap allSubExprs (childExprs e)
 
 updAnnotOfExpr :: (a -> a) -> Expr a -> Expr a
 updAnnotOfExpr f e = e {annotOfExpr = f (annotOfExpr e)}
+
+updAnnotOfTp :: (a -> a) -> Tp a -> Tp a
+updAnnotOfTp f t = t {annotOfTp = f (annotOfTp t)}
 
 instance HasLoc t => HasLoc (Expr t) where
   getLoc e = getLoc (annotOfExpr e)

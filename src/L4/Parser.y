@@ -48,6 +48,7 @@ import Data.Maybe (fromMaybe)
 %token
     assert  { L _ TokenAssert }
     class   { L _ TokenClass }
+    data    { L _ TokenData }
     decl    { L _ TokenDecl }
     defn    { L _ TokenDefn }
     extends { L _ TokenExtends }
@@ -109,10 +110,11 @@ import Data.Maybe (fromMaybe)
     ','   { L _ TokenComma }
     ':'   { L _ TokenColon }
     ';'   { L _ TokenSemicolon }
-    '('   { L _ TokenLParen }
-    ')'   { L _ TokenRParen }
+    '|'   { L _ TokenVertBar }
     '{'   { L _ TokenLBrace }
     '}'   { L _ TokenRBrace }
+    '('   { L _ TokenLParen }
+    ')'   { L _ TokenRParen }
 
     INT   { L pos (TokenInteger $$) }
     FLT   { L pos (TokenFloat $$) }
@@ -150,7 +152,8 @@ TopLevelElements : TopLevelElement                  { [$1] }
 TopLevelElementGroup : Mappings { map MappingTLE $1 } 
 
 TopLevelElement : ClassDecl     { ClassDeclTLE $1 } 
-                | TypeClassDef  { TypeClassDefTLE $1 }
+                | TypeClassDefn { TypeClassDefnTLE $1 }
+                | DatatypeDefn  { DatatypeDefnTLE $1 }
                 | GlobalVarDecl { VarDeclTLE $1 } 
                 | GlobalVarDefn { VarDefnTLE $1 } 
                 | GlobalPolyVarDecl { PolyVarDeclTLE $1 } 
@@ -181,10 +184,10 @@ ClassDecl : class VAR ClassDef     { if tokenSym $2 == "Object"
 ClassDef :   Fields               { ClassDef nullSRng [ClsNm "Class"] (reverse (wrapContents $1)) }
          |   extends VAR Fields   { ClassDef nullSRng [ClsNm $ tokenSym $2] (reverse (wrapContents $3)) }
 
-TypeClassDef : typeclass ClassTpDeclsTArrSep ClassTpDecl Fields
-        { TypeClassDef (tokenRangeList ([getLoc $1, getLoc $2, getLoc $3, getLoc $4])) (reverse $2) $3 (reverse (wrapContents $4)) }
+TypeClassDefn : typeclass ClassTpDeclsTArrSep ClassTpDecl Fields
+        { TypeClassDefn (tokenRangeList ([getLoc $1, getLoc $2, getLoc $3, getLoc $4])) (reverse $2) $3 (reverse (wrapContents $4)) }
         -- The following is incorrect, see remark in Annotations/tokenRange
-        -- { TypeClassDef (tokenRange $1 $4) (reverse $2) $3 (reverse (wrapContents $4)) }        
+        -- { TypeClassDefn (tokenRange $1 $4) (reverse $2) $3 (reverse (wrapContents $4)) }        
 
 -- Field decls in reverse order. 
 Fields  :                         { SRngWrap nullSRng [] }
@@ -194,13 +197,33 @@ Fields  :                         { SRngWrap nullSRng [] }
 FieldDecls :                       { [] }
            | FieldDecls FieldDecl  { $2 : $1 }
 
-FieldDecl : VAR ':' Tp             { FieldDecl (tokenRange $1 $3) (FldNm $ tokenSym $1) $3 }
+-- TODO: putting Tp instead of ATp would lead to shift-reduce conflicts (limited look-ahead)
+-- Maybe introduce separator in FieldDecls (this would resolve the problem)
+FieldDecl : VAR ':' ATp             { FieldDecl (tokenRange $1 $3) (FldNm $ tokenSym $1) $3 }
+
+
+DatatypeDefn : data VAR VarsNoSep '=' ConstructorDeclsBarSep
+        { DatatypeDefn (tokenRange $1 $5) (tokenSym $2) (reverse $3) (reverse $5) }
+
+-- constructor declarations separated by vertical bar
+-- list in reverse order
+ConstructorDeclsBarSep :
+              ConstructorDecl                             { [$1] }
+            | '|' ConstructorDecl                         { [$2] }
+            | ConstructorDeclsBarSep '|' ConstructorDecl  { $3 : $1 }
+
+ConstructorDecl : VAR TpsNoSep
+     { ConstructorDecl (tokenRange $1 $2) (tokenSym $1) (reverse $2) }
 
 GlobalVarDecl : decl VAR ':' Tp          { VarDecl (tokenRange $1 $4) (tokenSym $2) $4 }
 
 GlobalPolyVarDecl : decl VAR ':' PolyTp  { PolyVarDecl (tokenRange $1 $4) (tokenSym $2) $4 }
 
-PolyTp : forall QVarsCommaSep '.' ClassTpDeclsTArrSep Tp { PolyTp (tokenRange $1 $5) (reverse $2) (reverse $4) $5 }
+-- TODO: it is unfortunate to put an ATp here instead of a Tp, because that leads to having to parenthesize more types.
+-- Replacing ATp by Tp leads to shift-reduce-conflicts (no real ones, apparently limitations of look-ahead 1).
+-- Possible solution: Allow for ClassTpDecl to be an arbitrary type, and check well-formedness of constraints during type checking
+-- (that is the way it is apparently done in Haskell)
+PolyTp : forall QVarsCommaSep '.' ClassTpDeclsTArrSep ATp { PolyTp (tokenRange $1 $5) (reverse $2) (reverse $4) $5 }
 
 ClassTpDecl : VAR VAR { ClassTpDecl (tokenRange $1 $2) (tokenSym $1) (tokenSym $2) }
 
@@ -215,21 +238,32 @@ GlobalVarDefn : defn VAR ':' Tp '=' Expr
 VarDeclsCommaSep :  VarDecl              { [$1] }
          | VarDeclsCommaSep  ',' VarDecl { $3 : $1 }
 
-VarDecl    : VAR ':' Tp                     { VarDecl (tokenRange $1 $3) (tokenSym $1) $3 }
+VarDecl    : VAR ':' ATp                    { VarDecl (tokenRange $1 $3) (tokenSym $1) $3 }
 VarDeclATp : VAR ':' ATp                    { VarDecl (tokenRange $1 $3) (tokenSym $1) $3 }
 
 -- Atomic type
 -- Used to resolve ambigouity of     \x : A -> B -> x
 -- and force the use of parenthesis: \x : (A -> B) -> x
-ATp  : VAR                        { ClassT (getLoc $1) (ClsNm $ tokenSym $1) }
-| '(' TpsCommaSep ')'        { case $2 of [t] -> t{annotOfTp = (tokenRange $1 $3)}; tcs -> TupleT (tokenRange $1 $3) (reverse tcs) }
+ATp  : VAR                  { ClassT (getLoc $1) (ClsNm $ tokenSym $1) }
+     | '(' ')'               { TupleT (tokenRange $1 $2) [] }  -- empty tuple type
+     | '(' TpsCommaSep ')'   { TupleT (tokenRange $1 $3) (reverse $2) }
+     | '(' Tp ')'            { updAnnotOfTp (const (tokenRange $1 $3)) $2 }
 
-TpsCommaSep :                      { [] }
-            | Tp                   { [$1] }
+-- Interior of a tuple type, must have at least 2 elements to distinguish it from a parenthesized type
+-- The elements are in reverse order
+TpsCommaSep : Tp ',' Tp            { [$3, $1] }
             | TpsCommaSep ',' Tp   { $3 : $1 }
 
-Tp   : ATp                        { $1 }
-     | Tp '->' Tp                 { FunT (tokenRange $1 $3) $1 $3 }
+TpsNoSep :               { [] }
+         | TpsNoSep ATp   { $2 : $1 }
+
+TpApp : ATp            { $1 }
+      | TpApp ATp      { AppT (tokenRange $1 $2) $1 $2 }
+
+Tp   : TpApp           { $1 }
+     | TpApp '->' Tp   { FunT (tokenRange $1 $3) $1 $3 }
+
+
 
 QualifVar : VAR { QVarName (getLoc $1) (tokenSym $1) }
 
@@ -242,10 +276,16 @@ QVarsCommaSep :                            { [] }
             | QualifVar                    { [$1] }
             | QVarsCommaSep ',' QualifVar  { $3 : $1 }
 
+-- variables separated by comma
 -- variable list in reverse order
 VarsCommaSep :                       { [] }
             | VAR                    { [tokenSym $1] }
             | VarsCommaSep ',' VAR   { (tokenSym $3) : $1 }
+
+-- variables without separator
+-- variable list in reverse order
+VarsNoSep :                   { [] }
+            | VarsNoSep VAR   { (tokenSym $2) : $1 }
 
 
 ----------------------------------------------------------------------
@@ -310,10 +350,6 @@ ExprsCommaSep :                      { [] }
 ARName :                 { Nothing }
        | '<' VAR '>'     { Just (tokenSym $2) }
 
-Rules  :                       { [] }
-       | Rules Rule            { $2 : $1}
-       | Rules Fact            { $2 : $1}
-
 RuleOrFact : Rule { $1 }
            | Fact { $1 }
 -- TODO: KVMaps do not have a location, so the token range in the following is incomplete
@@ -327,9 +363,6 @@ RuleVarDecls :                       { [] }
 
 RulePrecond : if Expr      { $2 }
 RuleConcl   : then Expr    { $2 }
-
-Assertions :                       { [] }
-           | Assertions Assertion  { $2 : $1 }
 
 -- TODO: same problem with locations as for Rule above
 Assertion : assert ARName KVMap        { Assertion (getLoc $1) $2 $3 (ValE (nullSRng) (BoolV True)) }

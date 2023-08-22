@@ -59,6 +59,7 @@ tokens :-
 
   assert                        { lex' TokenAssert }
   class                         { lex' TokenClass }
+  data                          { lex' TokenData }
   decl                          { lex' TokenDecl }
   defn                          { lex' TokenDefn }
   extends                       { lex' TokenExtends }
@@ -124,10 +125,11 @@ tokens :-
   \,                            { lex' TokenComma }
   \:                            { lex' TokenColon }
   \;                            { lex' TokenSemicolon }
-  \(                            { lex' TokenLParen }
-  \)                            { lex' TokenRParen }
+  \|                            { lex' TokenVertBar }
   \{                            { lex' TokenLBrace }
   \}                            { lex' TokenRBrace }
+  \(                            { lex' TokenLParen }
+  \)                            { lex' TokenRParen }
 
 
   -- Numbers and identifiers
@@ -418,6 +420,7 @@ getTokenKind (L _ k) = k
 data TokenKind
   = TokenAssert
   | TokenClass
+  | TokenData
   | TokenDecl
   | TokenDefn
   | TokenExtends
@@ -478,6 +481,7 @@ data TokenKind
   | TokenComma
   | TokenColon
   | TokenSemicolon
+  | TokenVertBar
   | TokenLBrace
   | TokenRBrace
   | TokenLParen
@@ -495,6 +499,7 @@ data TokenKind
 unLex :: TokenKind -> String
 unLex TokenAssert    = "assert"
 unLex TokenClass     = "class"
+unLex TokenData      = "data"
 unLex TokenDecl      = "decl"
 unLex TokenDefn      = "defn"
 unLex TokenExtends   = "extends"
@@ -552,10 +557,11 @@ unLex TokenExclMark  = "!"
 unLex TokenComma     = ","
 unLex TokenColon     = ":"
 unLex TokenSemicolon = ";"
-unLex TokenLParen    = "("
-unLex TokenRParen    = ")"
+unLex TokenVertBar   = "|"
 unLex TokenLBrace    = "{"
 unLex TokenRBrace    = "}"
+unLex TokenLParen    = "("
+unLex TokenRParen    = ")"
 unLex TokenEOF       = "<EOF>"
 unLex (TokenInteger i)   = show i
 unLex (TokenFloat i)   = show i
