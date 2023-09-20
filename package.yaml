@@ -69,7 +69,7 @@ custom-setup:
   dependencies:
     - filepath
     - base >= 4.7 && < 5
-    - Cabal == 3.6.3.0
+    - Cabal == 3.8.1.0
 
 
 executables:

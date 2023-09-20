@@ -11,8 +11,6 @@ extra-deps:
 - github: yav/simple-smt  
   commit: dd03ca1
 
-allow-newer: true
-
 # Required for the option custom-preprocessor-extensions
 require-stack-version: ">= 2.7.1"
 # This will show a warning
