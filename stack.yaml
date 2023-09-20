@@ -1,15 +1,17 @@
-resolver: lts-20.26
+resolver: lts-21.12
 
 packages:
   - .
 
 extra-deps:
 - github: smucclaw/gf-core
-  commit: edb55df7b0c4892ba0bac2817b5f493921c20c36
+  commit: 8c945802a9a3f13e676d2d838c511d3b30c5511f
 - github: mengwong/compact
   commit: 214867cfd0868c02313e97f29215d48545458da3
 - github: yav/simple-smt  
   commit: dd03ca1
+
+allow-newer: true
 
 # Required for the option custom-preprocessor-extensions
 require-stack-version: ">= 2.7.1"
