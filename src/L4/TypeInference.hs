@@ -5,7 +5,6 @@
 
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module L4.TypeInference where
 

@@ -1,21 +1,17 @@
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE TupleSections #-}
 
 module SimpleRules where
 
-import L4.Syntax
-import qualified Data.Set as S
-import Data.Graph.Inductive.Graph
-import Data.Graph.Inductive.PatriciaTree ( Gr )
-import qualified Data.Maybe as M
-import qualified Data.List as L
-import Data.GraphViz
-import Data.Graph.Inductive.Query.DFS
-
-import Data.GraphViz.Attributes.Complete
-import qualified Data.Text.Lazy as T
 import Data.Either
+import Data.Graph.Inductive.Graph
+import Data.Graph.Inductive.PatriciaTree (Gr)
+import Data.Graph.Inductive.Query.DFS
+import Data.GraphViz
+import Data.GraphViz.Attributes.Complete
+import Data.List qualified as L
+import Data.Maybe qualified as M
+import Data.Set qualified as S
+import Data.Text.Lazy qualified as T
+import L4.Syntax
         -- usefulrules = ["accInad", "accAdIncAd", "accAdIncInad", "savingsAd", "savingsInad", "incomeAd", "incomeInadESteady", "incomeInadEUnsteady"]
         -- usefulsimple = [r | r <- validRules , nameOfSimpleRule r `elem` usefulrule
 

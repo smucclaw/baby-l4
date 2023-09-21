@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeApplications #-}
+
 {-# LANGUAGE PatternSynonyms #-}
 module NormalizeSyntax where
 

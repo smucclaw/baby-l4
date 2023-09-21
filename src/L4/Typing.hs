@@ -6,7 +6,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module L4.Typing where
 

@@ -1,5 +1,4 @@
 {
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {- HLINT ignore -}
 
 {-

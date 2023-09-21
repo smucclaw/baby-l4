@@ -1,5 +1,4 @@
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
-{-# LANGUAGE DeriveDataTypeable #-}
 
 module L4.Error where
 import Data.Data (Data, Typeable)

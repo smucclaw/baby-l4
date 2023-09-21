@@ -9,7 +9,7 @@ import L4.Syntax
 import L4.SyntaxManipulation (appToFunArgs, funArgsToApp, conjExpr, conjsExpr, liftType, notExpr, disjsExpr, remapExpr, eqExpr, liftExpr, isLocalVar, fv, dnf, nnf )
 import L4.Typing (distinct, eraseAnn)
 import Data.Maybe (fromMaybe)
-import qualified Data.Set as Set
+import Data.Set qualified as Set
 import Data.List (sortBy)
 
 import Data.Graph.Inductive.Graph

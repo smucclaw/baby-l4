@@ -1,6 +1,4 @@
 
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeFamilies #-}
 

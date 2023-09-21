@@ -60,6 +60,8 @@ dependencies:
 - optparse-applicative
 - hxt
 
+language: GHC2021
+
 ghc-options: -Wall -Wno-missed-extra-shared-lib
 
 library:

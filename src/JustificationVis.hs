@@ -1,14 +1,12 @@
 -- Visualization of the justiifications produced by expert system
 
-
-{-# LANGUAGE TupleSections #-}
 module JustificationVis where
 
 import SimpleRules (LabelledGraph (LG), mkLabelledGraph, GraphOut (Propagation))
 
 import Data.GraphViz
 import Data.Graph.Inductive.Query.DFS
-import qualified Data.Set as S
+import Data.Set qualified as S
 
 import L4.Syntax
 
