@@ -5,9 +5,9 @@ import L4.Annotation
 import MainHelpers ( getTpAst )
 
 import Control.Monad.Except (runExceptT)
-import qualified SimpleRules as SR
-import qualified ToRules.ToRules as TRTR
-import qualified ToRules.Types as TRTp
+import SimpleRules qualified as SR
+import ToRules.ToRules qualified as TRTR
+import ToRules.Types qualified as TRTp
 import Test.Tasty
 import Test.Tasty.ExpectedFailure
 import Test.Tasty.HUnit

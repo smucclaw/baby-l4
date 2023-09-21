@@ -1,6 +1,4 @@
 {
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE DeriveFunctor #-}
 {-# OPTIONS -w  #-}
 {- HLINT ignore -}
 

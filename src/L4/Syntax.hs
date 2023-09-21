@@ -1,7 +1,5 @@
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
-{-# LANGUAGE DeriveFunctor #-}
 -- {-# OPTIONS_GHC -Wpartial-fields #-}
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE PatternSynonyms #-}
 

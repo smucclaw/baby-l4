@@ -16,7 +16,7 @@ import L4.Typing (isBooleanTp, isIntegerTp, isFloatTp, superClassesOfClassDecl)
 import RuleTransfo
     ( isNamedRule )
 
-import qualified SimpleSMT as SMT
+import SimpleSMT qualified as SMT
 import Control.Monad ( when, foldM )
 import L4.PrintProg (renameExpr, printARName )
 import Data.Maybe (fromMaybe)

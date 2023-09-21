@@ -1,7 +1,5 @@
 
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE DeriveFunctor #-}
 
 module L4.Annotation where
 

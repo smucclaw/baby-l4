@@ -2,10 +2,10 @@
 
 module ToDMN.FromL4 where
 
-import qualified Debug.Trace as Debug
-import qualified Data.Function as Fn
-import qualified Data.List as List
-import qualified Data.Map as Map
+import Data.Function qualified as Fn
+import Data.List qualified as List
+import Data.Map qualified as Map
+import Debug.Trace qualified as Debug
 
 import Control.Monad.Trans.State (runState)
 

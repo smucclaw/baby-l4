@@ -3,7 +3,7 @@ module ToDMN.FromSimpleToReg where
 
 import ToDMN.Types
 import Control.Monad.Trans.State
-import qualified Data.Map as Map
+import Data.Map qualified as Map
 import Data.Maybe
 
 type ID = State (Map.Map String Int)
