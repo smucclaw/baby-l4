@@ -1,11 +1,11 @@
-resolver: lts-21.12
+resolver: lts-21.14
 
 packages:
   - .
 
 extra-deps:
 - github: smucclaw/gf-core
-  commit: 58e705652937a0c0f4794d0e02eee70b3b90e816
+  commit: 2acf677848e0d9fe930c1aa74e32c2c9f6a44a99
 - github: mengwong/compact
   commit: 214867cfd0868c02313e97f29215d48545458da3
 - github: yav/simple-smt  
