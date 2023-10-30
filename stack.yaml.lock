@@ -7,14 +7,14 @@ packages:
 - completed:
     name: gf
     pantry-tree:
-      sha256: cfe4b75d637188cbe3a3017410d8c56daa282c710d5ad21ccc6048f4271153a5
+      sha256: 4f3f9c675876194cc948d613d1317e7a2a44609c33e955b668b40921add811b0
       size: 68299
-    sha256: a68c5f762640885fdd66ab660377d841bbf6787137a0d31eebc1d01b2972fb7a
-    size: 3499974
-    url: https://github.com/smucclaw/gf-core/archive/4f40614dd773cd07ff5916bbcde57d9ee3ec09bf.tar.gz
+    sha256: 77e09275d23f7f20ad5cfa51d3dfb730f938e77df313abd76a32f4a75d41a9e6
+    size: 3500175
+    url: https://github.com/smucclaw/gf-core/archive/8153674582d6f47789ba55e9cf7a3bfb9844c688.tar.gz
     version: 3.11.0
   original:
-    url: https://github.com/smucclaw/gf-core/archive/4f40614dd773cd07ff5916bbcde57d9ee3ec09bf.tar.gz
+    url: https://github.com/smucclaw/gf-core/archive/8153674582d6f47789ba55e9cf7a3bfb9844c688.tar.gz
 - completed:
     name: compact
     pantry-tree:
@@ -39,7 +39,7 @@ packages:
     url: https://github.com/yav/simple-smt/archive/dd03ca1.tar.gz
 snapshots:
 - completed:
-    sha256: 1d663bec402f77fa09fa3e8cf288c3c7eb18a1f28a5e0c331ac47adeacd21346
-    size: 640034
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/21/16.yaml
-  original: lts-21.16
+    sha256: b641356138a6f1132531e2a0747f0b4cd5906527821f2d17829998015ba15759
+    size: 640042
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/21/18.yaml
+  original: lts-21.18
