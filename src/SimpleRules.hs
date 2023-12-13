@@ -9,9 +9,11 @@ import Data.GraphViz
 import Data.GraphViz.Attributes.Complete
 import Data.List qualified as L
 import Data.Maybe qualified as M
-import Data.Set qualified as S
+import Data.HashSet qualified as S
 import Data.Text.Lazy qualified as T
 import L4.Syntax
+import GHC.Generics (Generic)
+import Data.Hashable
         -- usefulrules = ["accInad", "accAdIncAd", "accAdIncInad", "savingsAd", "savingsInad", "incomeAd", "incomeInadESteady", "incomeInadEUnsteady"]
         -- usefulsimple = [r | r <- validRules , nameOfSimpleRule r `elem` usefulrule
 
@@ -80,7 +82,9 @@ type RuleName = String
 data GrNode =
     PredOr PredName -- implicit Or
   | RuleAnd RuleName -- implicit And
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Generic, Ord, Show)
+
+instance Hashable GrNode
 
 type GrEdge = (GrNode, GrNode)
 
@@ -89,13 +93,13 @@ instance Labellable GrNode where
   toLabelValue x = StrLabel (T.pack $ show x)
 
 -- implicit Or
-mkPredRule :: [SimpleRule t] -> PredName -> S.Set GrEdge
+mkPredRule :: [SimpleRule t] -> PredName -> S.HashSet GrEdge
 mkPredRule xs pname =
   let matchedRuleNames = [RuleAnd $ nameOfSimpleRule r | r <- xs, (funNameOfApp . postcondOfSimpleRule) r == Just pname]
   in S.fromList $ map (PredOr pname,) matchedRuleNames
 
 -- implicit And
-mkRulePred :: SimpleRule t -> S.Set GrEdge
+mkRulePred :: SimpleRule t -> S.HashSet GrEdge
 mkRulePred r =
   let rname = nameOfSimpleRule r
       preConds = precondOfSimpleRule r
@@ -103,19 +107,19 @@ mkRulePred r =
   in S.fromList $ map ((RuleAnd rname,) . PredOr) preCondName
 
 
-simpleRulesToGrNodes :: [SimpleRule t] -> (S.Set GrNode, S.Set GrEdge)
+simpleRulesToGrNodes :: [SimpleRule t] -> (S.HashSet GrNode, S.HashSet GrEdge)
 simpleRulesToGrNodes xs = let
   prednames = getAllRulePreds xs      -- prednames : Set PredName         -- we don't want duplicate predicate names
   rulenames = getAllRuleNames xs      -- rulenames : Set Rulename         -- no duplicate 
   prednodes = S.map PredOr prednames    -- prednodes : Set GrNode
   rulenodes = S.map RuleAnd rulenames   -- rulenodes : Set GrNode
-  orruleedges = S.unions $ S.map (mkPredRule xs) prednames    -- orruleedges: Set GrEdge
-  andprededges = S.unions $ map mkRulePred xs
+  orruleedges = foldMap (mkPredRule xs) prednames    -- orruleedges: Set GrEdge
+  andprededges = foldMap mkRulePred xs
   in
   (S.unions [prednodes,rulenodes],
    S.unions [andprededges, orruleedges])
 
-simpleRuleToGrNodes :: SimpleRule t -> (S.Set GrNode, S.Set GrEdge)
+simpleRuleToGrNodes :: SimpleRule t -> (S.HashSet GrNode, S.HashSet GrEdge)
 simpleRuleToGrNodes r = let
   (preconds, postcond) = rulePreds' r
   rulename = nameOfSimpleRule r      -- rulenames : String
@@ -129,13 +133,13 @@ simpleRuleToGrNodes r = let
    S.union andprededges $ S.singleton orruleedges)
 
 
-getAllRulePreds :: [SimpleRule t] -> S.Set PredName
+getAllRulePreds :: [SimpleRule t] -> S.HashSet PredName
 getAllRulePreds xs = S.unions $ map rulePreds xs
 
-rulePreds :: SimpleRule t -> S.Set PredName
+rulePreds :: SimpleRule t -> S.HashSet PredName
 rulePreds (SimpleRule _ _ preConds postConds) = S.fromList $ M.mapMaybe funNameOfApp (postConds : preConds)
 
-rulePreds' :: SimpleRule t -> (S.Set PredName, PredName)
+rulePreds' :: SimpleRule t -> (S.HashSet PredName, PredName)
 rulePreds' (SimpleRule _ _ preConds postConds) =
   ( S.fromList . M.mapMaybe funNameOfApp $ preConds
   , M.fromJust . funNameOfApp $ postConds )
@@ -146,7 +150,7 @@ funNameOfApp (VarE _ x) = Just $ nameOfQVarName $ nameOfVar x
 funNameOfApp _ = Nothing
 
 
-getAllRuleNames :: [SimpleRule t] -> S.Set RuleName
+getAllRuleNames :: [SimpleRule t] -> S.HashSet RuleName
 getAllRuleNames xs = S.fromList $ map nameOfSimpleRule xs
 
 type NInd = Int
@@ -157,16 +161,16 @@ data LabelledGraph a = LG (Gr a String) [(NInd, a)] [(a, NInd)]
 data GraphOut = Dependency | Propagation deriving (Eq, Show)
 
 
-mkPropagationGraph :: Eq a => S.Set a -> S.Set (a, a) -> LabelledGraph a
+mkPropagationGraph :: Eq a => S.HashSet a -> S.HashSet (a, a) -> LabelledGraph a
 mkPropagationGraph = mkLabelledGraph Propagation
 
-mkDependencyGraph :: Eq a => S.Set a -> S.Set (a, a) -> LabelledGraph a
+mkDependencyGraph :: Eq a => S.HashSet a -> S.HashSet (a, a) -> LabelledGraph a
 mkDependencyGraph = mkLabelledGraph Dependency
 
 
 -- | Makes either a propagation or dependency graph
 -- a ~ GrNode
-mkLabelledGraph :: Eq a => GraphOut -> S.Set a -> S.Set (a, a) -> LabelledGraph a
+mkLabelledGraph :: Eq a => GraphOut -> S.HashSet a -> S.HashSet (a, a) -> LabelledGraph a
 mkLabelledGraph gOut nodeset edgeset =
   let nodelist = S.toList nodeset
       edgelist = S.toList edgeset
@@ -224,8 +228,8 @@ data Annot = Min | Max deriving Show
 propagate :: LabelledGraph GrNode -- dependency graph
           -> [GrNode] -- topologically sorted list of nodes as symbols from propagation graph
           -> Annot
-          -> [(GrNode, S.Set GrNode)] -- interim assoc list of each node and its annotation
-          -> [(GrNode, S.Set GrNode)] -- final assoc list of each node and its annotation
+          -> [(GrNode, S.HashSet GrNode)] -- interim assoc list of each node and its annotation
+          -> [(GrNode, S.HashSet GrNode)] -- final assoc list of each node and its annotation
 -- a node's annotation is the set of all reachable leaf preds
 propagate _ [] _ assoc = assoc                                            -- when the queue is complete, return association list
 propagate gr (x:xs) annot assoc = propagate gr xs annot newAssoc          -- when queue is not complete, and association list is not empty,
@@ -237,8 +241,8 @@ propagate gr (x:xs) annot assoc = propagate gr xs annot newAssoc          -- whe
 
 annotateMax :: GrNode -- node as symbol
             -> LabelledGraph GrNode -- dependency graph
-            -> [(GrNode, S.Set GrNode)] -- assoc list of each node and its annotation (all reachable leaves)
-            -> S.Set GrNode -- annot corresponding to input node
+            -> [(GrNode, S.HashSet GrNode)] -- assoc list of each node and its annotation (all reachable leaves)
+            -> S.HashSet GrNode -- annot corresponding to input node
 annotateMax node lg nodeAnnots =
 -- if leaf node, then return self, else return reachable leaves
   case sucLG lg node of
@@ -249,8 +253,8 @@ annotateMax node lg nodeAnnots =
 -- rules: union of children's reachable leaves
 annotateMin :: GrNode
             -> LabelledGraph GrNode
-            -> [(GrNode, S.Set GrNode)]
-            -> S.Set GrNode
+            -> [(GrNode, S.HashSet GrNode)]
+            -> S.HashSet GrNode
 annotateMin predN@(PredOr _) lg nodeAnnots =
   case sucLG lg predN of
     []    -> S.singleton predN
@@ -266,18 +270,18 @@ sucLG (LG gr indSym symInd) nSym =
       sInds = suc gr nInd
   in map (bidirLookup indSym) sInds
 
-getUnions :: Ord a => [a] -- successor nodes as symbols
-          -> [(a, S.Set a)] -- assoc list of each node and its annotation
-          -> S.Set a -- unioned set of reachable leaf preds from all successors
+getUnions :: Hashable a => [a] -- successor nodes as symbols
+          -> [(a, S.HashSet a)] -- assoc list of each node and its annotation
+          -> S.HashSet a -- unioned set of reachable leaf preds from all successors
 getUnions succs nodeAnnots = S.unions $ M.fromMaybe mempty . flip lookup nodeAnnots <$> succs
 
-getIntersections :: Ord a => [a] -- successor nodes as symbols
-                 -> [(a, S.Set a)] -- assoc list of each node and its annotation
-                 -> S.Set a -- intersection of reachable leaf preds from all successors
+getIntersections :: Hashable a => [a] -- successor nodes as symbols
+                 -> [(a, S.HashSet a)] -- assoc list of each node and its annotation
+                 -> S.HashSet a -- intersection of reachable leaf preds from all successors
 getIntersections succs nodeAnnots = foldr1 S.intersection leaves
   where leaves = M.fromMaybe mempty . flip lookup nodeAnnots <$> succs
 
--- getAnnotate' :: (Eq a, Ord a) => a -> LabelledGraph a -> [(a, S.Set a)] -> S.Set a
+-- getAnnotate' :: (Eq a, Ord a) => a -> LabelledGraph a -> [(a, S.HashSet a)] -> S.HashSet a
 -- getAnnotate' x (LG gr indsym symind) nodeDeps =                       -- if leaf node, then return self, else return children information
 --   let xInd = bidirLookup symind x
 --       sucSyms = bidirLookup indsym <$> suc gr xInd

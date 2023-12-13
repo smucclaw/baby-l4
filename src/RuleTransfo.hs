@@ -9,7 +9,7 @@ import L4.Syntax
 import L4.SyntaxManipulation (appToFunArgs, funArgsToApp, conjExpr, conjsExpr, liftType, notExpr, disjsExpr, remapExpr, eqExpr, liftExpr, isLocalVar, fv, dnf, nnf )
 import L4.Typing (distinct, eraseAnn)
 import Data.Maybe (fromMaybe)
-import Data.Set qualified as Set
+import Data.HashSet qualified as Set
 import Data.List (sortBy)
 
 import Data.Graph.Inductive.Graph
@@ -136,7 +136,7 @@ localVarExpr :: Expr t -> Bool
 localVarExpr (VarE _ (LocalVar _ _)) = True
 localVarExpr _ = False
 
-splitDecls :: Set.Set Int -> ([VarDecl t], [VarDecl t], [VarDecl t]) -> ([VarDecl t], [VarDecl t], [VarDecl t])
+splitDecls :: Set.HashSet Int -> ([VarDecl t], [VarDecl t], [VarDecl t]) -> ([VarDecl t], [VarDecl t], [VarDecl t])
 splitDecls fvs (lowers,this,[]) = (lowers,this,[])
 splitDecls fvs (lowers,this,u:us) =
   if Set.member (length lowers) fvs
@@ -353,7 +353,7 @@ data RuleProg
   | Apply String [RuleProg]
   deriving (Eq, Ord, Show, Read)
 
-ruleNamesOfRuleProg :: RuleProg -> Set.Set String
+ruleNamesOfRuleProg :: RuleProg -> Set.HashSet String
 ruleNamesOfRuleProg (RuleName rn) = Set.singleton rn
 ruleNamesOfRuleProg (Apply _ rps) = Set.unions (map ruleNamesOfRuleProg rps)
 
@@ -368,7 +368,7 @@ keyValPairToRuleProg (k,  MapVM []) = RuleName k
 keyValPairToRuleProg ("apply", MapVM ((fn,MapVM []) : args)) = Apply fn (map keyValPairToRuleProg args)
 keyValPairToRuleProg p = error ("illegal form of rule program " ++ show p)
 
-ruleNamesInDerived :: Rule t -> Set.Set String
+ruleNamesInDerived :: Rule t -> Set.HashSet String
 ruleNamesInDerived rl =
   if hasPathMap ["derived"] (instrOfRule rl)
   then ruleNamesOfRuleProg (derivedInstrToRuleProg (instrOfRule rl))

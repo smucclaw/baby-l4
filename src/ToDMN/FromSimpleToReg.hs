@@ -3,10 +3,10 @@ module ToDMN.FromSimpleToReg where
 
 import ToDMN.Types
 import Control.Monad.Trans.State
-import Data.Map qualified as Map
+import Data.HashMap.Strict qualified as Map
 import Data.Maybe
 
-type ID = State (Map.Map String Int)
+type ID = State (Map.HashMap String Int)
 
 mkID :: String -> ID String
 mkID pfx = do

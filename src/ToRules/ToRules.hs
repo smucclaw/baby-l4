@@ -7,9 +7,10 @@ import L4.Syntax
 import L4.SyntaxManipulation (appToFunArgs)
 import SimpleRules (isRule)
 import Data.Either (rights)
-import qualified Data.Set as S
+import Data.HashSet qualified as S
 import GHC.Utils.Misc (capitalise)
 import Data.Maybe (mapMaybe)
+import Data.Hashable
 
 
 -- Some notes:
@@ -31,7 +32,7 @@ astToRules rf x = do
 -- Logic & Functions
 ----------------------------------------------------------------------------------------------------------------
 
-filterRule :: (Ord t, Show t) => Rule t -> Either String ProductionRule
+filterRule :: (Hashable t, Show t) => Rule t -> Either String ProductionRule
 filterRule x
     | isRule x = Right $ ruleToProductionRule x
     | otherwise = Left $ "Not a valid rule: " ++ arNameToString (nameOfRule x) ++ "\n"
@@ -40,7 +41,7 @@ arNameToString :: ARName -> String
 arNameToString Nothing = "(anonymous)"
 arNameToString (Just s) = s
 
-ruleToProductionRule :: (Ord t, Show t) => Rule t -> ProductionRule
+ruleToProductionRule :: (Hashable t, Show t) => Rule t -> ProductionRule
 ruleToProductionRule Rule {nameOfRule, varDeclsOfRule, precondOfRule, postcondOfRule}
     = ProductionRule { nameOfProductionRule = prodRuleName
                      , varDeclsOfProductionRule = [""]
@@ -67,11 +68,11 @@ precondToExprList _ = error "non and operation"
 -- keeps track of no. of conditions in a rule and bound local vars
 -- because all declared vars have to be bound before being used in postcond
 -- num is x in jxy; y is derived from exprToConditionalFuncApp
-exprlistToRCList :: (Ord t, Show t) => Int -> S.Set (Var t) -> RCList -> [Expr t] -> (S.Set (Var t), RCList)
+exprlistToRCList :: (Hashable t, Show t) => Int -> S.HashSet (Var t) -> RCList -> [Expr t] -> (S.HashSet (Var t), RCList)
 exprlistToRCList num vs acc (x:xs) = exprlistToRCList (num + 1) nvs (acc <> [ce]) xs where (nvs, ce) = exprToRC num (vs, x)
 exprlistToRCList _ vs acc [] = (vs, acc)
 
-exprToRC :: (Ord t, Show t) => Int -> (S.Set (Var t), Expr t) -> (S.Set (Var t), ConditionalElement)
+exprToRC :: (Hashable t, Show t) => Int -> (S.HashSet (Var t), Expr t) -> (S.HashSet (Var t), ConditionalElement)
 exprToRC num (vs, x) =
     case x of
         VarE {} -> (newVars, varToConditionalFuncApp num x)
@@ -82,7 +83,7 @@ exprToRC num (vs, x) =
     where xlocVars = localVariables x
           newVars = S.union xlocVars vs
 
-localVariables :: (Ord t) => Expr t -> S.Set (Var t)
+localVariables :: (Hashable t) => Expr t -> S.HashSet (Var t)
 localVariables (AppE _ f a) = S.union (localVariables f) (localVariables a)
 localVariables (BinOpE _ _ a1 a2) = S.union (localVariables a1) (localVariables a2)
 localVariables (UnaOpE _ _ a) = localVariables a
@@ -148,7 +149,7 @@ exprToCEArg ve@(VarE _ (GlobalVar {})) = CELiteral $ StringV $ getName ve
 exprToCEArg ve@(VarE _ (LocalVar {})) = CEVarExpr $ LocVar $ getName ve
 exprToCEArg _ = CEArgFail "you shouldn't have gotten this"
 
-exprToRuleAction :: (Ord t, Show t) => S.Set (Var t) -> ProductionRuleTrace -> Expr t -> RuleAction
+exprToRuleAction :: (Hashable t, Show t) => S.HashSet (Var t) -> ProductionRuleTrace -> Expr t -> RuleAction
 exprToRuleAction lvs tObj fApp@(AppE {}) = ActionFuncApp (getName fexpr) tObj (map (checkBoundLocal lvs) args)
     where (fexpr, args) = appToFunArgs [] fApp
           checkBoundLocal bls x@(VarE _ c@(LocalVar{})) = if S.member c bls then exprToCEArg x else error $ "Local variable defined in rule action not previously bound: " ++ show x

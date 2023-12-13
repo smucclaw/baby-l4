@@ -20,7 +20,8 @@ description:         baby-l4 provides the core language to which natural4 compil
 dependencies:
 - base >= 4.7 && < 5
 - array
-- containers
+- hashable
+- unordered-containers
 - pretty-simple
 - prettyprinter >= 1.7.0
 - split

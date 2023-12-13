@@ -1,4 +1,5 @@
 {
+{-# LANGUAGE BlockArguments #-}
 {-# OPTIONS -w  #-}
 {- HLINT ignore -}
 
@@ -27,7 +28,7 @@ import Control.Applicative as App (Applicative (..))
 import Data.Word (Word8)
 
 import Data.Char (ord)
-import qualified Data.Bits
+import Data.Bits qualified
 
 import L4.Annotation (Located(..),HasLoc(..), RealSRng(..), SRng(..), Pos(..), coordFromTo, tokenRange)
 
@@ -275,27 +276,27 @@ runAlex input__ (Alex f)
 newtype Alex a = Alex { unAlex :: AlexState -> Either Err (AlexState, a) }
 
 instance Functor Alex where
-  fmap f a = Alex $ \s -> case unAlex a s of
+  fmap f a = Alex \s -> case unAlex a s of
                             Left msg -> Left msg
                             Right (s', a') -> Right (s', f a')
 
 instance Applicative Alex where
-  pure a   = Alex $ \s -> Right (s, a)
-  fa <*> a = Alex $ \s -> case unAlex fa s of
+  pure a   = Alex \s -> Right (s, a)
+  fa <*> a = Alex \s -> case unAlex fa s of
                             Left msg -> Left msg
                             Right (s', f) -> case unAlex a s' of
                                                Left msg -> Left msg
                                                Right (s'', b) -> Right (s'', f b)
 
 instance Monad Alex where
-  m >>= k  = Alex $ \s -> case unAlex m s of
+  m >>= k  = Alex \s -> case unAlex m s of
                                 Left msg -> Left msg
                                 Right (s',a) -> unAlex (k a) s'
   return = App.pure
 
 alexGetInput :: Alex AlexInput
 alexGetInput
- = Alex $ \s@AlexState{alex_pos=pos,alex_chr=c,alex_bytes=bs,alex_inp=inp__} ->
+ = Alex \s@AlexState{alex_pos=pos,alex_chr=c,alex_bytes=bs,alex_inp=inp__} ->
         Right (s, (pos,c,bs,inp__))
 
 
@@ -305,7 +306,7 @@ alexGetInput
 alexSetInput :: AlexInput -> Alex ()
 
 alexSetInput (pos,c,bs,inp__)
- = Alex $ \s -> case s{alex_pos=pos,alex_chr=c,alex_bytes=bs,alex_inp=inp__} of
+ = Alex \s -> case s{alex_pos=pos,alex_chr=c,alex_bytes=bs,alex_inp=inp__} of
 
 
 
@@ -319,17 +320,17 @@ alexError :: Err -> Alex a
 alexError message = Alex $ const $ Left message
 
 alexGetStartCode :: Alex Int
-alexGetStartCode = Alex $ \s@AlexState{alex_scd=sc} -> Right (s, sc)
+alexGetStartCode = Alex \s@AlexState{alex_scd=sc} -> Right (s, sc)
 
 alexSetStartCode :: Int -> Alex ()
-alexSetStartCode sc = Alex $ \s -> Right (s{alex_scd=sc}, ())
+alexSetStartCode sc = Alex \s -> Right (s{alex_scd=sc}, ())
 
 
 alexGetUserState :: Alex AlexUserState
-alexGetUserState = Alex $ \s@AlexState{alex_ust=ust} -> Right (s,ust)
+alexGetUserState = Alex \s@AlexState{alex_ust=ust} -> Right (s,ust)
 
 alexSetUserState :: AlexUserState -> Alex ()
-alexSetUserState ss = Alex $ \s -> Right (s{alex_ust=ss}, ())
+alexSetUserState ss = Alex \s -> Right (s{alex_ust=ss}, ())
 
 
 alexMonadScan = do

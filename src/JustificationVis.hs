@@ -6,9 +6,11 @@ import SimpleRules (LabelledGraph (LG), mkLabelledGraph, GraphOut (Propagation))
 
 import Data.GraphViz
 import Data.Graph.Inductive.Query.DFS
-import Data.Set qualified as S
+import Data.HashSet qualified as S
 
 import L4.Syntax
+import GHC.Generics (Generic)
+import Data.Hashable
 
 type ESArg = Val
 
@@ -24,7 +26,9 @@ data ESRule = ESRule String [ESArg] [ESPred]
 data JGraphNode
     = JPred String [ESArg]
     | JRule String [ESArg]
-    deriving (Eq, Ord, Show)
+    deriving (Eq, Generic, Ord, Show)
+
+instance Hashable JGraphNode
 
 instance Labellable JGraphNode where
     toLabelValue (JPred nm args) = toLabelValue ("P " ++ nm ++ " : " ++ show args)
@@ -43,20 +47,20 @@ successorsOfESPred (ESPred nm args rls) = map nodeOfESRule rls
 successorsOfESRule :: ESRule -> [JGraphNode]
 successorsOfESRule (ESRule nm args preds) = map nodeOfESPred preds
 
-jGraphNodesOfESPred :: ESPred -> S.Set JGraphNode
+jGraphNodesOfESPred :: ESPred -> S.HashSet JGraphNode
 jGraphNodesOfESPred p@(ESPred nm args rls) =
     S.union (S.singleton (nodeOfESPred p)) (S.unions $ map jGraphNodesOfESRule rls)
 
-jGraphNodesOfESRule :: ESRule -> S.Set JGraphNode
+jGraphNodesOfESRule :: ESRule -> S.HashSet JGraphNode
 jGraphNodesOfESRule r@(ESRule nm args preds) =
     S.union (S.singleton (nodeOfESRule r)) (S.unions $ map jGraphNodesOfESPred preds)
 
-jGraphEdgesOfESPred :: ESPred -> S.Set JGraphEdge
+jGraphEdgesOfESPred :: ESPred -> S.HashSet JGraphEdge
 jGraphEdgesOfESPred p@(ESPred nm args rls) =
     let ndsrc = nodeOfESPred p
     in S.union (S.fromList (map (ndsrc,) (successorsOfESPred p))) (S.unions $ map jGraphEdgesOfESRule rls)
 
-jGraphEdgesOfESRule :: ESRule -> S.Set JGraphEdge
+jGraphEdgesOfESRule :: ESRule -> S.HashSet JGraphEdge
 jGraphEdgesOfESRule r@(ESRule nm args preds) =
     let ndsrc = nodeOfESRule r
     in S.union (S.fromList (map (ndsrc,) (successorsOfESRule r))) (S.unions $ map jGraphEdgesOfESPred preds)

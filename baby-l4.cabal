@@ -1,6 +1,6 @@
 cabal-version: 1.24
 
--- This file has been generated from package.yaml by hpack version 0.35.2.
+-- This file has been generated from package.yaml by hpack version 0.36.0.
 --
 -- see: https://github.com/sol/hpack
 
@@ -73,13 +73,13 @@ library
       MissingH
     , array
     , base >=4.7 && <5
-    , containers
     , either
     , extra
     , fgl
     , gf
     , ghc
     , graphviz
+    , hashable
     , haskeline
     , hslogger
     , hxt
@@ -100,6 +100,7 @@ library
     , tasty-hunit
     , text
     , transformers
+    , unordered-containers
   default-language: GHC2021
 
 executable hxtread
@@ -115,13 +116,13 @@ executable hxtread
     , array
     , baby-l4
     , base >=4.7 && <5
-    , containers
     , either
     , extra
     , fgl
     , gf
     , ghc
     , graphviz
+    , hashable
     , haskeline
     , hslogger
     , hxt
@@ -143,6 +144,7 @@ executable hxtread
     , tasty-hunit
     , text
     , transformers
+    , unordered-containers
   default-language: GHC2021
 
 executable l4
@@ -157,13 +159,13 @@ executable l4
     , array
     , baby-l4
     , base >=4.7 && <5
-    , containers
     , either
     , extra
     , fgl
     , gf
     , ghc
     , graphviz
+    , hashable
     , haskeline
     , hslogger
     , hxt
@@ -184,6 +186,7 @@ executable l4
     , tasty-hunit
     , text
     , transformers
+    , unordered-containers
   default-language: GHC2021
 
 test-suite tasty
@@ -232,13 +235,13 @@ test-suite tasty
       MissingH
     , array
     , base >=4.7 && <5
-    , containers
     , either
     , extra
     , fgl
     , gf
     , ghc
     , graphviz
+    , hashable
     , haskeline
     , hslogger
     , hspec ==2.*
@@ -262,4 +265,5 @@ test-suite tasty
     , tasty-hunit
     , text
     , transformers
+    , unordered-containers
   default-language: GHC2021

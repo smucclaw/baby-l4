@@ -1,3 +1,5 @@
+{-# LANGUAGE BlockArguments #-}
+
 module ExpSysTest where
 
 import L4.Syntax
@@ -12,7 +14,7 @@ import Test.Tasty
 import Test.Tasty.ExpectedFailure
 import Test.Tasty.HUnit
 import Data.Either ( rights )
-import Data.Set as S
+import Data.HashSet as S
 import Data.Tuple (snd)
 import L4.SyntaxManipulation (appToFunArgs)
 
@@ -39,35 +41,35 @@ progToRule progIO rname = do
     pure $ head $ obtRule prog rname
 
 esGraphUTs :: TestTree
-esGraphUTs = withResource acquire release $ \progIO->
+esGraphUTs = withResource acquire release \progIO->
     testGroup "Expert System: Graph Generation Tests"
         [ testGroup "isRule"
-            [ testCase "returns True for <accInad>" $ do
+            [ testCase "returns True for <accInad>" do
                 rule <- progToRule progIO "accInad"
                 SR.isRule rule @?= True
-            , testCase "returns True for <accAdIncInad>" $ do
+            , testCase "returns True for <accAdIncInad>" do
                 rule <- progToRule progIO "accAdIncInad"
                 SR.isRule rule @?= True
-            , testCase "returns True for <savingsAd>" $ do
+            , testCase "returns True for <savingsAd>" do
                 rule <- progToRule progIO "savingsAd"
                 SR.isRule rule @?= True
             ]
         , testGroup "flattenConjs"
-            [ testCase "returns 1 AppE for preconds of <accInad>" $ do
+            [ testCase "returns 1 AppE for preconds of <accInad>" do
                 rule <- progToRule progIO "accInad"
                 length (SR.flattenConjs . precondOfRule $ rule) @?= 1
-            , testCase "returns 2 AppE for preconds of <accAdIncInad>" $ do
+            , testCase "returns 2 AppE for preconds of <accAdIncInad>" do
                 rule <- progToRule progIO "accAdIncInad"
                 length (SR.flattenConjs . precondOfRule $ rule) @?= 2
-            , testCase "returns 2 AppE for preconds of <savingsAd>" $ do
+            , testCase "returns 2 AppE for preconds of <savingsAd>" do
                 rule <- progToRule progIO "savingsAd"
                 length (SR.flattenConjs . precondOfRule $ rule) @?= 2
             ]
-        , testCase "print the set of nodes and edges for a single rule" $ do
+        , testCase "print the set of nodes and edges for a single rule" do
                 rule <- progToRule progIO "accInad"
                 print $ SR.simpleRulesToGrNodes $ rights [SR.ruleToSimpleRule rule]
                 'a' @?= 'a'
-        , testCase "mapping a single rule twice = convert a list of simple rules" $ do
+        , testCase "mapping a single rule twice = convert a list of simple rules" do
             rule1 <- progToRule progIO "accInad"
             rule2 <- progToRule progIO "savingsAd"
             let (nodes1, edges1) = SR.simpleRuleToGrNodes $ head . rights $ [SR.ruleToSimpleRule rule1]
@@ -79,7 +81,7 @@ esGraphUTs = withResource acquire release $ \progIO->
 
 
 esRuleUTs :: TestTree
-esRuleUTs = withResource acquire release $ \progIO->
+esRuleUTs = withResource acquire release \progIO->
     testGroup "Expert System: Rule Translation Tests" [ ]
     where acquire = getProg "tests/ExpSysTestFiles/finAd_tests.l4"
           release = mempty
