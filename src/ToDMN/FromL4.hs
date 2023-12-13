@@ -4,7 +4,7 @@ module ToDMN.FromL4 where
 
 import Data.Function qualified as Fn
 import Data.List qualified as List
-import Data.Map qualified as Map
+import Data.HashMap.Strict qualified as Map
 import Debug.Trace qualified as Debug
 
 import Control.Monad.Trans.State (runState)

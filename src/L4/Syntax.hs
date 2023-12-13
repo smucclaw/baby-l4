@@ -11,6 +11,8 @@ import Data.Data (Data, Typeable)
 import L4.Annotation
 import L4.KeyValueMap
 import Data.Maybe ( mapMaybe, isJust )
+import Data.Hashable
+import GHC.Generics (Generic)
 
 ----------------------------------------------------------------------
 -- Definition of expressions
@@ -25,15 +27,23 @@ type ARName = Maybe String
 --   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 newtype ClassName = ClsNm {stringOfClassName :: String}
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+  deriving (Eq, Generic, Ord, Show, Read, Data, Typeable)
+
+instance Hashable ClassName
+
 newtype FieldName = FldNm {stringOfFieldName :: String}
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+  deriving (Eq, Generic, Ord, Show, Read, Data, Typeable)
+
+instance Hashable FieldName
+
 newtype PartyName = PtNm {stringOfPartyName :: String}
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 -- a qualified var name has an annotation (contrary to a simple var name)
 data QVarName t = QVarName {annotOfQVarName :: t, nameOfQVarName :: VarName}
-  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+  deriving (Eq, Generic, Ord, Show, Read, Functor, Data, Typeable)
+
+instance Hashable t => Hashable (QVarName t)
 
 instance HasLoc t => HasLoc (QVarName t) where
   getLoc v = getLoc (annotOfQVarName v)
@@ -206,7 +216,9 @@ data Tp t
   | ErrT
   | OkT        -- fake type appearing in constructs (classes, rules etc.) that do not have a genuine type
   | KindT
-  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+  deriving (Eq, Generic, Ord, Show, Read, Functor, Data, Typeable)
+
+instance Hashable t => Hashable (Tp t)
 
 instance HasLoc t => HasLoc (Tp t) where
   getLoc e = getLoc (annotOfTp e)
@@ -250,7 +262,9 @@ pattern NumberT = ClassT () NumberC
 
 
 data VarDecl t = VarDecl {annotOfVarDecl :: t, nameOfVarDecl :: VarName, tpOfVarDecl :: Tp t}
-  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+  deriving (Eq, Generic, Ord, Show, Read, Functor, Data, Typeable)
+
+instance Hashable t => Hashable (VarDecl t)
 
 data VarDefn t = VarDefn {annotOfVarDefn :: t, nameOfVarDefn :: VarName, tpOfVarDefn :: Tp t, bodyOfVarDefn :: Expr t}
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
@@ -324,7 +338,9 @@ data Val
     -- TODO: instead of RecordV, introduce RecordE in type Expr
     -- | RecordV ClassName [(FieldName, Val)]
     | ErrV
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+  deriving (Eq, Generic, Ord, Show, Read, Data, Typeable)
+
+instance Hashable Val
 
 trueV :: Expr (Tp ())
 trueV = ValE BooleanT (BoolV True)
@@ -343,52 +359,72 @@ data Var t
     -- local variable known by its provisional name and deBruijn index.
     | LocalVar { nameOfVar :: QVarName t
                , indexOfVar :: Int }
-  deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+  deriving (Eq, Generic, Ord, Show, Read, Functor, Data, Typeable)
+
+instance Hashable t => Hashable (Var t)
 
 -- unary arithmetic operators
 data UArithOp = UAminus
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+  deriving (Eq, Generic, Ord, Show, Read, Data, Typeable)
+
+instance Hashable UArithOp
 
 -- unary boolean operators
 data UBoolOp = UBnot
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+  deriving (Eq, Generic, Ord, Show, Read, Data, Typeable)
+
+instance Hashable UBoolOp
 
 data UTemporalOp
   = UTAF -- always finally
   | UTAG -- always generally
   | UTEF -- exists finally
   | UTEG -- exists generally
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+  deriving (Eq, Generic, Ord, Show, Read, Data, Typeable)
+
+instance Hashable UTemporalOp
 
 -- unary operators (union of the above)
 data UnaOp
     = UArith UArithOp
     | UBool UBoolOp
     | UTemporal UTemporalOp
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+  deriving (Eq, Generic, Ord, Show, Read, Data, Typeable)
+
+instance Hashable UnaOp
 
 -- binary arithmetic operators
 data BArithOp = BAadd | BAsub | BAmul | BAdiv | BAmod
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+  deriving (Eq, Generic, Ord, Show, Read, Data, Typeable)
+
+instance Hashable BArithOp
 
 -- binary comparison operators
 data BComparOp = BCeq | BClt | BClte | BCgt | BCgte | BCne
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+  deriving (Eq, Generic, Ord, Show, Read, Data, Typeable)
+
+instance Hashable BComparOp
 
 -- binary boolean operators
 data BBoolOp = BBimpl | BBor | BBand
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+  deriving (Eq, Generic, Ord, Show, Read, Data, Typeable)
+
+instance Hashable BBoolOp
 
 -- binary operators (union of the above)
 data BinOp
     = BArith BArithOp
     | BCompar BComparOp
     | BBool BBoolOp
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+  deriving (Eq, Generic, Ord, Show, Read, Data, Typeable)
+
+instance Hashable BinOp
 
 -- operators for combining list elements
 data ListOp = AndList | OrList | XorList | CommaList
-    deriving (Eq, Ord, Show, Read, Data, Typeable)
+    deriving (Eq, Generic, Ord, Show, Read, Data, Typeable)
+
+instance Hashable ListOp
 
 data Pattern t
     = VarP (QVarName t)
@@ -400,7 +436,9 @@ patternLength (VarP _) = 1
 patternLength (VarListP vs) = length vs
 
 data Quantif = All | Ex
-    deriving (Eq, Ord, Show, Read, Data, Typeable)
+    deriving (Eq, Generic, Ord, Show, Read, Data, Typeable)
+
+instance Hashable Quantif
 
 -- Expr t is an expression of type t (to be determined during type checking / inference)
 data Expr t
@@ -416,7 +454,9 @@ data Expr t
     | TupleE      {annotOfExpr :: t, componentsOfExprTupleE :: [Expr t]}                     -- tuples
     | CastE       {annotOfExpr :: t, tpOfExprCastE :: Tp t, subEOfExprCastE :: Expr t}               -- cast to type
     | ListE       {annotOfExpr :: t, listOpOfExprListE :: ListOp, componentsOfExprListE :: [Expr t]}    -- list expression
-    deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
+    deriving (Eq, Generic, Ord, Show, Read, Functor, Data, Typeable)
+
+instance Hashable t => Hashable (Expr t)
 
 
 childExprs :: Expr t -> [Expr t]

@@ -22,7 +22,7 @@ import L4.SyntaxManipulation ( globalVarsOfProgram )
 
 import L4.Typing
 import Control.Monad.Writer (Functor)
-import Data.Set (member)
+import Data.HashSet (member)
 
 
 

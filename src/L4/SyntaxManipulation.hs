@@ -9,10 +9,11 @@ module L4.SyntaxManipulation where
 --import Data.Data (Data, Typeable)
 
 import Data.Maybe (fromMaybe)
-import qualified Data.Set as Set
+import Data.HashSet qualified as Set
 --import Annotation
 --import KeyValueMap
 import L4.Syntax
+import Data.Hashable (Hashable)
 --import L4.Typing (eraseAnn, getTypeOfExpr)
 --import PrintProg (printExpr, renameAndPrintExpr)
 --import Syntax (UnaOp(UTemporal))
@@ -248,7 +249,7 @@ indexListFromTo :: Int -> Int -> [Var t] -> [Var t]
 indexListFromTo l u = indexList (reverse [l .. u])
 
 -- Free variables of an expression. Also LocalVar count as free variables.
-fv :: Ord t => Expr t -> Set.Set (Var t)
+fv :: Hashable t => Expr t -> Set.HashSet (Var t)
 fv ValE {} = Set.empty
 fv (VarE _ v) = Set.singleton v
 fv (UnaOpE _  _ e) = fv e
