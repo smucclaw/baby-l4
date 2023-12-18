@@ -19,6 +19,7 @@ module L4.Lexer
  where
 
 import Prelude hiding (lex)
+import Control.Monad (liftM)
 import Control.Monad.Except
 
 

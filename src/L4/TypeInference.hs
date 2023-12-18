@@ -21,7 +21,7 @@ import Control.Applicative (Alternative ((<|>), empty))
 import L4.SyntaxManipulation ( globalVarsOfProgram )
 
 import L4.Typing
-import Control.Monad.Writer (Functor)
+import Control.Monad.Writer -- (Functor)
 import Data.HashSet (member)
 
 
