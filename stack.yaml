@@ -5,7 +5,7 @@ packages:
 
 extra-deps:
 - github: smucclaw/gf-core
-  commit: e11017abc0c91ff5b4c4da48e25b355b5704c2a8
+  commit: f9dedf46e04c5e6cd0ab2a3af6d36c15f3d062ac
 - github: mengwong/compact
   commit: 214867cfd0868c02313e97f29215d48545458da3
 - github: yav/simple-smt  
