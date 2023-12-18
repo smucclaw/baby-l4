@@ -24,19 +24,19 @@ dependencies:
 - unordered-containers
 - pretty-simple
 - prettyprinter >= 1.7.0
-- split
+# - split
 - text
-- extra
+# - extra
   # required for lexer and parser
 - haskeline
 - mtl
   # required for GF
 - gf
   # required for SCasp abs.syn.
-- megaparsec
+# - megaparsec
   # Required for lexer/lsp interop
-- lsp-types
-- MissingH
+# - lsp-types
+# - MissingH
   # required for SMT interaction
 - simple-smt
 - sbv
@@ -45,19 +45,19 @@ dependencies:
 - graphviz
   # for package Util
 - ghc
-- tasty
-- tasty-hunit
+# - tasty
+# - tasty-hunit
   # required for lsp
-- lsp
-- lsp-types
-- haskeline
+# - lsp
+# - lsp-types
+# - haskeline
 - mtl
-- lens
-- hslogger
-- sorted-list
+# - lens
+# - hslogger
+# - sorted-list
 - either
 - transformers
-- mmorph
+# - mmorph
 - optparse-applicative
 - hxt
 
@@ -72,7 +72,7 @@ custom-setup:
   dependencies:
     - filepath
     - base >= 4.7 && < 5
-    - Cabal == 3.8.1.0
+    - Cabal == 3.10.1.0
 
 
 executables:
@@ -108,3 +108,4 @@ tests:
       - safe
       - tasty
       - tasty-expected-failure
+      - tasty-hunit

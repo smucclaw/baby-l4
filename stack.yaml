@@ -6,10 +6,10 @@ packages:
 extra-deps:
 - github: smucclaw/gf-core
   commit: f9dedf46e04c5e6cd0ab2a3af6d36c15f3d062ac
-- github: mengwong/compact
-  commit: 214867cfd0868c02313e97f29215d48545458da3
-- github: yav/simple-smt  
-  commit: dd03ca1
+# - github: mengwong/compact
+#   commit: 214867cfd0868c02313e97f29215d48545458da3
+
+- simple-smt-0.9.7
 
 allow-newer: true
 
