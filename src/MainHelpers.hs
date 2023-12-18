@@ -9,7 +9,7 @@ import L4.Lexer (Err)
 import L4.Parser (parseProgram)
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import Control.Monad.Trans.Except ( ExceptT(..) )
-import Data.Either.Extra (mapLeft)
+import Data.Either.Combinators (mapLeft)
 
 
 data HelperErr = LexErr Err | TpErr Error deriving (Eq, Show)

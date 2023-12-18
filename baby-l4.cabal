@@ -26,7 +26,7 @@ source-repository head
 
 custom-setup
   setup-depends:
-      Cabal ==3.8.1.0
+      Cabal ==3.10.1.0
     , base >=4.7 && <5
     , filepath
 
@@ -70,34 +70,22 @@ library
       src
   ghc-options: -Wall -Wno-missed-extra-shared-lib
   build-depends:
-      MissingH
-    , array
+      array
     , base >=4.7 && <5
     , either
-    , extra
     , fgl
     , gf
     , ghc
     , graphviz
     , hashable
     , haskeline
-    , hslogger
     , hxt
-    , lens
-    , lsp
-    , lsp-types
-    , megaparsec
-    , mmorph
     , mtl
     , optparse-applicative
     , pretty-simple
     , prettyprinter >=1.7.0
     , sbv
     , simple-smt
-    , sorted-list
-    , split
-    , tasty
-    , tasty-hunit
     , text
     , transformers
     , unordered-containers
@@ -112,36 +100,24 @@ executable hxtread
       hxtread
   ghc-options: -Wall -Wno-missed-extra-shared-lib
   build-depends:
-      MissingH
-    , array
+      array
     , baby-l4
     , base >=4.7 && <5
     , either
-    , extra
     , fgl
     , gf
     , ghc
     , graphviz
     , hashable
     , haskeline
-    , hslogger
     , hxt
     , hxt-css
-    , lens
-    , lsp
-    , lsp-types
-    , megaparsec
-    , mmorph
     , mtl
     , optparse-applicative
     , pretty-simple
     , prettyprinter >=1.7.0
     , sbv
     , simple-smt
-    , sorted-list
-    , split
-    , tasty
-    , tasty-hunit
     , text
     , transformers
     , unordered-containers
@@ -155,35 +131,23 @@ executable l4
       exe
   ghc-options: -Wall -Wno-missed-extra-shared-lib -threaded -rtsopts "-with-rtsopts=-N -H500M -qg"
   build-depends:
-      MissingH
-    , array
+      array
     , baby-l4
     , base >=4.7 && <5
     , either
-    , extra
     , fgl
     , gf
     , ghc
     , graphviz
     , hashable
     , haskeline
-    , hslogger
     , hxt
-    , lens
-    , lsp
-    , lsp-types
-    , megaparsec
-    , mmorph
     , mtl
     , optparse-applicative
     , pretty-simple
     , prettyprinter >=1.7.0
     , sbv
     , simple-smt
-    , sorted-list
-    , split
-    , tasty
-    , tasty-hunit
     , text
     , transformers
     , unordered-containers
@@ -232,25 +196,17 @@ test-suite tasty
       src
   ghc-options: -Wall -Wno-missed-extra-shared-lib -threaded -rtsopts "-with-rtsopts=-N -H500M -qg"
   build-depends:
-      MissingH
-    , array
+      array
     , base >=4.7 && <5
     , either
-    , extra
     , fgl
     , gf
     , ghc
     , graphviz
     , hashable
     , haskeline
-    , hslogger
     , hspec ==2.*
     , hxt
-    , lens
-    , lsp
-    , lsp-types
-    , megaparsec
-    , mmorph
     , mtl
     , optparse-applicative
     , pretty-simple
@@ -258,8 +214,6 @@ test-suite tasty
     , safe
     , sbv
     , simple-smt
-    , sorted-list
-    , split
     , tasty
     , tasty-expected-failure
     , tasty-hunit
