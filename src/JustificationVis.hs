@@ -1,4 +1,5 @@
 -- Visualization of the justiifications produced by expert system
+{-# LANGUAGE DeriveAnyClass #-}
 
 module JustificationVis where
 
@@ -26,9 +27,7 @@ data ESRule = ESRule String [ESArg] [ESPred]
 data JGraphNode
     = JPred String [ESArg]
     | JRule String [ESArg]
-    deriving (Eq, Generic, Ord, Show)
-
-instance Hashable JGraphNode
+    deriving (Eq, Generic, Hashable, Ord, Show)
 
 instance Labellable JGraphNode where
     toLabelValue (JPred nm args) = toLabelValue ("P " ++ nm ++ " : " ++ show args)

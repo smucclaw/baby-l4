@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveAnyClass #-}
 
 module SimpleRules where
 
@@ -82,9 +83,7 @@ type RuleName = String
 data GrNode =
     PredOr PredName -- implicit Or
   | RuleAnd RuleName -- implicit And
-  deriving (Eq, Generic, Ord, Show)
-
-instance Hashable GrNode
+  deriving (Eq, Generic, Hashable, Ord, Show)
 
 type GrEdge = (GrNode, GrNode)
 
