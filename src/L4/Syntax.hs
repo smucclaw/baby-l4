@@ -1,7 +1,9 @@
 {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 -- {-# OPTIONS_GHC -Wpartial-fields #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module L4.Syntax where
 
@@ -28,22 +30,18 @@ type ARName = Maybe String
 
 newtype ClassName = ClsNm {stringOfClassName :: String}
   deriving (Eq, Generic, Ord, Show, Read, Data, Typeable)
-
-instance Hashable ClassName
+  deriving newtype Hashable
 
 newtype FieldName = FldNm {stringOfFieldName :: String}
   deriving (Eq, Generic, Ord, Show, Read, Data, Typeable)
-
-instance Hashable FieldName
+  deriving newtype Hashable
 
 newtype PartyName = PtNm {stringOfPartyName :: String}
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 -- a qualified var name has an annotation (contrary to a simple var name)
 data QVarName t = QVarName {annotOfQVarName :: t, nameOfQVarName :: VarName}
-  deriving (Eq, Generic, Ord, Show, Read, Functor, Data, Typeable)
-
-instance Hashable t => Hashable (QVarName t)
+  deriving (Eq, Generic, Hashable, Ord, Show, Read, Functor, Data, Typeable)
 
 instance HasLoc t => HasLoc (QVarName t) where
   getLoc v = getLoc (annotOfQVarName v)
@@ -216,9 +214,7 @@ data Tp t
   | ErrT
   | OkT        -- fake type appearing in constructs (classes, rules etc.) that do not have a genuine type
   | KindT
-  deriving (Eq, Generic, Ord, Show, Read, Functor, Data, Typeable)
-
-instance Hashable t => Hashable (Tp t)
+  deriving (Eq, Generic, Hashable, Ord, Show, Read, Functor, Data, Typeable)
 
 instance HasLoc t => HasLoc (Tp t) where
   getLoc e = getLoc (annotOfTp e)
@@ -262,9 +258,7 @@ pattern NumberT = ClassT () NumberC
 
 
 data VarDecl t = VarDecl {annotOfVarDecl :: t, nameOfVarDecl :: VarName, tpOfVarDecl :: Tp t}
-  deriving (Eq, Generic, Ord, Show, Read, Functor, Data, Typeable)
-
-instance Hashable t => Hashable (VarDecl t)
+  deriving (Eq, Generic, Hashable, Ord, Show, Read, Functor, Data, Typeable)
 
 data VarDefn t = VarDefn {annotOfVarDefn :: t, nameOfVarDefn :: VarName, tpOfVarDefn :: Tp t, bodyOfVarDefn :: Expr t}
   deriving (Eq, Ord, Show, Read, Functor, Data, Typeable)
@@ -338,9 +332,7 @@ data Val
     -- TODO: instead of RecordV, introduce RecordE in type Expr
     -- | RecordV ClassName [(FieldName, Val)]
     | ErrV
-  deriving (Eq, Generic, Ord, Show, Read, Data, Typeable)
-
-instance Hashable Val
+  deriving (Eq, Generic, Hashable, Ord, Show, Read, Data, Typeable)
 
 trueV :: Expr (Tp ())
 trueV = ValE BooleanT (BoolV True)
@@ -359,72 +351,52 @@ data Var t
     -- local variable known by its provisional name and deBruijn index.
     | LocalVar { nameOfVar :: QVarName t
                , indexOfVar :: Int }
-  deriving (Eq, Generic, Ord, Show, Read, Functor, Data, Typeable)
-
-instance Hashable t => Hashable (Var t)
+  deriving (Eq, Generic, Hashable, Ord, Show, Read, Functor, Data, Typeable)
 
 -- unary arithmetic operators
 data UArithOp = UAminus
-  deriving (Eq, Generic, Ord, Show, Read, Data, Typeable)
-
-instance Hashable UArithOp
+  deriving (Eq, Generic, Hashable, Ord, Show, Read, Data, Typeable)
 
 -- unary boolean operators
 data UBoolOp = UBnot
-  deriving (Eq, Generic, Ord, Show, Read, Data, Typeable)
-
-instance Hashable UBoolOp
+  deriving (Eq, Generic, Hashable, Ord, Show, Read, Data, Typeable)
 
 data UTemporalOp
   = UTAF -- always finally
   | UTAG -- always generally
   | UTEF -- exists finally
   | UTEG -- exists generally
-  deriving (Eq, Generic, Ord, Show, Read, Data, Typeable)
-
-instance Hashable UTemporalOp
+  deriving (Eq, Generic, Hashable, Ord, Show, Read, Data, Typeable)
 
 -- unary operators (union of the above)
 data UnaOp
     = UArith UArithOp
     | UBool UBoolOp
     | UTemporal UTemporalOp
-  deriving (Eq, Generic, Ord, Show, Read, Data, Typeable)
-
-instance Hashable UnaOp
+  deriving (Eq, Generic, Hashable, Ord, Show, Read, Data, Typeable)
 
 -- binary arithmetic operators
 data BArithOp = BAadd | BAsub | BAmul | BAdiv | BAmod
-  deriving (Eq, Generic, Ord, Show, Read, Data, Typeable)
-
-instance Hashable BArithOp
+  deriving (Eq, Generic, Hashable, Ord, Show, Read, Data, Typeable)
 
 -- binary comparison operators
 data BComparOp = BCeq | BClt | BClte | BCgt | BCgte | BCne
-  deriving (Eq, Generic, Ord, Show, Read, Data, Typeable)
-
-instance Hashable BComparOp
+  deriving (Eq, Generic, Hashable, Ord, Show, Read, Data, Typeable)
 
 -- binary boolean operators
 data BBoolOp = BBimpl | BBor | BBand
-  deriving (Eq, Generic, Ord, Show, Read, Data, Typeable)
-
-instance Hashable BBoolOp
+  deriving (Eq, Generic, Hashable, Ord, Show, Read, Data, Typeable)
 
 -- binary operators (union of the above)
 data BinOp
     = BArith BArithOp
     | BCompar BComparOp
     | BBool BBoolOp
-  deriving (Eq, Generic, Ord, Show, Read, Data, Typeable)
-
-instance Hashable BinOp
+  deriving (Eq, Generic, Hashable, Ord, Show, Read, Data, Typeable)
 
 -- operators for combining list elements
 data ListOp = AndList | OrList | XorList | CommaList
-    deriving (Eq, Generic, Ord, Show, Read, Data, Typeable)
-
-instance Hashable ListOp
+    deriving (Eq, Generic, Hashable, Ord, Show, Read, Data, Typeable)
 
 data Pattern t
     = VarP (QVarName t)
@@ -436,9 +408,7 @@ patternLength (VarP _) = 1
 patternLength (VarListP vs) = length vs
 
 data Quantif = All | Ex
-    deriving (Eq, Generic, Ord, Show, Read, Data, Typeable)
-
-instance Hashable Quantif
+    deriving (Eq, Generic, Hashable, Ord, Show, Read, Data, Typeable)
 
 -- Expr t is an expression of type t (to be determined during type checking / inference)
 data Expr t
@@ -454,9 +424,7 @@ data Expr t
     | TupleE      {annotOfExpr :: t, componentsOfExprTupleE :: [Expr t]}                     -- tuples
     | CastE       {annotOfExpr :: t, tpOfExprCastE :: Tp t, subEOfExprCastE :: Expr t}               -- cast to type
     | ListE       {annotOfExpr :: t, listOpOfExprListE :: ListOp, componentsOfExprListE :: [Expr t]}    -- list expression
-    deriving (Eq, Generic, Ord, Show, Read, Functor, Data, Typeable)
-
-instance Hashable t => Hashable (Expr t)
+    deriving (Eq, Generic, Hashable, Ord, Show, Read, Functor, Data, Typeable)
 
 
 childExprs :: Expr t -> [Expr t]
