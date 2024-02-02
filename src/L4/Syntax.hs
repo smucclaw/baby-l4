@@ -327,7 +327,7 @@ instance HasAnnot ClassDecl where
 data Val
     = BoolV Bool
     | IntV Integer
-    | FloatV Float
+    | FloatV Double
     | StringV String
     -- TODO: instead of RecordV, introduce RecordE in type Expr
     -- | RecordV ClassName [(FieldName, Val)]

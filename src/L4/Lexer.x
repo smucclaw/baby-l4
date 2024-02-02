@@ -482,7 +482,7 @@ data TokenKind
   | TokenStringLit String
 
   | TokenInteger Integer
-  | TokenFloat Float
+  | TokenFloat Double
   | TokenSym String
   | TokenString String
   deriving (Eq,Show)
