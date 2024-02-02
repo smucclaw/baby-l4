@@ -54,7 +54,7 @@ globalVarsOfProgram prg = varDeclsOfProgram prg ++ map varDefnToVarDecl (varDefn
 mkIntConst :: Integer -> Expr (Tp())
 mkIntConst f = ValE IntegerT (IntV f)
 
-mkFloatConst :: Float -> Expr (Tp())
+mkFloatConst :: Double -> Expr (Tp())
 mkFloatConst f = ValE FloatT (FloatV f)
 
 mkVarE :: Var t -> Expr t
