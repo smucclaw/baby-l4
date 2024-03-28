@@ -5,7 +5,7 @@ packages:
 
 extra-deps:
 - github: smucclaw/gf-core
-  commit: f9dedf46e04c5e6cd0ab2a3af6d36c15f3d062ac
+  commit: f4b71cf8ba56a949c627d08535c251fbd6654033
 # - github: mengwong/compact
 #   commit: 214867cfd0868c02313e97f29215d48545458da3
 

@@ -7,14 +7,14 @@ packages:
 - completed:
     name: gf
     pantry-tree:
-      sha256: 403ab5b8eab295f2c5304ca7aa3ab4b811de6f1d8053644502dc3890239787bc
+      sha256: b98b7ffc0d56f3ad90342d559a5645e8a6b7c34dfffc2944c5147f4ac265bd74
       size: 68240
-    sha256: dea2343938b6d233abce016c2c6dc6db6fba9fc58aeeae6fe766f08768e48fbb
-    size: 3499779
-    url: https://github.com/smucclaw/gf-core/archive/f9dedf46e04c5e6cd0ab2a3af6d36c15f3d062ac.tar.gz
+    sha256: ce38f650b2ed17f35c6113ced7e9d1370f619d646e12b0674bfa77f82826ce79
+    size: 3499956
+    url: https://github.com/smucclaw/gf-core/archive/f4b71cf8ba56a949c627d08535c251fbd6654033.tar.gz
     version: 3.11.0
   original:
-    url: https://github.com/smucclaw/gf-core/archive/f9dedf46e04c5e6cd0ab2a3af6d36c15f3d062ac.tar.gz
+    url: https://github.com/smucclaw/gf-core/archive/f4b71cf8ba56a949c627d08535c251fbd6654033.tar.gz
 - completed:
     hackage: simple-smt-0.9.7@sha256:a93eba88f8177e13b39bf664b53ad65ca8eea976f00cae443c081b3ea3c26fb3,736
     pantry-tree:
