@@ -23,11 +23,11 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.ghc }}-stack-${{ hashFiles('stack.yaml.lock') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.ghc }}-stack
-      - name: Install libcurl on Ubuntu
-        if: startsWith(matrix.os, 'ubuntu')
-        run: sudo apt-get install libcurl4-openssl-dev
-      - name: Install libcurl on macos
-        if: startsWith(matrix.os, 'macOS')
-        run: brew install openssl && brew install curl && export PATH="/opt/homebrew/opt/curl/bin:$PATH"'
+      # - name: Install libcurl on Ubuntu
+      #   if: startsWith(matrix.os, 'ubuntu')
+      #   run: sudo apt-get install libcurl4-openssl-dev
+      # - name: Install libcurl on macos
+      #   if: startsWith(matrix.os, 'macOS')
+      #   run: brew install openssl && brew install curl && export PATH="/opt/homebrew/opt/curl/bin:$PATH"'
       - name: Test explainable
         run: stack test
