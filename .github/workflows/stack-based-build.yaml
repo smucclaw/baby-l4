@@ -6,7 +6,7 @@ jobs:
   flakes-simple:
     strategy:
       matrix:
-        os: [ubuntu-22.04, macos-11, macos-12]
+        os: [ubuntu-22.04, macos-14, macos-13]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -25,9 +25,9 @@ jobs:
             ${{ runner.os }}-${{ matrix.ghc }}-stack
       - name: Install libcurl on Ubuntu
         if: startsWith(matrix.os, 'ubuntu')
-        run: sudo apt-get  install libcurl4-openssl-dev
+        run: sudo apt-get install libcurl4-openssl-dev
       - name: Install libcurl on macos
         if: startsWith(matrix.os, 'macOS')
-        run: brew install curl
+        run: brew install openssl && brew install curl && export PATH="/opt/homebrew/opt/curl/bin:$PATH"'
       - name: Test explainable
         run: stack test
