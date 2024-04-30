@@ -7,14 +7,14 @@ packages:
 - completed:
     name: gf
     pantry-tree:
-      sha256: b98b7ffc0d56f3ad90342d559a5645e8a6b7c34dfffc2944c5147f4ac265bd74
+      sha256: dd070cb66f74ee464747062b329d8f9c3ce37dec46204360c154ca6cf7c68f63
       size: 68240
-    sha256: ce38f650b2ed17f35c6113ced7e9d1370f619d646e12b0674bfa77f82826ce79
-    size: 3499956
-    url: https://github.com/smucclaw/gf-core/archive/f4b71cf8ba56a949c627d08535c251fbd6654033.tar.gz
+    sha256: a96c60aa375b09284fbe1de3758616b369f7e14674a07c7aabfb89b684d8ca15
+    size: 3499814
+    url: https://github.com/smucclaw/gf-core/archive/f85fbbaf41e804f1566cd914ef3986dda29978b3.tar.gz
     version: 3.11.0
   original:
-    url: https://github.com/smucclaw/gf-core/archive/f4b71cf8ba56a949c627d08535c251fbd6654033.tar.gz
+    url: https://github.com/smucclaw/gf-core/archive/f85fbbaf41e804f1566cd914ef3986dda29978b3.tar.gz
 - completed:
     hackage: simple-smt-0.9.7@sha256:a93eba88f8177e13b39bf664b53ad65ca8eea976f00cae443c081b3ea3c26fb3,736
     pantry-tree:
@@ -24,7 +24,7 @@ packages:
     hackage: simple-smt-0.9.7
 snapshots:
 - completed:
-    sha256: 9bebedd3de0195aa01fd55de7f6d4446667440297a7315e69cd72c2610af265f
-    size: 713338
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/22/18.yaml
-  original: lts-22.18
+    sha256: e5cac927cf7ccbd52aa41476baa68b88c564ee6ddc3bc573dbf4210069287fe7
+    size: 713340
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/22/19.yaml
+  original: lts-22.19
