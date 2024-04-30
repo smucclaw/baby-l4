@@ -32,5 +32,5 @@ jobs:
       #   if: startsWith(matrix.os, 'macOS')
       #   run: brew install openssl && brew install curl && export PATH="/opt/homebrew/opt/curl/bin:$PATH"'
 
-      - name: Test baby-l4
+      - name: Build and test baby-l4
         run: stack test
