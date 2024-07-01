@@ -1,7 +1,11 @@
 name: Build and run tests
+
 on:
+  pull_request:
+    branches: [ main ]
   push:
-  # pull_request: # Don't run twice
+    branches: [ main ]
+
 jobs:
   flakes-simple:
     strategy:
