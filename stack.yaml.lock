@@ -24,7 +24,7 @@ packages:
     hackage: simple-smt-0.9.7
 snapshots:
 - completed:
-    sha256: 28a863b358647f2d952fe7085ba11561aeb63eca6bc6fd1ce8fcf1cfe63717f5
-    size: 719127
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/22/24.yaml
-  original: lts-22.24
+    sha256: bc144ddf301a5c99f2cf51c7de50279ba144fd4486cb3c66f87ed761d6bbf6e9
+    size: 719131
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/22/27.yaml
+  original: lts-22.27
